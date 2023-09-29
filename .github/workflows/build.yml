@@ -21,7 +21,20 @@ jobs:
       run: sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
     - name: install utilities
       run: sudo apt install -y sshpass
-    - name: install rust
-      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && source "$HOME/.cargo/env" && rustup -y default nightly && rustup -y target add riscv64gc-unknown-none-elf && rustup -y component add rustfmt && cargo install cargo-binutils
-    - name: build
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+          target: riscv64gc-unknown-none-elf
+          components: rustfmt, clippy      
+    - name: install cargo utils
+      run: cargo install cargo-binutils
+    - name: build devtools
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make devtools
+    - name: build hypervisor
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make hypervisor
+    - name: build firmware
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make firmware
+    - name: build emulator
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make emulator
