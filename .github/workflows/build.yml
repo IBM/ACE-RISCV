@@ -2,7 +2,7 @@ name: ACE CI
 
 on:
   push:
-    branches: [ "main", "staging" ]
+    branches: [ "main", "staging", "ci" ]
   pull_request:
     branches: [ "main" ]
 
