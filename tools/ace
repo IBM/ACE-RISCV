@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2023 IBM Corporation
+# SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
+# SPDX-License-Identifier: Apache-2.0
+
+if [ -z ${ACE_DIR} ]; then
+    echo "ACE_DIR must point to the directory where ACE is installed"
+    exit 1
+fi
+
+if [ "$1" == "test" ]; then
+    ${ACE_DIR}/tools/ace_test.sh
+elif [ "$1" == "start" ]; then
+    ${ACE_DIR}/tools/ace_start.sh $@
+elif [ "$1" == "stop" ]; then
+    ${ACE_DIR}/tools/ace_stop.sh
+elif [ "$1" == "connect" ]; then
+    ${ACE_DIR}/tools/ace_connect.sh $@
+elif [ "$1" == "run" ]; then
+    ${ACE_DIR}/tools/ace_run_hypervisor.sh $@
+else
+    echo "Usage: ./ace [start|stop|connect|test]"
+fi

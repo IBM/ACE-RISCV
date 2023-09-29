@@ -1,0 +1,21 @@
+{
+	"search.exclude": {
+		"linux": true, 
+		"qemu": true, 
+		"riscv-gnu-toolchain": true, 
+		"opensbi": true,
+		"buildroot": true,
+		"**/.git/**": true
+	},
+	"files.watcherExclude": {
+		"linux": true, 
+		"qemu": true, 
+		"riscv-gnu-toolchain": true, 
+		"opensbi": true,
+		"buildroot": true,
+		"**/.git/**": true
+	},
+	"editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    }
+}

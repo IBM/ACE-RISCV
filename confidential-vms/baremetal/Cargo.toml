@@ -1,0 +1,20 @@
+[package]
+name = "baremetal"
+version = "0.1.0"
+authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
+edition = "2021"
+
+[dependencies]
+#heapless = "0.7.10"
+
+riscv = "0.10"
+virtio-drivers = "0.4.0"
+fdt = "0.1.4"
+fdt-rs = {version = "0.4", default-features = false} 
+lazy_static = { version = "1.4", features = ["spin_no_std"] }
+buddy_system_allocator = "0.9.0"
+
+sbi = "0.2.0"
+
+# provides macros that help removing boilerplate code in rust error handling
+thiserror-no-std = "2.0" 
