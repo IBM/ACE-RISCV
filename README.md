@@ -115,17 +115,17 @@ Make sure you have the ACE_DIR environmental variable set and it points to the l
 echo $ACE_DIR
 ```
 
-To run the test environment on a RISC-V emulator run:
+Run the hypervisor with ACE on a RISC-V emulator:
 ```
 ${ACE_DIR}/tools/ace run
 ```
 
-You should see the output from the boot process and promt to login to the hypervisor.
+You should see the output from the boot process and a login promt:
 ```
 # login: root, password: passwd
 ```
 
-To run the sample confidential VM execute:
+Run a sample confidential VM:
 ```
 ./run.sh
 ```
