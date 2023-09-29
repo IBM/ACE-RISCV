@@ -101,7 +101,7 @@ linux: setup patch devtools
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(LINUX_SOURCE_DIR) O=$(LINUX_WORK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=riscv >/dev/null; \
 	fi
 
-security-monitor: setup devtools buildroot linux
+security-monitor: setup devtools buildroot linux overlay rootfs
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" LINUX_SOURCE_DIR=$(LINUX_SOURCE_DIR) LINUX_WORK_DIR=$(LINUX_WORK_DIR) ACE_DIR=$(ACE_DIR) LINUX_IMAGE=$(LINUX_IMAGE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C security-monitor opensbi
 
 clippy: setup devtools buildroot linux 
