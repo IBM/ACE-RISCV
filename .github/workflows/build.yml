@@ -22,6 +22,6 @@ jobs:
     - name: install utilities
       run: sudo apt install -y sshpass
     - name: install rust
-      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && source "$HOME/.cargo/env" && rustup default nightly && rustup target add riscv64gc-unknown-none-elf && rustup -y component add rustfmt && cargo install cargo-binutils
+      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && source "$HOME/.cargo/env" && rustup -y default nightly && rustup -y target add riscv64gc-unknown-none-elf && rustup -y component add rustfmt && cargo install cargo-binutils
     - name: build
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make
