@@ -1,0 +1,27 @@
+name: ACE CI
+
+on:
+  push:
+    branches: [ "main", "staging" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: install build dependencies
+      run: sudo apt -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
+    - name: install OpenSBI dependencies
+      run: sudo apt -qq -y install clang
+    - name: install Qemu dependencies
+      run: sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build 
+    - name: install Buildroot dependencies
+      run: sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
+    - name: install utilities
+      run: sudo apt install -y sshpass
+    - name: install rust
+      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && source "$HOME/.cargo/env" && rustup default nightly && rustup target add riscv64gc-unknown-none-elf && rustup component add rustfmt && cargo install cargo-binutils
+    - name: build
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make
