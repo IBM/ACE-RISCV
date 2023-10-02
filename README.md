@@ -1,8 +1,8 @@
 # Assured Confidential Execution (ACE) for RISC-V  
-ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on the [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being able to be ported to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work together to push the boundaries of confidential computing technology. 
+ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of proovable confidential computing technology. 
 
 **This is an active research project, without warranties of any kind.** We are currently building on RISC-V with hypervisor extentions. We will
-move to the AP-TEE extention. Moving to this extention will simpplify our system.
+move to the AP-TEE extention when it is available. Moving to this extention will simpplify our system.
 
 ## Quick Start
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
@@ -123,7 +123,7 @@ To run the test environment on a RISC-V emulator run:
 ${ACE_DIR}/tools/ace run
 ```
 
-You should see the output from the boot process and promt to login to the hypervisor.
+You should see the output from the boot process and a promt to login to the hypervisor.
 ```
 # login: root, password: passwd
 ```
