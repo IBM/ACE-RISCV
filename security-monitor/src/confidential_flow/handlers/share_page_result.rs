@@ -4,29 +4,19 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::ControlData;
 use crate::core::memory_tracker::SharedPage;
-use crate::core::transformations::{
-    ExposeToConfidentialVm, SbiResult, SharePageRequest, SharePageResult,
-};
+use crate::core::transformations::{ExposeToConfidentialVm, SbiResult, SharePageRequest, SharePageResult};
 
-pub fn handle(
-    share_page_result: SharePageResult,
-    confidential_flow: ConfidentialFlow,
-    request: SharePageRequest,
-) -> ! {
+pub fn handle(share_page_result: SharePageResult, confidential_flow: ConfidentialFlow, request: SharePageRequest) -> ! {
     if share_page_result.is_error() {
         // hypervisor returned an error informing that it could not allocate shared
         // pages let's inform the confidential VM about it.
-        let transformation = ExposeToConfidentialVm::SbiResult(SbiResult::failure(
-            share_page_result.response_code(),
-        ));
+        let transformation = ExposeToConfidentialVm::SbiResult(SbiResult::failure(share_page_result.response_code()));
         confidential_flow.exit_to_confidential_vm(transformation);
     }
 
     let shared_page = match SharedPage::new(share_page_result.hypervisor_page_address(), request) {
         Ok(v) => v,
-        Err(error) => {
-            confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation())
-        }
+        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
     };
 
     debug!(

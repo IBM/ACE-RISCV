@@ -19,11 +19,7 @@ impl SbiResult {
     }
 
     pub fn ecall(hart_state: &HartState) -> Self {
-        Self::new(
-            hart_state.gpr(GpRegister::a0),
-            hart_state.gpr(GpRegister::a1),
-            Self::ECALL_INSTRUCTION_LENGTH,
-        )
+        Self::new(hart_state.gpr(GpRegister::a0), hart_state.gpr(GpRegister::a1), Self::ECALL_INSTRUCTION_LENGTH)
     }
 
     pub fn success(code: usize) -> Self {
