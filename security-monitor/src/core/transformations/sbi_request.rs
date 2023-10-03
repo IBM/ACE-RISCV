@@ -20,10 +20,7 @@ impl SbiRequest {
     const KVM_ACE_REGISTER_FID: usize = 1;
     const KVM_ACE_PAGE_IN_FID: usize = 2;
 
-    pub fn kvm_ace_register(
-        confidential_vm_id: ConfidentialVmId,
-        confidential_hart_id: usize,
-    ) -> Self {
+    pub fn kvm_ace_register(confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize) -> Self {
         Self::new(
             Self::KVM_ACE_EXTID,
             Self::KVM_ACE_REGISTER_FID,
@@ -37,16 +34,7 @@ impl SbiRequest {
     }
 
     pub fn kvm_ace_page_in(page_address: usize) -> Self {
-        Self::new(
-            Self::KVM_ACE_EXTID,
-            Self::KVM_ACE_PAGE_IN_FID,
-            page_address,
-            0,
-            0,
-            0,
-            0,
-            0,
-        )
+        Self::new(Self::KVM_ACE_EXTID, Self::KVM_ACE_PAGE_IN_FID, page_address, 0, 0, 0, 0, 0)
     }
 
     // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the HartState
@@ -65,25 +53,9 @@ impl SbiRequest {
     }
 
     pub fn new(
-        extension_id: usize,
-        function_id: usize,
-        a0: usize,
-        a1: usize,
-        a2: usize,
-        a3: usize,
-        a4: usize,
-        a5: usize,
+        extension_id: usize, function_id: usize, a0: usize, a1: usize, a2: usize, a3: usize, a4: usize, a5: usize,
     ) -> Self {
-        Self {
-            extension_id,
-            function_id,
-            a0,
-            a1,
-            a2,
-            a3,
-            a4,
-            a5,
-        }
+        Self { extension_id, function_id, a0, a1, a2, a3, a4, a5 }
     }
 
     pub fn extension_id(&self) -> usize {

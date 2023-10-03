@@ -20,8 +20,7 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn route(self) -> ! {
         use crate::confidential_flow::handlers::{
-            guest_load_page_fault, guest_store_page_fault, hypercall, interrupt, invalid_call,
-            share_page,
+            guest_load_page_fault, guest_store_page_fault, hypercall, interrupt, invalid_call, share_page,
         };
         use crate::ACE_EXT_ID;
         const SHARE_PAGE_FID: usize = 2000;
@@ -33,23 +32,15 @@ impl<'a> ConfidentialFlow<'a> {
             TrapReason::VsEcall(ACE_EXT_ID, SHARE_PAGE_FID) => {
                 share_page::handle(confidential_hart.share_page_request(), self)
             }
-            TrapReason::VsEcall(ACE_EXT_ID, function_id) => {
-                invalid_call::handle(self, ACE_EXT_ID, function_id)
+            TrapReason::VsEcall(ACE_EXT_ID, function_id) => invalid_call::handle(self, ACE_EXT_ID, function_id),
+            TrapReason::VsEcall(_, _) => hypercall::handle(confidential_hart.hypercall_request(), self),
+            TrapReason::GuestLoadPageFault => {
+                guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self)
             }
-            TrapReason::VsEcall(_, _) => {
-                hypercall::handle(confidential_hart.hypercall_request(), self)
+            TrapReason::GuestStorePageFault => {
+                guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self)
             }
-            TrapReason::GuestLoadPageFault => guest_load_page_fault::handle(
-                confidential_hart.guest_load_page_fault_request(),
-                self,
-            ),
-            TrapReason::GuestStorePageFault => guest_store_page_fault::handle(
-                confidential_hart.guest_store_page_fault_request(),
-                self,
-            ),
-            TrapReason::Unknown(extension_id, function_id) => {
-                invalid_call::handle(self, extension_id, function_id)
-            }
+            TrapReason::Unknown(extension_id, function_id) => invalid_call::handle(self, extension_id, function_id),
             TrapReason::HsEcall(_, _) => {
                 panic!("Bug: Incorrect interrupt delegation configuration")
             }
@@ -61,23 +52,15 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn finish_request(self) -> ! {
         use crate::confidential_flow::handlers::{
-            guest_load_page_fault_result, guest_store_page_fault_result, hypercall_result,
-            share_page_result,
+            guest_load_page_fault_result, guest_store_page_fault_result, hypercall_result, share_page_result,
         };
 
         match self.hart.confidential_hart_mut().take_request() {
-            Some(PendingRequest::SbiRequest()) => {
-                hypercall_result::handle(self.hart.hypercall_result(), self)
-            }
+            Some(PendingRequest::SbiRequest()) => hypercall_result::handle(self.hart.hypercall_result(), self),
             Some(PendingRequest::GuestLoadPageFault(request)) => {
-                guest_load_page_fault_result::handle(
-                    self.hart.guest_load_page_fault_result(request),
-                    self,
-                )
+                guest_load_page_fault_result::handle(self.hart.guest_load_page_fault_result(request), self)
             }
-            Some(PendingRequest::GuestStorePageFault(request)) => {
-                guest_store_page_fault_result::handle(self, request)
-            }
+            Some(PendingRequest::GuestStorePageFault(request)) => guest_store_page_fault_result::handle(self, request),
             Some(PendingRequest::SharePage(request)) => {
                 share_page_result::handle(self.hart.share_page_result(), self, request)
             }
@@ -87,9 +70,7 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
         let id = self.confidential_vm_id();
-        match ControlData::try_confidential_vm(id, |mut cvm| {
-            Ok(cvm.return_confidential_hart(self.hart))
-        }) {
+        match ControlData::try_confidential_vm(id, |mut cvm| Ok(cvm.return_confidential_hart(self.hart))) {
             Ok(_) => {
                 crate::core::pmp::close_access_to_confidential_memory();
                 NonConfidentialFlow::create(self.hart)
@@ -108,11 +89,7 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {
-        if let Err(error) = self
-            .hart
-            .confidential_hart_mut()
-            .set_pending_request(request)
-        {
+        if let Err(error) = self.hart.confidential_hart_mut().set_pending_request(request) {
             self.exit_to_confidential_vm(error.into_confidential_transformation());
         }
         self

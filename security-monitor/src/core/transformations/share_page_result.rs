@@ -9,10 +9,7 @@ pub struct SharePageResult {
 
 impl SharePageResult {
     pub fn new(response_code: usize, hypervisor_page_address: usize) -> Self {
-        Self {
-            response_code,
-            hypervisor_page_address,
-        }
+        Self { response_code, hypervisor_page_address }
     }
 
     pub fn is_error(&self) -> bool {
