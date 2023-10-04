@@ -1,5 +1,5 @@
 # Assured Confidential Execution (ACE) for RISC-V  
-ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of proovable confidential computing technology. 
+ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
 
 **This is an active research project, without warranties of any kind.** We are currently building on RISC-V with hypervisor extentions. We will
 move to the AP-TEE extention when it is available. Moving to this extention will simpplify our system.
