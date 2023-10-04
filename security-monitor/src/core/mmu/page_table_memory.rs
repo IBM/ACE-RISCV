@@ -24,28 +24,20 @@ impl PageTableMemory {
     const PAGE_SIZE: PageSize = PageSize::Size4KiB;
 
     pub(super) fn copy_from_non_confidential_memory(
-        address: NonConfidentialMemoryAddress,
-        paging_system: PagingSystem,
-        level: PageTableLevel,
+        address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
         let number_of_pages = paging_system.configuration_pages(level);
         let pages = MemoryTracker::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE)?
             .into_iter()
             .enumerate()
             .map(|(i, page)| {
-                let address = NonConfidentialMemoryAddress::new(
-                    address.usize() + i * page.size().in_bytes(),
-                )?;
+                let address = NonConfidentialMemoryAddress::new(address.usize() + i * page.size().in_bytes())?;
                 page.copy_from_non_confidential_memory(address)
             })
             .collect::<Result<Vec<Page<Allocated>>, Error>>()?;
         let number_of_entries = paging_system.entries(level);
         let entry_size = paging_system.entry_size();
-        Ok(Self {
-            pages,
-            number_of_entries,
-            entry_size,
-        })
+        Ok(Self { pages, number_of_entries, entry_size })
     }
 
     pub(super) fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
@@ -56,11 +48,7 @@ impl PageTableMemory {
             .collect();
         let number_of_entries = paging_system.entries(level);
         let entry_size = paging_system.entry_size();
-        Ok(Self {
-            pages,
-            number_of_entries,
-            entry_size,
-        })
+        Ok(Self { pages, number_of_entries, entry_size })
     }
 
     pub(super) fn start_address(&self) -> ConfidentialMemoryAddress {
@@ -73,30 +61,21 @@ impl PageTableMemory {
     }
 
     pub(super) fn indices(&self) -> Range<usize> {
-        Range {
-            start: 0,
-            end: self.number_of_entries,
-        }
+        Range { start: 0, end: self.number_of_entries }
     }
 
     pub(super) fn entry(&self, index: usize) -> Option<usize> {
-        self.resolve_index(index)
-            .and_then(|(page_id, index_in_page)| {
-                self.pages
-                    .get(page_id)
-                    .and_then(|page| Some(page.read::<usize>(self.entry_size * index_in_page)))
-            })
+        self.resolve_index(index).and_then(|(page_id, index_in_page)| {
+            self.pages.get(page_id).and_then(|page| Some(page.read::<usize>(self.entry_size * index_in_page)))
+        })
     }
 
     pub(super) fn set_entry(&mut self, index: usize, entry: &PageTableEntry) {
-        self.resolve_index(index)
-            .and_then(|(page_id, index_in_page)| {
-                let offset = self.entry_size * index_in_page;
-                let value = entry.encode();
-                self.pages
-                    .get(page_id)
-                    .and_then(|page| Some(page.write::<usize>(offset, value)))
-            });
+        self.resolve_index(index).and_then(|(page_id, index_in_page)| {
+            let offset = self.entry_size * index_in_page;
+            let value = entry.encode();
+            self.pages.get(page_id).and_then(|page| Some(page.write::<usize>(offset, value)))
+        });
     }
 
     fn resolve_index(&self, index: usize) -> Option<(usize, usize)> {

@@ -21,17 +21,14 @@ pub struct ControlData {
 
 impl ControlData {
     pub fn new() -> Self {
-        Self {
-            confidential_vms: BTreeMap::new(),
-        }
+        Self { confidential_vms: BTreeMap::new() }
     }
 
     /// This function persists a confidential VM inside the control data. A unique identifier is calculated and assigned
     /// to it. This identifier is not secret and reflects the number of confidential VMs that have been created up to
     /// now. The maximum allowed number of confidential VMs created is limited by the size of the `usize` type.
     pub fn store_confidential_vm(
-        confidential_harts: Vec<ConfidentialHart>,
-        root_page_table: RootPageTable,
+        confidential_harts: Vec<ConfidentialHart>, root_page_table: RootPageTable,
     ) -> Result<ConfidentialVmId, Error> {
         Self::try_write(|control_data| {
             control_data
@@ -42,11 +39,8 @@ impl ControlData {
                 .unwrap_or(Some(0))
                 .and_then(|max_id| {
                     let id = ConfidentialVmId::new(max_id);
-                    let confidential_vm =
-                        ConfidentialVm::new(id, confidential_harts, root_page_table);
-                    control_data
-                        .confidential_vms
-                        .insert(id, Mutex::new(confidential_vm));
+                    let confidential_vm = ConfidentialVm::new(id, confidential_harts, root_page_table);
+                    control_data.confidential_vms.insert(id, Mutex::new(confidential_vm));
                     Some(id)
                 })
                 .ok_or(Error::ReachedMaximumNumberOfCvms())
@@ -58,18 +52,13 @@ impl ControlData {
     }
 
     pub fn remove_confidential_vm(
-        &mut self,
-        confidential_vm_id: ConfidentialVmId,
+        &mut self, confidential_vm_id: ConfidentialVmId,
     ) -> Result<Mutex<ConfidentialVm>, Error> {
-        self.confidential_vms
-            .remove(&confidential_vm_id)
-            .ok_or(Error::InvalidConfidentialVmId())
+        self.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>
-    where
-        O: FnOnce(&RwLockReadGuard<'_, ControlData>) -> Result<F, Error>,
-    {
+    where O: FnOnce(&RwLockReadGuard<'_, ControlData>) -> Result<F, Error> {
         CONTROL_DATA
             .get()
             .expect(NOT_INITIALIZED_CONTROL_DATA)
@@ -79,9 +68,7 @@ impl ControlData {
     }
 
     pub fn try_write<F, O>(op: O) -> Result<F, Error>
-    where
-        O: FnOnce(&mut RwLockWriteGuard<'static, ControlData>) -> Result<F, Error>,
-    {
+    where O: FnOnce(&mut RwLockWriteGuard<'static, ControlData>) -> Result<F, Error> {
         CONTROL_DATA
             .get()
             .expect(NOT_INITIALIZED_CONTROL_DATA)
@@ -90,30 +77,13 @@ impl ControlData {
             .and_then(|ref mut control_data| op(control_data))
     }
 
-    pub fn try_confidential_vm<F, O>(
-        confidential_vm_id: ConfidentialVmId,
-        op: O,
-    ) -> Result<F, Error>
-    where
-        O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error>,
-    {
-        Self::try_read(|mr| {
-            op(mr
-                .confidential_vm(confidential_vm_id)
-                .ok_or(Error::InvalidConfidentialVmId())?)
-        })
+    pub fn try_confidential_vm<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
+    where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
+        Self::try_read(|mr| op(mr.confidential_vm(confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())?))
     }
 
-    pub fn try_confidential_vm_mut<F, O>(
-        confidential_vm_id: ConfidentialVmId,
-        op: O,
-    ) -> Result<F, Error>
-    where
-        O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error>,
-    {
-        Self::try_read(|m| {
-            op(m.confidential_vm(confidential_vm_id)
-                .ok_or(Error::InvalidConfidentialVmId())?)
-        })
+    pub fn try_confidential_vm_mut<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
+    where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
+        Self::try_read(|m| op(m.confidential_vm(confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())?))
     }
 }

@@ -1,5 +1,7 @@
 # Assured Confidential Execution (ACE) for RISC-V  
-ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of proovable confidential computing technology. 
+
+ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
+
 
 **This is an active research project, without warranties of any kind.** We are currently building on RISC-V with hypervisor extentions. We will
 move to the AP-TEE extention when it is available. Moving to this extention will simpplify our system.
@@ -8,7 +10,9 @@ move to the AP-TEE extention when it is available. Moving to this extention will
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
 
 ### Requirements
+
 The full compilation of the framework takes long time because all tools are built from sources. Our tool chain currently includes: the RISC-V compiler (`riscv-toolchain`), RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
+
 
 ### Dependencies
 You must install build dependencies specific to the operating system you use AND install the Rust toolchain.
@@ -69,7 +73,7 @@ cargo install cargo-binutils
 ```
 
 ### Sources & Patches
-Checkout this repository with submodules (takes long time!):
+Checkout this repository with submodules (this takes a long time!):
 ```
 git clone --recurse-submodules git@github.com:IBM/ACE-RISCV.git
 ```

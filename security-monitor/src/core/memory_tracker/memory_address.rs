@@ -27,11 +27,7 @@ pub struct NonConfidentialMemoryAddress(usize);
 impl NonConfidentialMemoryAddress {
     pub fn new(address: usize) -> Result<Self, Error> {
         use crate::error::NOT_INITIALIZED_CONFIDENTIAL_MEMORY;
-        match CONFIDENTIAL_MEMORY_RANGE
-            .get()
-            .expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY)
-            .contains(&address)
-        {
+        match CONFIDENTIAL_MEMORY_RANGE.get().expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY).contains(&address) {
             true => Err(Error::MemoryAccessAuthorization()),
             false => Ok(Self(address)),
         }

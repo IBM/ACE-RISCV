@@ -30,24 +30,11 @@ pub struct ConfidentialVm {
 
 impl ConfidentialVm {
     pub fn new(
-        id: ConfidentialVmId,
-        mut confidential_harts: Vec<ConfidentialHart>,
-        root_page_table: RootPageTable,
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, root_page_table: RootPageTable,
     ) -> Self {
-        let hgatp = Hgatp::new(
-            root_page_table.address().usize(),
-            root_page_table.paging_system().hgatp_mode(),
-            id.0,
-        );
-        confidential_harts
-            .iter_mut()
-            .for_each(|confidential_hart| confidential_hart.set_hgatp(hgatp.bits()));
-        Self {
-            id,
-            _measurements: [Measurement::empty(); 4],
-            confidential_harts,
-            root_page_table,
-        }
+        let hgatp = Hgatp::new(root_page_table.address().usize(), root_page_table.paging_system().hgatp_mode(), id.0);
+        confidential_harts.iter_mut().for_each(|confidential_hart| confidential_hart.set_hgatp(hgatp.bits()));
+        Self { id, _measurements: [Measurement::empty(); 4], confidential_harts, root_page_table }
     }
 
     pub fn root_page_table_mut(&mut self) -> &mut RootPageTable {
@@ -55,22 +42,14 @@ impl ConfidentialVm {
     }
 
     pub fn steal_confidential_hart(
-        &mut self,
-        confidential_hart_id: usize,
-        hardware_hart: &mut HardwareHart,
+        &mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart,
     ) -> Result<(), Error> {
-        let confidential_hart = self
-            .confidential_harts
-            .get(confidential_hart_id)
-            .ok_or(Error::InvalidHartId())?;
+        let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential_hart on different harts. We detect it because
         // after a confidential_hart is scheduled for the first time, its token is stolen and the ConfidentialVM is left
         // with a dummy confidential_hart.
         assure_not!(confidential_hart.is_dummy(), Error::RunningVHart())?;
-        core::mem::swap(
-            &mut hardware_hart.confidential_hart,
-            &mut self.confidential_harts[confidential_hart_id],
-        );
+        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
         Ok(())
     }
 
@@ -78,18 +57,11 @@ impl ConfidentialVm {
         assert!(!hardware_hart.confidential_hart.is_dummy());
         assert!(self.id == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart.confidential_hart_id();
-        core::mem::swap(
-            &mut hardware_hart.confidential_hart,
-            &mut self.confidential_harts[confidential_hart_id],
-        );
+        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
     }
 
     pub fn is_running(&self) -> bool {
-        self.confidential_harts
-            .iter()
-            .filter(|confidential_hart| confidential_hart.is_dummy())
-            .count()
-            > 0
+        self.confidential_harts.iter().filter(|confidential_hart| confidential_hart.is_dummy()).count() > 0
     }
 }
 
@@ -100,8 +72,6 @@ pub struct Measurement {
 
 impl Measurement {
     pub const fn empty() -> Measurement {
-        Self {
-            value: [0u8; MAX_HASH_SIZE / 8],
-        }
+        Self { value: [0u8; MAX_HASH_SIZE / 8] }
     }
 }

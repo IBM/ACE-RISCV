@@ -10,9 +10,7 @@ pub struct GuestStorePageFaultResult {
 
 impl GuestStorePageFaultResult {
     pub fn new(request: GuestStorePageFaultRequest) -> Self {
-        Self {
-            instruction_length: request.instruction_length(),
-        }
+        Self { instruction_length: request.instruction_length() }
     }
 
     pub fn instruction_length(&self) -> usize {

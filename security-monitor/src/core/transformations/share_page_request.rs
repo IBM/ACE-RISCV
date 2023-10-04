@@ -13,10 +13,7 @@ pub struct SharePageRequest {
 impl SharePageRequest {
     pub fn new(address: usize) -> Result<Self, Error> {
         let confidential_vm_virtual_address = ConfidentialVmVirtualAddress(address);
-        Ok(Self {
-            confidential_vm_virtual_address,
-            page_size: PageSize::Size4KiB,
-        })
+        Ok(Self { confidential_vm_virtual_address, page_size: PageSize::Size4KiB })
     }
 
     pub fn confidential_vm_virtual_address(&self) -> ConfidentialVmVirtualAddress {

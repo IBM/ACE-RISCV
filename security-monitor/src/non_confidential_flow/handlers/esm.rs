@@ -22,14 +22,12 @@ pub fn handle(esm_request: EsmRequest, non_confidential_flow: NonConfidentialFlo
 fn create_confidential_vm(esm_request: EsmRequest) -> Result<ConfidentialVmId, Error> {
     let (hgatp, hart_state) = esm_request.into();
     let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
-    let paging_system =
-        PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
+    let paging_system = PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
     let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address())?;
-    // TODO: from where to get the number of confidential_harts to create?
+    // TODO: read number of harts from fdt
     let confidential_harts_count = 1;
 
-    let root_page_table =
-        RootPageTable::copy_from_non_confidential_memory(root_page_address, paging_system)?;
+    let root_page_table = RootPageTable::copy_from_non_confidential_memory(root_page_address, paging_system)?;
 
     // create virtual processor for this confidential VM
     let confidential_harts = (0..confidential_harts_count)
@@ -43,8 +41,7 @@ fn create_confidential_vm(esm_request: EsmRequest) -> Result<ConfidentialVmId, E
 
     // TODO: perform local attestation (optional)
 
-    let confidential_vm_id =
-        ControlData::store_confidential_vm(confidential_harts, root_page_table)?;
+    let confidential_vm_id = ControlData::store_confidential_vm(confidential_harts, root_page_table)?;
 
     debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
 

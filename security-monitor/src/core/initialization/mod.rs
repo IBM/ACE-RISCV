@@ -2,9 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
-use crate::core::memory_tracker::{
-    MemoryTracker, Page, UnAllocated, CONFIDENTIAL_MEMORY_RANGE, MEMORY_TRACKER,
-};
+use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, CONFIDENTIAL_MEMORY_RANGE, MEMORY_TRACKER};
 use crate::core::mmu::PageSize;
 use crate::error::{Error, InitializationErrorType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
@@ -62,10 +60,7 @@ extern "C" fn init_security_monitor(fdt: *const c_void) {
     }
 
     if let Err(error) = set_delegation() {
-        debug!(
-            "Could not change the interrupt/exception delegation: {:?}",
-            error
-        );
+        debug!("Could not change the interrupt/exception delegation: {:?}", error);
         return;
     }
 
@@ -106,33 +101,22 @@ fn read_memory_region(fdt: *const c_void) -> Result<(usize, usize), Error> {
 
     // assume here that the memory has been already split in two chunks during early
     // execution of the OpenSBI code
-    let confidential_memory_base_address: usize = (base + size)
-        .try_into()
-        .map_err(|_| Error::InitializationError(InitializationErrorType::FdtMemoryCasting))?;
-    let confidential_memory_size: usize = size
-        .try_into()
-        .map_err(|_| Error::InitializationError(InitializationErrorType::FdtMemoryCasting))?;
-    let confidential_memory_end_address: usize = (confidential_memory_base_address
-        + confidential_memory_size)
+    let confidential_memory_base_address: usize =
+        (base + size).try_into().map_err(|_| Error::InitializationError(InitializationErrorType::FdtMemoryCasting))?;
+    let confidential_memory_size: usize =
+        size.try_into().map_err(|_| Error::InitializationError(InitializationErrorType::FdtMemoryCasting))?;
+    let confidential_memory_end_address: usize = (confidential_memory_base_address + confidential_memory_size)
         .try_into()
         .map_err(|_| Error::InitializationError(InitializationErrorType::FdtMemoryCasting))?;
 
     debug!("Non-confidential memory {:X}-{:X}", base, base + size);
-    debug!(
-        "Confidential memory {:X}-{:X}",
-        confidential_memory_base_address, confidential_memory_end_address
-    );
+    debug!("Confidential memory {:X}-{:X}", confidential_memory_base_address, confidential_memory_end_address);
 
     if confidential_memory_end_address <= confidential_memory_base_address {
-        return Err(Error::InitializationError(
-            InitializationErrorType::InvalidMemoryBoundaries,
-        ));
+        return Err(Error::InitializationError(InitializationErrorType::InvalidMemoryBoundaries));
     }
 
-    Ok((
-        confidential_memory_base_address,
-        confidential_memory_end_address,
-    ))
+    Ok((confidential_memory_base_address, confidential_memory_end_address))
 }
 
 fn configure_iopmps() {
@@ -142,18 +126,14 @@ fn configure_iopmps() {
 /// This function is called only once during the initialization of the security
 /// monitor during the boot process. This function initializes secure monitor's
 /// memory management like allocators.
-fn init_confidential_memory(
-    mut start_address: usize,
-    end_address: usize,
-    number_of_harts: usize,
-) -> Result<(), Error> {
+fn init_confidential_memory(mut start_address: usize, end_address: usize, number_of_harts: usize) -> Result<(), Error> {
     // align to 4KiB.
     // TODO: to what page size should we align to???
     let mut start_address_aligned =
         (start_address + PageSize::Size4KiB.in_bytes() - 1) & !(PageSize::Size4KiB.in_bytes() - 1);
     if start_address_aligned < start_address {
-        start_address_aligned = (start_address + 2 * PageSize::Size4KiB.in_bytes() - 1)
-            & !(PageSize::Size4KiB.in_bytes() - 1);
+        start_address_aligned =
+            (start_address + 2 * PageSize::Size4KiB.in_bytes() - 1) & !(PageSize::Size4KiB.in_bytes() - 1);
     }
     start_address = start_address_aligned;
 
@@ -163,9 +143,7 @@ fn init_confidential_memory(
     let minimum_memory_tracker_size = available_pages * core::mem::size_of::<Page<UnAllocated>>();
     let minimum_pages = 4 * 1024 + (minimum_memory_tracker_size / PageSize::Size4KiB.in_bytes());
     if available_pages < minimum_pages {
-        return Err(Error::InitializationError(
-            InitializationErrorType::NotEnoughMemory,
-        ));
+        return Err(Error::InitializationError(InitializationErrorType::NotEnoughMemory));
     }
 
     // Set up the global allocator so we can start using alloc::*.
@@ -177,11 +155,7 @@ fn init_confidential_memory(
     // initial pages that it occupies
     let tracker_memory_start = start_address + heap_size;
     let tracker_memory_size = PageSize::Size4KiB.in_bytes() * (available_pages - heap_pages);
-    debug!(
-        "Memory tracker {:x}-{:x}",
-        tracker_memory_start,
-        tracker_memory_start + tracker_memory_size
-    );
+    debug!("Memory tracker {:x}-{:x}", tracker_memory_start, tracker_memory_start + tracker_memory_size);
     let memory_tracker = MemoryTracker::new(tracker_memory_start, tracker_memory_size)?;
     MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
     CONFIDENTIAL_MEMORY_RANGE.call_once(|| start_address..end_address);
@@ -260,10 +234,7 @@ fn set_delegation() -> Result<(), Error> {
         .map_err(|_| Error::InitializationError(InitializationErrorType::InvalidAssemblyAddress))?;
     debug!("trap handler address: {:x}", trap_vector_address);
     unsafe {
-        riscv::register::mtvec::write(
-            trap_vector_address,
-            riscv::register::mtvec::TrapMode::Direct,
-        );
+        riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);
     }
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure we have to store this pointer during

@@ -5,9 +5,9 @@ use crate::core::control_data::ConfidentialHart;
 use crate::core::hart::{GpRegister, HartState};
 use crate::core::memory_tracker::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    EsmRequest, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult,
-    InterruptRequest, MmioLoadRequest, MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest,
-    SbiResult, SbiVmRequest, SharePageResult, TerminateRequest, TrapReason,
+    EsmRequest, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest,
+    MmioLoadRequest, MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest,
+    SharePageResult, TerminateRequest, TrapReason,
 };
 
 #[repr(C)]
@@ -77,10 +77,8 @@ impl HardwareHart {
     }
 
     fn apply_sbi_result(&mut self, result: &SbiResult) {
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a0, result.a0());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a1, result.a1());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
         self.non_confidential_hart_state.mepc += result.pc_offset();
     }
 
@@ -93,22 +91,14 @@ impl HardwareHart {
         self.non_confidential_hart_state.sepc = request.sepc();
 
         let sbi_request = request.sbi_request();
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a7, sbi_request.extension_id());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a6, sbi_request.function_id());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a0, sbi_request.a0());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a1, sbi_request.a1());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a2, sbi_request.a2());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a3, sbi_request.a3());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a4, sbi_request.a4());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a5, sbi_request.a5());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a7, sbi_request.extension_id());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a6, sbi_request.function_id());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a0, sbi_request.a0());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a1, sbi_request.a1());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a2, sbi_request.a2());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a3, sbi_request.a3());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a4, sbi_request.a4());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a5, sbi_request.a5());
 
         self.apply_trap();
     }
@@ -120,22 +110,14 @@ impl HardwareHart {
         self.non_confidential_hart_state.sip |= 1 << SCAUSE_EXCEPTION_VS_ECALL;
         self.non_confidential_hart_state.sie |= 1 << SCAUSE_EXCEPTION_VS_ECALL;
 
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a7, request.extension_id());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a6, request.function_id());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a0, request.a0());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a1, request.a1());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a2, request.a2());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a3, request.a3());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a4, request.a4());
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::a5, request.a5());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a7, request.extension_id());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a6, request.function_id());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a0, request.a0());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a1, request.a1());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a2, request.a2());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a3, request.a3());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a4, request.a4());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a5, request.a5());
 
         self.apply_trap();
     }
@@ -155,8 +137,7 @@ impl HardwareHart {
         // but we have to inform him about the instruction that caused exception.
         // our approach is to expose this instruction via t6
         // TODO: consider using htinst register
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::t6, request.instruction());
+        self.non_confidential_hart_state.set_gpr(GpRegister::t6, request.instruction());
 
         self.apply_trap();
     }
@@ -171,15 +152,13 @@ impl HardwareHart {
         //  - htinst to learn about faulting instructions
         self.non_confidential_hart_state.stval = request.stval();
         self.non_confidential_hart_state.htval = request.htval();
-        self.non_confidential_hart_state
-            .set_gpr(request.gpr(), request.gpr_value());
+        self.non_confidential_hart_state.set_gpr(request.gpr(), request.gpr_value());
 
         // hack: we do not allow the hypervisor to look into the guest memory
         // but we have to inform him about the instruction that caused exception.
         // our approach is to expose this instruction via t6
         // TODO: consider using htinst register
-        self.non_confidential_hart_state
-            .set_gpr(GpRegister::t6, request.instruction());
+        self.non_confidential_hart_state.set_gpr(GpRegister::t6, request.instruction());
 
         self.apply_trap();
     }
@@ -204,20 +183,14 @@ impl HardwareHart {
         const MSTATUS_GVA_BIT: usize = 38;
         self.non_confidential_hart_state.mepc = riscv::register::stvec::read().bits();
         // let hypervisor think VS-mode executed
-        self.non_confidential_hart_state.hstatus =
-            self.non_confidential_hart_state.hstatus | (1 << HSTATUS_SPV_BIT);
-        self.non_confidential_hart_state.mstatus =
-            self.non_confidential_hart_state.mstatus | (1 << MSTATUS_SPP_BIT);
+        self.non_confidential_hart_state.hstatus = self.non_confidential_hart_state.hstatus | (1 << HSTATUS_SPV_BIT);
+        self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus | (1 << MSTATUS_SPP_BIT);
         // will disable virtualization (so HS not VS mode)
-        self.non_confidential_hart_state.mstatus =
-            self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_MPV_BIT);
-        self.non_confidential_hart_state.mstatus =
-            self.non_confidential_hart_state.mstatus | (1 << MSTATUS_MPP_BIT);
+        self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_MPV_BIT);
+        self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus | (1 << MSTATUS_MPP_BIT);
         // disable interrupts
-        self.non_confidential_hart_state.mstatus =
-            self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_MPIE_BIT);
-        self.non_confidential_hart_state.mstatus =
-            self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_SIE_BIT);
+        self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_MPIE_BIT);
+        self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_SIE_BIT);
         // set GVA
         if (self.non_confidential_hart_state.mstatus & (1 << MSTATUS_GVA_BIT)) > 0 {
             self.non_confidential_hart_state.hstatus =
@@ -242,10 +215,7 @@ impl HardwareHart {
         SbiResult::ecall(&self.non_confidential_hart_state)
     }
 
-    pub fn guest_load_page_fault_result(
-        &self,
-        request: GuestLoadPageFaultRequest,
-    ) -> GuestLoadPageFaultResult {
+    pub fn guest_load_page_fault_result(&self, request: GuestLoadPageFaultRequest) -> GuestLoadPageFaultResult {
         GuestLoadPageFaultResult::new(&self.non_confidential_hart_state, request)
     }
 

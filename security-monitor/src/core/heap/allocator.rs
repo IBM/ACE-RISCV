@@ -13,9 +13,7 @@ pub struct LinkedListAllocator {
 
 impl LinkedListAllocator {
     pub const fn empty() -> Self {
-        Self {
-            head: ListNode::new(0),
-        }
+        Self { head: ListNode::new(0) }
     }
 
     pub fn add_free_region(&mut self, addr: usize, size: usize) {
@@ -31,11 +29,7 @@ impl LinkedListAllocator {
         }
     }
 
-    pub fn find_region(
-        &mut self,
-        size: usize,
-        align: usize,
-    ) -> Option<(&'static mut ListNode, usize)> {
+    pub fn find_region(&mut self, size: usize, align: usize) -> Option<(&'static mut ListNode, usize)> {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
             if let Ok(alloc_start) = Self::alloc_from_region(&region, size, align) {
@@ -71,10 +65,7 @@ impl LinkedListAllocator {
     }
 
     pub fn size_align(layout: Layout) -> (usize, usize) {
-        let layout = layout
-            .align_to(mem::align_of::<ListNode>())
-            .expect("adjusting alignment failed")
-            .pad_to_align();
+        let layout = layout.align_to(mem::align_of::<ListNode>()).expect("adjusting alignment failed").pad_to_align();
         let size = layout.size().max(mem::size_of::<ListNode>());
         (size, layout.align())
     }
@@ -148,9 +139,7 @@ pub struct Locked<A> {
 
 impl<A> Locked<A> {
     pub const fn new(inner: A) -> Self {
-        Locked {
-            inner: spin::Mutex::new(inner),
-        }
+        Locked { inner: spin::Mutex::new(inner) }
     }
 
     pub fn lock(&self) -> spin::MutexGuard<A> {

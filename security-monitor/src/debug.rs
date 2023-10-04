@@ -55,19 +55,6 @@ pub fn __print_pmp_configuration() {
     debug!("pmp3 cfg: {:?}", pmp3cfg);
 }
 
-// #[cfg(feature = "verbose")]
-// pub fn __show_instruction(root_page_table: &PageTable, virtual_address:
-// usize) {     let physical_address =
-// crate::mmu::virtual_to_physical(root_page_table,
-// virtual_address).unwrap().unwrap();
-
-//     let value = read_memory(physical_address);
-//     let instruction = riscv_decode::decode(value as u32);
-//     let length = riscv_decode::instruction_length(value as u16);
-
-//     debug!("Instruction at physical address {:x}: {:b} {:?}, length: {}",
-// physical_address, value, instruction, length); }
-
 #[cfg(feature = "verbose")]
 fn read_memory(address: usize) -> u64 {
     let ptr = (address) as *mut u64;

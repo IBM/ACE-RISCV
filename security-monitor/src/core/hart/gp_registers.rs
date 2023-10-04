@@ -15,13 +15,7 @@ impl GpRegisters {
     }
 
     pub fn clone(&self) -> Self {
-        Self(
-            GpRegisters::iter()
-                .map(|x| self.0[x])
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap_or([0; Self::LEN]),
-        )
+        Self(GpRegisters::iter().map(|x| self.0[x]).collect::<Vec<_>>().try_into().unwrap_or([0; Self::LEN]))
     }
 
     pub fn set(&mut self, register: GpRegister, value: usize) {
@@ -33,10 +27,7 @@ impl GpRegisters {
     }
 
     pub fn iter() -> Range<usize> {
-        Range {
-            start: 0,
-            end: Self::LEN,
-        }
+        Range { start: 0, end: Self::LEN }
     }
 }
 
