@@ -8,7 +8,8 @@ move to the AP-TEE extention when it is available. Moving to this extention will
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
 
 ### Requirements
-The full compilation of the framework takes long time because all tools are built from sources. Our tool chain currently includes: the RISC-V compiler (`riscv-toolchain`), RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
+
+Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: the RISC-V compiler (`riscv-toolchain`), RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
 
 ### Dependencies
 You must install build dependencies specific to the operating system you use AND install the Rust toolchain.
@@ -69,7 +70,7 @@ cargo install cargo-binutils
 ```
 
 ### Sources & Patches
-Checkout this repository with submodules (takes long time!):
+Checkout this repository with submodules (this takes a long time!):
 ```
 git clone --recurse-submodules git@github.com:IBM/ACE-RISCV.git
 ```

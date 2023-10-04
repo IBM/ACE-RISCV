@@ -2,14 +2,11 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::transformations::{
-    ExposeToHypervisor, PendingRequest, SbiRequest, SharePageRequest,
-};
+use crate::core::transformations::{ExposeToHypervisor, PendingRequest, SbiRequest, SharePageRequest};
 use crate::error::Error;
 
 pub fn handle(
-    share_page_request: Result<(SharePageRequest, SbiRequest), Error>,
-    confidential_flow: ConfidentialFlow,
+    share_page_request: Result<(SharePageRequest, SbiRequest), Error>, confidential_flow: ConfidentialFlow,
 ) -> ! {
     match share_page_request {
         Ok((request, sbi_request)) => {
@@ -23,8 +20,6 @@ pub fn handle(
                 .into_non_confidential_flow()
                 .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(sbi_request))
         }
-        Err(error) => {
-            confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation())
-        }
+        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
     }
 }

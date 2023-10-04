@@ -4,9 +4,9 @@
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::hart::{FpRegisters, GpRegister, GpRegisters, HartState};
 use crate::core::transformations::{
-    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult,
-    GuestStorePageFaultRequest, GuestStorePageFaultResult, MmioLoadRequest, MmioStoreRequest,
-    PendingRequest, SbiRequest, SbiResult, SharePageRequest, TrapReason,
+    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
+    GuestStorePageFaultResult, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiRequest, SbiResult,
+    SharePageRequest, TrapReason,
 };
 use crate::error::Error;
 
@@ -26,11 +26,7 @@ pub struct ConfidentialHart {
 impl ConfidentialHart {
     pub fn dummy(id: usize) -> Self {
         let confidential_hart_state = HartState::empty(id);
-        Self {
-            confidential_hart_state,
-            pending_request: None,
-            dummy: true,
-        }
+        Self { confidential_hart_state, pending_request: None, dummy: true }
     }
 
     pub fn from_vm_hart_reset(id: usize, from: &HartState) -> Self {
@@ -45,11 +41,7 @@ impl ConfidentialHart {
         confidential_hart_state.medeleg = 0b1011001111111111;
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
 
-        Self {
-            confidential_hart_state,
-            pending_request: None,
-            dummy: false,
-        }
+        Self { confidential_hart_state, pending_request: None, dummy: false }
     }
 
     pub fn from_vm_hart(id: usize, from: &HartState) -> Self {
@@ -72,9 +64,7 @@ impl ConfidentialHart {
     }
 
     pub fn confidential_vm_id(&self) -> ConfidentialVmId {
-        ConfidentialVmId::new(
-            riscv::register::hgatp::Hgatp::from(self.confidential_hart_state.hgatp).vmid(),
-        )
+        ConfidentialVmId::new(riscv::register::hgatp::Hgatp::from(self.confidential_hart_state.hgatp).vmid())
     }
 
     pub(super) fn confidential_hart_id(&self) -> usize {
@@ -105,28 +95,21 @@ impl ConfidentialHart {
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
-            ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => {
-                self.apply_guest_load_page_fault_result(v)
-            }
-            ExposeToConfidentialVm::GuestStorePageFaultResult(v) => {
-                self.apply_guest_store_page_fault_result(v)
-            }
+            ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
+            ExposeToConfidentialVm::GuestStorePageFaultResult(v) => self.apply_guest_store_page_fault_result(v),
             ExposeToConfidentialVm::Resume() => {}
         }
         core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
     fn apply_sbi_result(&mut self, result: SbiResult) {
-        self.confidential_hart_state
-            .set_gpr(GpRegister::a0, result.a0());
-        self.confidential_hart_state
-            .set_gpr(GpRegister::a1, result.a1());
+        self.confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
+        self.confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
         self.confidential_hart_state.mepc += result.pc_offset();
     }
 
     fn apply_guest_load_page_fault_result(&mut self, result: GuestLoadPageFaultResult) {
-        self.confidential_hart_state
-            .set_gpr(result.result_gpr(), result.value());
+        self.confidential_hart_state.set_gpr(result.result_gpr(), result.value());
         self.confidential_hart_state.mepc += result.instruction_length();
     }
 
@@ -145,9 +128,7 @@ impl ConfidentialHart {
         SbiRequest::from_hart_state(&self.confidential_hart_state)
     }
 
-    pub fn guest_load_page_fault_request(
-        &self,
-    ) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
+    pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
         let mcause = riscv::register::mcause::read().code();
         let (instruction, instruction_length) = self.read_instruction();
         let gpr = read_result_gpr(instruction)?;
@@ -160,9 +141,7 @@ impl ConfidentialHart {
         Ok((load_fault_request, mmio_load_request))
     }
 
-    pub fn guest_store_page_fault_request(
-        &self,
-    ) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
+    pub fn guest_store_page_fault_request(&self) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
         let mcause = riscv::register::mcause::read().code();
         let (instruction, instruction_length) = self.read_instruction();
         let gpr = read_result_gpr(instruction)?;
@@ -171,8 +150,7 @@ impl ConfidentialHart {
         let mtval2 = self.confidential_hart_state.mtval2;
 
         let guest_store_page_fault_request = GuestStorePageFaultRequest::new(instruction_length);
-        let mmio_store_request =
-            MmioStoreRequest::new(mcause, mtval, mtval2, instruction, gpr, gpr_value);
+        let mmio_store_request = MmioStoreRequest::new(mcause, mtval, mtval2, instruction, gpr, gpr_value);
 
         Ok((guest_store_page_fault_request, mmio_store_request))
     }
@@ -275,15 +253,13 @@ fn read_result_gpr(mtinst: usize) -> Result<GpRegister, Error> {
             } else if mtinst & INSN_MASK_C_LWSP == INSN_MATCH_C_LWSP {
                 Ok(0u32)
             } else if mtinst & INSN_MASK_C_SWSP == INSN_MATCH_C_SWSP {
-                let index =
-                    shift_right(mtinst, SH_RS2C as isize - log_regbytes as isize) & reg_mask;
+                let index = shift_right(mtinst, SH_RS2C as isize - log_regbytes as isize) & reg_mask;
                 let index = index / 8;
                 Ok(index as u32)
             } else if mtinst & INSN_MASK_C_LDSP == INSN_MATCH_C_LDSP {
                 Ok(0u32)
             } else if mtinst & INSN_MASK_C_SDSP == INSN_MATCH_C_SDSP {
-                let index =
-                    shift_right(mtinst, SH_RS2C as isize - log_regbytes as isize) & reg_mask;
+                let index = shift_right(mtinst, SH_RS2C as isize - log_regbytes as isize) & reg_mask;
                 let index = index / 8;
                 Ok(index as u32)
             } else {
@@ -291,6 +267,5 @@ fn read_result_gpr(mtinst: usize) -> Result<GpRegister, Error> {
             }
         }
     }?;
-    Ok(GpRegister::from_index(register_index as usize)
-        .ok_or(Error::InvalidRiscvInstruction(mtinst))?)
+    Ok(GpRegister::from_index(register_index as usize).ok_or(Error::InvalidRiscvInstruction(mtinst))?)
 }

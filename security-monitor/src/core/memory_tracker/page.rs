@@ -27,27 +27,18 @@ impl Page<UnAllocated> {
     // this constructor is visible only to the memory module, so only the
     // memory tracker can create new pages.
     pub(super) fn init(address: ConfidentialMemoryAddress, size: PageSize) -> Self {
-        Self {
-            address,
-            size,
-            _marker: PhantomData,
-        }
+        Self { address, size, _marker: PhantomData }
     }
 
     pub fn zeroize(self) -> Page<Allocated> {
         self.clear();
-        Page {
-            address: self.address,
-            size: self.size,
-            _marker: PhantomData,
-        }
+        Page { address: self.address, size: self.size, _marker: PhantomData }
     }
 
     /// Moves a page to the Allocated state after filling its content with the
     /// content of a page located in the non-confidential memory.
     pub fn copy_from_non_confidential_memory(
-        self,
-        address: NonConfidentialMemoryAddress,
+        self, address: NonConfidentialMemoryAddress,
     ) -> Result<Page<Allocated>, Error> {
         // The below copy is secure because we checked that any address in the
         // address range belongs to the confidential memory (no overlapping).
@@ -55,11 +46,7 @@ impl Page<UnAllocated> {
             let byte_to_copy = unsafe { ((address.usize() + offset) as *mut u8).read_volatile() };
             self.write::<u8>(offset, byte_to_copy);
         });
-        Ok(Page {
-            address: self.address,
-            size: self.size,
-            _marker: PhantomData,
-        })
+        Ok(Page { address: self.address, size: self.size, _marker: PhantomData })
     }
 
     /// This function divides the current page into smaller pages if possible.
@@ -84,11 +71,7 @@ impl Page<Allocated> {
     /// memory tracker.
     pub fn deallocate(self) -> Page<UnAllocated> {
         self.clear();
-        Page {
-            address: self.address,
-            size: self.size,
-            _marker: PhantomData,
-        }
+        Page { address: self.address, size: self.size, _marker: PhantomData }
     }
 }
 
@@ -106,10 +89,7 @@ impl<T: PageState> Page<T> {
     }
 
     pub fn offsets(&self) -> Range<usize> {
-        Range {
-            start: 0,
-            end: self.size.in_bytes(),
-        }
+        Range { start: 0, end: self.size.in_bytes() }
     }
 
     pub fn read<S: Default>(&self, offset: usize) -> S {
@@ -124,7 +104,6 @@ impl<T: PageState> Page<T> {
 
     fn clear(&self) {
         // TODO: performance optimisation. Write word/double word instead of a byte
-        self.offsets()
-            .for_each(|offset| self.write::<u8>(offset, 0));
+        self.offsets().for_each(|offset| self.write::<u8>(offset, 0));
     }
 }

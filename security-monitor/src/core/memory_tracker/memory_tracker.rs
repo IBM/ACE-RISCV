@@ -30,8 +30,7 @@ impl<'a> MemoryTracker {
             let number_of_new_pages = memory_size_left / page_size.in_bytes();
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
-                    let start_address =
-                        ConfidentialMemoryAddress(address + i * page_size.in_bytes());
+                    let start_address = ConfidentialMemoryAddress(address + i * page_size.in_bytes());
                     Page::<UnAllocated>::init(start_address, page_size.clone())
                 })
                 .collect();
@@ -43,8 +42,7 @@ impl<'a> MemoryTracker {
     }
 
     pub fn acquire_continous_pages(
-        number_of_pages: usize,
-        page_size: PageSize,
+        number_of_pages: usize, page_size: PageSize,
     ) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = try_write(|tracker| Ok(tracker.acquire(number_of_pages, page_size)))?;
         assure_not!(pages.is_empty(), Error::OutOfMemory())?;
@@ -54,15 +52,10 @@ impl<'a> MemoryTracker {
     pub fn release_pages(pages: Vec<Page<UnAllocated>>) {
         let _ = try_write(|tracker| {
             Ok(pages.into_iter().for_each(|page| {
-                tracker
-                    .map
-                    .get_mut(&page.size())
-                    .and_then(|v| Some(v.push(page)));
+                tracker.map.get_mut(&page.size()).and_then(|v| Some(v.push(page)));
             }))
         })
-        .inspect_err(|_| {
-            debug!("Memory leak: failed to store released pages in the memory tracker")
-        });
+        .inspect_err(|_| debug!("Memory leak: failed to store released pages in the memory tracker"));
     }
 
     pub fn release_page(page: Page<UnAllocated>) {
@@ -71,24 +64,13 @@ impl<'a> MemoryTracker {
 
     fn acquire(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
         self.find_allocation(number_of_pages, page_size)
-            .and_then(|range| {
-                self.map
-                    .get_mut(&page_size)
-                    .and_then(|pages| Some(pages.drain(range).collect()))
-            })
+            .and_then(|range| self.map.get_mut(&page_size).and_then(|pages| Some(pages.drain(range).collect())))
             .unwrap_or(vec![])
     }
 
     // this function will divide larger pages when it failes to find allocation within free pages of the requested size.
-    fn find_allocation(
-        &mut self,
-        number_of_pages: usize,
-        page_size: PageSize,
-    ) -> Option<Range<usize>> {
-        if self
-            .find_allocation_within_page_size(number_of_pages, page_size)
-            .is_none()
-        {
+    fn find_allocation(&mut self, number_of_pages: usize, page_size: PageSize) -> Option<Range<usize>> {
+        if self.find_allocation_within_page_size(number_of_pages, page_size).is_none() {
             self.divide_pages(page_size);
         }
         self.find_allocation_within_page_size(number_of_pages, page_size)
@@ -124,19 +106,13 @@ impl<'a> MemoryTracker {
         false
     }
 
-    fn find_allocation_within_page_size(
-        &self,
-        number_of_pages: usize,
-        page_size: PageSize,
-    ) -> Option<Range<usize>> {
+    fn find_allocation_within_page_size(&self, number_of_pages: usize, page_size: PageSize) -> Option<Range<usize>> {
         if let Some(pages) = self.map.get(&page_size) {
             if pages.len() < number_of_pages {
                 return None;
             }
             // check if there is a continous region of requested pages
-            let check = |pages: &Vec<Page<UnAllocated>>, j: usize| {
-                pages[j].end_address() != pages[j + 1].address()
-            };
+            let check = |pages: &Vec<Page<UnAllocated>>, j: usize| pages[j].end_address() != pages[j + 1].address();
 
             for i in 0..(pages.len() - number_of_pages) {
                 for j in i..(i + number_of_pages) {
@@ -145,10 +121,7 @@ impl<'a> MemoryTracker {
                         break;
                     }
                     if j == i + number_of_pages - 1 {
-                        return Some(Range {
-                            start: i,
-                            end: i + number_of_pages,
-                        });
+                        return Some(Range { start: i, end: i + number_of_pages });
                     }
                 }
             }
@@ -158,9 +131,7 @@ impl<'a> MemoryTracker {
 }
 
 fn try_write<F, O>(op: O) -> Result<F, Error>
-where
-    O: FnOnce(&mut RwLockWriteGuard<'static, MemoryTracker>) -> Result<F, Error>,
-{
+where O: FnOnce(&mut RwLockWriteGuard<'static, MemoryTracker>) -> Result<F, Error> {
     use crate::error::NOT_INITIALIZED_MEMORY_TRACKER;
     MEMORY_TRACKER
         .get()

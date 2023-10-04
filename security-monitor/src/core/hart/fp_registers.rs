@@ -11,13 +11,7 @@ impl FpRegisters {
     const LEN: usize = 32;
 
     pub fn clone(&self) -> Self {
-        Self(
-            FpRegisters::iter()
-                .map(|x| self.0[x])
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap_or([0; Self::LEN]),
-        )
+        Self(FpRegisters::iter().map(|x| self.0[x]).collect::<Vec<_>>().try_into().unwrap_or([0; Self::LEN]))
     }
 
     pub fn empty() -> FpRegisters {
@@ -25,9 +19,6 @@ impl FpRegisters {
     }
 
     pub fn iter() -> Range<usize> {
-        Range {
-            start: 0,
-            end: Self::LEN,
-        }
+        Range { start: 0, end: Self::LEN }
     }
 }
