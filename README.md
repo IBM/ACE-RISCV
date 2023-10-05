@@ -3,7 +3,7 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 
 **This is an active research project, without warranties of any kind.** 
 
-We are currently building on RISC-V with hypervisor extentions. We will move to the AP-TEE extension when it is available. Moving to this extension will simplify our system.
+We are currently building on RISC-V with hypervisor extentions. We will adapt the AP-TEE extension once it is ratified.
 
 ## Quick Start
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
