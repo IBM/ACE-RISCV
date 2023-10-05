@@ -112,7 +112,7 @@ Always sign commits. Use the following commands to configure your git to use SSH
 git config --global user.name "Name Surname"
 git config --global user.email "name@surname.com"
 git config --global gpg.format ssh
-git config --global user.signingkey ~/.ssh/id_rsa.pub
+git config --global user.signingkey ~/.ssh/id_rsa
 git config --global commit.gpgsign true
 
 eval "$(ssh-agent -s)"
