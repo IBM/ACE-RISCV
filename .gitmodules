@@ -7,9 +7,6 @@
 [submodule "qemu"]
 	path = qemu
 	url = https://github.com/qemu/qemu.git
-[submodule "riscv-gnu-toolchain"]
-	path = riscv-gnu-toolchain
-	url = https://github.com/riscv-collab/riscv-gnu-toolchain.git
 [submodule "security-monitor/opensbi"]
 	path = security-monitor/opensbi
 	url = https://github.com/riscv-software-src/opensbi.git

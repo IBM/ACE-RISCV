@@ -1,21 +1,20 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use core::{
-    ptr::NonNull,
-};
-use virtio_drivers::device::blk::VirtIOBlk;
-use virtio_drivers::{
-     transport::{mmio::MmioTransport, DeviceType, Transport},
-};
-use fdt::Fdt;
-use fdt::node::FdtNode;
-use virtio_drivers::transport::mmio::VirtIOHeader;
 use crate::hal::HalSvmImpl;
+use core::ptr::NonNull;
+use fdt::node::FdtNode;
+use fdt::Fdt;
+use virtio_drivers::device::blk::VirtIOBlk;
+use virtio_drivers::transport::mmio::VirtIOHeader;
+use virtio_drivers::transport::{mmio::MmioTransport, DeviceType, Transport};
 
-pub fn get_block_device(dtb: usize) -> Option<VirtIOBlk::<HalSvmImpl, MmioTransport>> {
+pub fn get_block_device(dtb: usize) -> Option<VirtIOBlk<HalSvmImpl, MmioTransport>> {
     let transport = get_transport(dtb).expect("blk device not found");
-    Some(VirtIOBlk::<HalSvmImpl, MmioTransport>::new(transport).expect("failed to create blk driver"))
+    Some(
+        VirtIOBlk::<HalSvmImpl, MmioTransport>::new(transport)
+            .expect("failed to create blk driver"),
+    )
 }
 
 pub fn get_transport(dtb: usize) -> Option<MmioTransport> {
