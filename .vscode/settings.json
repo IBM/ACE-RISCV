@@ -1,18 +1,18 @@
 {
 	"search.exclude": {
-		"linux": true, 
+		"hypervisor/linux": true, 
 		"qemu": true, 
 		"riscv-gnu-toolchain": true, 
-		"opensbi": true,
-		"buildroot": true,
+		"security-monitor/opensbi": true,
+		"hypervisor/buildroot": true,
 		"**/.git/**": true
 	},
 	"files.watcherExclude": {
-		"linux": true, 
+		"hypervisor/linux": true, 
 		"qemu": true, 
 		"riscv-gnu-toolchain": true, 
-		"opensbi": true,
-		"buildroot": true,
+		"security-monitor/opensbi": true,
+		"hypervisor/buildroot": true,
 		"**/.git/**": true
 	},
 	"editor.codeActionsOnSave": {
