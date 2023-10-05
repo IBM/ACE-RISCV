@@ -9,7 +9,7 @@ We are currently building on RISC-V with hypervisor extentions. We will move to 
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
 
 ### Requirements
-Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: the RISC-V compiler (`riscv-toolchain`), RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
+Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~20min) build time.
 
 ### Dependencies
 You must install build dependencies specific to the operating system you use AND install the Rust toolchain.

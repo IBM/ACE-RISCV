@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2023 IBM Corporation
+# SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
+# SPDX-License-Identifier: Apache-2.0
 CARGO = cargo
 RELEASE = --release
 CHAIN=riscv64gc-unknown-none-elf
@@ -7,7 +11,7 @@ EXEC_NAME = libsm.a
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
-ACE_DIR := $(if $(ACE_DIR),$(ACE_DIR),$(MAKEFILE_SOURCE_DIR)target/)
+ACE_DIR := $(if $(ACE_DIR),$(ACE_DIR),$(MAKEFILE_SOURCE_DIR)../build/target/)
 
 SM_WORK_DIR=$(ACE_DIR)/security-monitor
 PLATFORM_SOURCE_DIR=$(MAKEFILE_SOURCE_DIR)/platform
