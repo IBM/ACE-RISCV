@@ -9,32 +9,12 @@ We are currently building on RISC-V with hypervisor extentions. We will move to 
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
 
 ### Requirements
-Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~20min) build time.
+Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
 
 ### Dependencies
 You must install build dependencies specific to the operating system you use AND install the Rust toolchain.
 
-<details>
-<summary>Dependencies for Fedora 36 (click to see)</summary>
-
-```
-# riscv-gnu-toolchain dependencies:
-sudo yum install -y autoconf automake python3 libmpc-devel mpfr-devel gmp-devel gawk  bison flex texinfo patchutils gcc gcc-c++ zlib-devel expat-devel
-
-# Qemu
-sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y automake gcc make glibc ninja-build glib2-devel pixman-devel
-
-# Buildroot
-sudo dnf groupinstall -y "Development Tools" "Development Libraries"
-sudo dnf install -y which sed make binutils diffutils gcc g++ bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
-```
-
-</details>
-
-<details>
-<summary>Dependencies for Ubuntu 22.04 (click to see)</summary>
-
+Dependencies for Ubuntu 22.04
 ```
 sudo apt update
 
@@ -54,11 +34,9 @@ sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch 
 sudo apt install -y sshpass
 ```
 
-</details>
-
 Install the latest Rust:
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source "$HOME/.cargo/env"
 rustup default nightly
 rustup target add riscv64gc-unknown-none-elf
