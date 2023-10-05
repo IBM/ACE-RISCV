@@ -1,4 +1,6 @@
-# Assured Confidential Execution (ACE) for RISC-V  
+# Assured Confidential Execution (ACE) for RISC-V 
+![Build Status](https://github.com/IBM/ACE-RISCV/actions/workflows/build.yml/badge.svg?branch=main)
+ 
 ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
 
 **This is an active research project, without warranties of any kind.** 

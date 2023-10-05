@@ -1,4 +1,4 @@
-name: ACE CI
+name: ACE Build
 
 on:
   push:
