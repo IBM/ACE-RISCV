@@ -21,13 +21,6 @@ jobs:
       run: sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
     - name: install utilities
       run: sudo apt install -y sshpass
-    - name: Install latest nightly
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-          target: riscv64gc-unknown-none-elf
-          components: rustfmt, clippy      
     - name: install rust
       run: curl https://sh.rustup.rs -sSf | sh
     - name: install rust nightly
