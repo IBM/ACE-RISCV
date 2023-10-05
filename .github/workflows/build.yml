@@ -28,6 +28,14 @@ jobs:
           override: true
           target: riscv64gc-unknown-none-elf
           components: rustfmt, clippy      
+    - name: install rust
+      run: curl https://sh.rustup.rs -sSf | sh
+    - name: install rust nightly
+      run: rustup default nightly
+    - name: install rust nightly
+      run: rustup target add riscv64gc-unknown-none-elf
+    - name: install rust nightly
+      run: rustup component add rustfmt
     - name: install cargo utils
       run: cargo install cargo-binutils
     - name: build emulator
