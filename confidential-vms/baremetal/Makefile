@@ -8,8 +8,8 @@ MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ACE_DIR := $(if $(ACE_DIR),$(ACE_DIR),$(MAKEFILE_SOURCE_DIR)target/)
-BIN_DIR := $(if $(BIN_DIR),$(BIN_DIR),$(ACE_DIR)harness/baremetal/)
-TARGET_DIR := $(ACE_DIR)harness/baremetal/
+BIN_DIR := $(if $(BIN_DIR),$(BIN_DIR),$(ACE_DIR)/harness/baremetal/)
+TARGET_DIR := $(ACE_DIR)/harness/baremetal/
 
 all: build
 

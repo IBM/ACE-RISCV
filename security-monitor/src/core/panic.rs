@@ -12,24 +12,15 @@ use crate::error::NOT_INITIALIZED_CONFIDENTIAL_MEMORY;
 fn panic(info: &core::panic::PanicInfo) -> ! {
     debug!("Ops security monitor panicked!");
     if let Some(p) = info.location() {
-        debug!(
-            "Line {}, file {}: {}",
-            p.line(),
-            p.file(),
-            info.message().unwrap()
-        );
+        debug!("Line {}, file {}: {}", p.line(), p.file(), info.message().unwrap());
     } else {
         debug!("no information available.");
     }
     debug!("Cleaning up...");
     // clear the content of the confidential memory
-    CONFIDENTIAL_MEMORY_RANGE
-        .get()
-        .expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY)
-        .clone()
-        .for_each(|address| {
-            unsafe { (address as *mut u8).write_volatile(0) };
-        });
+    CONFIDENTIAL_MEMORY_RANGE.get().expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY).clone().for_each(|address| {
+        unsafe { (address as *mut u8).write_volatile(0) };
+    });
 
     // sleep or loop forever since there is nothing else we can do
     loop {

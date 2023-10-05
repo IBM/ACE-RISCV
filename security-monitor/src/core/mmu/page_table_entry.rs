@@ -7,16 +7,8 @@ use alloc::boxed::Box;
 
 pub(super) enum PageTableEntry {
     Pointer(Box<PageTable>, PageTableConfiguration),
-    Leaf(
-        Box<Page<Allocated>>,
-        PageTableConfiguration,
-        PageTablePermission,
-    ),
-    Shared(
-        NonConfidentialMemoryAddress,
-        PageTableConfiguration,
-        PageTablePermission,
-    ),
+    Leaf(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
+    Shared(NonConfidentialMemoryAddress, PageTableConfiguration, PageTablePermission),
     NotValid,
 }
 
@@ -71,9 +63,7 @@ impl PageTableBits {
     }
 
     pub const fn is_leaf(raw_entry: usize) -> bool {
-        Self::Read.is_set(raw_entry)
-            || Self::Write.is_set(raw_entry)
-            || Self::Execute.is_set(raw_entry)
+        Self::Read.is_set(raw_entry) || Self::Write.is_set(raw_entry) || Self::Execute.is_set(raw_entry)
     }
 }
 
@@ -100,22 +90,14 @@ pub(super) struct PageTablePermission {
 
 impl PageTablePermission {
     pub fn shared_page_permission() -> Self {
-        Self {
-            can_read: true,
-            can_write: true,
-            can_execute: false,
-        }
+        Self { can_read: true, can_write: true, can_execute: false }
     }
 
     pub fn decode(raw_entry: usize) -> Self {
         let can_read = PageTableBits::Read.is_set(raw_entry);
         let can_write = PageTableBits::Write.is_set(raw_entry);
         let can_execute = PageTableBits::Execute.is_set(raw_entry);
-        Self {
-            can_read,
-            can_write,
-            can_execute,
-        }
+        Self { can_read, can_write, can_execute }
     }
 
     pub fn encode(&self) -> usize {
@@ -142,21 +124,11 @@ pub(super) struct PageTableConfiguration {
 
 impl PageTableConfiguration {
     pub fn empty() -> Self {
-        Self {
-            is_accessible_to_user: false,
-            was_accessed: false,
-            is_global_mapping: false,
-            is_dirty: false,
-        }
+        Self { is_accessible_to_user: false, was_accessed: false, is_global_mapping: false, is_dirty: false }
     }
 
     pub fn shared_page_configuration() -> Self {
-        Self {
-            is_accessible_to_user: true,
-            was_accessed: true,
-            is_global_mapping: false,
-            is_dirty: true,
-        }
+        Self { is_accessible_to_user: true, was_accessed: true, is_global_mapping: false, is_dirty: true }
     }
 
     pub fn decode(raw_entry: usize) -> Self {
@@ -164,12 +136,7 @@ impl PageTableConfiguration {
         let was_accessed = PageTableBits::Accessed.is_set(raw_entry);
         let is_global_mapping = PageTableBits::Global.is_set(raw_entry);
         let is_dirty = PageTableBits::Dirty.is_set(raw_entry);
-        Self {
-            is_accessible_to_user,
-            was_accessed,
-            is_global_mapping,
-            is_dirty,
-        }
+        Self { is_accessible_to_user, was_accessed, is_global_mapping, is_dirty }
     }
 
     pub fn encode(&self) -> usize {

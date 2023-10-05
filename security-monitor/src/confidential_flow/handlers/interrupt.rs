@@ -57,7 +57,5 @@ pub fn handle(confidential_flow: ConfidentialFlow) -> ! {
         Err(error) => error.into_non_confidential_transformation(),
     };
 
-    confidential_flow
-        .into_non_confidential_flow()
-        .exit_to_hypervisor(transformation)
+    confidential_flow.into_non_confidential_flow().exit_to_hypervisor(transformation)
 }

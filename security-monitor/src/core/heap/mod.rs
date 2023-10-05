@@ -10,14 +10,8 @@ mod allocator;
 static mut HEAP_ALLOCATOR: MemoryAllocator = MemoryAllocator::empty();
 
 pub(super) fn init_heap(start_address: usize, heap_size: usize) {
-    debug!(
-        "Initial Heap {:x}-{:x}",
-        start_address,
-        start_address + heap_size
-    );
+    debug!("Initial Heap {:x}-{:x}", start_address, start_address + heap_size);
     unsafe {
-        HEAP_ALLOCATOR
-            .lock()
-            .add_free_region(start_address, heap_size);
+        HEAP_ALLOCATOR.lock().add_free_region(start_address, heap_size);
     }
 }

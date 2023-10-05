@@ -28,20 +28,11 @@ impl TrapReason {
         }
         match mcause.code() {
             Self::STORE_ACCESS_FAULT => TrapReason::StoreAccessFault,
-            Self::HS_ECALL => TrapReason::HsEcall(
-                hart_state.gpr(GpRegister::a7),
-                hart_state.gpr(GpRegister::a6),
-            ),
-            Self::VS_ECALL => TrapReason::VsEcall(
-                hart_state.gpr(GpRegister::a7),
-                hart_state.gpr(GpRegister::a6),
-            ),
+            Self::HS_ECALL => TrapReason::HsEcall(hart_state.gpr(GpRegister::a7), hart_state.gpr(GpRegister::a6)),
+            Self::VS_ECALL => TrapReason::VsEcall(hart_state.gpr(GpRegister::a7), hart_state.gpr(GpRegister::a6)),
             Self::GUEST_LOAD_PAGE_FAULT => TrapReason::GuestLoadPageFault,
             Self::GUEST_STORE_PAGE_FAULT => TrapReason::GuestStorePageFault,
-            _ => TrapReason::Unknown(
-                hart_state.gpr(GpRegister::a7),
-                hart_state.gpr(GpRegister::a6),
-            ),
+            _ => TrapReason::Unknown(hart_state.gpr(GpRegister::a7), hart_state.gpr(GpRegister::a6)),
         }
     }
 }

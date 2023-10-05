@@ -8,7 +8,7 @@ pub enum Error {
     #[error("Virtio Error")]
     VirtioError(),
     #[error("ESM error")]
-    EsmError(),    
+    EsmError(),
     #[error("Share page error")]
     SharePageError(),
     #[error("DMA not initialized")]

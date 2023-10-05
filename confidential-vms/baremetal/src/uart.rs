@@ -50,5 +50,5 @@ impl Uart {
             self.put(c);
         }
         self.put('\n' as u8);
-    }    
+    }
 }

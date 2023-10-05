@@ -1,15 +1,19 @@
 # Assured Confidential Execution (ACE) for RISC-V  
-ACE-RISCV is an open-source project, which goal is to deliver a confidential computing framework with a formally proven firmware. It is based on the [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being able to be ported to other architectures. Formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work together to push the boundaries of confidential computing technology. 
+ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on a [canonical architecture](https://arxiv.org/abs/2308.10249) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
 
-**It is an active research project, without warranties of any kind.**
+**This is an active research project, without warranties of any kind.** 
+
+We are currently building on RISC-V with hypervisor extentions. We will move to the AP-TEE extension when it is available. Moving to this extension will simplify our system.
 
 ## Quick Start
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
 
 ### Requirements
-The full compilation of the framework takes long time because we build all tools from sources. These are: the RISC-V compiler (`riscv-toolchain`), RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
+Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~20min) build time.
 
 ### Dependencies
+You must install build dependencies specific to the operating system you use AND install the Rust toolchain.
+
 <details>
 <summary>Dependencies for Fedora 36 (click to see)</summary>
 
@@ -61,20 +65,20 @@ rustup target add riscv64gc-unknown-none-elf
 rustup component add rustfmt
 cargo install cargo-binutils
 
-# make sure that the below line is in the ~/.bashrc
+# check that the below lines are in the ~/.bashrc
 . "$HOME/.cargo/env"
 ```
 
 ### Sources & Patches
-Checkout this repository with submodules (takes long time!):
+Checkout this repository with submodules (this takes a long time!):
 ```
 git clone --recurse-submodules git@github.com:IBM/ACE-RISCV.git
 ```
 
 ### Compilation
-Run the following commands from the directory where this README file is.
-
 #### Prerequisites
+Run the following commands from the directory containing this README file.
+
 Set up the ACE_DIR variable to point to the location where the project will build. Default is the build/ subdirectory of the location where you will execute `make` command.
 ```
 export ACE_DIR=/your/path/to/build/ace
@@ -87,7 +91,7 @@ MAKEFLAGS="--silent -j4" make
 ```
 
 #### Build individual components
-You can build individual components to avoid long builds that can lead to 'ssh disconnections', 'hangups', and similar.
+Alternativly, you can build individual components to avoid long builds that can lead to 'ssh disconnections', 'hangups', and similar issues.
 
 Install all develoment tools required to compile code for risc-v architecture:
 ```
@@ -120,7 +124,7 @@ To run the test environment on a RISC-V emulator run:
 ${ACE_DIR}/tools/ace run
 ```
 
-You should see the output from the boot process and promt to login to the hypervisor.
+You should see the output from the boot process and a promt to login to the hypervisor.
 ```
 # login: root, password: passwd
 ```

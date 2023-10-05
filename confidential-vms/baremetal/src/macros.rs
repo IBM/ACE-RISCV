@@ -42,7 +42,10 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 #[no_mangle]
 extern "C" fn abort() -> ! {
-    let _ = sbi::system_reset::system_reset(sbi::system_reset::ResetType::Shutdown, sbi::system_reset::ResetReason::NoReason);
+    let _ = sbi::system_reset::system_reset(
+        sbi::system_reset::ResetType::Shutdown,
+        sbi::system_reset::ResetReason::NoReason,
+    );
     loop {
         unsafe {
             core::arch::asm!("wfi");

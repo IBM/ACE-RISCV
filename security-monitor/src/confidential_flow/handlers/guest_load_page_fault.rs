@@ -2,9 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::transformations::{
-    ExposeToHypervisor, GuestLoadPageFaultRequest, MmioLoadRequest, PendingRequest,
-};
+use crate::core::transformations::{ExposeToHypervisor, GuestLoadPageFaultRequest, MmioLoadRequest, PendingRequest};
 use crate::error::Error;
 
 pub fn handle(

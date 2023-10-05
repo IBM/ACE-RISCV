@@ -11,10 +11,7 @@ pub struct GuestLoadPageFaultRequest {
 
 impl GuestLoadPageFaultRequest {
     pub fn new(instruction_length: usize, result_gpr: GpRegister) -> Self {
-        Self {
-            instruction_length,
-            result_gpr,
-        }
+        Self { instruction_length, result_gpr }
     }
 
     pub fn instruction_length(&self) -> usize {

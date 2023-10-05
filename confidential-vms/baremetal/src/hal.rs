@@ -1,28 +1,24 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use core::{
-    ptr::NonNull,
-    sync::atomic::{Ordering},
-};
-use virtio_drivers::{BufferDirection, Hal, PhysAddr};
+use core::{ptr::NonNull, sync::atomic::Ordering};
 use virtio_drivers::PAGE_SIZE;
+use virtio_drivers::{BufferDirection, Hal, PhysAddr};
 
 pub struct ScratchPage {
     pub base_paddr: usize,
     pub position: usize,
-    pub translations: alloc::vec::Vec<BufferTranslation>, 
+    pub translations: alloc::vec::Vec<BufferTranslation>,
 }
 
 pub struct BufferTranslation {
     pub vaddr: usize,
     pub paddr: usize,
     pub position: usize,
-    pub len: usize
+    pub len: usize,
 }
 
-pub struct HalSvmImpl {
-}
+pub struct HalSvmImpl {}
 
 unsafe impl Hal for HalSvmImpl {
     fn dma_alloc(pages: usize, _direction: BufferDirection) -> (PhysAddr, NonNull<u8>) {
@@ -34,7 +30,7 @@ unsafe impl Hal for HalSvmImpl {
             }
         };
         for i in 0..pages {
-            crate::calls::sm::share_page(paddr + i*4096, 1).expect("DMA alloc failed");
+            crate::calls::sm::share_page(paddr + i * 4096, 1).expect("DMA alloc failed");
         }
         let vaddr = NonNull::new(paddr as _).unwrap();
 
@@ -59,21 +55,27 @@ unsafe impl Hal for HalSvmImpl {
         }
 
         let paddr = unsafe {
-            crate::SCRATCH_PAGE.as_mut().and_then(|sp| {
-                let position = sp.position;
-                let paddr = sp.base_paddr + position;
-                sp.translations.push(BufferTranslation{
-                    vaddr, paddr, position, len: buffer.len(),
-                });
-                for i in 0..buffer.len() {
-                    let input_ptr = (vaddr+i) as *mut u8;
-                    let output_ptr = (sp.base_paddr+sp.position) as *mut u8;
-                    let value = input_ptr.read_volatile();
-                    output_ptr.write_volatile(value);
-                    sp.position += 1;
-                }
-                Some(paddr)
-            }).unwrap()
+            crate::SCRATCH_PAGE
+                .as_mut()
+                .and_then(|sp| {
+                    let position = sp.position;
+                    let paddr = sp.base_paddr + position;
+                    sp.translations.push(BufferTranslation {
+                        vaddr,
+                        paddr,
+                        position,
+                        len: buffer.len(),
+                    });
+                    for i in 0..buffer.len() {
+                        let input_ptr = (vaddr + i) as *mut u8;
+                        let output_ptr = (sp.base_paddr + sp.position) as *mut u8;
+                        let value = input_ptr.read_volatile();
+                        output_ptr.write_volatile(value);
+                        sp.position += 1;
+                    }
+                    Some(paddr)
+                })
+                .unwrap()
         };
 
         // println!("share {:x} -> {:x} (buffer len: {})", vaddr, paddr, buffer.len());
@@ -89,8 +91,8 @@ unsafe impl Hal for HalSvmImpl {
                         index_to_remove = Some(i);
                         // write back to the confidential memory
                         for _ in 0..x.len {
-                            let input_ptr = (paddr+i) as *mut u8;
-                            let output_ptr = (x.vaddr+i) as *mut u8;
+                            let input_ptr = (paddr + i) as *mut u8;
+                            let output_ptr = (x.vaddr + i) as *mut u8;
                             let value = input_ptr.read_volatile();
                             output_ptr.write_volatile(value);
                         }

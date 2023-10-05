@@ -13,13 +13,14 @@ pub struct TrapFrame {
 }
 
 impl TrapFrame {
-	pub const fn zero() -> Self {
-		TrapFrame { regs:       [0; 32],
-		            fregs:      [0; 32],
-		            satp:       0,
-		            trap_stack: null_mut(),
+    pub const fn zero() -> Self {
+        TrapFrame {
+            regs: [0; 32],
+            fregs: [0; 32],
+            satp: 0,
+            trap_stack: null_mut(),
         }
-	}
+    }
 }
 
 #[no_mangle]
@@ -51,7 +52,7 @@ extern "C" fn trap_handler(
             7 => {
                 println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
                 return_pc += 4;
-            },
+            }
             _ => panic!("Unhandled trap -> {}\n", cause_num),
         }
     };

@@ -10,12 +10,7 @@ pub struct MmioLoadRequest {
 
 impl MmioLoadRequest {
     pub fn new(code: usize, stval: usize, htval: usize, instruction: usize) -> Self {
-        Self {
-            code,
-            stval,
-            htval,
-            instruction,
-        }
+        Self { code, stval, htval, instruction }
     }
 
     pub fn code(&self) -> usize {

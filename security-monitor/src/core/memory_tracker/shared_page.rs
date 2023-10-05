@@ -23,11 +23,7 @@ impl SharedPage {
 
         let confidential_vm_virtual_address = request.confidential_vm_virtual_address();
 
-        Ok(Self {
-            hypervisor_address,
-            confidential_vm_virtual_address,
-            page_size,
-        })
+        Ok(Self { hypervisor_address, confidential_vm_virtual_address, page_size })
     }
 
     pub fn hypervisor_address(&self) -> NonConfidentialMemoryAddress {

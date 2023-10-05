@@ -13,22 +13,8 @@ pub struct MmioStoreRequest {
 }
 
 impl MmioStoreRequest {
-    pub fn new(
-        code: usize,
-        stval: usize,
-        htval: usize,
-        instruction: usize,
-        gpr: GpRegister,
-        gpr_value: usize,
-    ) -> Self {
-        Self {
-            code,
-            stval,
-            htval,
-            instruction,
-            gpr,
-            gpr_value: gpr_value,
-        }
+    pub fn new(code: usize, stval: usize, htval: usize, instruction: usize, gpr: GpRegister, gpr_value: usize) -> Self {
+        Self { code, stval, htval, instruction, gpr, gpr_value: gpr_value }
     }
 
     pub fn code(&self) -> usize {
