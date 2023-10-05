@@ -33,10 +33,14 @@ jobs:
       run: rustup component add rustfmt
     - name: install cargo utils
       run: cargo install cargo-binutils
+    - name: build riscv toolchain
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make devtools
     - name: build emulator
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make emulator
     - name: build tools
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make tools
+    - name: build hypervisor
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make hypervisor
     - name: build firmware
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make firmware
     - name: build cvms
