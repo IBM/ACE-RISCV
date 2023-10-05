@@ -22,7 +22,7 @@ jobs:
     - name: install utilities
       run: sudo apt install -y sshpass
     - name: install rust
-      run: curl https://sh.rustup.rs -sSf | sh -y
+      run: curl https://sh.rustup.rs -sSf | sh -s -- -y
     - name: install rust nightly
       run: rustup default nightly
     - name: install rust nightly
