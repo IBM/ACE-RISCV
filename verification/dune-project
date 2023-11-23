@@ -1,0 +1,4 @@
+(lang dune 3.8)
+(name ace)
+(package (name ace))
+(using coq 0.8)

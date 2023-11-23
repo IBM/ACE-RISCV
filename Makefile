@@ -61,6 +61,9 @@ tools: setup
 	mkdir -p $(TOOLS_WORK_DIR)
 	cp -rf $(TOOLS_SOURCE_DIR)/* $(TOOLS_WORK_DIR)
 
+verify:
+	ACE_DIR=$(ACE_DIR) $(MAKE) -C verification
+
 clean:
 	rm -rf $(ACE_DIR)
 
