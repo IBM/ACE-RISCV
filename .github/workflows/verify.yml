@@ -1,0 +1,44 @@
+---
+name: Verification tests
+
+on: [push, pull_request]
+
+
+jobs:
+  build:
+    name: Verify
+    runs-on: ubuntu-latest  # container actions require GNU/Linux
+    strategy:
+      matrix:
+        coq_container:
+        - coqorg/coq:8.17.1-ocaml-4.14.1-flambda
+    container:
+      image: ${{ matrix.coq_container }}
+      options: --user root
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+    - name: Fix permissions
+      run: chown -R 1000 .
+    - name: ls
+      run: ls -la .
+    - name: Install openssl dependency
+      run: 'sudo apt update && sudo apt install libssl-dev -y'
+    - name: Pull RefinedRust
+      run: su coq -c 'git clone https://gitlab.mpi-sws.org/lgaeher/refinedrust-dev.git verification/refinedrust'
+    - name: Install rustup
+      run: su coq -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | bash /dev/stdin "-y"'
+    - name: Setup Rust toolchain
+      run: su coq -c 'source "$HOME/.cargo/env" && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/setup-rust.sh'
+    - name: Install frontend
+      run: su coq -c 'source "$HOME/.cargo/env" && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-frontend.sh'
+    - name: Install Opam dependencies
+      run: su coq -c 'eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/setup-coq.sh'
+    - name: Install RefinedRust type system
+      run: su coq -c 'eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-typesystem.sh'
+    - name: Translate specified files using RefinedRust
+      run: su coq -c 'source "$HOME/.cargo/env" && eval $(opam env) && REFINEDRUST="refinedrust_translate" make verify'
+    - name: Check proofs
+      run: su coq -c 'eval $(opam env) && cd verification && dune build'

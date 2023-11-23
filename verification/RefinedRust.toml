@@ -1,0 +1,5 @@
+dump_borrowck_info=false
+output_dir="./generated_code"
+log_dir = "./log"
+shims = "rr_shims.json"
+run_check = false

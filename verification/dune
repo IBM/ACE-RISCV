@@ -1,0 +1,2 @@
+; Add project-wide flags here.
+(dirs :standard \ refinedrust)
