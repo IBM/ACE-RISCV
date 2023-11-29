@@ -11,17 +11,21 @@ use spin::Once;
 pub static CONFIDENTIAL_MEMORY_RANGE: Once<Range<usize>> = Once::new();
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ConfidentialMemoryAddress(pub(super) usize);
+#[derive(Debug, PartialEq)]
+pub struct ConfidentialMemoryAddress(pub(super) *mut usize);
 
 impl ConfidentialMemoryAddress {
-    pub fn usize(&self) -> usize {
+    pub fn as_mut_ptr(&mut self) -> *mut usize {
         self.0
+    }
+
+    pub fn as_ptr(&self) -> *const usize {
+        self.0 as *const usize
     }
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 pub struct NonConfidentialMemoryAddress(usize);
 
 impl NonConfidentialMemoryAddress {

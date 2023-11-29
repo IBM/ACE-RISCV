@@ -18,9 +18,14 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     }
     debug!("Cleaning up...");
     // clear the content of the confidential memory
-    CONFIDENTIAL_MEMORY_RANGE.get().expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY).clone().for_each(|address| {
-        unsafe { (address as *mut u8).write_volatile(0) };
-    });
+    CONFIDENTIAL_MEMORY_RANGE
+        .get()
+        .expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY)
+        .clone()
+        .step_by(core::mem::size_of::<usize>())
+        .for_each(|address| {
+            unsafe { (address as *mut usize).write_volatile(0) };
+        });
 
     // sleep or loop forever since there is nothing else we can do
     loop {

@@ -16,13 +16,11 @@ impl PageTableEntry {
     pub fn encode(&self) -> usize {
         match self {
             PageTableEntry::Pointer(page_table, configuration) => {
-                PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(page_table.address().usize())
-                    | configuration.encode()
+                PageTableBits::Valid.mask() | PageTableAddress::encode(page_table.address()) | configuration.encode()
             }
             PageTableEntry::Leaf(page, configuration, permissions) => {
                 PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(page.address().usize())
+                    | PageTableAddress::encode(page.start_address())
                     | configuration.encode()
                     | permissions.encode()
             }

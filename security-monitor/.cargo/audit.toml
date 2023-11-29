@@ -1,0 +1,7 @@
+[advisories]
+informational_warnings = ["unmaintained"]
+severity_threshold = "low"
+
+[output]
+deny = ["warnings", "yanked", "unsound", "unmaintained"]
+quiet = false # Only print information on error

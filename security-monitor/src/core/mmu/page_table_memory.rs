@@ -2,9 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::PagingSystem;
-use crate::core::memory_tracker::{
-    Allocated, ConfidentialMemoryAddress, MemoryTracker, NonConfidentialMemoryAddress, Page,
-};
+use crate::core::memory_tracker::{Allocated, MemoryTracker, NonConfidentialMemoryAddress, Page};
 use crate::core::mmu::page_table_entry::PageTableEntry;
 use crate::core::mmu::paging_system::PageTableLevel;
 use crate::core::mmu::PageSize;
@@ -51,9 +49,9 @@ impl PageTableMemory {
         Ok(Self { pages, number_of_entries, entry_size })
     }
 
-    pub(super) fn start_address(&self) -> ConfidentialMemoryAddress {
+    pub(super) fn start_address(&self) -> usize {
         // Safety: indexing 0 is fine because a PageTable has almost at least one page.
-        self.pages[0].address()
+        self.pages[0].start_address()
     }
 
     pub(super) fn number_of_entries(&self) -> usize {
@@ -66,15 +64,22 @@ impl PageTableMemory {
 
     pub(super) fn entry(&self, index: usize) -> Option<usize> {
         self.resolve_index(index).and_then(|(page_id, index_in_page)| {
-            self.pages.get(page_id).and_then(|page| Some(page.read::<usize>(self.entry_size * index_in_page)))
+            let offset_in_page = self.entry_size * index_in_page;
+            self.pages.get(page_id).and_then(|page| Some(page.read(offset_in_page)))
         })
     }
 
     pub(super) fn set_entry(&mut self, index: usize, entry: &PageTableEntry) {
+        // skip unnecessary write to the memory. Pages in the confidential memory
+        // are guaranteed to be zeroed when allocated and a not valid entry is just 0
+        let value = entry.encode();
+        if value == 0 {
+            return;
+        }
+
         self.resolve_index(index).and_then(|(page_id, index_in_page)| {
-            let offset = self.entry_size * index_in_page;
-            let value = entry.encode();
-            self.pages.get(page_id).and_then(|page| Some(page.write::<usize>(offset, value)))
+            let offset_in_page = self.entry_size * index_in_page;
+            self.pages.get_mut(page_id).and_then(|ref mut page| Some(page.write(offset_in_page, value)))
         });
     }
 

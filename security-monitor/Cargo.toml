@@ -1,6 +1,6 @@
 [package]
 name = "security-monitor"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
 description = "Security monitor implementation for the canonical confidential computing for RISC-V"
 edition = "2021"
@@ -14,13 +14,13 @@ riscv = {path = "rust-crates/riscv"}
 riscv-decode = "0.2" # decodes RISC-V instructions unfortunately it does not support the C-instructions yet
 
 # flattened device tree parser
-fdt-rs = {version = "0.4", default-features = false} 
+fdt = "0.1.5"
 
 # Rust bindings to OpenSBI C code.
 opensbi-sys = {path = "rust-crates/opensbi-sys"}
 
 # spin provides synchronization primitives (Mutexes etc) using spinlocks
-spin = "0.9"
+spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
 # allows parsing untrusted input without using unsafe rust
 # used commonly in safety&security critical applications
