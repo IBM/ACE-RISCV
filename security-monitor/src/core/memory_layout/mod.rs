@@ -21,10 +21,18 @@ static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
 
 /// Provides an interface to offset addresses that are guaranteed to remain inside the same memory region, i.e.,
 /// confidential or non-confidential memory.
+#[rr::refined_by("(non_conf_start, non_conf_end, conf_start, conf_end)")]
+#[rr::invariant("non_conf_start < non_conf_end")]
+#[rr::invariant("conf_start < conf_end")]
+#[rr::invariant("non_conf_end ≤ conf_start")]
 pub struct MemoryLayout {
+    #[rr::field("non_conf_start")]
     non_confidential_memory_start: *mut usize,
+    #[rr::field("non_conf_end")]
     non_confidential_memory_end: *const usize,
+    #[rr::field("conf_start")]
     confidential_memory_start: *mut usize,
+    #[rr::field("conf_end")]
     confidential_memory_end: *const usize,
 }
 
@@ -128,6 +136,9 @@ impl MemoryLayout {
         });
     }
 
+    #[rr::skip]
+    #[rr::requires(#iris "initialized_once MEMORY_LAYOUT (non_conf_start, non_conf_end, conf_start, conf_end)")]
+    #[rr::returns("#(non_start, non_end, conf_start, conf_end)")]
     pub fn read() -> &'static MemoryLayout {
         MEMORY_LAYOUT.get().expect(Self::NOT_INITIALIZED_MEMORY_LAYOUT)
     }

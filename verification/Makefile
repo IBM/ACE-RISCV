@@ -19,11 +19,10 @@ echo_toolchain:
 
 backup_build_artifacts:
 	rm -rf generated_code.bak
-	@[ ! -d generated_code ] || (echo "Backing up generated files to generated_code.bak" && mv generated_code generated_code.bak)
-	rm -rf generated_code
+	@[ ! -d generated_code ] || (echo "Backing up generated files to generated_code.bak" && cp -r generated_code generated_code.bak)
 
 generate: echo_toolchain backup_build_artifacts
-	RR_OUTPUT_DIR=$(MAKEFILE_SOURCE_DIR)/generated_code PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C ../security-monitor refinedrust
+	RR_CONFIG=$(MAKEFILE_SOURCE_DIR)/RefinedRust.toml PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C ../security-monitor refinedrust
 
 verify: generate
 	@dune build --display short
