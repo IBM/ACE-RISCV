@@ -5,7 +5,9 @@
 -arg -w -arg -redundant-canonical-projection
 
 ## example theory for manually proved things
-# -Q _build/default/theories/theory ace.theory
+-Q _build/default/theories/memory_tracker/page/ ace.theories.page
+-Q _build/default/theories/result ace.theories.result
+
 
 # include RefinedRust-generated theories here
--Q _build/default/rr_output/security_monitor ace.security_monitor.rr
+-Q _build/default/generated_code/sm/ ace.sm

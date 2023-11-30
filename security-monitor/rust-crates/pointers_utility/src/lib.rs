@@ -5,6 +5,13 @@
 #![no_main]
 #![feature(pointer_byte_offsets)]
 
+// used for RefinedRust annotations
+#![feature(register_tool)]
+#![register_tool(rr)]
+#![feature(custom_inner_attributes)]
+#![rr::coq_prefix("ace_ptr")]
+
+
 mod error;
 use core::mem::size_of;
 pub use crate::error::PointerError;
@@ -27,6 +34,11 @@ pub fn ptr_align(pointer: *mut usize, align_in_bytes: usize, owned_region_end: *
 /// the one-past-the-end address. The returned pointer is guaranteed to be valid for accesses
 /// of size one, if the original pointer is valid. Additional checks are required for making
 /// larger memory accesses.
+#[rr::skip]
+#[rr::params("l", "off", "lmax")]
+#[rr::args("l", "off", "lmax")]
+#[rr::requires("⌜l.2 + off < lmax.2⌝")]
+#[rr::returns("Ok(l +ₗ off)")]
 pub fn ptr_byte_add_mut(
     pointer: *mut usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*mut usize, PointerError> {
