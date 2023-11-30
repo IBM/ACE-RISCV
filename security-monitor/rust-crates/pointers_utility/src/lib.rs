@@ -23,6 +23,7 @@ pub fn ptr_align(pointer: *mut usize, align_in_bytes: usize, owned_region_end: *
 pub fn ptr_byte_add_mut(
     pointer: *mut usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*mut usize, PointerError> {
+    assert!(offset_in_bytes < isize::MAX.try_into().unwrap());
     let incremented_pointer = pointer.wrapping_byte_add(offset_in_bytes);
     // Safety: Check if the pointer is still within the owned region
     if (incremented_pointer as *const usize) > owned_region_end {
@@ -38,6 +39,7 @@ pub fn ptr_byte_add_mut(
 pub fn ptr_byte_add(
     pointer: *const usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*const usize, PointerError> {
+    assert!(offset_in_bytes < isize::MAX.try_into().unwrap());
     let incremented_pointer = pointer.wrapping_byte_add(offset_in_bytes);
     // Safety: Check if the pointer is still within the owned region
     if (incremented_pointer as *const usize) > owned_region_end {

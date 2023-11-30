@@ -24,6 +24,7 @@ impl LinkedListAllocator {
     // can lead to the situation where the heap allocator no longer allows allocating larger chunks of memory
     // because the free memory is fragmented into to small chunks.
     pub fn add_free_memory_region(&mut self, base_address: *const usize, size: usize) {
+        assert!(size < isize::MAX.try_into().unwrap());
         assert!(base_address.is_aligned_to(mem::align_of::<FreeMemoryRegion>()));
         if size >= mem::size_of::<FreeMemoryRegion>() {
             let mut free_node = FreeMemoryRegion::new(size);
