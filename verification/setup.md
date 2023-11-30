@@ -46,15 +46,17 @@ If you do not have rustup installed yet, follow the instructions at https://rust
 Now, run the following commands in the shell opened previously:
 ```
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/setup-rust.sh
+cd $PWD/refinedrust/rr_frontend && rustup target add riscv64gc-unknown-none-elf
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-frontend.sh
 ```
 
-This will install a binary `refinedrust_translate` in the rustup toolchain for RefinedRust, which is available afterwards.
+This will install binaries `refinedrust-rustc` and `cargo-refinedrust` in your cargo path.
+This allows us to run `cargo refinedrust` in Rust projects.
 
 ## Verifying the code
 
 Now, we are ready to run the verification.
 To that end, run
 ```
-REFINEDRUST=refinedrust_translate make verify
+make verify
 ```

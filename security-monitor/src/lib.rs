@@ -13,6 +13,10 @@
 // #![feature(const_refs_to_cell)]
 // used to run closure on Err(). Simplifies syntax and can be removed in future
 #![feature(result_option_inspect)]
+// used for RefinedRust annotations
+#![feature(register_tool)]
+#![register_tool(rr)]
+#![feature(custom_inner_attributes)]
 
 // extern creates
 extern crate alloc;

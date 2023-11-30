@@ -5,31 +5,27 @@
 MAKEFILE_PATH 							:= $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR 					:= $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
-REFINEDRUST ?= refinedrust_translate
+REFINEDRUST_CARGO ?= cargo-refinedrust
+REFINEDRUST_RUSTC ?= refinedrust-rustc
 
 # TODO: currently, this builds in-tree.
 # It would be good if we could build in the ACE_DIR
 # Main Problem: generating the RefinedRust files there.
 
 ## Verification-related make targets
-# a list of Rust source files to verify
-VERIFICATION_TARGETS =
-# ../security-monitor/src/core/memory_tracker/test.rs
-
-# generate the Coq code for a particular Rust file
-# TODO: configure output directory for Refinedrust
-%.rs.gen: %.rs
-	@$(REFINEDRUST) $<
-.PHONY: phony
-
-# generate Coq code for all verification targets
-generate_all: $(addsuffix .gen, $(VERIFICATION_TARGETS))
-.PHONY: generate_all
 
 echo_toolchain:
-	@echo "Using RefinedRust toolchain located at $(REFINEDRUST)"
+	@echo "Using RefinedRust toolchain located at $(REFINEDRUST_CARGO)"
 
-verify: echo_toolchain generate_all
+backup_build_artifacts:
+	rm -rf generated_code.bak
+	@[ ! -d generated_code ] || (echo "Backing up generated files to generated_code.bak" && mv generated_code generated_code.bak)
+	rm -rf generated_code
+
+generate: echo_toolchain backup_build_artifacts
+	RR_OUTPUT_DIR=$(MAKEFILE_SOURCE_DIR)/generated_code PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C ../security-monitor refinedrust
+
+verify: generate
 	@dune build --display short
 
 clean:
