@@ -1,44 +1,56 @@
 [
   {
-    "path": ["std", "mem", "swap"],
+    "path": ["core", "mem", "swap"],
     "kind": "function",
-    "name": "std_mem_swap",
+    "name": "core_mem_swap",
     "spec": "type_of_mem_swap"
-  }, 
-  {
-    "path": ["std", "boxed", "Box", "new"],
-    "kind": "method",
-    "name": "box_new",
-    "spec": "type_of_box_new"
   },
   {
-    "path": ["std", "mem", "size_of"],
+    "path": ["core", "mem", "size_of"],
     "kind": "function",
-    "name": "std_mem_size_of",
+    "name": "core_mem_size_of",
     "spec": "type_of_mem_size_of"
   },
-  { 
-    "path": ["std", "ptr", "read"],
+  {
+    "path": ["core", "ptr", "read"],
     "kind": "function",
-    "name": "std_ptr_read",
+    "name": "core_ptr_read",
     "spec": "type_of_ptr_read"
   },
-  { 
-    "path": ["std", "ptr", "write"],
+  {
+    "path": ["core", "ptr", "read_volatile"],
     "kind": "function",
-    "name": "std_ptr_write",
+    "name": "core_ptr_read",
+    "spec": "type_of_ptr_read"
+  },
+  {
+    "path": ["core", "ptr", "write"],
+    "kind": "function",
+    "name": "core_ptr_write",
     "spec": "type_of_ptr_write"
   },
-  { 
-    "path": ["std", "ptr", "copy"],
+  {
+    "path": ["core", "ptr", "write_volatile"],
     "kind": "function",
-    "name": "std_ptr_copy",
+    "name": "core_ptr_write",
+    "spec": "type_of_ptr_write"
+  },
+  {
+    "path": ["core", "ptr", "copy"],
+    "kind": "function",
+    "name": "core_ptr_copy",
     "spec": "type_of_ptr_copy"
   },
-  { 
-    "path": ["std", "option", "Option", "unwrap"],
+  {
+    "path": ["core", "option", "Option", "unwrap"],
     "kind": "method",
-    "name": "std_option_Option_unwrap_def",
-    "spec": "type_of_std_option_Option_unwrap"
+    "name": "core_option_Option_unwrap_def",
+    "spec": "type_of_core_option_Option_unwrap"
+  },
+  {
+    "path": ["core", "result", "Result", "unwrap"],
+    "kind": "method",
+    "name": "core_result_Result_unwrap_def",
+    "spec": "type_of_core_result_Result_unwrap"
   }
 ]
