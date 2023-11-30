@@ -6,7 +6,9 @@ use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, CONFIDENTIAL
 use crate::core::mmu::PageSize;
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
+use core::mem::size_of;
 use fdt::Fdt;
+use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 use spin::{Mutex, Once, RwLock};
 
 extern "C" {
@@ -34,6 +36,7 @@ extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8
 }
 
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
+    // Safety: pointer to the flattened device tree is trusted.
     let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
 
     let number_of_harts = read_number_of_cpus(&fdt)?;
@@ -83,33 +86,36 @@ fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
 }
 
 fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *mut usize), Error> {
-    // TODO: FDT may contain multiple regions. For now, we assume there is only one
+    // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
-    let dram_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
-    // we own all the memory because we are early in the boot process.
-    // Thus, it is fine to cast the *const usize into *mut usize
-    let non_confidential_memory_base_address = dram_memory_region.starting_address as *mut usize;
-    let non_confidential_memory_size = dram_memory_region.size.unwrap_or(0);
-    let non_confidential_memory_end_address =
-        unsafe { non_confidential_memory_base_address.byte_add(non_confidential_memory_size) };
-
-    let confidential_memory_base_address =
-        unsafe { non_confidential_memory_base_address.byte_add(non_confidential_memory_size) };
+    let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
+    // Safety: We own all the memory because we are early in the boot process and have full rights
+    // to split memory according to our needs. Thus, it is fine to cast `usize` to `*mut usize`
+    // Information read from FDT is trusted. So we trust that we read the correct start and size of the
+    // memory.
+    let memory_start = fdt_memory_region.starting_address as *mut usize;
+    // In assembly that executed this initialization function splitted the memory into two regions where
+    // the second region's size is equal or greater than the first ones.
+    let non_confidential_memory_size = fdt_memory_region.size.unwrap_or(0);
     let confidential_memory_size = non_confidential_memory_size;
-    let confidential_memory_end_address =
-        unsafe { confidential_memory_base_address.byte_add(confidential_memory_size) };
+    let memory_size = non_confidential_memory_size + confidential_memory_size;
+    let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
+    debug!("Memory {:#?}-{:#?}", memory_start, memory_end);
 
-    debug!(
-        "Non-confidential memory {:#?}-{:#?}",
-        non_confidential_memory_base_address, non_confidential_memory_end_address
-    );
-    debug!("Confidential memory {:#?}-{:#?}", confidential_memory_base_address, confidential_memory_end_address);
+    // First region of memory is defined as non-confidential memory
+    let non_confidential_memory_start = memory_start;
+    let non_confidential_memory_end =
+        ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
+            .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+    debug!("Non-confidential memory {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
 
-    if confidential_memory_end_address <= confidential_memory_base_address {
-        return Err(Error::Init(InitType::InvalidMemoryBoundaries));
-    }
+    // Second region of memory is defined as confidential memory
+    let confidential_memory_start = non_confidential_memory_end;
+    let confidential_memory_end = ptr_byte_add_mut(confidential_memory_start, confidential_memory_size, memory_end)
+        .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+    debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
-    Ok((confidential_memory_base_address, confidential_memory_end_address))
+    Ok((confidential_memory_start, confidential_memory_end))
 }
 
 fn configure_iopmps() {
@@ -122,33 +128,40 @@ fn configure_iopmps() {
 fn init_confidential_memory(
     start_address: *mut usize, end_address: *mut usize, number_of_harts: usize,
 ) -> Result<(), Error> {
+    const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
     // start allocating objects on heap, e.g., page tokens. We have to first
-    // initialize the global allocator, which permits us to use heap.
+    // initialize the global allocator, which permits us to use heap. To initialize heap
+    // we need to decide what is the confidential memory address range and split this memory
+    // into regions owned by heap allocator and page allocator (memory tracker).
 
-    // TODO: to what page size should we align to??? For now we allign to 4KiB
-    let offset_to_align = start_address.align_offset(PageSize::Size4KiB.in_bytes());
-    let start_address = unsafe { start_address.add(offset_to_align) };
-    assure!(start_address < end_address, Error::Init(InitType::NotEnoughMemory))?;
-
-    // calculate if we have enough memory in the system
-    let memory_size = unsafe { end_address.byte_offset_from(start_address) };
+    // We align the start of the confidential memory to the smalles possible page size (4KiB on RISC-V)
+    // and make sure that its size is the multiply of this page size.
+    let start_address = ptr_align(start_address, PageSize::smallest().in_bytes(), end_address)
+        .map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
+    // Let's make sure that the end of the confidential memory is properly aligned.
+    let memory_size = ptr_byte_offset(end_address, start_address);
     let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
     let number_of_pages = memory_size / PageSize::smallest().in_bytes();
-    let number_of_pages_to_store_tokens = number_of_pages * core::mem::size_of::<Page<UnAllocated>>();
-    let heap_pages = 4 * 1024 + (number_of_pages_to_store_tokens / PageSize::smallest().in_bytes());
-    if number_of_pages < heap_pages {
-        return Err(Error::Init(InitType::NotEnoughMemory));
-    }
+    let memory_size_in_bytes = number_of_pages * PageSize::smallest().in_bytes();
+    let end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
+    // calculate if we have enough memory in the system to store page tokens. In the worst case we
+    // have one page token for every possible page in the confidential memory.
+    let size_of_a_page_token = size_of::<Page<UnAllocated>>();
+    let number_of_pages_to_store_page_tokens = number_of_pages * size_of_a_page_token;
+    let heap_pages = NUMBER_OF_HEAP_PAGES + (number_of_pages_to_store_page_tokens / PageSize::smallest().in_bytes());
+    assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
     // Set up the global allocator so we can start using alloc::*.
-    let heap_size = heap_pages * PageSize::smallest().in_bytes();
-    crate::core::heap::init_heap(start_address, heap_size);
+    let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
+    crate::core::heap::init_heap(start_address, heap_size_in_bytes);
 
     // Memory tracker starts directly after the heap
-    let tracker_memory_start = unsafe { start_address.byte_add(heap_size) };
-    // Memory tracker takes control over the rest of the confidential memory
-    let tracker_memory_size = PageSize::smallest().in_bytes() * (number_of_pages - heap_pages);
-    let memory_tracker = MemoryTracker::new(tracker_memory_start, tracker_memory_size)?;
+    let heap_end_address = ptr_byte_add_mut(start_address, heap_size_in_bytes, end_address)?;
+    let memory_tracker_start_address = heap_end_address;
+    assert!(memory_tracker_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
+    // Memory tracker takes ownership of the rest of the confidential memory.
+    let memory_tracker_end_address = end_address;
+    let memory_tracker = MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)?;
     MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
     CONFIDENTIAL_MEMORY_RANGE.call_once(|| (start_address as usize)..(end_address as usize));
 

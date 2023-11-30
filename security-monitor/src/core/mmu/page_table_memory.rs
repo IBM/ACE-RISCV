@@ -50,7 +50,7 @@ impl PageTableMemory {
     }
 
     pub(super) fn start_address(&self) -> usize {
-        // Safety: indexing 0 is fine because a PageTable has almost at least one page.
+        // Safety: indexing 0 is fine because a PageTableMemory has at least one page.
         self.pages[0].start_address()
     }
 
@@ -65,7 +65,7 @@ impl PageTableMemory {
     pub(super) fn entry(&self, index: usize) -> Option<usize> {
         self.resolve_index(index).and_then(|(page_id, index_in_page)| {
             let offset_in_page = self.entry_size * index_in_page;
-            self.pages.get(page_id).and_then(|page| Some(page.read(offset_in_page)))
+            self.pages.get(page_id).and_then(|page| page.read(offset_in_page).ok())
         })
     }
 
@@ -79,7 +79,7 @@ impl PageTableMemory {
 
         self.resolve_index(index).and_then(|(page_id, index_in_page)| {
             let offset_in_page = self.entry_size * index_in_page;
-            self.pages.get_mut(page_id).and_then(|ref mut page| Some(page.write(offset_in_page, value)))
+            self.pages.get_mut(page_id).and_then(|ref mut page| page.write(offset_in_page, value).ok())
         });
     }
 

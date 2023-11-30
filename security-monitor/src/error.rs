@@ -4,6 +4,7 @@
 use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
 use core::num::TryFromIntError;
 use fdt::FdtError;
+use pointers_utility::PointerError;
 use thiserror_no_std::Error;
 
 pub const CTX_SWITCH_ERROR_MSG: &str =
@@ -61,6 +62,8 @@ pub enum Error {
     NotSupportedInterrupt(),
     #[error("Invalid call cause: {0}, extid: {1:x}, fid: {2:x}")]
     InvalidCall(usize, usize, usize),
+    #[error("Internal error")]
+    Pointer(#[from] PointerError),
 }
 
 impl Error {
@@ -82,7 +85,7 @@ pub enum InitType {
     #[error("Too little memory")]
     NotEnoughMemory,
     #[error("Invalid memory boundaries")]
-    InvalidMemoryBoundaries,
+    MemoryBoundary,
     #[error("Invalid assembly address")]
     InvalidAssemblyAddress,
 }

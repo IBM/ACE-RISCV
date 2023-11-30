@@ -37,6 +37,17 @@ impl NonConfidentialMemoryAddress {
         }
     }
 
+    /// creates a non-confidential address by offseting the current address. An error is returned
+    /// if the resulting address is in the confidential memory.
+    pub fn add(&self, offset_in_bytes: usize) -> Result<Self, Error> {
+        let incremented_address = self.0.checked_add(offset_in_bytes).ok_or(Error::MemoryAccessAuthorization())?;
+        Self::new(incremented_address)
+    }
+
+    pub unsafe fn read(&self) -> usize {
+        (self.0 as *const usize).read_volatile()
+    }
+
     pub fn usize(&self) -> usize {
         self.0
     }

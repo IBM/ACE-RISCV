@@ -9,6 +9,7 @@ use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
+use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 use spin::{Once, RwLock, RwLockWriteGuard};
 
 /// A static global structure containing unallocated pages. Once<> guarantees
@@ -20,29 +21,28 @@ pub struct MemoryTracker {
 }
 
 impl<'a> MemoryTracker {
-    pub fn new(base_address: *mut usize, memory_size: usize) -> Result<Self, Error> {
-        debug!("Memory tracker {:x}-{:x}", base_address as usize, base_address as usize + memory_size);
+    pub fn new(memory_start: *mut usize, memory_end: *const usize) -> Result<Self, Error> {
+        debug!("Memory tracker {:x}-{:x}", memory_start as usize, memory_end as usize);
         let mut map = BTreeMap::new();
-        // TODO: ensure base_address is aligned
-        let mut address = base_address;
-
+        let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
-            let offset_from_base = unsafe { address.byte_offset_from(base_address) };
-            let offset_from_base = match usize::try_from(offset_from_base) {
-                Ok(v) => v,
-                Err(_) => break,
-            };
-            let memory_size_left = memory_size - offset_from_base;
-            let number_of_new_pages = memory_size_left / page_size.in_bytes();
-            let new_pages: Vec<_> = (0..number_of_new_pages)
+            let free_memory_in_bytes = usize::try_from(ptr_byte_offset(memory_end, page_address))?;
+            let number_of_new_pages = free_memory_in_bytes / page_size.in_bytes();
+            let new_pages = (0..number_of_new_pages)
                 .map(|i| {
-                    let page_address = unsafe { address.byte_add(i * page_size.in_bytes()) };
-                    Page::<UnAllocated>::init(ConfidentialMemoryAddress(page_address), page_size.clone())
+                    let page_offset_in_bytes = i * page_size.in_bytes();
+                    let page_address = ptr_byte_add_mut(page_address, page_offset_in_bytes, memory_end)?;
+                    Ok(Page::<UnAllocated>::init(ConfidentialMemoryAddress(page_address), page_size.clone()))
                 })
-                .collect();
+                .collect::<Result<Vec<_>, Error>>()?;
             debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);
-            address = unsafe { address.byte_add(new_pages.len() * page_size.in_bytes()) };
+            let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
+
+            match ptr_byte_add_mut(page_address, pages_size_in_bytes, memory_end) {
+                Ok(ptr) => page_address = ptr,
+                Err(_) => break,
+            }
         }
 
         Ok(Self { map })

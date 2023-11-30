@@ -17,7 +17,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         debug!("no information available.");
     }
     debug!("Cleaning up...");
-    // clear the content of the confidential memory
+    // Clear the content of the confidential memory.
+    // Safety: The initialization of the confidential memory guarantees that this memory
+    // region is aligned to the smalles possible page size, thus it is aligned to usize.
+    // Also the size of the memory is a multiply of usize, so below code will never write
+    // otside the confidential memory region.
     CONFIDENTIAL_MEMORY_RANGE
         .get()
         .expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY)

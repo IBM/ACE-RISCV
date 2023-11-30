@@ -22,6 +22,10 @@ opensbi-sys = {path = "rust-crates/opensbi-sys"}
 # spin provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
+# custom utility library to work with raw pointers. We can get rid of it in future
+# if there is equivalent for it in the standard library
+pointers_utility = {path = "rust-crates/pointers_utility"}
+
 # allows parsing untrusted input without using unsafe rust
 # used commonly in safety&security critical applications
 # for example, in cryptographic libraries

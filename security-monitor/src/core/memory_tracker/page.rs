@@ -7,6 +7,7 @@ use crate::error::Error;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::ops::Range;
+use pointers_utility::{ptr_byte_add, ptr_byte_add_mut};
 
 pub trait PageState {}
 
@@ -16,6 +17,9 @@ pub enum Allocated {}
 impl PageState for UnAllocated {}
 impl PageState for Allocated {}
 
+// We need to declare Send+Sync on the `Page` because Page stores internally a raw pointer and
+// raw pointers are not safe to pass in a multi-threaded program. But in the case of Page it is
+// safe because we never expose raw pointers outside the page.
 unsafe impl<S> Send for Page<S> where S: PageState {}
 unsafe impl<S> Sync for Page<S> where S: PageState {}
 
@@ -43,26 +47,33 @@ impl Page<UnAllocated> {
     pub fn copy_from_non_confidential_memory(
         mut self, address: NonConfidentialMemoryAddress,
     ) -> Result<Page<Allocated>, Error> {
-        // The below copy is secure because we checked that any address in the
-        // address range belongs to the confidential memory (no overlapping).
-        self.offsets().for_each(|offset| {
+        self.offsets().into_iter().try_for_each(|offset_in_bytes| {
             // Safety: we must read usize from the non-confidential memory because the `self.write`
             // only supports writing usize.
-            let data_to_copy = unsafe { ((address.usize() + offset) as *mut usize).read_volatile() };
-            self.write(offset, data_to_copy);
-        });
+            let data_to_copy = unsafe { address.add(offset_in_bytes)?.read() };
+            self.write(offset_in_bytes, data_to_copy)?;
+            Ok::<(), Error>(())
+        })?;
         Ok(Page { address: self.address, size: self.size, _marker: PhantomData })
     }
 
     /// This function divides the current page into smaller pages if possible.
-    /// If this page is the smalles page (4KiB for RISC-V) then the same page is
+    /// If this page is the smallest page (4KiB for RISC-V), then the same page is
     /// returned.
     pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
         let smaller_size = self.size.smaller().unwrap_or(self.size);
         let number_of_smaller_pages = self.size.in_bytes() / smaller_size.in_bytes();
+        let page_start = self.address.as_mut_ptr();
+        let page_end = self.end_address_ptr();
         (0..number_of_smaller_pages)
             .map(|i| {
-                let smaller_page_address = unsafe { self.address.as_mut_ptr().byte_add(i * smaller_size.in_bytes()) };
+                let offset_in_bytes = i * smaller_size.in_bytes();
+                // Safety: below line will panic in case of a programming bug where we defined that
+                // a page can store a certain number of smaller pages but it cannot. This should never
+                // happen in a correctly implemented (and proven) code.
+                // Below pointer arithmetic should never overflow unless we have misconfigured system where
+                // the system is supposed to handle memory pages of sizes exceeded what usize can address.
+                let smaller_page_address = ptr_byte_add_mut(page_start, offset_in_bytes, page_end).unwrap();
                 Page::init(ConfidentialMemoryAddress(smaller_page_address), smaller_size)
             })
             .collect()
@@ -88,6 +99,10 @@ impl<T: PageState> Page<T> {
         self.address.as_ptr() as usize + self.size.in_bytes()
     }
 
+    pub fn end_address_ptr(&self) -> *const usize {
+        self.end_address() as *const usize
+    }
+
     pub fn size(&self) -> &PageSize {
         &self.size
     }
@@ -97,18 +112,23 @@ impl<T: PageState> Page<T> {
         (0..self.size.in_bytes()).step_by(core::mem::size_of::<usize>())
     }
 
-    pub fn read(&self, offset_in_bytes: usize) -> usize {
-        assert!(offset_in_bytes + core::mem::size_of::<usize>() <= self.size.in_bytes());
-        unsafe { self.address.as_ptr().byte_add(offset_in_bytes).read_volatile() }
+    pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
+        assert!(offset_in_bytes <= self.size().in_bytes() - core::mem::size_of::<usize>());
+        let pointer = ptr_byte_add(self.address.as_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        let data = unsafe { pointer.read_volatile() };
+        Ok(data)
     }
 
-    pub fn write(&mut self, offset_in_bytes: usize, value: usize) {
-        assert!(offset_in_bytes + core::mem::size_of::<usize>() <= self.size.in_bytes());
-        unsafe { self.address.as_mut_ptr().byte_add(offset_in_bytes).write_volatile(value) };
+    pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
+        assert!(offset_in_bytes <= self.size().in_bytes() - core::mem::size_of::<usize>());
+        let pointer = ptr_byte_add_mut(self.address.as_mut_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        unsafe { pointer.write_volatile(value) };
+        Ok(())
     }
 
     fn clear(&mut self) {
-        // TODO: performance optimisation. Write word/double word instead of a byte
-        self.offsets().for_each(|offset_in_bytes| self.write(offset_in_bytes, 0));
+        // Safety: below unwrap() is fine because we iterate over page's offsets and thus always
+        // request a write to an offset within the page.
+        self.offsets().for_each(|offset_in_bytes| self.write(offset_in_bytes, 0).unwrap());
     }
 }

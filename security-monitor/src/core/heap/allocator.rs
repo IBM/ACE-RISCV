@@ -2,44 +2,55 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-FileContributor: Heavily based on https://os.phil-opp.com/allocator-designs/
 // SPDX-License-Identifier: Apache-2.0
+use crate::error::Error;
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem;
+use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 
 pub type MemoryAllocator = Locked<LinkedListAllocator>;
 
 pub struct LinkedListAllocator {
-    head: ListNode,
+    head: FreeMemoryRegion,
 }
 
-// This is a temporal allocator implementation that will be replaced in the future with a safer version.
+// TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
+// is safer and prevents fragmentation.
 impl LinkedListAllocator {
-    pub const fn empty() -> Self {
-        Self { head: ListNode::new(0) }
+    pub(self) const fn empty() -> Self {
+        Self { head: FreeMemoryRegion::new(0) }
     }
 
-    pub fn add_free_region(&mut self, base_address: *const u8, size: usize) {
-        // assert_eq!(align_up(addr, mem::align_of::<ListNode>()), addr);
-        if size < mem::size_of::<ListNode>() {
-            return;
-        }
-        let mut free_node = ListNode::new(size);
-        free_node.next = self.head.next.take();
-        self.head.next = unsafe {
-            // Safety: casting to *mut ListNode is fine because we checked in the beginning
-            // of this function that the given memory region is larger than the size
-            // of a ListNode
-            let node_pointer = base_address as *mut ListNode;
-            node_pointer.write(free_node);
-            Some(&mut *node_pointer)
+    // TODO: We should merge continous chunks of memory to prevent fragmentation. Fragmentation
+    // can lead to the situation where the heap allocator no longer allows allocating larger chunks of memory
+    // because the free memory is fragmented into to small chunks.
+    pub fn add_free_memory_region(&mut self, base_address: *const usize, size: usize) {
+        assert!(base_address.is_aligned_to(mem::align_of::<FreeMemoryRegion>()));
+        if size >= mem::size_of::<FreeMemoryRegion>() {
+            let mut free_node = FreeMemoryRegion::new(size);
+            free_node.next = self.head.next.take();
+            self.head.next = unsafe {
+                // Safety: casting to *mut FreeMemoryRegion is fine because the caller is giving the ownership
+                // of this memory region to us.
+                let node_pointer = base_address as *mut FreeMemoryRegion;
+                // Safety: we can write the whole FreeMemoryRegion because we checked in the beginning of this
+                // function that the memory region has enough space to hold the FreeMemoryRegion.
+                node_pointer.write(free_node);
+                Some(&mut *node_pointer)
+            }
+        } else {
+            // Potential memory leak? To make sure there are no memory leaks here, we must guarantee that we
+            // never allocate chunks smaller than the size of a FreeMemoryRegion structure
         }
     }
 
-    pub fn find_region(&mut self, size: usize, align: usize) -> Option<(&'static mut ListNode, *mut u8)> {
+    pub(self) fn find_free_memory_region(
+        &mut self, size: usize, align: usize,
+    ) -> Option<(*mut usize, *mut usize, usize)> {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
-            if let Ok(alloc_start) = Self::alloc_from_region(region, size, align) {
+            if let Ok((alloc_start, alloc_end, free_space_left)) = region.try_allocation(size, align) {
                 let next = region.next.take();
-                let ret = Some((current.next.take().unwrap(), alloc_start));
+                let ret = Some((alloc_start, alloc_end, free_space_left));
                 current.next = next;
                 return ret;
             } else {
@@ -48,51 +59,47 @@ impl LinkedListAllocator {
         }
         None
     }
-
-    pub fn alloc_from_region(region: &mut ListNode, size_in_bytes: usize, align: usize) -> Result<*mut u8, ()> {
-        let offset_to_align = region.start_address_pointer().align_offset(align);
-        let alloc_start = unsafe { region.start_address_pointer().add(offset_to_align) };
-        let alloc_end = unsafe { alloc_start.byte_add(size_in_bytes) };
-
-        let free_space_left = unsafe { region.end_addr().byte_offset_from(alloc_end) };
-        if free_space_left < 0 {
-            // region too small
-            return Err(());
-        }
-        let excess_size = unsafe { region.end_addr().byte_offset_from(alloc_end) };
-        if excess_size > 0 && excess_size < (mem::size_of::<ListNode>() as isize) {
-            // rest of region too small to hold a ListNode (required because the
-            // allocation splits the region in a used and a free part)
-            return Err(());
-        }
-        // region suitable for allocation
-        Ok(alloc_start)
-    }
-
-    pub fn size_align(layout: Layout) -> (usize, usize) {
-        let layout = layout.align_to(mem::align_of::<ListNode>()).expect("adjusting alignment failed").pad_to_align();
-        let size = layout.size().max(mem::size_of::<ListNode>());
-        (size, layout.align())
-    }
 }
 
-pub struct ListNode {
+struct FreeMemoryRegion {
     size: usize,
-    pub next: Option<&'static mut ListNode>,
+    pub next: Option<&'static mut FreeMemoryRegion>,
 }
 
-impl ListNode {
+impl FreeMemoryRegion {
     pub const fn new(size: usize) -> Self {
-        ListNode { size, next: None }
+        Self { size, next: None }
     }
 
-    pub fn start_address_pointer(&mut self) -> *mut u8 {
-        self as *mut _ as *mut u8
+    pub fn start_address_ptr(&mut self) -> *mut usize {
+        self as *mut _ as *mut usize
     }
 
-    pub fn end_addr(&self) -> *const u8 {
-        let start_address = self as *const _ as *const u8;
-        unsafe { start_address.byte_add(self.size) }
+    pub fn end_address_ptr(&self) -> *const usize {
+        let start_address = self as *const _ as *const usize as usize;
+        (start_address + self.size) as *const usize
+    }
+
+    // TODO: this function should return three disjoined continous memory regions if allocation is possible
+    // One region would represent the allocation, and two other the remaining free memory.
+    pub(self) fn try_allocation(
+        &mut self, size_in_bytes: usize, align_in_bytes: usize,
+    ) -> Result<(*mut usize, *mut usize, usize), Error> {
+        let alloc_start = ptr_align(self.start_address_ptr(), align_in_bytes, self.end_address_ptr())?;
+        let alloc_end = ptr_byte_add_mut(alloc_start, size_in_bytes, self.end_address_ptr())?;
+
+        // We only allow allocating from the given region if there is enough space to reuse the resulting space for a
+        // FreeMemoryRegion
+        let free_space_left = ptr_byte_offset(self.end_address_ptr(), alloc_end);
+        assure!(free_space_left >= (mem::size_of::<FreeMemoryRegion>() as isize), Error::OutOfMemory())?;
+
+        Ok((alloc_start, alloc_end, free_space_left as usize))
+    }
+
+    pub(self) fn align_to(layout: Layout) -> (usize, usize) {
+        let layout = layout.align_to(mem::align_of::<FreeMemoryRegion>()).unwrap().pad_to_align();
+        let size = layout.size().max(mem::size_of::<FreeMemoryRegion>());
+        (size, layout.align())
     }
 }
 
@@ -102,8 +109,8 @@ unsafe impl GlobalAlloc for MemoryAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let (size, _) = LinkedListAllocator::size_align(layout);
-        self.lock().add_free_region(ptr, size)
+        let (size, _) = FreeMemoryRegion::align_to(layout);
+        self.lock().add_free_memory_region(ptr as *mut usize, size)
     }
 }
 
@@ -113,29 +120,22 @@ impl MemoryAllocator {
     }
 
     fn try_alloc(&self, layout: Layout) -> *mut u8 {
-        if let Some(address) = self.alloc_dynamic(layout) {
-            return address;
-        } else {
-            debug!("Heap allocation failed. No more pages in the memory tracker");
-            panic!("run out of memory");
+        match self.alloc_dynamic(layout) {
+            Some(address) => address,
+            None => {
+                debug!("Heap allocation failed. No more pages in the memory tracker");
+                panic!("Out of memory");
+            }
         }
     }
 
     fn alloc_dynamic(&self, layout: Layout) -> Option<*mut u8> {
-        // perform layout adjustments
-        let (size, align) = LinkedListAllocator::size_align(layout);
+        let (size, align) = FreeMemoryRegion::align_to(layout);
         let mut allocator = self.lock();
-
-        if let Some((region, alloc_start)) = allocator.find_region(size, align) {
-            let alloc_end = unsafe { alloc_start.byte_add(size) };
-            let free_space_left = unsafe { region.end_addr().byte_offset_from(alloc_end) };
-            if let Ok(size) = usize::try_from(free_space_left) {
-                allocator.add_free_region(alloc_end, size);
-            }
-            Some(alloc_start)
-        } else {
-            None
-        }
+        allocator.find_free_memory_region(size, align).and_then(|(alloc_start, alloc_end, free_space_left)| {
+            allocator.add_free_memory_region(alloc_end, free_space_left);
+            Some(alloc_start as *mut u8)
+        })
     }
 }
 
@@ -144,7 +144,7 @@ pub struct Locked<A> {
 }
 
 impl<A> Locked<A> {
-    pub const fn new(inner: A) -> Self {
+    pub(self) const fn new(inner: A) -> Self {
         Locked { inner: spin::Mutex::new(inner) }
     }
 
