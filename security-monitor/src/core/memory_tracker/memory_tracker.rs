@@ -16,13 +16,26 @@ use spin::{Once, RwLock, RwLockWriteGuard};
 /// that it the memory tracker can only be initialized once.
 pub static MEMORY_TRACKER: Once<RwLock<MemoryTracker>> = Once::new();
 
+/// Memory tracker is a memory page allocator.
 pub struct MemoryTracker {
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
 }
 
 impl<'a> MemoryTracker {
+    /// Constructs the memory tracker over the memory region defined by start and end addresses. 
+    /// It creates page tokens of unallocated pages. 
+    /// This function must only be called once by the initialization procedure.
+    ///
+    /// # Arguments: 
+    ///
+    /// `memory_start` address must be aligned to the smallest page size. 
+    /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory 
+    /// size of the memory tracker must be a multiply of the smallest page size. 
     pub fn new(memory_start: *mut usize, memory_end: *const usize) -> Result<Self, Error> {
         debug!("Memory tracker {:x}-{:x}", memory_start as usize, memory_end as usize);
+        assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));
+        assert!(ptr_byte_offset(memory_end, memory_start) as usize % PageSize::smallest().in_bytes() == 0);
+
         let mut map = BTreeMap::new();
         let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {

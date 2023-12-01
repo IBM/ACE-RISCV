@@ -85,7 +85,7 @@ fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
     Ok(fdt.cpus().count())
 }
 
-fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *mut usize), Error> {
+fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
     let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
@@ -111,8 +111,7 @@ fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *mut usize), Error> {
 
     // Second region of memory is defined as confidential memory
     let confidential_memory_start = non_confidential_memory_end;
-    let confidential_memory_end = ptr_byte_add_mut(confidential_memory_start, confidential_memory_size, memory_end)
-        .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+    let confidential_memory_end = memory_end;
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
     Ok((confidential_memory_start, confidential_memory_end))
@@ -126,7 +125,7 @@ fn configure_iopmps() {
 /// monitor during the boot process. This function initializes secure monitor's
 /// memory management like allocators.
 fn init_confidential_memory(
-    start_address: *mut usize, end_address: *mut usize, number_of_harts: usize,
+    start_address: *mut usize, mut end_address: *const usize, number_of_harts: usize,
 ) -> Result<(), Error> {
     const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
@@ -144,7 +143,7 @@ fn init_confidential_memory(
     let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
     let number_of_pages = memory_size / PageSize::smallest().in_bytes();
     let memory_size_in_bytes = number_of_pages * PageSize::smallest().in_bytes();
-    let end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
+    end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token = size_of::<Page<UnAllocated>>();

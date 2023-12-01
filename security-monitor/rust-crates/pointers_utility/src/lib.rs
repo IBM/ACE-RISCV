@@ -6,6 +6,7 @@
 #![feature(pointer_byte_offsets)]
 
 mod error;
+use core::mem::size_of;
 pub use crate::error::PointerError;
 
 pub fn ptr_byte_offset(pointer1: *const usize, pointer2: *const usize) -> isize {
@@ -13,17 +14,18 @@ pub fn ptr_byte_offset(pointer1: *const usize, pointer2: *const usize) -> isize 
 }
 
 pub fn ptr_align(pointer: *mut usize, align_in_bytes: usize, owned_region_end: *const usize) -> Result<*mut usize, PointerError> {
-    use core::mem::size_of;
     let offset_to_align = pointer.align_offset(align_in_bytes) * size_of::<*mut usize>();
     ptr_byte_add_mut(pointer, offset_to_align, owned_region_end)
 }
 
 /// A safe variant of calculating the offset from a pointer. This function guarantees that
-/// the returning pointer did not overflow and is within the specified memory region.
+/// the returning pointer did not overflow and is within the owned memory region including
+/// the one-past-the-end address. The returned pointer is guaranteed to be valid for accesses
+/// of size zero, if the original pointer is valid. Additional checks are required for making
+/// larger memory accesses.
 pub fn ptr_byte_add_mut(
     pointer: *mut usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*mut usize, PointerError> {
-    assert!(offset_in_bytes < isize::MAX.try_into().unwrap());
     let incremented_pointer = pointer.wrapping_byte_add(offset_in_bytes);
     // Safety: Check if the pointer is still within the owned region
     if (incremented_pointer as *const usize) > owned_region_end {
@@ -39,15 +41,5 @@ pub fn ptr_byte_add_mut(
 pub fn ptr_byte_add(
     pointer: *const usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*const usize, PointerError> {
-    assert!(offset_in_bytes < isize::MAX.try_into().unwrap());
-    let incremented_pointer = pointer.wrapping_byte_add(offset_in_bytes);
-    // Safety: Check if the pointer is still within the owned region
-    if (incremented_pointer as *const usize) > owned_region_end {
-        return Err(PointerError::Overflow);
-    }
-    // Safety: make sure the add operation did not overflow
-    if offset_in_bytes > 0 && incremented_pointer <= pointer {
-        return Err(PointerError::Overflow);
-    }
-    Ok(incremented_pointer)
+    Ok(ptr_byte_add_mut(pointer as *mut usize, offset_in_bytes, owned_region_end)?)
 }

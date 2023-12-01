@@ -6,6 +6,7 @@ use crate::core::mmu::PageSize;
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use core::mem;
 use core::ops::Range;
 use pointers_utility::{ptr_byte_add, ptr_byte_add_mut};
 
@@ -109,18 +110,20 @@ impl<T: PageState> Page<T> {
 
     // Use this function to iterate over all usize chunks of data in a page
     fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
-        (0..self.size.in_bytes()).step_by(core::mem::size_of::<usize>())
+        (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
     }
 
     pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
-        assert!(offset_in_bytes <= self.size().in_bytes() - core::mem::size_of::<usize>());
+        assert!(offset_in_bytes <= self.size().in_bytes() - mem::size_of::<usize>());
+        assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
         let pointer = ptr_byte_add(self.address.as_ptr(), offset_in_bytes, self.end_address_ptr())?;
         let data = unsafe { pointer.read_volatile() };
         Ok(data)
     }
 
     pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
-        assert!(offset_in_bytes <= self.size().in_bytes() - core::mem::size_of::<usize>());
+        assert!(offset_in_bytes <= self.size().in_bytes() - mem::size_of::<usize>());
+        assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
         let pointer = ptr_byte_add_mut(self.address.as_mut_ptr(), offset_in_bytes, self.end_address_ptr())?;
         unsafe { pointer.write_volatile(value) };
         Ok(())
