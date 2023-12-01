@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
 use core::num::TryFromIntError;
-use fdt_rs::error::DevTreeError;
+use fdt::FdtError;
+use pointers_utility::PointerError;
 use thiserror_no_std::Error;
 
 pub const CTX_SWITCH_ERROR_MSG: &str =
@@ -24,9 +25,13 @@ pub const NOT_INITIALIZED_CONFIDENTIAL_MEMORY: &str =
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("security monitor initialization error")]
-    InitializationError(InitializationErrorType),
-    #[error("FDT parsing error")]
-    FdtParsing(#[from] DevTreeError),
+    Init(InitType),
+    #[error("Not supported hardware")]
+    NotSupportedHardware(HardwareFeatures),
+    #[error("FDT read error")]
+    FdtFromPtr(#[from] FdtError),
+    #[error("Error while searching FDT for a property")]
+    FdtParsing(),
     #[error("Could not convert SBI argument to usize: {0}")]
     SbiArgument(#[from] TryFromIntError),
     #[error("Not enough memory to allocate")]
@@ -57,6 +62,8 @@ pub enum Error {
     NotSupportedInterrupt(),
     #[error("Invalid call cause: {0}, extid: {1:x}, fid: {2:x}")]
     InvalidCall(usize, usize, usize),
+    #[error("Internal error")]
+    Pointer(#[from] PointerError),
 }
 
 impl Error {
@@ -72,17 +79,25 @@ impl Error {
 }
 
 #[derive(Error, Debug)]
-pub enum InitializationErrorType {
+pub enum InitType {
     #[error("FDT's memory node not found")]
     FdtMemory,
-    #[error("regions of the FDT's memory node not found")]
-    FdtMemoryReg,
-    #[error("invalid FDT's type casting")]
-    FdtMemoryCasting,
     #[error("Too little memory")]
     NotEnoughMemory,
     #[error("Invalid memory boundaries")]
-    InvalidMemoryBoundaries,
+    MemoryBoundary,
     #[error("Invalid assembly address")]
     InvalidAssemblyAddress,
+}
+
+#[derive(Error, Debug)]
+pub enum HardwareFeatures {
+    #[error("ACE requires 64-bit processor")]
+    InvalidCpuArch,
+    #[error("CPU does not support the required ISA extension: {0}")]
+    NoCpuExtension(char),
+    #[error("Not enough PMPs")]
+    NotEnoughPmps,
+    // #[error("Lack of support for the MMU")]
+    // InvalidMmu,
 }

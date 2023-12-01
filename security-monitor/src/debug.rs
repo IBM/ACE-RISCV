@@ -77,10 +77,10 @@ macro_rules! debug {
         _debug!("\r\n")
     });
 	($fmt:expr) => ({
-		_debug!(concat!("#SecurityMonitor: ", $fmt, "\r\n"))
+		_debug!(concat!("#ACE: ", $fmt, "\r\n"))
     });
 	($fmt:expr, $($args:tt)+) => ({
-		_debug!(concat!("#SecurityMonitor: ", $fmt, "\r\n"), $($args)+)
+		_debug!(concat!("#ACE: ", $fmt, "\r\n"), $($args)+)
     });
 }
 

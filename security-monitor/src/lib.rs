@@ -13,6 +13,9 @@
 // #![feature(const_refs_to_cell)]
 // used to run closure on Err(). Simplifies syntax and can be removed in future
 #![feature(result_option_inspect)]
+// used for convenience for calculating offsets between *usize pointers as bytes
+#![feature(pointer_byte_offsets)]
+#![feature(pointer_is_aligned)]
 
 // extern creates
 extern crate alloc;

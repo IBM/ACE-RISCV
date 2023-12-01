@@ -32,7 +32,7 @@ impl ConfidentialVm {
     pub fn new(
         id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, root_page_table: RootPageTable,
     ) -> Self {
-        let hgatp = Hgatp::new(root_page_table.address().usize(), root_page_table.paging_system().hgatp_mode(), id.0);
+        let hgatp = Hgatp::new(root_page_table.address(), root_page_table.paging_system().hgatp_mode(), id.0);
         confidential_harts.iter_mut().for_each(|confidential_hart| confidential_hart.set_hgatp(hgatp.bits()));
         Self { id, _measurements: [Measurement::empty(); 4], confidential_harts, root_page_table }
     }

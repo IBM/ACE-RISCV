@@ -6,7 +6,9 @@ use crate::core::mmu::PageSize;
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use core::mem;
 use core::ops::Range;
+use pointers_utility::{ptr_byte_add, ptr_byte_add_mut};
 
 pub trait PageState {}
 
@@ -15,6 +17,12 @@ pub enum Allocated {}
 
 impl PageState for UnAllocated {}
 impl PageState for Allocated {}
+
+// We need to declare Send+Sync on the `Page` because Page stores internally a raw pointer and
+// raw pointers are not safe to pass in a multi-threaded program. But in the case of Page it is
+// safe because we never expose raw pointers outside the page.
+unsafe impl<S> Send for Page<S> where S: PageState {}
+unsafe impl<S> Sync for Page<S> where S: PageState {}
 
 #[derive(Debug)]
 pub struct Page<S: PageState> {
@@ -30,7 +38,7 @@ impl Page<UnAllocated> {
         Self { address, size, _marker: PhantomData }
     }
 
-    pub fn zeroize(self) -> Page<Allocated> {
+    pub fn zeroize(mut self) -> Page<Allocated> {
         self.clear();
         Page { address: self.address, size: self.size, _marker: PhantomData }
     }
@@ -38,28 +46,36 @@ impl Page<UnAllocated> {
     /// Moves a page to the Allocated state after filling its content with the
     /// content of a page located in the non-confidential memory.
     pub fn copy_from_non_confidential_memory(
-        self, address: NonConfidentialMemoryAddress,
+        mut self, address: NonConfidentialMemoryAddress,
     ) -> Result<Page<Allocated>, Error> {
-        // The below copy is secure because we checked that any address in the
-        // address range belongs to the confidential memory (no overlapping).
-        self.offsets().for_each(|offset| {
-            let byte_to_copy = unsafe { ((address.usize() + offset) as *mut u8).read_volatile() };
-            self.write::<u8>(offset, byte_to_copy);
-        });
+        self.offsets().into_iter().try_for_each(|offset_in_bytes| {
+            // Safety: we must read usize from the non-confidential memory because the `self.write`
+            // only supports writing usize.
+            let data_to_copy = unsafe { address.add(offset_in_bytes)?.read() };
+            self.write(offset_in_bytes, data_to_copy)?;
+            Ok::<(), Error>(())
+        })?;
         Ok(Page { address: self.address, size: self.size, _marker: PhantomData })
     }
 
     /// This function divides the current page into smaller pages if possible.
-    /// If this page is the smalles page (4KiB for RISC-V) then the same page is
+    /// If this page is the smallest page (4KiB for RISC-V), then the same page is
     /// returned.
-    pub fn divide(self) -> Vec<Page<UnAllocated>> {
+    pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
         let smaller_size = self.size.smaller().unwrap_or(self.size);
         let number_of_smaller_pages = self.size.in_bytes() / smaller_size.in_bytes();
+        let page_start = self.address.as_mut_ptr();
+        let page_end = self.end_address_ptr();
         (0..number_of_smaller_pages)
             .map(|i| {
-                let smaller_page_address =
-                    ConfidentialMemoryAddress(self.address.usize() + i * smaller_size.in_bytes());
-                Page::init(smaller_page_address, smaller_size)
+                let offset_in_bytes = i * smaller_size.in_bytes();
+                // Safety: below line will panic in case of a programming bug where we defined that
+                // a page can store a certain number of smaller pages but it cannot. This should never
+                // happen in a correctly implemented (and proven) code.
+                // Below pointer arithmetic should never overflow unless we have misconfigured system where
+                // the system is supposed to handle memory pages of sizes exceeded what usize can address.
+                let smaller_page_address = ptr_byte_add_mut(page_start, offset_in_bytes, page_end).unwrap();
+                Page::init(ConfidentialMemoryAddress(smaller_page_address), smaller_size)
             })
             .collect()
     }
@@ -69,41 +85,76 @@ impl Page<Allocated> {
     /// Clears the entire memory content by writing 0s to it and then converts
     /// the Page from Allocated to UnAllocated so it can be returned to the
     /// memory tracker.
-    pub fn deallocate(self) -> Page<UnAllocated> {
+    pub fn deallocate(mut self) -> Page<UnAllocated> {
         self.clear();
         Page { address: self.address, size: self.size, _marker: PhantomData }
     }
 }
 
 impl<T: PageState> Page<T> {
-    pub fn address(&self) -> ConfidentialMemoryAddress {
-        self.address
+    pub fn start_address(&self) -> usize {
+        self.address.as_ptr() as usize
+    }
+
+    pub fn end_address(&self) -> usize {
+        self.address.as_ptr() as usize + self.size.in_bytes()
+    }
+
+    fn end_address_ptr(&self) -> *const usize {
+        self.end_address() as *const usize
     }
 
     pub fn size(&self) -> &PageSize {
         &self.size
     }
 
-    pub fn end_address(&self) -> ConfidentialMemoryAddress {
-        ConfidentialMemoryAddress(self.address.usize() + self.size.in_bytes())
+    /// Returns all usize-aligned offsets within the page.
+    fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
+        (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
     }
 
-    pub fn offsets(&self) -> Range<usize> {
-        Range { start: 0, end: self.size.in_bytes() }
+    /// Reads data from a page at a given offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data 
+    /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be 
+    /// within the page address range, otherwise an Error is returned.
+    ///
+    /// # Return
+    ///
+    /// A chunk of data of size `size_of::<usize>` is returned, if the
+    /// valid offset was passed as an argument.
+    pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
+        assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
+        let pointer = ptr_byte_add(self.address.as_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
+        let data = unsafe { pointer.read_volatile() };
+        Ok(data)
     }
 
-    pub fn read<S: Default>(&self, offset: usize) -> S {
-        assert!(offset + core::mem::size_of::<S>() <= self.size.in_bytes());
-        unsafe { ((self.address.usize() + offset) as *const S).read_volatile() }
+    /// Writes data to a page at a given offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data 
+    /// will be written to the memory. This offset must be a multiply of size_of::(usize) and be 
+    /// within the page address range, otherwise an Error is returned.
+    ///
+    /// # Return
+    ///
+    /// Error is returned if an invalid offset was passed as an argument.
+    pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
+        assure!(offset_in_bytes % mem::size_of::<usize>() == 0, Error::MemoryAccessAuthorization())?;
+        let pointer = ptr_byte_add_mut(self.address.as_mut_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
+        unsafe { pointer.write_volatile(value) };
+        Ok(())
     }
 
-    pub fn write<S>(&self, offset: usize, value: S) {
-        assert!(offset + core::mem::size_of::<S>() <= self.size.in_bytes());
-        unsafe { ((self.address.usize() + offset) as *mut S).write_volatile(value) };
-    }
-
-    fn clear(&self) {
-        // TODO: performance optimisation. Write word/double word instead of a byte
-        self.offsets().for_each(|offset| self.write::<u8>(offset, 0));
+    fn clear(&mut self) {
+        // Safety: below unwrap() is fine because we iterate over page's offsets and thus always
+        // request a write to an offset within the page.
+        self.offsets().for_each(|offset_in_bytes| self.write(offset_in_bytes, 0).unwrap());
     }
 }

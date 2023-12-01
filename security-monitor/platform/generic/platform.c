@@ -24,9 +24,9 @@
 
 
 /*
-	ACE: init_security_monitor hook implemented in Rust. 	
+	ACE: init_security_monitor_asm hook implemented in Rust. 	
 */
-extern void init_security_monitor(void *fdt);
+extern void init_security_monitor_asm(void *fdt);
 
 extern const struct platform_override sifive_fu540;
 
@@ -188,7 +188,7 @@ static int generic_final_init(bool cold_boot)
 
 	fdt = sbi_scratch_thishart_arg1_ptr();	
 	// This is the entry point to the security monitor
-	init_security_monitor(fdt);
+	init_security_monitor_asm(fdt);
 
 	return 0;
 }

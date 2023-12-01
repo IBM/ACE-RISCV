@@ -9,33 +9,53 @@ use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
+use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 use spin::{Once, RwLock, RwLockWriteGuard};
 
 /// A static global structure containing unallocated pages. Once<> guarantees
 /// that it the memory tracker can only be initialized once.
 pub static MEMORY_TRACKER: Once<RwLock<MemoryTracker>> = Once::new();
 
+/// Memory tracker is a memory page allocator.
 pub struct MemoryTracker {
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
 }
 
 impl<'a> MemoryTracker {
-    pub fn new(base_address: usize, memory_size: usize) -> Result<Self, Error> {
-        // TODO: ensure base_address is aligned
-        let mut map = BTreeMap::new();
-        let mut address = base_address;
+    /// Constructs the memory tracker over the memory region defined by start and end addresses.
+    /// It creates page tokens of unallocated pages.
+    /// This function must only be called once by the initialization procedure.
+    ///
+    /// # Arguments:
+    ///
+    /// `memory_start` address must be aligned to the smallest page size.
+    /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory
+    /// size of the memory tracker must be a multiply of the smallest page size.
+    pub fn new(memory_start: *mut usize, memory_end: *const usize) -> Result<Self, Error> {
+        debug!("Memory tracker {:x}-{:x}", memory_start as usize, memory_end as usize);
+        assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));
+        assert!(ptr_byte_offset(memory_end, memory_start) as usize % PageSize::smallest().in_bytes() == 0);
 
+        let mut map = BTreeMap::new();
+        let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
-            let memory_size_left = memory_size - (address - base_address);
-            let number_of_new_pages = memory_size_left / page_size.in_bytes();
+            let free_memory_in_bytes = usize::try_from(ptr_byte_offset(memory_end, page_address))?;
+            let number_of_new_pages = free_memory_in_bytes / page_size.in_bytes();
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
-                    let start_address = ConfidentialMemoryAddress(address + i * page_size.in_bytes());
-                    Page::<UnAllocated>::init(start_address, page_size.clone())
+                    let page_offset_in_bytes = i * page_size.in_bytes();
+                    let page_address = ptr_byte_add_mut(page_address, page_offset_in_bytes, memory_end)?;
+                    Ok(Page::<UnAllocated>::init(ConfidentialMemoryAddress(page_address), page_size.clone()))
                 })
-                .collect();
-            address += number_of_new_pages * page_size.in_bytes();
+                .collect::<Result<Vec<_>, Error>>()?;
+            debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);
+            let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
+
+            match ptr_byte_add_mut(page_address, pages_size_in_bytes, memory_end) {
+                Ok(ptr) => page_address = ptr,
+                Err(_) => break,
+            }
         }
 
         Ok(Self { map })
@@ -106,17 +126,22 @@ impl<'a> MemoryTracker {
         false
     }
 
-    fn find_allocation_within_page_size(&self, number_of_pages: usize, page_size: PageSize) -> Option<Range<usize>> {
-        if let Some(pages) = self.map.get(&page_size) {
+    fn find_allocation_within_page_size(
+        &mut self, number_of_pages: usize, page_size: PageSize,
+    ) -> Option<Range<usize>> {
+        if let Some(pages) = self.map.get_mut(&page_size) {
             if pages.len() < number_of_pages {
                 return None;
             }
             // check if there is a continous region of requested pages
-            let check = |pages: &Vec<Page<UnAllocated>>, j: usize| pages[j].end_address() != pages[j + 1].address();
+            let are_pages_continous = |pages: &mut Vec<Page<UnAllocated>>, j: usize| {
+                // should we do below calculation using pointers and its `byte_offset_from` method?
+                pages[j].end_address() == pages[j + 1].start_address()
+            };
 
             for i in 0..(pages.len() - number_of_pages) {
                 for j in i..(i + number_of_pages) {
-                    if check(pages, j) {
+                    if !are_pages_continous(pages, j) {
                         // this is not a continous allocation
                         break;
                     }
