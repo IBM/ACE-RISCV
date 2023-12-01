@@ -22,15 +22,15 @@ pub struct MemoryTracker {
 }
 
 impl<'a> MemoryTracker {
-    /// Constructs the memory tracker over the memory region defined by start and end addresses. 
-    /// It creates page tokens of unallocated pages. 
+    /// Constructs the memory tracker over the memory region defined by start and end addresses.
+    /// It creates page tokens of unallocated pages.
     /// This function must only be called once by the initialization procedure.
     ///
-    /// # Arguments: 
+    /// # Arguments:
     ///
-    /// `memory_start` address must be aligned to the smallest page size. 
-    /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory 
-    /// size of the memory tracker must be a multiply of the smallest page size. 
+    /// `memory_start` address must be aligned to the smallest page size.
+    /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory
+    /// size of the memory tracker must be a multiply of the smallest page size.
     pub fn new(memory_start: *mut usize, memory_end: *const usize) -> Result<Self, Error> {
         debug!("Memory tracker {:x}-{:x}", memory_start as usize, memory_end as usize);
         assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));

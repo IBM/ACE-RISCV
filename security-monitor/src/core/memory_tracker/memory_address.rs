@@ -24,6 +24,7 @@ impl ConfidentialMemoryAddress {
     }
 }
 
+// TODO: NonConfidentialMemoryAddress should use raw pointers and not usize to represent addresses.
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct NonConfidentialMemoryAddress(usize);
@@ -31,6 +32,9 @@ pub struct NonConfidentialMemoryAddress(usize);
 impl NonConfidentialMemoryAddress {
     pub fn new(address: usize) -> Result<Self, Error> {
         use crate::error::NOT_INITIALIZED_CONFIDENTIAL_MEMORY;
+        // TODO: We should check that the address is within the non-confidential memory range.
+        // This is equavalent to ensure that it does not point to confidential memory as long
+        // as memory is correctly splitted during the initialization procedure.
         match CONFIDENTIAL_MEMORY_RANGE.get().expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY).contains(&address) {
             true => Err(Error::MemoryAccessAuthorization()),
             false => Ok(Self(address)),

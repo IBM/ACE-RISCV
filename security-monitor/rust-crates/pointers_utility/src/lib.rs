@@ -19,16 +19,16 @@ pub fn ptr_align(pointer: *mut usize, align_in_bytes: usize, owned_region_end: *
 }
 
 /// A safe variant of calculating the offset from a pointer. This function guarantees that
-/// the returning pointer did not overflow and is within the owned memory region including
+/// the returning pointer did not overflow and is within the owned memory region excluding
 /// the one-past-the-end address. The returned pointer is guaranteed to be valid for accesses
-/// of size zero, if the original pointer is valid. Additional checks are required for making
+/// of size one, if the original pointer is valid. Additional checks are required for making
 /// larger memory accesses.
 pub fn ptr_byte_add_mut(
     pointer: *mut usize, offset_in_bytes: usize, owned_region_end: *const usize,
 ) -> Result<*mut usize, PointerError> {
     let incremented_pointer = pointer.wrapping_byte_add(offset_in_bytes);
     // Safety: Check if the pointer is still within the owned region
-    if (incremented_pointer as *const usize) > owned_region_end {
+    if (incremented_pointer as *const usize) >= owned_region_end {
         return Err(PointerError::Overflow);
     }
     // Safety: make sure the add operation did not overflow

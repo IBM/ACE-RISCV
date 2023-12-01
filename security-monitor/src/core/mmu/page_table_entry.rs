@@ -5,9 +5,6 @@ use crate::core::memory_tracker::{Allocated, NonConfidentialMemoryAddress, Page}
 use crate::core::mmu::page_table::PageTable;
 use alloc::boxed::Box;
 
-unsafe impl Send for PageTableEntry {}
-unsafe impl Sync for PageTableEntry {}
-
 pub(super) enum PageTableEntry {
     Pointer(Box<PageTable>, PageTableConfiguration),
     Leaf(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),

@@ -143,7 +143,10 @@ fn init_confidential_memory(
     let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
     let number_of_pages = memory_size / PageSize::smallest().in_bytes();
     let memory_size_in_bytes = number_of_pages * PageSize::smallest().in_bytes();
-    end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
+    if memory_size > memory_size_in_bytes {
+        // we must modify the end_address because the current one is not a multiply of smalles page size
+        end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
+    }
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token = size_of::<Page<UnAllocated>>();

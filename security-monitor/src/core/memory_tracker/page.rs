@@ -100,7 +100,7 @@ impl<T: PageState> Page<T> {
         self.address.as_ptr() as usize + self.size.in_bytes()
     }
 
-    pub fn end_address_ptr(&self) -> *const usize {
+    fn end_address_ptr(&self) -> *const usize {
         self.end_address() as *const usize
     }
 
@@ -108,23 +108,46 @@ impl<T: PageState> Page<T> {
         &self.size
     }
 
-    // Use this function to iterate over all usize chunks of data in a page
+    /// Returns all usize-aligned offsets within the page.
     fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
         (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
     }
 
+    /// Reads data from a page at a given offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data 
+    /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be 
+    /// within the page address range, otherwise an Error is returned.
+    ///
+    /// # Return
+    ///
+    /// A chunk of data of size `size_of::<usize>` is returned, if the
+    /// valid offset was passed as an argument.
     pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
-        assert!(offset_in_bytes <= self.size().in_bytes() - mem::size_of::<usize>());
         assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
         let pointer = ptr_byte_add(self.address.as_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
         let data = unsafe { pointer.read_volatile() };
         Ok(data)
     }
 
+    /// Writes data to a page at a given offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data 
+    /// will be written to the memory. This offset must be a multiply of size_of::(usize) and be 
+    /// within the page address range, otherwise an Error is returned.
+    ///
+    /// # Return
+    ///
+    /// Error is returned if an invalid offset was passed as an argument.
     pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
-        assert!(offset_in_bytes <= self.size().in_bytes() - mem::size_of::<usize>());
-        assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
+        assure!(offset_in_bytes % mem::size_of::<usize>() == 0, Error::MemoryAccessAuthorization())?;
         let pointer = ptr_byte_add_mut(self.address.as_mut_ptr(), offset_in_bytes, self.end_address_ptr())?;
+        // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
         unsafe { pointer.write_volatile(value) };
         Ok(())
     }
