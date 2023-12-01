@@ -1,0 +1,11 @@
+[package]
+name = "pointers_utility"
+version = "0.1.0"
+authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
+description = "A utility library that provides a safer abstraction to perform arithmetic on raw pointers"
+edition = "2021"
+
+[dependencies]
+
+# provides macros that help removing boilerplate code in rust error handling
+thiserror-no-std = "2.0" 

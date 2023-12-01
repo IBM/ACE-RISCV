@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_tracker::{ConfidentialMemoryAddress, MemoryTracker, NonConfidentialMemoryAddress, SharedPage};
+use crate::core::memory_tracker::{MemoryTracker, NonConfidentialMemoryAddress, SharedPage};
 use crate::core::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
@@ -25,11 +25,11 @@ impl RootPageTable {
         Ok(Self { paging_system, page_table })
     }
 
-    pub fn map_shared_page(&mut self, shared_page: &SharedPage) -> Result<(), Error> {
+    pub fn map_shared_page(&mut self, shared_page: SharedPage) -> Result<(), Error> {
         self.page_table.map_shared_page(self.paging_system, shared_page)
     }
 
-    pub fn address(&self) -> ConfidentialMemoryAddress {
+    pub fn address(&self) -> usize {
         self.page_table.address()
     }
 
@@ -91,7 +91,7 @@ impl PageTable {
     /// This function maps the confidential VM's physical address into the address of the page allocated by the
     /// hypervisor. The second-level page table is modified. If there was already a mapping, the address of a previosuly
     /// mapped page is returned. The below function works only for shared pages of size 4KiB.
-    fn map_shared_page(&mut self, paging_system: PagingSystem, shared_page: &SharedPage) -> Result<(), Error> {
+    fn map_shared_page(&mut self, paging_system: PagingSystem, shared_page: SharedPage) -> Result<(), Error> {
         // walk from the root page table until the leaf node recreating the intermediary page tables if necessary.
         let virtual_page_number = paging_system.vpn(shared_page.confidential_vm_virtual_address(), self.level);
         let entry = self.entry_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())?;
@@ -103,7 +103,7 @@ impl PageTable {
                 // The virtual address is already mapped to this physical address. Let's detach the old address and map
                 // the requested address TODO: deallocate the old page
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.hypervisor_address(),
+                    shared_page.into_hypervisor_address(),
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -113,7 +113,7 @@ impl PageTable {
                 // confidential VM virtual address already mapped to a physical address in non-confidential memory.
                 // Let's simply re-map to the new address.
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.hypervisor_address(),
+                    shared_page.into_hypervisor_address(),
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -123,7 +123,7 @@ impl PageTable {
                 if self.level == PageTableLevel::Level1 {
                     // enough to just set the mapping because there was no page mapped yet
                     let new_entry = PageTableEntry::Shared(
-                        shared_page.hypervisor_address(),
+                        shared_page.into_hypervisor_address(),
                         PageTableConfiguration::shared_page_configuration(),
                         PageTablePermission::shared_page_permission(),
                     );
@@ -140,7 +140,7 @@ impl PageTable {
         Ok(())
     }
 
-    pub(super) fn address(&self) -> ConfidentialMemoryAddress {
+    pub(super) fn address(&self) -> usize {
         self.page_table_memory.start_address()
     }
 

@@ -36,4 +36,8 @@ impl PageSize {
             PageSize::Size4KiB => Some(PageSize::Size2MiB),
         }
     }
+
+    pub fn smallest() -> PageSize {
+        PageSize::Size4KiB
+    }
 }

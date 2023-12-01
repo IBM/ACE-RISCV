@@ -35,7 +35,7 @@ impl HardwareHart {
     pub fn init(id: usize, stack: Page<UnAllocated>) -> Self {
         Self {
             non_confidential_hart_state: HartState::empty(id),
-            stack_address: stack.end_address().usize(),
+            stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
             confidential_hart: ConfidentialHart::dummy(id),

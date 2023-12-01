@@ -23,7 +23,7 @@ PLATFORM_RISCV_ISA ?= rv64gc
 PLATFORM_RISCV_XLEN ?= 64 
 CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 
-all: hack build
+all: audit hack build
 
 build: hack fmt
 	mkdir -p $(SM_WORK_DIR) ; \
@@ -51,6 +51,9 @@ doc:
 	@$(CARGO) doc
 
 check: build test
+
+audit:
+	@$(CARGO) audit
 
 clippy:
 	@$(CARGO) clippy
