@@ -16,6 +16,10 @@
 // used for convenience for calculating offsets between *usize pointers as bytes
 #![feature(pointer_byte_offsets)]
 #![feature(pointer_is_aligned)]
+// used for RefinedRust annotations
+#![feature(register_tool)]
+#![register_tool(rr)]
+#![feature(custom_inner_attributes)]
 
 // extern creates
 extern crate alloc;
