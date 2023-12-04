@@ -62,6 +62,7 @@ impl Page<UnAllocated> {
 
     /// This function divides the current page into smaller pages if possible.
     /// If this page is the smallest page (4KiB for RISC-V), then the same page is
+    /// If this page is the smallest page (4KiB for RISC-V), then the same page is
     /// returned.
     pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
         let memory_layout = MemoryLayout::get();

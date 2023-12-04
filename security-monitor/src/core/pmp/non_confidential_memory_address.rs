@@ -9,7 +9,7 @@ use crate::error::Error;
 pub struct NonConfidentialMemoryAddress(pub(super) *mut usize);
 
 // We need to declare Send+Sync on the `NonConfidentialMemoryAddress` because it stores internally a raw pointer and
-// raw pointers are not safe to pass in a multi-threaded program. But in the case of NonConfidentialMemoryAddress it 
+// raw pointers are not safe to pass in a multi-threaded program. But in the case of NonConfidentialMemoryAddress it
 // is safe because we never expose raw pointers outside the NonConfidentialMemoryAddress.
 unsafe impl Send for NonConfidentialMemoryAddress {}
 unsafe impl Sync for NonConfidentialMemoryAddress {}

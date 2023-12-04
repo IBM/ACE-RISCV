@@ -148,6 +148,14 @@ fn split_memory_into_confidential_and_non_confidential(
         Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
     )?;
 
+    // TODO: read how many PMPs are supported
+    let number_of_pmps = 64;
+    debug!("Number of PMPs={}", number_of_pmps);
+    assure!(
+        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
+        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
+    )?;
+
     // TODO: simplify to use a single PMP to isolate the confidential memory.
     // first shift PMP0, and PMP1 by two to make space for the confidential memory
     // PMPs

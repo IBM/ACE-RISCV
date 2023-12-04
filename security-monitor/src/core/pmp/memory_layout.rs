@@ -34,7 +34,7 @@ impl MemoryLayout {
     }
 
     /// Constructs the MemoryLayout returning the first correctly alligned address in the confidential
-    /// memory. This function must be called only once by the initialization procedure during the 
+    /// memory. This function must be called only once by the initialization procedure during the
     /// boot of the system.
     pub fn init(
         non_confidential_memory_start: *mut usize, non_confidential_memory_end: *const usize,
@@ -80,7 +80,7 @@ impl MemoryLayout {
     }
 
     /// Returns a an address in the confidential memory offset by given number of bytes from the
-    /// initial address and not exceeding given upper bound. Returns an error if the resulting address 
+    /// initial address and not exceeding given upper bound. Returns an error if the resulting address
     /// is outside the confidential memory or give upped bound.
     pub fn confidential_address_at_offset_bounded(
         &self, address: &mut ConfidentialMemoryAddress, offset_in_bytes: usize, upper_bound: *const usize,

@@ -9,7 +9,7 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 pub struct ConfidentialMemoryAddress(pub(super) *mut usize);
 
 // We need to declare Send+Sync on the `ConfidentialMemoryAddress` because it stores internally a raw pointer and
-// raw pointers are not safe to pass in a multi-threaded program. But in the case of ConfidentialMemoryAddress it 
+// raw pointers are not safe to pass in a multi-threaded program. But in the case of ConfidentialMemoryAddress it
 // is safe because we never expose raw pointers outside the ConfidentialMemoryAddress.
 unsafe impl Send for ConfidentialMemoryAddress {}
 unsafe impl Sync for ConfidentialMemoryAddress {}

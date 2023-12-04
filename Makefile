@@ -16,10 +16,10 @@ export OVERLAY_ROOT_DIR					?= $(ACE_DIR)/overlay/root
 export LINUX_IMAGE						?= $(ACE_DIR)/linux/arch/riscv/boot/Image
 export TOOLS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/tools
 export TOOLS_WORK_DIR					?= $(ACE_DIR)/tools
+export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
 
-export CROSS_COMPILE					= riscv64-unknown-linux-gnu-
-export PLATFORM_RISCV_XLEN				= 64 
-export PLATFORM_RISCV_ISA				= rv64gc 
+export PLATFORM_RISCV_XLEN				= 64
+export PLATFORM_RISCV_ISA				= rv64gc
 export PLATFORM_RISCV_ABI				= lp64d
 export PATH 							:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)
 
@@ -55,14 +55,14 @@ emulator: setup devtools
 		cd $(QEMU_SOURCE_DIR); ./configure --prefix=$(QEMU_WORK_DIR) --target-list=riscv64-softmmu,riscv64-linux-user; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) >/dev/null; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) install; \
-	fi 
+	fi
 
 tools: setup
 	mkdir -p $(TOOLS_WORK_DIR)
 	cp -rf $(TOOLS_SOURCE_DIR)/* $(TOOLS_WORK_DIR)
 
 verify:
-	ACE_DIR=$(ACE_DIR) $(MAKE) -C verification
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) LINUX_IMAGE=$(LINUX_IMAGE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C verification verify
 
 clean:
 	rm -rf $(ACE_DIR)
