@@ -2,10 +2,11 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::PagingSystem;
-use crate::core::memory_tracker::{Allocated, MemoryTracker, NonConfidentialMemoryAddress, Page};
+use crate::core::memory_tracker::{Allocated, MemoryTracker, Page};
 use crate::core::mmu::page_table_entry::PageTableEntry;
 use crate::core::mmu::paging_system::PageTableLevel;
 use crate::core::mmu::PageSize;
+use crate::core::pmp::NonConfidentialMemoryAddress;
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::ops::Range;

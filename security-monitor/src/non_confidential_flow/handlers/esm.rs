@@ -2,8 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData};
-use crate::core::memory_tracker::NonConfidentialMemoryAddress;
 use crate::core::mmu::{PagingSystem, RootPageTable};
+use crate::core::pmp::NonConfidentialMemoryAddress;
 use crate::core::transformations::{EsmRequest, ExposeToHypervisor, SbiRequest};
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;

@@ -1,6 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+pub use confidential_memory_address::ConfidentialMemoryAddress;
+pub use memory_layout::{MemoryLayout, MEMORY_LAYOUT};
+pub use non_confidential_memory_address::NonConfidentialMemoryAddress;
+
+mod confidential_memory_address;
+mod memory_layout;
+mod non_confidential_memory_address;
+
 pub fn open_access_to_confidential_memory() {
     use riscv::register::{pmpcfg0, Permission, Range};
     unsafe {

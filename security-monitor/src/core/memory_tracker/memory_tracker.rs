@@ -2,14 +2,13 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::page::{Page, UnAllocated};
-use crate::core::memory_tracker::ConfidentialMemoryAddress;
 use crate::core::mmu::PageSize;
+use crate::core::pmp::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
-use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 use spin::{Once, RwLock, RwLockWriteGuard};
 
 /// A static global structure containing unallocated pages. Once<> guarantees
@@ -31,28 +30,37 @@ impl<'a> MemoryTracker {
     /// `memory_start` address must be aligned to the smallest page size.
     /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory
     /// size of the memory tracker must be a multiply of the smallest page size.
-    pub fn new(memory_start: *mut usize, memory_end: *const usize) -> Result<Self, Error> {
-        debug!("Memory tracker {:x}-{:x}", memory_start as usize, memory_end as usize);
+    pub fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
+        debug!("Memory tracker {:x}-{:x}", memory_start.as_usize(), memory_end as usize);
         assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));
-        assert!(ptr_byte_offset(memory_end, memory_start) as usize % PageSize::smallest().in_bytes() == 0);
+        assert!(memory_start.offset_from(memory_end) as usize % PageSize::smallest().in_bytes() == 0);
 
         let mut map = BTreeMap::new();
+        let memory_layout = MemoryLayout::get();
         let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
-            let free_memory_in_bytes = usize::try_from(ptr_byte_offset(memory_end, page_address))?;
+            let free_memory_in_bytes = usize::try_from(page_address.offset_from(memory_end))?;
             let number_of_new_pages = free_memory_in_bytes / page_size.in_bytes();
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
                     let page_offset_in_bytes = i * page_size.in_bytes();
-                    let page_address = ptr_byte_add_mut(page_address, page_offset_in_bytes, memory_end)?;
-                    Ok(Page::<UnAllocated>::init(ConfidentialMemoryAddress(page_address), page_size.clone()))
+                    let address = memory_layout.confidential_address_at_offset_bounded(
+                        &mut page_address,
+                        page_offset_in_bytes,
+                        memory_end,
+                    )?;
+                    Ok(Page::<UnAllocated>::init(address, page_size.clone()))
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);
             let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
 
-            match ptr_byte_add_mut(page_address, pages_size_in_bytes, memory_end) {
+            match memory_layout.confidential_address_at_offset_bounded(
+                &mut page_address,
+                pages_size_in_bytes,
+                memory_end,
+            ) {
                 Ok(ptr) => page_address = ptr,
                 Err(_) => break,
             }

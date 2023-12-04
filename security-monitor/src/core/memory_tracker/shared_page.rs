@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_tracker::NonConfidentialMemoryAddress;
 use crate::core::mmu::PageSize;
+use crate::core::pmp::NonConfidentialMemoryAddress;
 use crate::core::transformations::{ConfidentialVmVirtualAddress, SharePageRequest};
 use crate::error::Error;
 
