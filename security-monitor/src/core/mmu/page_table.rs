@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_tracker::{MemoryTracker, NonConfidentialMemoryAddress, SharedPage};
+use crate::core::memory_tracker::{MemoryTracker, SharedPage};
 use crate::core::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
 use crate::core::mmu::page_table_memory::PageTableMemory;
 use crate::core::mmu::paging_system::PageTableLevel;
 use crate::core::mmu::PagingSystem;
+use crate::core::pmp::NonConfidentialMemoryAddress;
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -103,7 +104,7 @@ impl PageTable {
                 // The virtual address is already mapped to this physical address. Let's detach the old address and map
                 // the requested address TODO: deallocate the old page
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.into_hypervisor_address(),
+                    shared_page,
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -113,7 +114,7 @@ impl PageTable {
                 // confidential VM virtual address already mapped to a physical address in non-confidential memory.
                 // Let's simply re-map to the new address.
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.into_hypervisor_address(),
+                    shared_page,
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -123,7 +124,7 @@ impl PageTable {
                 if self.level == PageTableLevel::Level1 {
                     // enough to just set the mapping because there was no page mapped yet
                     let new_entry = PageTableEntry::Shared(
-                        shared_page.into_hypervisor_address(),
+                        shared_page,
                         PageTableConfiguration::shared_page_configuration(),
                         PageTablePermission::shared_page_permission(),
                     );

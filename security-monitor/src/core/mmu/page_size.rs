@@ -2,19 +2,28 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-#[repr(usize)]
+// The order of page size in this enum must follow the increasing sizes of
+// page to guarantee that the Ord/PartialOrd are correctly derived for the `PageSize`.
+// TODO: add unit tests to make sure PageSize can be correctly compared between each other.
+#[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PageSize {
-    Size4KiB = 8 * 512,
-    Size2MiB = 8 * 512 * 512,
-    Size1GiB = 8 * 512 * 512 * 512,
-    Size512GiB = 8 * 512 * 512 * 512 * 512,
-    Size128TiB = 8 * 512 * 512 * 512 * 512 * 256,
+    Size4KiB,
+    Size2MiB,
+    Size1GiB,
+    Size512GiB,
+    Size128TiB,
 }
 
 impl PageSize {
     pub fn in_bytes(&self) -> usize {
-        *self as usize
+        match self {
+            PageSize::Size128TiB => 8 * 512 * 512 * 512 * 512 * 256,
+            PageSize::Size512GiB => 8 * 512 * 512 * 512 * 512,
+            PageSize::Size1GiB => 8 * 512 * 512 * 512,
+            PageSize::Size2MiB => 8 * 512 * 512,
+            PageSize::Size4KiB => 8 * 512,
+        }
     }
 
     pub fn smaller(&self) -> Option<PageSize> {

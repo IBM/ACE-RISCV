@@ -2,10 +2,11 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::PagingSystem;
-use crate::core::memory_tracker::{Allocated, MemoryTracker, NonConfidentialMemoryAddress, Page};
+use crate::core::memory_tracker::{Allocated, MemoryTracker, Page};
 use crate::core::mmu::page_table_entry::PageTableEntry;
 use crate::core::mmu::paging_system::PageTableLevel;
 use crate::core::mmu::PageSize;
+use crate::core::pmp::{MemoryLayout, NonConfidentialMemoryAddress};
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::ops::Range;
@@ -29,8 +30,9 @@ impl PageTableMemory {
             .into_iter()
             .enumerate()
             .map(|(i, page)| {
-                let address = NonConfidentialMemoryAddress::new(address.usize() + i * page.size().in_bytes())?;
-                page.copy_from_non_confidential_memory(address)
+                let offset_in_bytes = i * page.size().in_bytes();
+                let page_address = MemoryLayout::get().non_confidential_address_at_offset(&address, offset_in_bytes)?;
+                page.copy_from_non_confidential_memory(page_address)
             })
             .collect::<Result<Vec<Page<Allocated>>, Error>>()?;
         let number_of_entries = paging_system.entries(level);

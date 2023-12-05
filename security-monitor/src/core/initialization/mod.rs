@@ -2,31 +2,33 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
-use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, CONFIDENTIAL_MEMORY_RANGE, MEMORY_TRACKER};
+use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, MEMORY_TRACKER};
 use crate::core::mmu::PageSize;
+use crate::core::pmp::{ConfidentialMemoryAddress, MemoryLayout, MEMORY_LAYOUT};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
 use core::mem::size_of;
 use fdt::Fdt;
-use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
+use pointers_utility::ptr_byte_add_mut;
 use spin::{Mutex, Once, RwLock};
 
 extern "C" {
     fn enter_from_hypervisor_or_vm_asm() -> !;
 }
 
-// A *private* static array of hart states stores the hypervisor's harts states.
-// Safe rust code cannot access this structure. We store the memory addresses
-// of individual HardwareHart structure in the mscratch register. Thus, the
-// assembly code of the context switch can store and load data from this data
-// structure.
-// Initialization procedure must guarantee that the mscratch register contains
-// the address of the memory region that stores the state of the executing hart.
+/// A *private* static array of hart states stores the hypervisor's harts states.
+/// Safe rust code cannot access this structure. We store the memory addresses
+/// of individual HardwareHart structure in the mscratch register. Thus, the
+/// assembly code of the context switch can store and load data from this data
+/// structure.
+/// Initialization procedure must guarantee that the mscratch register contains
+/// the address of the memory region that stores the state of the executing hart.
 static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 
-/// This is the entry point to the security monitor. It is called
-/// by the OpenSBI during the boot process. After the return, the control
-/// flow returns to the OpenSBI, which continues booting the hypervisor.
+/// This is the entry point to the security monitor. It is called by the booting firmware (e.g., OpenSBI)
+/// during the boot process. After the return, the control flow returns to the booting firmware,
+/// which eventually passes the execution control to untrusted code (hypervisor). After this function returns
+/// the security guarantees of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8) {
     debug!("initializing the ACE extension");
@@ -35,27 +37,29 @@ extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8
     }
 }
 
+/// Initializes the security monitor.
+/// The pointer to the flattened device tree is trusted.
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
-    // Safety: pointer to the flattened device tree is trusted.
     let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
 
     let number_of_harts = read_number_of_cpus(&fdt)?;
 
     // TODO: make sure the system has enough physical memory
-    let (confidential_memory_base_address, confidential_memory_end_address) = read_memory_region(&fdt)?;
+    let (confidential_memory_start, confidential_memory_end) = read_memory_region(&fdt)?;
 
     // Isolate the confidential memory region using PMP and IOPMP
-    configure_pmps(confidential_memory_base_address, confidential_memory_end_address)?;
-    configure_iopmps();
+    split_memory_into_confidential_and_non_confidential(&confidential_memory_start, confidential_memory_end)?;
+    protect_confidential_memory_from_io_devices();
 
-    // Create page tokens, heap,
-    init_confidential_memory(confidential_memory_base_address, confidential_memory_end_address, number_of_harts)?;
+    // Create page tokens, heap, memory tracker
+    init_confidential_memory(confidential_memory_start, confidential_memory_end, number_of_harts)?;
 
+    // Enable entry points to the security monitor by taking control over
+    // specific interrupts.
     set_delegation()?;
 
     // if we reached this line, then the security monitor has been correctly
-    // initialized. This means that we can generate attestation keys
-
+    // initialized.
     Ok(())
 }
 
@@ -85,7 +89,7 @@ fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
     Ok(fdt.cpus().count())
 }
 
-fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *const usize), Error> {
+fn read_memory_region(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
     let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
@@ -114,82 +118,35 @@ fn read_memory_region(fdt: &Fdt) -> Result<(*mut usize, *const usize), Error> {
     let confidential_memory_end = memory_end;
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
-    Ok((confidential_memory_start, confidential_memory_end))
-}
+    let (confidential_memory_address_start, confidential_memory_address_end, memory_layout) = MemoryLayout::init(
+        non_confidential_memory_start,
+        non_confidential_memory_end,
+        confidential_memory_start,
+        confidential_memory_end,
+    )?;
+    MEMORY_LAYOUT.call_once(|| memory_layout);
 
-fn configure_iopmps() {
-    debug!("TODO: implement IOPMP setup");
-}
-
-/// This function is called only once during the initialization of the security
-/// monitor during the boot process. This function initializes secure monitor's
-/// memory management like allocators.
-fn init_confidential_memory(
-    start_address: *mut usize, mut end_address: *const usize, number_of_harts: usize,
-) -> Result<(), Error> {
-    const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
-    // Safety: initialization order is crucial for safety because at some point we
-    // start allocating objects on heap, e.g., page tokens. We have to first
-    // initialize the global allocator, which permits us to use heap. To initialize heap
-    // we need to decide what is the confidential memory address range and split this memory
-    // into regions owned by heap allocator and page allocator (memory tracker).
-
-    // We align the start of the confidential memory to the smalles possible page size (4KiB on RISC-V)
-    // and make sure that its size is the multiply of this page size.
-    let start_address = ptr_align(start_address, PageSize::smallest().in_bytes(), end_address)
-        .map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
-    // Let's make sure that the end of the confidential memory is properly aligned.
-    let memory_size = ptr_byte_offset(end_address, start_address);
-    let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
-    let number_of_pages = memory_size / PageSize::smallest().in_bytes();
-    let memory_size_in_bytes = number_of_pages * PageSize::smallest().in_bytes();
-    if memory_size > memory_size_in_bytes {
-        // we must modify the end_address because the current one is not a multiply of smalles page size
-        end_address = ptr_byte_add_mut(start_address, memory_size_in_bytes, end_address)?;
-    }
-    // calculate if we have enough memory in the system to store page tokens. In the worst case we
-    // have one page token for every possible page in the confidential memory.
-    let size_of_a_page_token = size_of::<Page<UnAllocated>>();
-    let number_of_pages_to_store_page_tokens = number_of_pages * size_of_a_page_token;
-    let heap_pages = NUMBER_OF_HEAP_PAGES + (number_of_pages_to_store_page_tokens / PageSize::smallest().in_bytes());
-    assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
-    // Set up the global allocator so we can start using alloc::*.
-    let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
-    crate::core::heap::init_heap(start_address, heap_size_in_bytes);
-
-    // Memory tracker starts directly after the heap
-    let heap_end_address = ptr_byte_add_mut(start_address, heap_size_in_bytes, end_address)?;
-    let memory_tracker_start_address = heap_end_address;
-    assert!(memory_tracker_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
-    // Memory tracker takes ownership of the rest of the confidential memory.
-    let memory_tracker_end_address = end_address;
-    let memory_tracker = MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)?;
-    MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
-    CONFIDENTIAL_MEMORY_RANGE.call_once(|| (start_address as usize)..(end_address as usize));
-
-    // we need to allocate stack for the dumped state of each physical HART.
-    let mut harts_states = Vec::with_capacity(number_of_harts);
-    for hart_id in 0..number_of_harts {
-        let stack = MemoryTracker::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
-        debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack));
-    }
-    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
-    HARTS_STATES.call_once(|| Mutex::new(harts_states));
-
-    Ok(())
+    Ok((confidential_memory_address_start, confidential_memory_address_end))
 }
 
 // OpenSBI set already PMPs to isolate OpenSBI firmware from the rest of the
 // system PMP0 protects OpenSBI memory region while PMP1 defines the system
 // range We will use PMP0 and PMP1 to protect the confidential memory region,
 // PMP2 to protect the OpenSBI, and PMP3 to define the system range.
-fn configure_pmps(
-    confidential_memory_base_address: *const usize, confidential_memory_end_address: *const usize,
+fn split_memory_into_confidential_and_non_confidential(
+    confidential_memory_start: &ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
     use riscv::register::{Permission, Range};
     const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
     const PMP_SHIFT: u16 = 2;
+
+    // TODO: read how many PMPs are supported
+    let number_of_pmps = 64;
+    debug!("Number of PMPs={}", number_of_pmps);
+    assure!(
+        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
+        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
+    )?;
 
     // TODO: read how many PMPs are supported
     let number_of_pmps = 64;
@@ -217,15 +174,67 @@ fn configure_pmps(
 
     // now set up PMP0 and PMP1 to define the range of the confidential memory
     unsafe {
-        riscv::register::pmpaddr0::write(confidential_memory_base_address as usize >> PMP_SHIFT);
+        riscv::register::pmpaddr0::write(confidential_memory_start.as_usize() >> PMP_SHIFT);
         riscv::register::pmpcfg0::set_pmp(0, Range::OFF, Permission::NONE, false);
 
-        riscv::register::pmpaddr1::write(confidential_memory_end_address as usize >> PMP_SHIFT);
+        riscv::register::pmpaddr1::write(confidential_memory_end as usize >> PMP_SHIFT);
         riscv::register::pmpcfg0::set_pmp(1, Range::TOR, Permission::NONE, false);
         riscv::asm::sfence_vma_all();
     }
 
     crate::debug::__print_pmp_configuration();
+
+    Ok(())
+}
+
+fn protect_confidential_memory_from_io_devices() {
+    debug!("TODO: implement IOPMP setup");
+}
+
+/// This function is called only once during the initialization of the security
+/// monitor during the boot process. This function initializes secure monitor's
+/// memory management like allocators.
+fn init_confidential_memory(
+    confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize, number_of_harts: usize,
+) -> Result<(), Error> {
+    const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
+    // Safety: initialization order is crucial for safety because at some point we
+    // start allocating objects on heap, e.g., page tokens. We have to first
+    // initialize the global allocator, which permits us to use heap. To initialize heap
+    // we need to decide what is the confidential memory address range and split this memory
+    // into regions owned by heap allocator and page allocator (memory tracker).
+    let number_of_pages = usize::try_from(confidential_memory_start.offset_from(confidential_memory_end))?
+        / PageSize::smallest().in_bytes();
+    // calculate if we have enough memory in the system to store page tokens. In the worst case we
+    // have one page token for every possible page in the confidential memory.
+    let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
+    let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
+    let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
+    assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
+    // Set up the global allocator so we can start using alloc::*.
+    let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
+    let mut heap_start_address = confidential_memory_start;
+    let heap_end_address =
+        MemoryLayout::get().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
+    crate::core::heap::init_heap(heap_start_address, heap_size_in_bytes);
+
+    // Memory tracker starts directly after the heap
+    let memory_tracker_start_address = heap_end_address;
+    assert!(memory_tracker_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
+    // Memory tracker takes ownership of the rest of the confidential memory.
+    let memory_tracker_end_address = confidential_memory_end;
+    let memory_tracker = MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)?;
+    MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
+
+    // we need to allocate stack for the dumped state of each physical HART.
+    let mut harts_states = Vec::with_capacity(number_of_harts);
+    for hart_id in 0..number_of_harts {
+        let stack = MemoryTracker::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
+        debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
+        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack));
+    }
+    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
+    HARTS_STATES.call_once(|| Mutex::new(harts_states));
 
     Ok(())
 }
