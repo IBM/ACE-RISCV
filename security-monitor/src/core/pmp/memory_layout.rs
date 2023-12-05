@@ -46,9 +46,9 @@ impl MemoryLayout {
         non_confidential_memory_start: *mut usize, non_confidential_memory_end: *const usize,
         confidential_memory_start: *mut usize, confidential_memory_end: *const usize,
     ) -> Result<(ConfidentialMemoryAddress, *const usize, MemoryLayout), Error> {
-        assert!(non_confidential_memory_start as *const usize < non_confidential_memory_end);
-        assert!(non_confidential_memory_end <= confidential_memory_start as *const usize);
-        assert!(confidential_memory_start as *const usize < confidential_memory_end);
+        assert!((non_confidential_memory_start as *const usize) < non_confidential_memory_end);
+        assert!(non_confidential_memory_end <= (confidential_memory_start as *const usize));
+        assert!((confidential_memory_start as *const usize) < confidential_memory_end);
         // We align the start of the confidential memory to the smalles possible page size (4KiB on RISC-V)
         // and make sure that its size is the multiply of this page size.
         let smalles_page_size_in_bytes = PageSize::smallest().in_bytes();

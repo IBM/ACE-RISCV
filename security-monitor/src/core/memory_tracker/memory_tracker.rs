@@ -49,7 +49,12 @@ impl<'a> MemoryTracker {
                         page_offset_in_bytes,
                         memory_end,
                     )?;
-                    Ok(Page::<UnAllocated>::init(address, page_size.clone()))
+                    // Safety: It is safe to create this page token here if:
+                    // 1) this `MemoryTracker` constructor is guaranteed to be called only once
+                    // during the system lifetime
+                    // 2) all pages created here are guaranteed to be disjoined.
+                    let new_page = unsafe { Page::<UnAllocated>::init(address, page_size.clone()) };
+                    Ok(new_page)
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
             debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);

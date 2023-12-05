@@ -9,7 +9,7 @@ use crate::error::Error;
 /// `SharedPage` stores internally a raw pointer to an address in non-confidential memory that the shared page
 /// is associated to. Accessing this non-confidential memory is unsafe because we cannot guarantee that two
 /// concurrent hardware threads are not writting to it at the same time. This is because the non-confidential
-/// memory is owned by the untrusted code (hypervisor). 
+/// memory is owned by the untrusted code (hypervisor).
 pub struct SharedPage {
     hypervisor_address: NonConfidentialMemoryAddress,
     confidential_vm_virtual_address: ConfidentialVmVirtualAddress,

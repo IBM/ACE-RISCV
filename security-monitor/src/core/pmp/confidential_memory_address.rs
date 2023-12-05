@@ -52,7 +52,7 @@ impl ConfidentialMemoryAddress {
     ///
     /// # Safety
     ///
-    /// We need to ensure no one else is currently using the pointer.     
+    /// We need to ensure the pointer is not used by two threads simultaneously.    
     /// See `ptr::read_volatile` for safety concerns
     pub unsafe fn read_volatile(&self) -> usize {
         self.0.read_volatile()
@@ -62,7 +62,7 @@ impl ConfidentialMemoryAddress {
     ///
     /// # Safety
     ///
-    /// We need to ensure no one else is currently using the pointer. 
+    /// We need to ensure the pointer is not used by two threads simultaneously.
     /// See `ptr::write_volatile` for safety concerns
     pub unsafe fn write_volatile(&self, value: usize) {
         self.0.write_volatile(value);

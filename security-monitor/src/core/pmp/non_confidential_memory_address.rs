@@ -40,11 +40,11 @@ impl NonConfidentialMemoryAddress {
         Ok(NonConfidentialMemoryAddress(pointer))
     }
 
-    /// Reads the content of the confidential memory.
+    /// Reads the content of the non-confidential memory.
     ///
     /// # Safety
     ///
-    /// We need to ensure no one else is currently using the pointer. 
+    /// We need to ensure the pointer is not used by two threads simultaneously.
     /// See `ptr::read_volatile` for safety concerns.
     pub unsafe fn read(&self) -> usize {
         self.0.read_volatile()
