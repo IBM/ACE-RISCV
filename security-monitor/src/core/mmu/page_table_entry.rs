@@ -1,15 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_tracker::{Allocated, Page};
+use crate::core::memory_tracker::{Allocated, Page, SharedPage};
 use crate::core::mmu::page_table::PageTable;
-use crate::core::pmp::NonConfidentialMemoryAddress;
 use alloc::boxed::Box;
 
 pub(super) enum PageTableEntry {
     Pointer(Box<PageTable>, PageTableConfiguration),
     Leaf(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
-    Shared(NonConfidentialMemoryAddress, PageTableConfiguration, PageTablePermission),
+    Shared(SharedPage, PageTableConfiguration, PageTablePermission),
     NotValid,
 }
 
@@ -25,9 +24,9 @@ impl PageTableEntry {
                     | configuration.encode()
                     | permissions.encode()
             }
-            PageTableEntry::Shared(address, configuration, permissions) => {
+            PageTableEntry::Shared(shared_page, configuration, permissions) => {
                 PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(address.usize())
+                    | PageTableAddress::encode(shared_page.non_confidential_address())
                     | configuration.encode()
                     | permissions.encode()
             }
@@ -72,8 +71,8 @@ impl PageTableAddress {
     const CONFIGURATION_BIT_MASK: usize = 0x3ff; // first 10 bits
     const ADDRESS_SHIFT: usize = 2;
 
-    pub const fn decode(raw_entry: usize) -> usize {
-        (raw_entry & !Self::CONFIGURATION_BIT_MASK) << Self::ADDRESS_SHIFT
+    pub const fn decode(raw_entry: usize) -> *mut usize {
+        ((raw_entry & !Self::CONFIGURATION_BIT_MASK) << Self::ADDRESS_SHIFT) as *mut usize
     }
 
     pub fn encode(address: usize) -> usize {

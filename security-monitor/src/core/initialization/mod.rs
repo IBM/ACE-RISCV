@@ -207,9 +207,9 @@ fn init_confidential_memory(
         / PageSize::smallest().in_bytes();
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
-    let size_of_a_page_token = size_of::<Page<UnAllocated>>();
-    let number_of_pages_to_store_page_tokens = number_of_pages * size_of_a_page_token;
-    let heap_pages = NUMBER_OF_HEAP_PAGES + (number_of_pages_to_store_page_tokens / PageSize::smallest().in_bytes());
+    let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
+    let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
+    let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
     assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();

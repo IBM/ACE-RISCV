@@ -6,16 +6,18 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq)]
-pub struct ConfidentialMemoryAddress(pub(super) *mut usize);
-
-// We need to declare Send+Sync on the `ConfidentialMemoryAddress` because it stores internally a raw pointer and
-// raw pointers are not safe to pass in a multi-threaded program. But in the case of ConfidentialMemoryAddress it
-// is safe because we never expose raw pointers outside the ConfidentialMemoryAddress.
-unsafe impl Send for ConfidentialMemoryAddress {}
-unsafe impl Sync for ConfidentialMemoryAddress {}
+pub struct ConfidentialMemoryAddress(*mut usize);
 
 impl ConfidentialMemoryAddress {
-    pub fn into_mut_ptr(self) -> *mut usize {
+    pub(super) fn new(address: *mut usize) -> Self {
+        Self(address)
+    }
+
+    // TODO: check if needed. If yes, make sure the raw pointer is not used incorrectly
+    // Currently we only use it during creation of the heap allocator structure. It
+    // would be good to get rid of this because it requires extra safety guarantees for
+    // parallel execution of the security monitor
+    pub unsafe fn into_mut_ptr(self) -> *mut usize {
         self.0
     }
 
@@ -34,7 +36,7 @@ impl ConfidentialMemoryAddress {
     /// Creates a new confidential memory address at given offset. Error is returned if the resulting
     /// address exceeds the upper boundary.
     ///
-    /// Safety
+    /// # Safety
     ///
     /// The caller takes the responsibility to ensure that the address at given offset is still in the
     /// confidential memory.
@@ -46,10 +48,22 @@ impl ConfidentialMemoryAddress {
         Ok(ConfidentialMemoryAddress(pointer))
     }
 
+    /// Reads the content of the confidential memory
+    ///
+    /// # Safety
+    ///
+    /// We need to ensure no one else is currently using the pointer.     
+    /// See `ptr::read_volatile` for safety concerns
     pub unsafe fn read_volatile(&self) -> usize {
         self.0.read_volatile()
     }
 
+    /// Writes value to the confidential memory
+    ///
+    /// # Safety
+    ///
+    /// We need to ensure no one else is currently using the pointer. 
+    /// See `ptr::write_volatile` for safety concerns
     pub unsafe fn write_volatile(&self, value: usize) {
         self.0.write_volatile(value);
     }

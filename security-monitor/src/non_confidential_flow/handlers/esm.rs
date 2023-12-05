@@ -23,7 +23,7 @@ fn create_confidential_vm(esm_request: EsmRequest) -> Result<ConfidentialVmId, E
     let (hgatp, hart_state) = esm_request.into();
     let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
     let paging_system = PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
-    let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address())?;
+    let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address() as *mut usize)?;
     // TODO: read number of harts from fdt
     let confidential_harts_count = 1;
 

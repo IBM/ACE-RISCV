@@ -104,7 +104,7 @@ impl PageTable {
                 // The virtual address is already mapped to this physical address. Let's detach the old address and map
                 // the requested address TODO: deallocate the old page
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.into_hypervisor_address(),
+                    shared_page,
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -114,7 +114,7 @@ impl PageTable {
                 // confidential VM virtual address already mapped to a physical address in non-confidential memory.
                 // Let's simply re-map to the new address.
                 let new_entry = PageTableEntry::Shared(
-                    shared_page.into_hypervisor_address(),
+                    shared_page,
                     PageTableConfiguration::shared_page_configuration(),
                     PageTablePermission::shared_page_permission(),
                 );
@@ -124,7 +124,7 @@ impl PageTable {
                 if self.level == PageTableLevel::Level1 {
                     // enough to just set the mapping because there was no page mapped yet
                     let new_entry = PageTableEntry::Shared(
-                        shared_page.into_hypervisor_address(),
+                        shared_page,
                         PageTableConfiguration::shared_page_configuration(),
                         PageTablePermission::shared_page_permission(),
                     );
