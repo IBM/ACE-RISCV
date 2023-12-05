@@ -16,9 +16,11 @@ impl NonConfidentialMemoryAddress {
     /// Constructs an address in a non-confidential memory. Returns error if the address
     /// is outside non-confidential memory.
     pub fn new(address: *mut usize) -> Result<Self, Error> {
-        // We check that the address is within the non-confidential memory range.
+        // Safety: We check that the address is within the non-confidential memory range.
         // This is equavalent to ensure that it does not point to confidential memory as long
-        // as memory is correctly splitted during the initialization procedure.
+        // as memory is correctly splitted during the initialization procedure. We rely here on
+        // the guarantees from the `MemoryLayout` that cannot be constructed if confidential and
+        // non-confidential memory regions overlap.
         match MemoryLayout::get().is_in_non_confidential_range(address) {
             false => Err(Error::MemoryAccessAuthorization()),
             true => Ok(Self(address)),
@@ -31,7 +33,7 @@ impl NonConfidentialMemoryAddress {
     /// # Safety
     ///
     /// The caller takes the responsibility to ensure that the address advanced by the offset is still in the
-    /// confidential memory.
+    /// non-confidential memory.
     pub unsafe fn add(
         &self, offset_in_bytes: usize, upper_bound: *const usize,
     ) -> Result<NonConfidentialMemoryAddress, Error> {
