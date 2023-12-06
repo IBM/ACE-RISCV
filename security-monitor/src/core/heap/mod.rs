@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::pmp::ConfidentialMemoryAddress;
+use crate::core::memory_partitioner::ConfidentialMemoryAddress;
 use allocator::MemoryAllocator;
 
 mod allocator;
 
-// This object allocates memory on the security monitor's heap.
+/// global allocator allocates memory on the security monitor's heap.
 #[global_allocator]
 static mut HEAP_ALLOCATOR: MemoryAllocator = MemoryAllocator::empty();
 

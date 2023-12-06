@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId};
-use crate::core::mmu::RootPageTable;
+use crate::core::memory_partitioner::RootPageTable;
 use crate::error::{Error, NOT_INITIALIZED_CONTROL_DATA};
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;

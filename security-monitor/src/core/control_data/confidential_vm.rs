@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, HardwareHart};
-use crate::core::mmu::RootPageTable;
+use crate::core::memory_partitioner::RootPageTable;
 use crate::error::Error;
 use alloc::vec::Vec;
 use riscv::register::hgatp::Hgatp;

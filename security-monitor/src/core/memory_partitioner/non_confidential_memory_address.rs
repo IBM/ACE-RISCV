@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::pmp::MemoryLayout;
+use crate::core::memory_partitioner::MemoryPartitioner;
 use crate::error::Error;
 use pointers_utility::ptr_byte_add_mut;
 
@@ -19,9 +19,9 @@ impl NonConfidentialMemoryAddress {
         // Safety: We check that the address is within the non-confidential memory range.
         // This is equavalent to ensure that it does not point to confidential memory as long
         // as memory is correctly splitted during the initialization procedure. We rely here on
-        // the guarantees from the `MemoryLayout` that cannot be constructed if confidential and
+        // the guarantees from the `MemoryPartitioner` that cannot be constructed if confidential and
         // non-confidential memory regions overlap.
-        match MemoryLayout::get().is_in_non_confidential_range(address) {
+        match MemoryPartitioner::get().is_in_non_confidential_range(address) {
             false => Err(Error::MemoryAccessAuthorization()),
             true => Ok(Self(address)),
         }

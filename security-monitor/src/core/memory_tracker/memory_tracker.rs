@@ -2,8 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::page::{Page, UnAllocated};
-use crate::core::mmu::PageSize;
-use crate::core::pmp::{ConfidentialMemoryAddress, MemoryLayout};
+use crate::core::memory_partitioner::{ConfidentialMemoryAddress, MemoryPartitioner, PageSize};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec;
@@ -15,7 +14,9 @@ use spin::{Once, RwLock, RwLockWriteGuard};
 /// that it the memory tracker can only be initialized once.
 pub static MEMORY_TRACKER: Once<RwLock<MemoryTracker>> = Once::new();
 
-/// Memory tracker is a memory page allocator.
+/// Memory tracker allocates pages of confidential memory. It guarantees that a single page is not
+/// allocated twice. It does so by giving away page tokens that represent ownership of a page in a
+/// confidental memory. Page tokens are created when constructing the memory tracker.
 pub struct MemoryTracker {
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
 }
@@ -23,20 +24,25 @@ pub struct MemoryTracker {
 impl<'a> MemoryTracker {
     /// Constructs the memory tracker over the memory region defined by start and end addresses.
     /// It creates page tokens of unallocated pages.
-    /// This function must only be called once by the initialization procedure.
     ///
     /// # Arguments:
     ///
     /// `memory_start` address must be aligned to the smallest page size.
     /// `memory_end` does not belong to the memory region owned by the memory tracker. The total memory
     /// size of the memory tracker must be a multiply of the smallest page size.
-    pub fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called only once during the system lifecycle. The caller must guarantee
+    /// that the memory tracker becomes the exclusive owner of the memory region described by the input
+    /// arguments.
+    pub unsafe fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
         debug!("Memory tracker {:x}-{:x}", memory_start.as_usize(), memory_end as usize);
         assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));
         assert!(memory_start.offset_from(memory_end) as usize % PageSize::smallest().in_bytes() == 0);
 
         let mut map = BTreeMap::new();
-        let memory_layout = MemoryLayout::get();
+        let memory_partitioner = MemoryPartitioner::get();
         let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
             let free_memory_in_bytes = usize::try_from(page_address.offset_from(memory_end))?;
@@ -44,7 +50,7 @@ impl<'a> MemoryTracker {
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
                     let page_offset_in_bytes = i * page_size.in_bytes();
-                    let address = memory_layout.confidential_address_at_offset_bounded(
+                    let address = memory_partitioner.confidential_address_at_offset_bounded(
                         &mut page_address,
                         page_offset_in_bytes,
                         memory_end,
@@ -53,7 +59,7 @@ impl<'a> MemoryTracker {
                     // 1) this `MemoryTracker` constructor is guaranteed to be called only once
                     // during the system lifetime
                     // 2) all pages created here are guaranteed to be disjoined.
-                    let new_page = unsafe { Page::<UnAllocated>::init(address, page_size.clone()) };
+                    let new_page = Page::<UnAllocated>::init(address, page_size.clone());
                     Ok(new_page)
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
@@ -61,7 +67,7 @@ impl<'a> MemoryTracker {
             let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
 
-            match memory_layout.confidential_address_at_offset_bounded(
+            match memory_partitioner.confidential_address_at_offset_bounded(
                 &mut page_address,
                 pages_size_in_bytes,
                 memory_end,

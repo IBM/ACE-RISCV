@@ -88,6 +88,10 @@ impl ConfidentialHart {
 
 // functions to inject information to a confidential VM.
 impl ConfidentialHart {
+    pub fn hgatp(&self) -> usize {
+        self.confidential_hart_state.hgatp
+    }
+
     pub fn set_hgatp(&mut self, hgatp: usize) {
         self.confidential_hart_state.hgatp = hgatp;
     }

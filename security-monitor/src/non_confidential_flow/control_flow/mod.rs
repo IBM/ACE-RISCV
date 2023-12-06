@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::{ControlData, HardwareHart};
+use crate::core::memory_partitioner::MemoryPartitioner;
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 
@@ -30,8 +31,14 @@ impl<'a> NonConfidentialFlow<'a> {
         match ControlData::try_confidential_vm(confidential_vm_id, |mut cvm| {
             cvm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
         }) {
-            Ok(_) => {
-                crate::core::pmp::open_access_to_confidential_memory();
+            Ok(()) => {
+                // It is safe to invoke below unsafe code because at this point
+                // we are in the confidential flow part of the finite state machine
+                // and virtual hart is assigned to the hardware hart. We must
+                // reconfigure hardware the memory isolation mechanism to enforce
+                // correct memory access permissions.
+                let hgatp = self.hardware_hart.confidential_hart().hgatp();
+                unsafe { MemoryPartitioner::enable_confidential_vm_memory_view(hgatp) };
                 Ok(ConfidentialFlow::create(self.hardware_hart))
             }
             Err(error) => Err((self, error)),

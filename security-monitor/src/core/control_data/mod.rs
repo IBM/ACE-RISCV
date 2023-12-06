@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::hart::{GpRegister, HartState};
 pub use confidential_hart::ConfidentialHart;
 pub use confidential_vm::{ConfidentialVm, ConfidentialVmId};
 pub use hardware_hart::HardwareHart;
 pub use storage::{ControlData, CONTROL_DATA};
+
+use crate::core::hart::{GpRegister, HartState};
 
 mod confidential_hart;
 mod confidential_vm;

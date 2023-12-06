@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::pmp::MemoryLayout;
+use crate::core::memory_partitioner::MemoryPartitioner;
 
 /// This piece of code executes on a panic. Panic is a runtime error that
 /// indicates an implementation bug from which we cannot recover. Examples are
@@ -27,7 +27,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // outside the confidential memory region.
     // 2) TODO: we must guarantee that only one hardware thread calls this method. Specifically
     // that there is no panic! executed on two different harts at the same time.
-    unsafe { MemoryLayout::get().clear_confidential_memory() };
+    unsafe { MemoryPartitioner::get().clear_confidential_memory() };
 
     // sleep or loop forever since there is nothing else we can do
     loop {

@@ -48,12 +48,6 @@ exit_to_confidential_vm_asm:
     ld	        t0, ({HART_MEPC_OFFSET})(a0)
     csrw        mepc, t0
 
-    # set 2nd level address translation
-    ld	        t0, ({HART_HGATP_OFFSET})(a0)
-    csrw        hgatp, t0
-    hfence.gvma
-    hfence.vvma
-
     # TESTING:
     # li          t0, 0
     # # csrw        hgeip, t0
