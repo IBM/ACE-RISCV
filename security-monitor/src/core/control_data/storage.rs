@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId};
-use crate::core::memory_partitioner::RootPageTable;
+use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::{Error, NOT_INITIALIZED_CONTROL_DATA};
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -28,7 +28,7 @@ impl ControlData {
     /// to it. This identifier is not secret and reflects the number of confidential VMs that have been created up to
     /// now. The maximum allowed number of confidential VMs created is limited by the size of the `usize` type.
     pub fn store_confidential_vm(
-        confidential_harts: Vec<ConfidentialHart>, root_page_table: RootPageTable,
+        confidential_harts: Vec<ConfidentialHart>, memory_protector: ConfidentialVmMemoryProtector,
     ) -> Result<ConfidentialVmId, Error> {
         Self::try_write(|control_data| {
             control_data
@@ -39,7 +39,7 @@ impl ControlData {
                 .unwrap_or(Some(0))
                 .and_then(|max_id| {
                     let id = ConfidentialVmId::new(max_id);
-                    let confidential_vm = ConfidentialVm::new(id, confidential_harts, root_page_table);
+                    let confidential_vm = ConfidentialVm::new(id, confidential_harts, memory_protector);
                     control_data.confidential_vms.insert(id, Mutex::new(confidential_vm));
                     Some(id)
                 })

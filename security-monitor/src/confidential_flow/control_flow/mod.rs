@@ -2,7 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialVmId, ControlData, HardwareHart};
-use crate::core::memory_partitioner::MemoryPartitioner;
 use crate::core::transformations::{ExposeToConfidentialVm, PendingRequest, TrapReason};
 use crate::non_confidential_flow::NonConfidentialFlow;
 
@@ -55,7 +54,6 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::confidential_flow::handlers::{
             guest_load_page_fault_result, guest_store_page_fault_result, hypercall_result, share_page_result,
         };
-
         match self.hart.confidential_hart_mut().take_request() {
             Some(PendingRequest::SbiRequest()) => hypercall_result::handle(self.hart.hypercall_result(), self),
             Some(PendingRequest::GuestLoadPageFault(request)) => {
@@ -72,12 +70,7 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
         let id = self.confidential_vm_id();
         match ControlData::try_confidential_vm(id, |mut cvm| Ok(cvm.return_confidential_hart(self.hart))) {
-            Ok(_) => {
-                // it is safe to close access to confidential memory here because we transition in the
-                // finite state machine to nodes that will lead to the execution of a hypervisor.
-                unsafe { MemoryPartitioner::enable_hypervisor_memory_view() };
-                NonConfidentialFlow::create(self.hart)
-            }
+            Ok(_) => NonConfidentialFlow::create(self.hart),
             Err(error) => self.exit_to_confidential_vm(error.into_confidential_transformation()),
         }
     }
@@ -88,7 +81,10 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     pub fn confidential_vm_id(&'a self) -> ConfidentialVmId {
-        self.hart.confidential_hart().confidential_vm_id()
+        self.hart
+            .confidential_hart()
+            .confidential_vm_id()
+            .expect("Bug: found dummy hart instead of a confidential hart")
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {

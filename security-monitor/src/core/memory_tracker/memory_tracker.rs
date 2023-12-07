@@ -2,13 +2,16 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::page::{Page, UnAllocated};
-use crate::core::memory_partitioner::{ConfidentialMemoryAddress, MemoryPartitioner, PageSize};
+use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
+use crate::core::memory_protector::PageSize;
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
 use spin::{Once, RwLock, RwLockWriteGuard};
+
+const NOT_INITIALIZED_MEMORY_TRACKER: &str = "Bug. Could not access memory tracker because it is not initialized";
 
 /// A static global structure containing unallocated pages. Once<> guarantees
 /// that it the memory tracker can only be initialized once.
@@ -42,7 +45,7 @@ impl<'a> MemoryTracker {
         assert!(memory_start.offset_from(memory_end) as usize % PageSize::smallest().in_bytes() == 0);
 
         let mut map = BTreeMap::new();
-        let memory_partitioner = MemoryPartitioner::get();
+        let memory_layout = MemoryLayout::read();
         let mut page_address = memory_start;
         for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
             let free_memory_in_bytes = usize::try_from(page_address.offset_from(memory_end))?;
@@ -50,7 +53,7 @@ impl<'a> MemoryTracker {
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
                     let page_offset_in_bytes = i * page_size.in_bytes();
-                    let address = memory_partitioner.confidential_address_at_offset_bounded(
+                    let address = memory_layout.confidential_address_at_offset_bounded(
                         &mut page_address,
                         page_offset_in_bytes,
                         memory_end,
@@ -67,7 +70,7 @@ impl<'a> MemoryTracker {
             let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
 
-            match memory_partitioner.confidential_address_at_offset_bounded(
+            match memory_layout.confidential_address_at_offset_bounded(
                 &mut page_address,
                 pages_size_in_bytes,
                 memory_end,
@@ -176,7 +179,6 @@ impl<'a> MemoryTracker {
 
 fn try_write<F, O>(op: O) -> Result<F, Error>
 where O: FnOnce(&mut RwLockWriteGuard<'static, MemoryTracker>) -> Result<F, Error> {
-    use crate::error::NOT_INITIALIZED_MEMORY_TRACKER;
     MEMORY_TRACKER
         .get()
         .expect(NOT_INITIALIZED_MEMORY_TRACKER)

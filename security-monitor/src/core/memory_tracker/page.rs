@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_partitioner::{
-    ConfidentialMemoryAddress, MemoryPartitioner, NonConfidentialMemoryAddress, PageSize,
-};
+use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout, NonConfidentialMemoryAddress};
+use crate::core::memory_protector::PageSize;
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -55,7 +54,7 @@ impl Page<UnAllocated> {
     ) -> Result<Page<Allocated>, Error> {
         self.offsets().into_iter().try_for_each(|offset_in_bytes| {
             let non_confidential_address =
-                MemoryPartitioner::get().non_confidential_address_at_offset(&mut address, offset_in_bytes)?;
+                MemoryLayout::read().non_confidential_address_at_offset(&mut address, offset_in_bytes)?;
             // TODO: describe why below unsafe block is safe in this invocation.
             let data_to_copy = unsafe { non_confidential_address.read() };
             self.write(offset_in_bytes, data_to_copy)?;
@@ -68,7 +67,7 @@ impl Page<UnAllocated> {
     /// are correctly alligned. If this page is the smallest page (4KiB for RISC-V), then
     /// the same page is returned.
     pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
-        let memory_partitioner = MemoryPartitioner::get();
+        let memory_layout = MemoryLayout::read();
         let smaller_page_size = self.size.smaller().unwrap_or(self.size);
         let number_of_smaller_pages = self.size.in_bytes() / smaller_page_size.in_bytes();
         let page_end = self.end_address_ptr();
@@ -77,7 +76,7 @@ impl Page<UnAllocated> {
                 let offset_in_bytes = i * smaller_page_size.in_bytes();
                 // Safety: below unwrap is safe because a size of a larger page is a
                 // multiply of a smaller page size, thus we will never exceed the outer page boundary.
-                let smaller_page_start = memory_partitioner
+                let smaller_page_start = memory_layout
                     .confidential_address_at_offset_bounded(&mut self.address, offset_in_bytes, page_end)
                     .unwrap();
                 // Safety: The below token creation is safe because the current page owns the entire memory

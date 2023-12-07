@@ -2,10 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::PagingSystem;
-use crate::core::memory_partitioner::mmu::page_table_entry::PageTableEntry;
-use crate::core::memory_partitioner::mmu::paging_system::PageTableLevel;
-use crate::core::memory_partitioner::mmu::PageSize;
-use crate::core::memory_partitioner::{MemoryPartitioner, NonConfidentialMemoryAddress};
+use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
+use crate::core::memory_protector::mmu::page_table_entry::PageTableEntry;
+use crate::core::memory_protector::mmu::paging_system::PageTableLevel;
+use crate::core::memory_protector::mmu::PageSize;
 use crate::core::memory_tracker::{Allocated, MemoryTracker, Page};
 use crate::error::Error;
 use alloc::vec::Vec;
@@ -32,7 +32,7 @@ impl PageTableMemory {
             .map(|(i, page)| {
                 let offset_in_bytes = i * page.size().in_bytes();
                 let page_address =
-                    MemoryPartitioner::get().non_confidential_address_at_offset(&address, offset_in_bytes)?;
+                    MemoryLayout::read().non_confidential_address_at_offset(&address, offset_in_bytes)?;
                 page.copy_from_non_confidential_memory(page_address)
             })
             .collect::<Result<Vec<Page<Allocated>>, Error>>()?;

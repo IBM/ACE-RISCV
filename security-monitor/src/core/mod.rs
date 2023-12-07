@@ -2,7 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 pub mod control_data;
-pub mod memory_partitioner;
+pub mod memory_layout;
+pub mod memory_protector;
 pub mod memory_tracker;
 pub mod transformations;
 

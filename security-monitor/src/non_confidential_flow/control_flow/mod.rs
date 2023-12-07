@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::{ControlData, HardwareHart};
-use crate::core::memory_partitioner::MemoryPartitioner;
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 
@@ -31,23 +30,16 @@ impl<'a> NonConfidentialFlow<'a> {
         match ControlData::try_confidential_vm(confidential_vm_id, |mut cvm| {
             cvm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
         }) {
-            Ok(()) => {
-                // It is safe to invoke below unsafe code because at this point
-                // we are in the confidential flow part of the finite state machine
-                // and virtual hart is assigned to the hardware hart. We must
-                // reconfigure hardware the memory isolation mechanism to enforce
-                // correct memory access permissions.
-                let hgatp = self.hardware_hart.confidential_hart().hgatp();
-                unsafe { MemoryPartitioner::enable_confidential_vm_memory_view(hgatp) };
-                Ok(ConfidentialFlow::create(self.hardware_hart))
-            }
+            Ok(()) => Ok(ConfidentialFlow::create(self.hardware_hart)),
             Err(error) => Err((self, error)),
         }
     }
 
     pub fn route(self) -> ! {
         use crate::core::transformations::TrapReason;
-        use crate::non_confidential_flow::handlers::{esm, invalid_call, opensbi, resume, terminate, vm_hypercall};
+        use crate::non_confidential_flow::handlers::{
+            convert_to_confidential_vm, invalid_call, opensbi, resume, terminate, vm_hypercall,
+        };
         use crate::ACE_EXT_ID;
         const ESM_FID: usize = 1000;
         const RESUME_FID: usize = 1010;
@@ -55,7 +47,9 @@ impl<'a> NonConfidentialFlow<'a> {
 
         match self.hardware_hart.trap_reason() {
             TrapReason::Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            TrapReason::VsEcall(ACE_EXT_ID, ESM_FID) => esm::handle(self.hardware_hart.esm_request(), self),
+            TrapReason::VsEcall(ACE_EXT_ID, ESM_FID) => {
+                convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
+            }
             TrapReason::VsEcall(ACE_EXT_ID, function_id) => invalid_call::handle(self, ACE_EXT_ID, function_id),
             TrapReason::VsEcall(_, _) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
             TrapReason::HsEcall(ACE_EXT_ID, RESUME_FID) => resume::handle(self.hardware_hart.resume_request(), self),

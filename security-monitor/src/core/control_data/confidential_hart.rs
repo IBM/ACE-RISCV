@@ -15,18 +15,20 @@ use crate::error::Error;
 /// (registers/CSRs) is by calling the constructor or applying a transformation.
 #[repr(C)]
 pub struct ConfidentialHart {
+    // if there is no confidential vm id assigned to this hart then it means that this confidential hart
+    // is a dummy one. A dummy virtual hart means that the confidential_hart is not associated with any
+    // confidential VM
+    confidential_vm_id: Option<ConfidentialVmId>,
     // Safety: Careful, HardwareHart and ConfidentialHart must both start with the HartState element because based on
     // this we automatically calculate offsets of registers' and CSRs' for the asm code.
     confidential_hart_state: HartState,
     pending_request: Option<PendingRequest>,
-    // a dummy virtual hart means that the confidential_hart is not associated with any confidential VM
-    dummy: bool,
 }
 
 impl ConfidentialHart {
     pub fn dummy(id: usize) -> Self {
         let confidential_hart_state = HartState::empty(id);
-        Self { confidential_hart_state, pending_request: None, dummy: true }
+        Self { confidential_hart_state, pending_request: None, confidential_vm_id: None }
     }
 
     pub fn from_vm_hart_reset(id: usize, from: &HartState) -> Self {
@@ -41,7 +43,7 @@ impl ConfidentialHart {
         confidential_hart_state.medeleg = 0b1011001111111111;
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
 
-        Self { confidential_hart_state, pending_request: None, dummy: false }
+        Self { confidential_hart_state, pending_request: None, confidential_vm_id: None }
     }
 
     pub fn from_vm_hart(id: usize, from: &HartState) -> Self {
@@ -63,8 +65,12 @@ impl ConfidentialHart {
         confidential_hart
     }
 
-    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
-        ConfidentialVmId::new(riscv::register::hgatp::Hgatp::from(self.confidential_hart_state.hgatp).vmid())
+    pub fn set_confidential_vm_id(&mut self, confidential_vm_id: ConfidentialVmId) {
+        self.confidential_vm_id = Some(confidential_vm_id);
+    }
+
+    pub fn confidential_vm_id(&self) -> Option<ConfidentialVmId> {
+        self.confidential_vm_id
     }
 
     pub(super) fn confidential_hart_id(&self) -> usize {
@@ -76,7 +82,7 @@ impl ConfidentialHart {
     }
 
     pub fn is_dummy(&self) -> bool {
-        self.dummy
+        self.confidential_vm_id.is_none()
     }
 
     pub fn set_pending_request(&mut self, request: PendingRequest) -> Result<(), Error> {
@@ -88,14 +94,6 @@ impl ConfidentialHart {
 
 // functions to inject information to a confidential VM.
 impl ConfidentialHart {
-    pub fn hgatp(&self) -> usize {
-        self.confidential_hart_state.hgatp
-    }
-
-    pub fn set_hgatp(&mut self, hgatp: usize) {
-        self.confidential_hart_state.hgatp = hgatp;
-    }
-
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),

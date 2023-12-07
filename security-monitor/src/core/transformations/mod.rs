@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use esm_request::EsmRequest;
+pub use convert_to_confidential_vm_request::ConvertToConfidentialVm;
 pub use guest_load_page_fault_request::GuestLoadPageFaultRequest;
 pub use guest_load_page_fault_result::GuestLoadPageFaultResult;
 pub use guest_store_page_fault_request::GuestStorePageFaultRequest;
@@ -19,7 +19,7 @@ pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
 pub use trap_reason::TrapReason;
 
-mod esm_request;
+mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
 mod guest_load_page_fault_result;
 mod guest_store_page_fault_request;

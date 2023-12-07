@@ -18,10 +18,6 @@ pub const NOT_INITIALIZED_HARTS: &str =
 pub const NOT_INITIALIZED_CONTROL_DATA: &str =
     "Bug. Could not access the control data static variable because it is not initialized";
 
-pub const NOT_INITIALIZED_MEMORY_TRACKER: &str = "Bug. Could not access memory tracker because it is not initialized";
-pub const NOT_INITIALIZED_CONFIDENTIAL_MEMORY: &str =
-    "Bug. Could not access confidential memory start/end addresses because they were not initialized";
-
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("security monitor initialization error")]

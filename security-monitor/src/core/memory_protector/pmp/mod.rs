@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_partitioner::ConfidentialMemoryAddress;
 use crate::error::{Error, HardwareFeatures};
 
 // OpenSBI set already PMPs to isolate OpenSBI firmware from the rest of the
@@ -9,21 +8,14 @@ use crate::error::{Error, HardwareFeatures};
 // range We will use PMP0 and PMP1 to protect the confidential memory region,
 // PMP2 to protect the OpenSBI, and PMP3 to define the system range.
 pub(super) fn split_memory_into_confidential_and_non_confidential(
-    confidential_memory_start: &ConfidentialMemoryAddress, confidential_memory_end: *const usize,
+    confidential_memory_start: usize, confidential_memory_end: usize,
 ) -> Result<(), Error> {
     use riscv::register::{Permission, Range};
-    const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
+
     const PMP_SHIFT: u16 = 2;
 
     // TODO: read how many PMPs are supported
-    let number_of_pmps = 64;
-    debug!("Number of PMPs={}", number_of_pmps);
-    assure!(
-        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
-        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
-    )?;
-
-    // TODO: read how many PMPs are supported
+    const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
     let number_of_pmps = 64;
     debug!("Number of PMPs={}", number_of_pmps);
     assure!(
@@ -49,10 +41,10 @@ pub(super) fn split_memory_into_confidential_and_non_confidential(
 
     // now set up PMP0 and PMP1 to define the range of the confidential memory
     unsafe {
-        riscv::register::pmpaddr0::write(confidential_memory_start.as_usize() >> PMP_SHIFT);
+        riscv::register::pmpaddr0::write(confidential_memory_start >> PMP_SHIFT);
         riscv::register::pmpcfg0::set_pmp(0, Range::OFF, Permission::NONE, false);
 
-        riscv::register::pmpaddr1::write(confidential_memory_end as usize >> PMP_SHIFT);
+        riscv::register::pmpaddr1::write(confidential_memory_end >> PMP_SHIFT);
         riscv::register::pmpcfg0::set_pmp(1, Range::TOR, Permission::NONE, false);
         riscv::asm::sfence_vma_all();
     }

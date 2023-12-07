@@ -2,47 +2,43 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 pub use confidential_memory_address::ConfidentialMemoryAddress;
-pub use mmu::{PageSize, PagingSystem, RootPageTable};
 pub use non_confidential_memory_address::NonConfidentialMemoryAddress;
 
-use crate::error::{Error, InitType, NOT_INITIALIZED_CONFIDENTIAL_MEMORY};
+use crate::core::memory_protector::PageSize;
+use crate::error::{Error, InitType};
 use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 use spin::Once;
 
 mod confidential_memory_address;
-mod iopmp;
-mod mmu;
 mod non_confidential_memory_address;
-mod pmp;
 
-/// MEMORY_PARTITIONER is a global variable that is set during the boot process by the initialization function
-/// and never changes later -- this is guaranteed by Once<>.
-static MEMORY_PARTITIONER: Once<MemoryPartitioner> = Once::new();
+const NOT_INITIALIZED_MEMORY_LAYOUT: &str = "Bug. Could not access MemoryLayout because is has not been initialized";
 
-/// Partitions memory in the confidential and non-confidential memory regions using hardware mechanisms.
-/// Exposes safe interface to reconfigure access permissions to memory regions for access initiated from the
-/// physical hart to memory regions owned by the hypervisor or a confidential VM.
-///
-/// It also provides an interface to offset addresses while ensuring that the returned address remains inside
+/// MEMORY_LAYOUT is a global static and private to this module variable that is set during the system boot
+/// and never changes later -- this is guaranteed by Once<>. It stores an instance of the `MemoryLayout`.
+/// The only way to get a shared access to this instance is by calling `MemoryLayout::read()` function.
+static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
+
+/// Provides an interface to offset addresses while ensuring that the returned address remains inside
 /// the same memory region, i.e., confidential or non-confidential memory.
-pub struct MemoryPartitioner {
+pub struct MemoryLayout {
     non_confidential_memory_start: *mut usize,
     non_confidential_memory_end: *const usize,
     confidential_memory_start: *mut usize,
     confidential_memory_end: *const usize,
 }
 
-/// We need to declare Send+Sync on the `MemoryPartitioner` because MemoryPartitioner stores internally
+/// We need to declare Send+Sync on the `MemoryLayout` because MemoryLayout stores internally
 /// raw pointers that are not safe to pass in a multi-threaded program. This is not a case
-/// for MemoryPartitioner because we never expose raw pointers outside the MemoryPartitioner except for the
+/// for MemoryLayout because we never expose raw pointers outside the MemoryLayout except for the
 /// constructor when we return the initial address of the confidential memory. The constructor
 /// is invoked only once by the initialization procedure during the boot of the system.
-unsafe impl Send for MemoryPartitioner {}
-unsafe impl Sync for MemoryPartitioner {}
+unsafe impl Send for MemoryLayout {}
+unsafe impl Sync for MemoryLayout {}
 
-impl MemoryPartitioner {
-    /// Constructs the `MemoryPartitioner` where the confidential memory is within the memory range defined
-    /// by `confidential_memory_start` and `confidential_memory_end`. Returns the `MemoryPartitioner` and
+impl MemoryLayout {
+    /// Constructs the `MemoryLayout` where the confidential memory is within the memory range defined
+    /// by `confidential_memory_start` and `confidential_memory_end`. Returns the `MemoryLayout` and
     /// the first alligned address in the confidential memory.
     ///
     /// # Safety
@@ -74,7 +70,7 @@ impl MemoryPartitioner {
                 ptr_byte_add_mut(confidential_memory_start, memory_size_in_bytes, confidential_memory_end)?;
         }
 
-        MEMORY_PARTITIONER.call_once(|| MemoryPartitioner {
+        MEMORY_LAYOUT.call_once(|| MemoryLayout {
             non_confidential_memory_start,
             non_confidential_memory_end,
             confidential_memory_start,
@@ -83,8 +79,6 @@ impl MemoryPartitioner {
 
         // Reconfigure hardware to isolate the confidential memory region
         let confidential_memory_start = ConfidentialMemoryAddress::new(confidential_memory_start);
-        pmp::split_memory_into_confidential_and_non_confidential(&confidential_memory_start, confidential_memory_end)?;
-        iopmp::protect_confidential_memory_from_io_devices(&confidential_memory_start, confidential_memory_end)?;
 
         Ok((confidential_memory_start, confidential_memory_end))
     }
@@ -131,60 +125,21 @@ impl MemoryPartitioner {
     /// Caller must guarantee that there is no other thread that can write to confidential memory during execution
     /// of this function.
     pub unsafe fn clear_confidential_memory(&self) {
-        // we can safely cast below offset to usize because the constructor guarantees that the confidential memory
+        // We can safely cast below offset to usize because the constructor guarantees that the confidential memory
         // range is valid, and so the memory size must be a valid usize
         let memory_size = ptr_byte_offset(self.confidential_memory_end, self.confidential_memory_start) as usize;
         let usize_alligned_offsets = (0..memory_size).step_by(core::mem::size_of::<usize>());
         usize_alligned_offsets.for_each(|offset_in_bytes| {
-            if let Ok(ptr) =
-                ptr_byte_add_mut(self.confidential_memory_start, offset_in_bytes, self.confidential_memory_end)
-            {
-                unsafe { ptr.write_volatile(0) };
-            }
+            let _ = ptr_byte_add_mut(self.confidential_memory_start, offset_in_bytes, self.confidential_memory_end)
+                .and_then(|ptr| Ok(ptr.write_volatile(0)));
         });
     }
 
-    /// Reconfigures hardware to enable access initiated from this physical hart to memory regions
-    /// owned by the confidential VM and deny access to all other memory regions.
-    ///
-    /// # Arguments
-    ///
-    /// `hgatp` must be a valid value of the RISC-V hgatp register that contains CVM's id and the address
-    /// of the root page table for the 2nd level addres translation.
-    ///
-    /// # Safety
-    ///
-    /// Caller must guarantee that the security monitor will transition in the finite state machine
-    /// to the `confidential flow` and that the hgatp argument contains the correct id and the root
-    /// page table address of the confidential VM that will be executed next.
-    pub unsafe fn enable_confidential_vm_memory_view(hgatp: usize) {
-        pmp::open_access_to_confidential_memory();
-        // Enable MMU for HS,VS,VS,U modes. It is safe to invoke below code
-        // because we have access to this register (run in the M-mode) and
-        // hgatp is the content of the HGATP register calculated by the security monitor
-        // when recreating page tables of a confidential virtual machine that will
-        // get executed.
-        unsafe {
-            riscv::register::hgatp::write(hgatp);
-            core::arch::asm!("hfence.gvma");
-            core::arch::asm!("hfence.vvma");
-        };
+    pub fn read() -> &'static MemoryLayout {
+        MEMORY_LAYOUT.get().expect(NOT_INITIALIZED_MEMORY_LAYOUT)
     }
 
-    /// Reconfigures hardware to enable access initiated from this physical hart to memory regions
-    /// owned by the hypervisor and denies accesses to all other memory regions.
-    ///
-    /// # Safety
-    ///
-    /// Caller must guarantee that the security monitor will transition in the finite state machine
-    /// to the `non-confidential flow` and eventually to a hypervisor code.
-    pub unsafe fn enable_hypervisor_memory_view() {
-        pmp::close_access_to_confidential_memory();
-        // mmu will be reconfigured by the context switch code (assembly) that restores the previous
-        // hgatp value that the hypervisor used when it invoked a security monitor's call.
-    }
-
-    pub fn get() -> &'static MemoryPartitioner {
-        MEMORY_PARTITIONER.get().expect(NOT_INITIALIZED_CONFIDENTIAL_MEMORY)
+    pub fn confidential_memory_boundary(&self) -> (usize, usize) {
+        (self.confidential_memory_start as usize, self.confidential_memory_end as usize)
     }
 }

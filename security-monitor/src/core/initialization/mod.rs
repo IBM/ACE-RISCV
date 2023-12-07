@@ -2,7 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
-use crate::core::memory_partitioner::{ConfidentialMemoryAddress, MemoryPartitioner, PageSize};
+use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
+use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
 use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, MEMORY_TRACKER};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
@@ -41,17 +42,21 @@ extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
     let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
 
-    let number_of_harts = read_number_of_cpus(&fdt)?;
-
     // TODO: make sure the system has enough physical memory
-    let (confidential_memory_start, confidential_memory_end) = initialize_memory_partitioner(&fdt)?;
+    let (confidential_memory_start, confidential_memory_end) = initialize_memory_layout(&fdt)?;
 
     // Create page tokens, heap, memory tracker
-    initalize_security_monitor_state(confidential_memory_start, confidential_memory_end, number_of_harts)?;
+    initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
+
+    // Parses FDT to read number of harts and verify that they support required extensions
+    let number_of_harts = read_number_of_cpus(&fdt)?;
+
+    // Prepares memory required to store physical hart state
+    prepare_harts(number_of_harts)?;
 
     // Enable entry points to the security monitor by taking control over
-    // specific interrupts.
-    set_delegation()?;
+    // specific interrupts and controls memory isolation mechanisms
+    setup_this_hart()?;
 
     // if we reached this line, then the security monitor has been correctly
     // initialized.
@@ -84,7 +89,7 @@ fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
     Ok(fdt.cpus().count())
 }
 
-fn initialize_memory_partitioner(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
+fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
     let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
@@ -113,7 +118,7 @@ fn initialize_memory_partitioner(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress
     let confidential_memory_end = memory_end;
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
-    let (confidential_memory_address_start, confidential_memory_address_end) = MemoryPartitioner::init(
+    let (confidential_memory_address_start, confidential_memory_address_end) = MemoryLayout::init(
         non_confidential_memory_start,
         non_confidential_memory_end,
         confidential_memory_start,
@@ -127,7 +132,7 @@ fn initialize_memory_partitioner(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress
 /// monitor during the boot process. This function initializes secure monitor's
 /// memory management like allocators.
 fn initalize_security_monitor_state(
-    confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize, number_of_harts: usize,
+    confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
     const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
@@ -147,7 +152,7 @@ fn initalize_security_monitor_state(
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
     let heap_end_address =
-        MemoryPartitioner::get().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
+        MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
     crate::core::heap::init_heap(heap_start_address, heap_size_in_bytes);
 
     // Memory tracker starts directly after the heap
@@ -159,21 +164,26 @@ fn initalize_security_monitor_state(
     // ownership to the memory tracker.
     let memory_tracker = unsafe { MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)? };
     MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
+    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
 
+    Ok(())
+}
+
+fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     // we need to allocate stack for the dumped state of each physical HART.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = MemoryTracker::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
+        let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack));
+        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
-    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
 
     Ok(())
 }
 
-fn set_delegation() -> Result<(), Error> {
+fn setup_this_hart() -> Result<(), Error> {
     // let the hypervisor handle all traps except for two exceptions
     // that carry potentially SM-calls. These exceptions will be trapped in the
     // security monitor. The security monitor trap handler will delegate these
@@ -206,6 +216,9 @@ fn set_delegation() -> Result<(), Error> {
     // content.
     hart.swap_mscratch(); // this will store opensbi_mscratch in the internal hart state
     riscv::register::mscratch::write(hart.address());
+
+    // configure memory isolation to limit memory view to the hypervisor owned memory regions
+    hart.hypervisor_memory_protector().setup()?;
 
     Ok(())
 }

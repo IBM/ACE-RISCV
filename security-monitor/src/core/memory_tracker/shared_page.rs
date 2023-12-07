@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_partitioner::{MemoryPartitioner, NonConfidentialMemoryAddress, PageSize};
+use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
+use crate::core::memory_protector::PageSize;
 use crate::core::transformations::{ConfidentialVmVirtualAddress, SharePageRequest};
 use crate::error::Error;
 
@@ -29,7 +30,7 @@ impl SharedPage {
         // Security: check that the start address is located in the non-confidential memory
         let hypervisor_address = NonConfidentialMemoryAddress::new(hypervisor_address as *mut usize)?;
         // Security: check that the end address is located in the non-confidential memory
-        MemoryPartitioner::get().non_confidential_address_at_offset(&hypervisor_address, page_size.in_bytes() - 1)?;
+        MemoryLayout::read().non_confidential_address_at_offset(&hypervisor_address, page_size.in_bytes() - 1)?;
 
         let confidential_vm_virtual_address = request.confidential_vm_virtual_address();
 
