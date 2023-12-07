@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::ConfidentialHart;
 use crate::core::hart::{GpRegister, HartState};
+use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::memory_tracker::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    EsmRequest, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest,
+    ConvertToConfidentialVm, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest,
     MmioLoadRequest, MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest,
     SharePageResult, TerminateRequest, TrapReason,
 };
@@ -15,16 +16,19 @@ pub struct HardwareHart {
     // Careful, HardwareHart and ConfidentialHart must both start with the HartState element because based on this we
     // automatically calculate offsets of registers' and CSRs' for the asm code.
     pub(super) non_confidential_hart_state: HartState,
+    // Memory protector that configures the hardware memory isolation component to allow only memory accesses
+    // to the memory region owned by the hypervisor.
+    hypervisor_memory_protector: HypervisorMemoryProtector,
     // A page containing the stack of the code executing within the given hart.
     pub(super) stack: Page<Allocated>,
-    // the stack_address is redundant (we can learn the stack_address from the page assigned to the stack) but we need
+    // The stack_address is redundant (we can learn the stack_address from the page assigned to the stack) but we need
     // it because this is the way to expose it to assembly
     pub(super) stack_address: usize,
-    // we need to store the OpenSBI's mscratch value because OpenSBI uses mscratch to track some of its internal
+    // We need to store the OpenSBI's mscratch value because OpenSBI uses mscratch to track some of its internal
     // data structures and our security monitor also uses mscratch to keep track of the address of the hart state
     // in memory.
     previous_mscratch: usize,
-    // we keep the virtual hart that is associated with this hardware hart. The virtual hart can be 1) a dummy hart
+    // We keep the virtual hart that is associated with this hardware hart. The virtual hart can be 1) a dummy hart
     // in case there is any confidential VM's virtual hart associated to it, or 2) an confidential VM's virtual hart.
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
@@ -32,9 +36,10 @@ pub struct HardwareHart {
 }
 
 impl HardwareHart {
-    pub fn init(id: usize, stack: Page<UnAllocated>) -> Self {
+    pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
             non_confidential_hart_state: HartState::empty(id),
+            hypervisor_memory_protector,
             stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
@@ -46,7 +51,7 @@ impl HardwareHart {
         core::ptr::addr_of!(self.non_confidential_hart_state) as usize
     }
 
-    /// calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
+    /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
     /// we replaced during the system initialization. We store the original mscratch value expected by the OpenSBI in
     /// the previous_mscratch field.
     pub fn swap_mscratch(&mut self) {
@@ -61,6 +66,14 @@ impl HardwareHart {
 
     pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
         &mut self.confidential_hart
+    }
+
+    pub fn hypervisor_memory_protector(&self) -> &HypervisorMemoryProtector {
+        &self.hypervisor_memory_protector
+    }
+
+    pub unsafe fn enable_hypervisor_memory_protector(&self) {
+        self.hypervisor_memory_protector.enable(self.non_confidential_hart_state.hgatp)
     }
 }
 
@@ -207,8 +220,8 @@ impl HardwareHart {
         self.non_confidential_hart_state.trap_reason()
     }
 
-    pub fn esm_request(&self) -> EsmRequest {
-        EsmRequest::new(&self.non_confidential_hart_state)
+    pub fn convert_to_confidential_vm_request(&self) -> ConvertToConfidentialVm {
+        ConvertToConfidentialVm::new(&self.non_confidential_hart_state)
     }
 
     pub fn hypercall_result(&self) -> SbiResult {

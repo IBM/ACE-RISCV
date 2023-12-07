@@ -2,9 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
+use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
+use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
 use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated, MEMORY_TRACKER};
-use crate::core::mmu::PageSize;
-use crate::core::pmp::{ConfidentialMemoryAddress, MemoryLayout, MEMORY_LAYOUT};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -42,21 +42,21 @@ extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
     let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
 
-    let number_of_harts = read_number_of_cpus(&fdt)?;
-
     // TODO: make sure the system has enough physical memory
-    let (confidential_memory_start, confidential_memory_end) = read_memory_region(&fdt)?;
-
-    // Isolate the confidential memory region using PMP and IOPMP
-    split_memory_into_confidential_and_non_confidential(&confidential_memory_start, confidential_memory_end)?;
-    protect_confidential_memory_from_io_devices();
+    let (confidential_memory_start, confidential_memory_end) = initialize_memory_layout(&fdt)?;
 
     // Create page tokens, heap, memory tracker
-    init_confidential_memory(confidential_memory_start, confidential_memory_end, number_of_harts)?;
+    initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
+
+    // Parses FDT to read number of harts and verify that they support required extensions
+    let number_of_harts = read_number_of_cpus(&fdt)?;
+
+    // Prepares memory required to store physical hart state
+    prepare_harts(number_of_harts)?;
 
     // Enable entry points to the security monitor by taking control over
-    // specific interrupts.
-    set_delegation()?;
+    // specific interrupts and controls memory isolation mechanisms
+    setup_this_hart()?;
 
     // if we reached this line, then the security monitor has been correctly
     // initialized.
@@ -89,7 +89,7 @@ fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
     Ok(fdt.cpus().count())
 }
 
-fn read_memory_region(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
+fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
     let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
@@ -118,84 +118,21 @@ fn read_memory_region(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const us
     let confidential_memory_end = memory_end;
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
-    let (confidential_memory_address_start, confidential_memory_address_end, memory_layout) = MemoryLayout::init(
+    let (confidential_memory_address_start, confidential_memory_address_end) = MemoryLayout::init(
         non_confidential_memory_start,
         non_confidential_memory_end,
         confidential_memory_start,
         confidential_memory_end,
     )?;
-    MEMORY_LAYOUT.call_once(|| memory_layout);
 
     Ok((confidential_memory_address_start, confidential_memory_address_end))
-}
-
-// OpenSBI set already PMPs to isolate OpenSBI firmware from the rest of the
-// system PMP0 protects OpenSBI memory region while PMP1 defines the system
-// range We will use PMP0 and PMP1 to protect the confidential memory region,
-// PMP2 to protect the OpenSBI, and PMP3 to define the system range.
-fn split_memory_into_confidential_and_non_confidential(
-    confidential_memory_start: &ConfidentialMemoryAddress, confidential_memory_end: *const usize,
-) -> Result<(), Error> {
-    use riscv::register::{Permission, Range};
-    const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
-    const PMP_SHIFT: u16 = 2;
-
-    // TODO: read how many PMPs are supported
-    let number_of_pmps = 64;
-    debug!("Number of PMPs={}", number_of_pmps);
-    assure!(
-        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
-        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
-    )?;
-
-    // TODO: read how many PMPs are supported
-    let number_of_pmps = 64;
-    debug!("Number of PMPs={}", number_of_pmps);
-    assure!(
-        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
-        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
-    )?;
-
-    // TODO: simplify to use a single PMP to isolate the confidential memory.
-    // first shift PMP0, and PMP1 by two to make space for the confidential memory
-    // PMPs
-    let pmpcfg0 = riscv::register::pmpcfg0::read();
-    let pmp0 = riscv::register::pmpaddr0::read();
-    let pmp0cfg = pmpcfg0.into_config(0);
-    let pmp1 = riscv::register::pmpaddr1::read();
-    let pmp1cfg = pmpcfg0.into_config(1);
-    unsafe {
-        riscv::register::pmpaddr2::write(pmp0);
-        riscv::register::pmpcfg0::set_pmp(2, pmp0cfg.range, pmp0cfg.permission, false);
-
-        riscv::register::pmpaddr3::write(pmp1);
-        riscv::register::pmpcfg0::set_pmp(3, pmp1cfg.range, pmp1cfg.permission, false);
-    }
-
-    // now set up PMP0 and PMP1 to define the range of the confidential memory
-    unsafe {
-        riscv::register::pmpaddr0::write(confidential_memory_start.as_usize() >> PMP_SHIFT);
-        riscv::register::pmpcfg0::set_pmp(0, Range::OFF, Permission::NONE, false);
-
-        riscv::register::pmpaddr1::write(confidential_memory_end as usize >> PMP_SHIFT);
-        riscv::register::pmpcfg0::set_pmp(1, Range::TOR, Permission::NONE, false);
-        riscv::asm::sfence_vma_all();
-    }
-
-    crate::debug::__print_pmp_configuration();
-
-    Ok(())
-}
-
-fn protect_confidential_memory_from_io_devices() {
-    debug!("TODO: implement IOPMP setup");
 }
 
 /// This function is called only once during the initialization of the security
 /// monitor during the boot process. This function initializes secure monitor's
 /// memory management like allocators.
-fn init_confidential_memory(
-    confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize, number_of_harts: usize,
+fn initalize_security_monitor_state(
+    confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
     const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
@@ -203,8 +140,8 @@ fn init_confidential_memory(
     // initialize the global allocator, which permits us to use heap. To initialize heap
     // we need to decide what is the confidential memory address range and split this memory
     // into regions owned by heap allocator and page allocator (memory tracker).
-    let number_of_pages = usize::try_from(confidential_memory_start.offset_from(confidential_memory_end))?
-        / PageSize::smallest().in_bytes();
+    let confidential_memory_size = confidential_memory_start.offset_from(confidential_memory_end);
+    let number_of_pages = usize::try_from(confidential_memory_size)? / PageSize::smallest().in_bytes();
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
@@ -215,7 +152,7 @@ fn init_confidential_memory(
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
     let heap_end_address =
-        MemoryLayout::get().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
+        MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
     crate::core::heap::init_heap(heap_start_address, heap_size_in_bytes);
 
     // Memory tracker starts directly after the heap
@@ -223,23 +160,30 @@ fn init_confidential_memory(
     assert!(memory_tracker_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
     // Memory tracker takes ownership of the rest of the confidential memory.
     let memory_tracker_end_address = confidential_memory_end;
-    let memory_tracker = MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)?;
+    // It is safe to construct the memory tracker because we own the corresponding memory region and pass this
+    // ownership to the memory tracker.
+    let memory_tracker = unsafe { MemoryTracker::new(memory_tracker_start_address, memory_tracker_end_address)? };
     MEMORY_TRACKER.call_once(|| RwLock::new(memory_tracker));
+    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
 
+    Ok(())
+}
+
+fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     // we need to allocate stack for the dumped state of each physical HART.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = MemoryTracker::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
+        let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack));
+        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
-    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
 
     Ok(())
 }
 
-fn set_delegation() -> Result<(), Error> {
+fn setup_this_hart() -> Result<(), Error> {
     // let the hypervisor handle all traps except for two exceptions
     // that carry potentially SM-calls. These exceptions will be trapped in the
     // security monitor. The security monitor trap handler will delegate these
@@ -272,6 +216,9 @@ fn set_delegation() -> Result<(), Error> {
     // content.
     hart.swap_mscratch(); // this will store opensbi_mscratch in the internal hart state
     riscv::register::mscratch::write(hart.address());
+
+    // configure memory isolation to limit memory view to the hypervisor owned memory regions
+    hart.hypervisor_memory_protector().setup()?;
 
     Ok(())
 }

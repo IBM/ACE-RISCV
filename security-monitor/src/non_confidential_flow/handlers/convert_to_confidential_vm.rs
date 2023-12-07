@@ -2,32 +2,33 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData};
-use crate::core::mmu::{PagingSystem, RootPageTable};
-use crate::core::pmp::NonConfidentialMemoryAddress;
-use crate::core::transformations::{EsmRequest, ExposeToHypervisor, SbiRequest};
+use crate::core::memory_protector::ConfidentialVmMemoryProtector;
+use crate::core::transformations::{ConvertToConfidentialVm, ExposeToHypervisor, SbiRequest};
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 const BOOT_HART_ID: usize = 0;
 
-pub fn handle(esm_request: EsmRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
+pub fn handle(
+    convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow,
+) -> ! {
     debug!("Handling enter secure mode (ESM) SM-call");
-    let transformation = match create_confidential_vm(esm_request) {
+    let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => error.into_non_confidential_transformation(),
     };
     non_confidential_flow.exit_to_hypervisor(transformation)
 }
 
-fn create_confidential_vm(esm_request: EsmRequest) -> Result<ConfidentialVmId, Error> {
-    let (hgatp, hart_state) = esm_request.into();
-    let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
-    let paging_system = PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
-    let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address() as *mut usize)?;
+fn create_confidential_vm(
+    convert_to_confidential_vm_request: ConvertToConfidentialVm,
+) -> Result<ConfidentialVmId, Error> {
+    let hart_state = convert_to_confidential_vm_request.into();
+
+    let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
+
     // TODO: read number of harts from fdt
     let confidential_harts_count = 1;
-
-    let root_page_table = RootPageTable::copy_from_non_confidential_memory(root_page_address, paging_system)?;
 
     // create virtual processor for this confidential VM
     let confidential_harts = (0..confidential_harts_count)
@@ -41,7 +42,7 @@ fn create_confidential_vm(esm_request: EsmRequest) -> Result<ConfidentialVmId, E
 
     // TODO: perform local attestation (optional)
 
-    let confidential_vm_id = ControlData::store_confidential_vm(confidential_harts, root_page_table)?;
+    let confidential_vm_id = ControlData::store_confidential_vm(confidential_harts, memory_protector)?;
 
     debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
 

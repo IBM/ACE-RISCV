@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::hart::HardwareHart;
+use crate::core::control_data::HardwareHart;
 
 /// This is a private function, not accessible from safe Rust but accessible
 /// from the assembly. It creates the mutable reference to HardwareHart by
@@ -95,7 +95,6 @@ core::arch::global_asm!(
     HART_HVIP_OFFSET = const crate::core::control_data::HART_HVIP_OFFSET,
     // HART_HTVAL_OFFSET = const crate::core::control_data::HART_HTVAL_OFFSET,
     HART_VSATP_OFFSET = const crate::core::control_data::HART_VSATP_OFFSET,
-    HART_HGATP_OFFSET = const crate::core::control_data::HART_HGATP_OFFSET,
     HART_HEDELEG_OFFSET = const crate::core::control_data::HART_HEDELEG_OFFSET,
     HART_HIDELEG_OFFSET = const crate::core::control_data::HART_HIDELEG_OFFSET,
     // HART_HTINST_OFFSET = const crate::core::control_data::HART_HTINST_OFFSET,

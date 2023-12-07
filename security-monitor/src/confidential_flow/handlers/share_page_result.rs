@@ -26,7 +26,7 @@ pub fn handle(share_page_result: SharePageResult, confidential_flow: Confidentia
 
     let confidential_vm_id = confidential_flow.confidential_vm_id();
     let transformation = ControlData::try_confidential_vm_mut(confidential_vm_id, |mut cvm| {
-        cvm.root_page_table_mut().map_shared_page(shared_page)
+        cvm.memory_protector_mut().map_shared_page(shared_page)
     })
     .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
     .unwrap_or_else(|error| error.into_confidential_transformation());
