@@ -10,11 +10,14 @@ extern "C" {
     fn exit_to_confidential_vm_asm(confidential_hart_address: usize) -> !;
 }
 
+/// The token that ensures correct control flow integrity within the `confidential flow` part of the finite state
+/// machine (FSM) of the security monitor.
 pub struct ConfidentialFlow<'a> {
     hart: &'a mut HardwareHart,
 }
 
 impl<'a> ConfidentialFlow<'a> {
+    /// Creates the confidential flow token.
     pub fn create(hart: &'a mut HardwareHart) -> Self {
         Self { hart }
     }

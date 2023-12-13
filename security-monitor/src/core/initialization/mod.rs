@@ -16,19 +16,20 @@ extern "C" {
     fn enter_from_hypervisor_or_vm_asm() -> !;
 }
 
-/// A *private* static array of hart states stores the hypervisor's harts states.
-/// Safe rust code cannot access this structure. We store the memory addresses
-/// of individual HardwareHart structure in the mscratch register. Thus, the
-/// assembly code of the context switch can store and load data from this data
-/// structure.
-/// Initialization procedure must guarantee that the mscratch register contains
-/// the address of the memory region that stores the state of the executing hart.
+/// A *private* static array of hart states stores the hypervisor's harts states. Safe Rust code cannot access this
+/// structure. We store the memory addresses of individual HardwareHart structure in the mscratch register. Thus, the
+/// assembly code of the context switch can store and load data from this data structure.
+///
+/// # Safety
+///
+/// Initialization procedure must guarantee that the mscratch register contains the address of the memory region that
+/// stores the state of the executing hart.
 static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 
-/// This is the entry point to the security monitor. It is called by the booting firmware (e.g., OpenSBI)
-/// during the boot process. After the return, the control flow returns to the booting firmware,
-/// which eventually passes the execution control to untrusted code (hypervisor). After this function returns
-/// the security guarantees of ACE hold.
+/// The entry point to the security monitor initialization procedure. It should be called by the booting firmware (e.g.,
+/// OpenSBI) during the boot process to initialize ACE. After the return, the control flow returns to the booting
+/// firmware, which eventually passes the execution control to untrusted code (hypervisor). After the return of this
+/// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8) {
     debug!("initializing the ACE extension");
@@ -38,7 +39,10 @@ extern "C" fn init_security_monitor_asm(flattened_device_tree_address: *const u8
 }
 
 /// Initializes the security monitor.
-/// The pointer to the flattened device tree is trusted.
+///
+/// # Safety
+///
+/// Caller must pass a valid pointer to the flattened device tree. The content of the flattened device tree is trusted.
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
     let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
 
@@ -48,14 +52,10 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
     // Create page tokens, heap, memory tracker
     initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
 
-    // Parses FDT to read number of harts and verify that they support required extensions
-    let number_of_harts = read_number_of_cpus(&fdt)?;
+    let number_of_harts = verify_harts(&fdt)?;
 
     // Prepares memory required to store physical hart state
     prepare_harts(number_of_harts)?;
-
-    // Enable entry points to the security monitor by taking control over
-    // specific interrupts and controls memory isolation mechanisms
     setup_this_hart()?;
 
     // if we reached this line, then the security monitor has been correctly
@@ -63,7 +63,10 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
     Ok(())
 }
 
-fn read_number_of_cpus(fdt: &Fdt) -> Result<usize, Error> {
+/// Parses the flattened device tree (FDT) and reads the number of physical harts in the system. It verifies that these
+/// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
+/// does not support required extensions.
+fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
     const RISCV_ARCH: &str = "rv64";
     const ATOMIC_EXTENSION: char = 'a';
     const HYPERVISOR_EXTENSION: char = 'h';
@@ -118,12 +121,14 @@ fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *co
     let confidential_memory_end = memory_end;
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
-    let (confidential_memory_address_start, confidential_memory_address_end) = MemoryLayout::init(
-        non_confidential_memory_start,
-        non_confidential_memory_end,
-        confidential_memory_start,
-        confidential_memory_end,
-    )?;
+    let (confidential_memory_address_start, confidential_memory_address_end) = unsafe {
+        MemoryLayout::init(
+            non_confidential_memory_start,
+            non_confidential_memory_end,
+            confidential_memory_start,
+            confidential_memory_end,
+        )
+    }?;
 
     Ok((confidential_memory_address_start, confidential_memory_address_end))
 }
@@ -183,19 +188,17 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     Ok(())
 }
 
+/// Enables entry points to the security monitor by taking control over some interrupts and protecting confidential
+/// memory region using hardware isolation mechanisms.
 fn setup_this_hart() -> Result<(), Error> {
-    // let the hypervisor handle all traps except for two exceptions
-    // that carry potentially SM-calls. These exceptions will be trapped in the
-    // security monitor. The security monitor trap handler will delegate these
-    // calls to OpenSBI in case they are not directed for SM, or will process
-    // them otherwise.
+    // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap in
+    // the security monitor entry point of a non-confidential flow.
     unsafe {
         riscv::register::medeleg::clear_supervisor_env_call();
         riscv::register::medeleg::clear_virtual_supervisor_env_call();
     }
 
-    // set up the trap vector, so the above exceptions are handled by the security
-    //monitor.
+    // Set up the trap vector, so the above exceptions are handled by the security monitor.
     let trap_vector_address = (enter_from_hypervisor_or_vm_asm as usize)
         .try_into()
         .map_err(|_| Error::Init(InitType::InvalidAssemblyAddress))?;
@@ -204,21 +207,27 @@ fn setup_this_hart() -> Result<(), Error> {
         riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);
     }
 
-    // OpenSBI requires that mscratch points to an internal OpenSBI's structure we have to store this pointer during
-    // init and restore it every time we will delegate exception/interrupt to the opensbi.
+    // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
+    // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
     let mut harts = HARTS_STATES.get().expect(NOT_INITIALIZED_HARTS).lock();
     let hart_id = riscv::register::mhartid::read();
     let hart = harts.get_mut(hart_id).expect(NOT_INITIALIZED_HART);
 
-    // The mscratch must point to the memory region when the security monitor stores
-    // the confidential_harts states. This is crucial for context switching because assembly
-    // code will use the mscratch register to decide where to store/load registers
-    // content.
-    hart.swap_mscratch(); // this will store opensbi_mscratch in the internal hart state
+    // The mscratch must point to the memory region when the security monitor stores the dumped states of confidential
+    // harts. This is crucial for context switches because assembly code will use the mscratch register to decide where
+    // to store/load registers content. Below 'swap' stores pointer to opensbi_mscratch in the internal hart state.
+    // OpenSBI stored in mscratch a pointer to the `opensbi_mscratch` region of this hart before calling the security
+    // monitor's initialization procedure. Thus, the swap will move the mscratch register value into the dump state of
+    // the hart
+    hart.swap_mscratch();
     riscv::register::mscratch::write(hart.address());
 
-    // configure memory isolation to limit memory view to the hypervisor owned memory regions
-    hart.hypervisor_memory_protector().setup()?;
+    // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region owned
+    // by the hypervisor. The setup method enables the memory isolation. It is safe to call it because the
+    // `MemoryLayout` is initialized on the boot hart and this happens before the hart setup.
+    unsafe {
+        hart.hypervisor_memory_protector().setup()?;
+    }
 
     Ok(())
 }

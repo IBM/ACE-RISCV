@@ -8,6 +8,7 @@ use crate::core::memory_protector::mmu::page_table_entry::{
 use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
 use crate::core::memory_protector::mmu::paging_system::{PageTableLevel, PagingSystem};
 use crate::core::memory_tracker::{MemoryTracker, SharedPage};
+use crate::core::transformations::ConfidentialVmVirtualAddress;
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -27,6 +28,10 @@ impl RootPageTable {
 
     pub fn map_shared_page(&mut self, shared_page: SharedPage) -> Result<(), Error> {
         self.page_table.map_shared_page(self.paging_system, shared_page)
+    }
+
+    pub fn unmap_shared_page(&mut self, address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
+        self.page_table.unmap_shared_page(self.paging_system, address)
     }
 
     pub fn address(&self) -> usize {
@@ -145,8 +150,9 @@ impl PageTable {
         Ok(())
     }
 
-    pub fn unmap_shared_page(&mut self) -> Result<(), Error> {
-        // TODO: shutdown TLB after unmapping a shared page
+    pub fn unmap_shared_page(
+        &mut self, _paging_system: PagingSystem, _address: ConfidentialVmVirtualAddress,
+    ) -> Result<(), Error> {
         panic!("Unimplemented");
     }
 

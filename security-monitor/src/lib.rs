@@ -21,12 +21,8 @@
 #![register_tool(rr)]
 #![feature(custom_inner_attributes)]
 
-// extern creates
 extern crate alloc;
-// pub use declarations
-// use declarations
-// pub mod declarations
-// mod declarations
+
 #[macro_use]
 mod debug;
 mod confidential_flow;
