@@ -3,10 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_layout::MemoryLayout;
 
-/// This piece of code executes on a panic. Panic is a runtime error that
-/// indicates an implementation bug from which we cannot recover. Examples are
-/// integer overflow, asserts, explicit statements like panic!(), unwrap(),
-/// expect().
+/// This piece of code executes on a panic, which is a runtime error that indicates an implementation bug from which we
+/// cannot recover. Examples are integer overflow, asserts, explicit statements like panic!(), unwrap(), expect().
 ///
 /// This function halts all other harts in the system and clear the confidential memory.
 #[panic_handler]

@@ -56,8 +56,8 @@ pub enum Error {
     InvalidRiscvInstruction(usize),
     #[error("Not supported interrupt")]
     NotSupportedInterrupt(),
-    #[error("Invalid call cause: {0}, extid: {1:x}, fid: {2:x}")]
-    InvalidCall(usize, usize, usize),
+    #[error("Invalid call cause: {0}")]
+    InvalidCall(usize),
     #[error("Internal error")]
     Pointer(#[from] PointerError),
 }

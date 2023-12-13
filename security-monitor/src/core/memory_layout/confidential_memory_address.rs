@@ -4,6 +4,7 @@
 use crate::error::Error;
 use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 
+/// The wrapper over a raw pointer that is guaranteed to be an address located in the confidential memory region.
 #[repr(transparent)]
 #[derive(Debug, PartialEq)]
 pub struct ConfidentialMemoryAddress(*mut usize);
@@ -13,10 +14,9 @@ impl ConfidentialMemoryAddress {
         Self(address)
     }
 
-    // TODO: check if needed. If yes, make sure the raw pointer is not used incorrectly
-    // Currently we only use it during creation of the heap allocator structure. It
-    // would be good to get rid of this because it requires extra safety guarantees for
-    // parallel execution of the security monitor
+    // TODO: check if needed. If yes, make sure the raw pointer is not used incorrectly Currently we only use it during
+    // creation of the heap allocator structure. It would be good to get rid of this because it requires extra safety
+    // guarantees for parallel execution of the security monitor
     pub unsafe fn into_mut_ptr(self) -> *mut usize {
         self.0
     }
@@ -33,13 +33,12 @@ impl ConfidentialMemoryAddress {
         ptr_byte_offset(pointer, self.0)
     }
 
-    /// Creates a new confidential memory address at given offset. Error is returned if the resulting
-    /// address exceeds the upper boundary.
+    /// Creates a new confidential memory address at given offset. Error is returned if the resulting address exceeds
+    /// the upper boundary.
     ///
     /// # Safety
     ///
-    /// The caller takes the responsibility to ensure that the address at given offset is still in the
-    /// confidential memory.
+    /// The caller must ensure that the address at given offset is still within the confidential memory region.
     pub unsafe fn add(
         &self, offset_in_bytes: usize, upper_bound: *const usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
@@ -48,22 +47,22 @@ impl ConfidentialMemoryAddress {
         Ok(ConfidentialMemoryAddress(pointer))
     }
 
-    /// Reads the content of the confidential memory
+    /// Reads usize-sized sequence of bytes from the confidential memory region.
     ///
     /// # Safety
     ///
-    /// We need to ensure the pointer is not used by two threads simultaneously.    
-    /// See `ptr::read_volatile` for safety concerns
+    /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::read_volatile` for
+    /// safety concerns
     pub unsafe fn read_volatile(&self) -> usize {
         self.0.read_volatile()
     }
 
-    /// Writes value to the confidential memory
+    /// Writes usize-sized sequence of bytes to the confidential memory region.
     ///
     /// # Safety
     ///
-    /// We need to ensure the pointer is not used by two threads simultaneously.
-    /// See `ptr::write_volatile` for safety concerns
+    /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::write_volatile` for
+    /// safety concerns
     pub unsafe fn write_volatile(&self, value: usize) {
         self.0.write_volatile(value);
     }

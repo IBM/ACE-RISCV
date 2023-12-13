@@ -2,67 +2,63 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialVmId, ControlData, HardwareHart};
-use crate::core::transformations::{ExposeToConfidentialVm, PendingRequest, TrapReason};
+use crate::core::transformations::SbiExtension::*;
+use crate::core::transformations::{AceExtension, BaseExtension, ExposeToConfidentialVm, PendingRequest};
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 extern "C" {
     fn exit_to_confidential_vm_asm(confidential_hart_address: usize) -> !;
 }
 
+/// The token that ensures correct control flow integrity within the `confidential flow` part of the finite state
+/// machine (FSM) of the security monitor.
 pub struct ConfidentialFlow<'a> {
     hart: &'a mut HardwareHart,
 }
 
 impl<'a> ConfidentialFlow<'a> {
+    /// Creates the confidential flow token.
     pub fn create(hart: &'a mut HardwareHart) -> Self {
         Self { hart }
     }
 
     pub fn route(self) -> ! {
-        use crate::confidential_flow::handlers::{
-            guest_load_page_fault, guest_store_page_fault, hypercall, interrupt, invalid_call, share_page,
-        };
-        use crate::ACE_EXT_ID;
-        const SHARE_PAGE_FID: usize = 2000;
+        use crate::confidential_flow::handlers::*;
+        use crate::core::transformations::TrapReason::*;
 
         let confidential_hart = self.hart.confidential_hart();
-
         match confidential_hart.trap_reason() {
-            TrapReason::Interrupt => interrupt::handle(self),
-            TrapReason::VsEcall(ACE_EXT_ID, SHARE_PAGE_FID) => {
+            Interrupt => interrupt::handle(self),
+            VsEcall(Ace(AceExtension::SharePageWithHypervisor)) => {
                 share_page::handle(confidential_hart.share_page_request(), self)
             }
-            TrapReason::VsEcall(ACE_EXT_ID, function_id) => invalid_call::handle(self, ACE_EXT_ID, function_id),
-            TrapReason::VsEcall(_, _) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            TrapReason::GuestLoadPageFault => {
+            VsEcall(Ace(_)) => invalid_call::handle(self),
+            VsEcall(Base(BaseExtension::Unknown(_, _))) => invalid_call::handle(self),
+            VsEcall(Base(_)) => hypercall::handle(confidential_hart.hypercall_request(), self),
+            VsEcall(_) => hypercall::handle(confidential_hart.hypercall_request(), self),
+            GuestLoadPageFault => {
                 guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self)
             }
-            TrapReason::GuestStorePageFault => {
+            GuestStorePageFault => {
                 guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self)
             }
-            TrapReason::Unknown(extension_id, function_id) => invalid_call::handle(self, extension_id, function_id),
-            TrapReason::HsEcall(_, _) => {
-                panic!("Bug: Incorrect interrupt delegation configuration")
-            }
-            TrapReason::StoreAccessFault => {
-                panic!("Bug: Incorrect interrupt delegation configuration")
-            }
+            HsEcall(_) => panic!("Bug: Incorrect interrupt delegation configuration"),
+            StoreAccessFault => panic!("Bug: Incorrect interrupt delegation configuration"),
+            _ => invalid_call::handle(self),
         }
     }
 
     pub fn finish_request(self) -> ! {
-        use crate::confidential_flow::handlers::{
-            guest_load_page_fault_result, guest_store_page_fault_result, hypercall_result, share_page_result,
-        };
+        use crate::confidential_flow::handlers::*;
+        use crate::core::transformations::PendingRequest::*;
+
         match self.hart.confidential_hart_mut().take_request() {
-            Some(PendingRequest::SbiRequest()) => hypercall_result::handle(self.hart.hypercall_result(), self),
-            Some(PendingRequest::GuestLoadPageFault(request)) => {
+            Some(SbiRequest()) => hypercall_result::handle(self.hart.hypercall_result(), self),
+            Some(GuestLoadPageFault(request)) => {
                 guest_load_page_fault_result::handle(self.hart.guest_load_page_fault_result(request), self)
             }
-            Some(PendingRequest::GuestStorePageFault(request)) => guest_store_page_fault_result::handle(self, request),
-            Some(PendingRequest::SharePage(request)) => {
-                share_page_result::handle(self.hart.share_page_result(), self, request)
-            }
+            Some(GuestStorePageFault(request)) => guest_store_page_fault_result::handle(self, request),
+            Some(SharePage(request)) => share_page_result::handle(self.hart.share_page_result(), self, request),
             None => self.exit_to_confidential_vm(ExposeToConfidentialVm::Resume()),
         }
     }

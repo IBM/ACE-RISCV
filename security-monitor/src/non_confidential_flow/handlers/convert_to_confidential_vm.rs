@@ -12,7 +12,7 @@ const BOOT_HART_ID: usize = 0;
 pub fn handle(
     convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow,
 ) -> ! {
-    debug!("Handling enter secure mode (ESM) SM-call");
+    debug!("Converting a virtual machine into a confidential virtual machine");
     let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => error.into_non_confidential_transformation(),
@@ -24,13 +24,10 @@ fn create_confidential_vm(
     convert_to_confidential_vm_request: ConvertToConfidentialVm,
 ) -> Result<ConfidentialVmId, Error> {
     let hart_state = convert_to_confidential_vm_request.into();
-
     let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
-
     // TODO: read number of harts from fdt
     let confidential_harts_count = 1;
 
-    // create virtual processor for this confidential VM
     let confidential_harts = (0..confidential_harts_count)
         .map(|confidential_hart_id| match confidential_hart_id {
             0 => ConfidentialHart::from_vm_hart(confidential_hart_id, &hart_state),

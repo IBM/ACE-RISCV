@@ -21,18 +21,11 @@
 #![register_tool(rr)]
 #![feature(custom_inner_attributes)]
 
-// extern creates
 extern crate alloc;
-// pub use declarations
-// use declarations
-// pub mod declarations
-// mod declarations
+
 #[macro_use]
 mod debug;
 mod confidential_flow;
 mod core;
 mod error;
 mod non_confidential_flow;
-
-// TODO: replace with an identifier registered in the RISC-V fundation
-const ACE_EXT_ID: usize = 0x510000;
