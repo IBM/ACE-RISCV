@@ -142,4 +142,6 @@ enter_from_confidential_vm_asm:
     # mscratch must point to the per HART data structure
     # sscratch must point to the confidential VM's vHART data structure
     # first argument (a0) must point to the dumped hart memory area
+    # TODO: Prove that we don't violate C calling conventions and parameters 
+    # are correctly passed.
     j        enter_from_confidential_vm

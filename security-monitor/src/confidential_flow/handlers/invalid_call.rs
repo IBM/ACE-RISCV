@@ -4,10 +4,8 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::error::Error;
 
-pub fn handle(confidential_flow: ConfidentialFlow, extension_id: usize, function_id: usize) -> ! {
+pub fn handle(confidential_flow: ConfidentialFlow) -> ! {
     let mcause = riscv::register::mcause::read().code();
-
-    let transformation = Error::InvalidCall(mcause, extension_id, function_id).into_confidential_transformation();
-
+    let transformation = Error::InvalidCall(mcause).into_confidential_transformation();
     confidential_flow.exit_to_confidential_vm(transformation)
 }

@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::{ControlData, HardwareHart};
-use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
+use crate::core::transformations::SbiExtension::*;
+use crate::core::transformations::{AceExtension, ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 
 extern "C" {
@@ -36,36 +37,26 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn route(self) -> ! {
-        use crate::core::transformations::TrapReason;
-        use crate::non_confidential_flow::handlers::{
-            convert_to_confidential_vm, invalid_call, opensbi, resume, terminate, vm_hypercall,
-        };
-        use crate::ACE_EXT_ID;
-        const ESM_FID: usize = 1000;
-        const RESUME_FID: usize = 1010;
-        const TERMINATE_FID: usize = 3001;
+        use crate::core::transformations::TrapReason::*;
+        use crate::non_confidential_flow::handlers::*;
 
         match self.hardware_hart.trap_reason() {
-            TrapReason::Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            TrapReason::VsEcall(ACE_EXT_ID, ESM_FID) => {
+            Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            VsEcall(Ace(AceExtension::ConvertToConfidentialVm)) => {
                 convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
             }
-            TrapReason::VsEcall(ACE_EXT_ID, function_id) => invalid_call::handle(self, ACE_EXT_ID, function_id),
-            TrapReason::VsEcall(_, _) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            TrapReason::HsEcall(ACE_EXT_ID, RESUME_FID) => resume::handle(self.hardware_hart.resume_request(), self),
-            TrapReason::HsEcall(ACE_EXT_ID, TERMINATE_FID) => {
+            VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
+            HsEcall(Ace(AceExtension::ResumeConfidentialHart)) => {
+                resume::handle(self.hardware_hart.resume_request(), self)
+            }
+            HsEcall(Ace(AceExtension::TerminateConfidentialVm)) => {
                 terminate::handle(self.hardware_hart.terminate_request(), self)
             }
-            TrapReason::HsEcall(ACE_EXT_ID, function_id) => invalid_call::handle(self, ACE_EXT_ID, function_id),
-            TrapReason::HsEcall(_, _) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            TrapReason::StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            TrapReason::GuestLoadPageFault => {
-                panic!("Bug: Incorrect interrupt delegation configuration")
-            }
-            TrapReason::GuestStorePageFault => {
-                panic!("Bug: Incorrect interrupt delegation configuration")
-            }
-            TrapReason::Unknown(extension_id, function_id) => invalid_call::handle(self, extension_id, function_id),
+            HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
+            GuestStorePageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
+            _ => invalid_call::handle(self),
         }
     }
 

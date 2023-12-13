@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_layout::MemoryLayout;
-use crate::core::memory_protector::{iopmp, pmp};
+use crate::core::memory_protector::{iopmp, mmu, pmp};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component to
@@ -34,13 +34,7 @@ impl HypervisorMemoryProtector {
     /// to the `non-confidential flow` and eventually to the hypervisor code.
     pub unsafe fn enable(&self, hgatp: usize) {
         pmp::close_access_to_confidential_memory();
-        // Enable MMU for HS,VS,VS,U modes. It is safe to invoke below code because we have access
-        // to this register (run in the M-mode) and hgatp is the content of the HGATP register
-        // that the hypervisor used when it invoked the security monitor.
-        unsafe {
-            riscv::register::hgatp::write(hgatp);
-            core::arch::asm!("hfence.gvma");
-            core::arch::asm!("hfence.vvma");
-        };
+        mmu::enable_address_translation(hgatp);
+        super::tlb::tlb_shutdown();
     }
 }

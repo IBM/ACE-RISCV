@@ -52,6 +52,8 @@ impl PageTable {
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
         let mut page_table_memory = PageTableMemory::copy_from_non_confidential_memory(address, paging_system, level)?;
+        // TODO: make sure there are no cycles in the page table hierarchy, otherwise we might get
+        // in an infinite loop.
         let entries = page_table_memory
             .indices()
             .map(|index| {
@@ -101,7 +103,10 @@ impl PageTable {
             }
             PageTableEntry::Leaf(_page, _configuration, _permission) => {
                 // The virtual address is already mapped to this physical address. Let's detach the old address and map
-                // the requested address TODO: deallocate the old page
+                // the requested address
+                // TODO: deallocate the old page only if it is the same size a the requested shared page size.
+                // if not, return an error because it might be that a huge page is already mapped and the 4KiB
+                // shared page is supposed to be inside this huge page --- this is not allowed.
                 let new_entry = PageTableEntry::Shared(
                     shared_page,
                     PageTableConfiguration::shared_page_configuration(),
@@ -138,6 +143,11 @@ impl PageTable {
             }
         }
         Ok(())
+    }
+
+    pub fn unmap_shared_page(&mut self) -> Result<(), Error> {
+        // TODO: shutdown TLB after unmapping a shared page
+        panic!("Unimplemented");
     }
 
     pub(super) fn address(&self) -> usize {

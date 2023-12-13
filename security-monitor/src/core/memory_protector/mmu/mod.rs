@@ -24,3 +24,14 @@ pub fn copy_mmu_configuration_from_non_confidential_memory(hgatp: Hgatp) -> Resu
 
     Ok(root_page_table)
 }
+
+pub fn enable_address_translation(hgatp: usize) {
+    // Enable MMU for HS,VS,VS,U modes. It is safe to invoke below code
+    // because we have access to this register (run in the M-mode) and
+    // hgatp is the content of the HGATP register calculated by the security monitor
+    // when recreating page tables of a confidential virtual machine that will
+    // get executed.
+    unsafe {
+        riscv::register::hgatp::write(hgatp);
+    };
+}

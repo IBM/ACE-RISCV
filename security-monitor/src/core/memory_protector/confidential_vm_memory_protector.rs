@@ -26,6 +26,7 @@ impl ConfidentialVmMemoryProtector {
     pub fn from_vm_state(hart_state: &HartState) -> Result<Self, Error> {
         let hgatp = Hgatp::from(hart_state.hgatp);
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
+
         Ok(Self { root_page_table, hgatp: 0 })
     }
 
@@ -38,7 +39,9 @@ impl ConfidentialVmMemoryProtector {
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU)
     /// in a way that a shared page is mapped into the address space of the confidential VM.
     pub fn map_shared_page(&mut self, shared_page: SharedPage) -> Result<(), Error> {
-        self.root_page_table.map_shared_page(shared_page)
+        self.root_page_table.map_shared_page(shared_page)?;
+        super::tlb::tlb_shutdown();
+        Ok(())
     }
 
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions
@@ -56,15 +59,7 @@ impl ConfidentialVmMemoryProtector {
     /// page table address of the confidential VM that will be executed next.
     pub unsafe fn enable(&self) {
         pmp::open_access_to_confidential_memory();
-        // Enable MMU for HS,VS,VS,U modes. It is safe to invoke below code
-        // because we have access to this register (run in the M-mode) and
-        // hgatp is the content of the HGATP register calculated by the security monitor
-        // when recreating page tables of a confidential virtual machine that will
-        // get executed.
-        unsafe {
-            riscv::register::hgatp::write(self.hgatp);
-            core::arch::asm!("hfence.gvma");
-            core::arch::asm!("hfence.vvma");
-        };
+        mmu::enable_address_translation(self.hgatp);
+        super::tlb::tlb_shutdown();
     }
 }

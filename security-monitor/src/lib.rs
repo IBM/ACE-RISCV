@@ -33,6 +33,3 @@ mod confidential_flow;
 mod core;
 mod error;
 mod non_confidential_flow;
-
-// TODO: replace with an identifier registered in the RISC-V fundation
-const ACE_EXT_ID: usize = 0x510000;

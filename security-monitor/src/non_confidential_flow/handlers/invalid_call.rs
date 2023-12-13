@@ -4,9 +4,8 @@
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
-pub fn handle(non_confidential_flow: NonConfidentialFlow, extension_id: usize, function_id: usize) -> ! {
+pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
     let mcause = riscv::register::mcause::read().code();
-    let transformation = Error::InvalidCall(mcause, extension_id, function_id).into_non_confidential_transformation();
-
+    let transformation = Error::InvalidCall(mcause).into_non_confidential_transformation();
     non_confidential_flow.exit_to_hypervisor(transformation)
 }

@@ -17,7 +17,7 @@ pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::{ConfidentialVmVirtualAddress, SharePageRequest};
 pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
-pub use trap_reason::TrapReason;
+pub use trap_reason::{AceExtension, BaseExtension, SbiExtension, TrapReason};
 
 mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
