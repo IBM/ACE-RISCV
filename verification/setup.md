@@ -46,7 +46,7 @@ If you do not have rustup installed yet, follow the instructions at https://rust
 Now, run the following commands in the shell opened previously:
 ```
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/setup-rust.sh
-cd $PWD/refinedrust/rr_frontend && rustup target add riscv64gc-unknown-none-elf
+pushd $PWD/refinedrust/rr_frontend && rustup target add riscv64gc-unknown-none-elf && popd
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-frontend.sh
 ```
 
