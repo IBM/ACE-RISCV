@@ -41,7 +41,7 @@ Afterwards, we install Lithium (the proof automation engine RefinedRust uses) as
 
 In the next step, we setup the RefinedRust frontend used for translating Rust code into Coq.
 For that, you are going to need a working installation of Rust and [rustup](https://rustup.rs/).
-If you do not have rustup installed yet, follow the instructions at https://rustup.rs/.
+If you do not have rustup installed yet, follow the instructions at https://rustup.rs/.  If you already have rustup installed, but it is old, you may want/need to run `rustup update`
 
 Now, run the following commands in the shell opened previously:
 ```
