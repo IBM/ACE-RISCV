@@ -14,7 +14,7 @@ DRIVE=${ACE_DIR}/buildroot/images/rootfs.ext2
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=1
+SMP=2
 MEMORY=512M # in MB
 
 for i in "$@"; do

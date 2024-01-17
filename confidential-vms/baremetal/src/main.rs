@@ -22,7 +22,9 @@ mod calls;
 mod error;
 mod hal;
 mod trap;
+mod sync;
 mod virtio;
+mod worker;
 
 global_asm!(include_str!("asm/boot.S"));
 global_asm!(include_str!("asm/trap.S"));
@@ -46,17 +48,20 @@ extern "C" {
     fn _dma_end();
     fn _heap_start();
     fn _heap_size();
+    fn _secondary_start();
+    fn trap_handler_asm() -> !;
 }
 
 #[no_mangle]
-extern "C" fn init(_hart_id: usize, fdt_paddr: usize) {
+extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
     let mut uart = Uart::new(UART_BASE_ADDRESS);
     init_memory(&mut uart);
-    init_trap();
+    init_trap(0);
 
     crate::calls::sm::esm().expect("ESM failed");
 
     uart.println("Hello IBM from confidential VM!");
+    uart.println(&format!("Hart id: {}", hart_id));
 
     test_exception_delegation(&mut uart);
 
@@ -76,6 +81,19 @@ extern "C" fn init(_hart_id: usize, fdt_paddr: usize) {
         }
     };
 
+    // time to test multi-cpu setup
+    let boot_address_asm = (_secondary_start as *const fn()) as usize;
+    match sbi::hart_state_management::hart_start(0x1, boot_address_asm, 0) {
+        Ok(_) => uart.println("HSM hart_start: success"),
+        Err(error) => uart.println(&format!("HSM hart_start: error {:?}", error)),
+    };
+
+    match sbi::hart_state_management::hart_status(0x1) {
+        Ok(status) => uart.println(&format!("HSM hart_status: hart 0x1 status={:?}", status)),
+        Err(error) => uart.println(&format!("HSM hart_start: error {:?}", error)),
+    };    
+
+    //
     sbi::system_reset::system_reset(
         sbi::system_reset::ResetType::Shutdown,
         sbi::system_reset::ResetReason::NoReason,
@@ -169,8 +187,7 @@ fn init_memory(uart: &mut Uart) {
     crate::calls::ace::load_all_pages().expect("Load all pages call failed");
 }
 
-fn init_trap() {
-    let hart_id: usize = 0;
+fn init_trap(hart_id: usize) {
     unsafe {
         let ptr: usize = (&mut crate::TRAP_FRAME[hart_id][0] as *mut trap::TrapFrame) as usize;
         core::arch::asm!("csrw sscratch, {0}", in(reg) ptr);
@@ -206,3 +223,5 @@ fn prepare_shared_memory() -> Result<(usize, usize), Error> {
 
     Ok((input_paddr, output_paddr))
 }
+
+

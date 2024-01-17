@@ -8,6 +8,9 @@ use crate::core::transformations::{AceExtension, ExposeToHypervisor, ResumeReque
 use crate::error::Error;
 
 extern "C" {
+    // TODO: To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
+    // never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
+    // KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
 }
 
@@ -28,8 +31,8 @@ impl<'a> NonConfidentialFlow<'a> {
     ) -> Result<ConfidentialFlow<'a>, (NonConfidentialFlow<'a>, Error)> {
         let confidential_vm_id = resume_request.confidential_vm_id();
         let confidential_hart_id = resume_request.confidential_hart_id();
-        match ControlData::try_confidential_vm(confidential_vm_id, |mut cvm| {
-            cvm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
+        match ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+            confidential_vm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
         }) {
             Ok(()) => Ok(ConfidentialFlow::create(self.hardware_hart)),
             Err(error) => Err((self, error)),

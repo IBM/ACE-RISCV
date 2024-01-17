@@ -46,9 +46,11 @@ impl Uart {
     }
 
     pub fn println(&mut self, out: &str) {
+        crate::sync::acquire(crate::sync::UART_SYNC_ADDRESS);
         for c in out.bytes() {
             self.put(c);
         }
         self.put('\n' as u8);
+        crate::sync::release(crate::sync::UART_SYNC_ADDRESS);
     }
 }

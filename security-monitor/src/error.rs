@@ -22,6 +22,8 @@ pub const NOT_INITIALIZED_CONTROL_DATA: &str =
 pub enum Error {
     #[error("security monitor initialization error")]
     Init(InitType),
+    #[error("Cannot initialize memory as it has already been initialized")]
+    Reinitialization(),
     #[error("Not supported hardware")]
     NotSupportedHardware(HardwareFeatures),
     #[error("FDT read error")]
@@ -32,8 +34,6 @@ pub enum Error {
     SbiArgument(#[from] TryFromIntError),
     #[error("Not enough memory to allocate")]
     OutOfMemory(),
-    #[error("Could not get lock access to a share object")]
-    OptimisticLocking(),
     #[error("Page table error")]
     PageTableConfiguration(),
     #[error("Page Table is corrupted")]
@@ -60,11 +60,21 @@ pub enum Error {
     InvalidCall(usize),
     #[error("Internal error")]
     Pointer(#[from] PointerError),
+    #[error("Reached max number of remote hart requests")]
+    ReachedMaxNumberOfRemoteHartRequests(),
+    #[error("Sending interrupt error")]
+    InterruptSendingError(),
 }
 
 impl Error {
     pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
         let error_code = 0x1000;
+        match self {
+            Error::InvalidCall(_) => {}
+            _ => {
+                debug!("Error {:?} into_non_confidential_transformation", &self);
+            }
+        }
         ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))
     }
 
@@ -94,6 +104,4 @@ pub enum HardwareFeatures {
     NoCpuExtension(char),
     #[error("Not enough PMPs")]
     NotEnoughPmps,
-    // #[error("Lack of support for the MMU")]
-    // InvalidMmu,
 }

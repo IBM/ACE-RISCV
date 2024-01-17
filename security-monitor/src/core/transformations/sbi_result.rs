@@ -5,6 +5,7 @@ use crate::core::hart::{GpRegister, HartState};
 
 /// Sbi is a result of the SBI call from the Hypervisor to the SBI
 /// firmware or a result of the SBI call to the security monitor.
+#[derive(Debug)]
 pub struct SbiResult {
     a0: usize,
     a1: usize,

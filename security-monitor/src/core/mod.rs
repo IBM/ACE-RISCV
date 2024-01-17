@@ -10,4 +10,5 @@ pub mod transformations;
 mod hart;
 mod heap;
 mod initialization;
+mod interrupt_controller;
 mod panic;

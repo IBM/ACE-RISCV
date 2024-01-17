@@ -26,7 +26,7 @@ fn create_confidential_vm(
     let hart_state = convert_to_confidential_vm_request.into();
     let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
     // TODO: read number of harts from fdt
-    let confidential_harts_count = 1;
+    let confidential_harts_count = 2;
 
     let confidential_harts = (0..confidential_harts_count)
         .map(|confidential_hart_id| match confidential_hart_id {

@@ -37,6 +37,11 @@ impl SbiRequest {
         Self::new(Self::KVM_ACE_EXTID, Self::KVM_ACE_PAGE_IN_FID, page_address, 0, 0, 0, 0, 0)
     }
 
+    pub fn kvm_hsm_hart_start(virtual_hart_id: usize) -> Self {
+        use crate::core::transformations::HsmExtension;
+        Self::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, virtual_hart_id, 0, 0, 0, 0, 0)
+    }
+
     // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the HartState
     // storing confidential information
     pub fn from_hart_state(hart_state: &HartState) -> Self {

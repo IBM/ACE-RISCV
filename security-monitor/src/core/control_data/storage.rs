@@ -47,8 +47,8 @@ impl ControlData {
         })
     }
 
-    pub fn confidential_vm(&self, id: ConfidentialVmId) -> Option<MutexGuard<'_, ConfidentialVm>> {
-        self.confidential_vms.get(&id).and_then(|v| v.try_lock())
+    pub fn confidential_vm(&self, id: ConfidentialVmId) -> Result<MutexGuard<'_, ConfidentialVm>, Error> {
+        self.confidential_vms.get(&id).ok_or(Error::InvalidConfidentialVmId()).and_then(|v| Ok(v.lock()))
     }
 
     pub fn remove_confidential_vm(
@@ -59,31 +59,21 @@ impl ControlData {
 
     fn try_read<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&RwLockReadGuard<'_, ControlData>) -> Result<F, Error> {
-        CONTROL_DATA
-            .get()
-            .expect(NOT_INITIALIZED_CONTROL_DATA)
-            .try_read()
-            .ok_or(Error::OptimisticLocking())
-            .and_then(|ref control_data| op(control_data))
+        op(&CONTROL_DATA.get().expect(NOT_INITIALIZED_CONTROL_DATA).read())
     }
 
     pub fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, ControlData>) -> Result<F, Error> {
-        CONTROL_DATA
-            .get()
-            .expect(NOT_INITIALIZED_CONTROL_DATA)
-            .try_write()
-            .ok_or(Error::OptimisticLocking())
-            .and_then(|ref mut control_data| op(control_data))
+        op(&mut CONTROL_DATA.get().expect(NOT_INITIALIZED_CONTROL_DATA).write())
     }
 
     pub fn try_confidential_vm<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
-        Self::try_read(|mr| op(mr.confidential_vm(confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())?))
+        Self::try_read(|mr| op(mr.confidential_vm(confidential_vm_id)?))
     }
 
     pub fn try_confidential_vm_mut<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
-        Self::try_read(|m| op(m.confidential_vm(confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())?))
+        Self::try_read(|m| op(m.confidential_vm(confidential_vm_id)?))
     }
 }

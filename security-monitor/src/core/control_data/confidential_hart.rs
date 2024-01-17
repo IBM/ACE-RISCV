@@ -5,19 +5,18 @@ use crate::core::control_data::ConfidentialVmId;
 use crate::core::hart::{FpRegisters, GpRegister, GpRegisters, HartState};
 use crate::core::transformations::{
     ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
-    GuestStorePageFaultResult, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiRequest, SbiResult,
-    SharePageRequest, TrapReason,
+    GuestStorePageFaultResult, InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart,
+    SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
+    TrapReason,
 };
 use crate::error::Error;
 
-/// ConfidentialHart represents the dump state of the confidential VM's hart (aka
-/// vcpu). The only publicly exposed way to modify the virtual hart state
-/// (registers/CSRs) is by calling the constructor or applying a transformation.
+/// ConfidentialHart represents the dump state of the confidential VM's hart (aka vcpu). The only publicly exposed way
+/// to modify the virtual hart state (registers/CSRs) is by calling the constructor or applying a transformation.
 #[repr(C)]
 pub struct ConfidentialHart {
-    // if there is no confidential vm id assigned to this hart then it means that this confidential hart
-    // is a dummy one. A dummy virtual hart means that the confidential_hart is not associated with any
-    // confidential VM
+    // If there is no confidential vm id assigned to this hart then it means that this confidential hart is a dummy
+    // one. A dummy virtual hart means that the confidential_hart is not associated with any confidential VM
     confidential_vm_id: Option<ConfidentialVmId>,
     // Safety: Careful, HardwareHart and ConfidentialHart must both start with the HartState element because based on
     // this we automatically calculate offsets of registers' and CSRs' for the asm code.
@@ -36,7 +35,7 @@ impl ConfidentialHart {
 
         // delegate VS-level interrupts directly to the confidential VM. All other
         // interrupts will trap in the security monitor.
-        confidential_hart_state.mideleg = 0b010001000100;
+        confidential_hart_state.mideleg = 0b010001001110;
         confidential_hart_state.hideleg = confidential_hart_state.mideleg;
 
         // delegate exceptions that can be handled directly in the confidential VM
@@ -55,11 +54,9 @@ impl ConfidentialHart {
             confidential_hart.confidential_hart_state.fprs.0[x] = from.fprs.0[x];
         });
 
-        // We create a virtual hart as a result of the SBI request
-        // the ESM call traps in the security monitor, which creates
-        // the confidential VM but then the security monitor makes an SBI call to
-        // the hypervisor to let him know that this VM become an confidential VM.
-        // The hypervisor should then return to the confidential VM providing it
+        // We create a virtual hart as a result of the SBI request the ESM call traps in the security monitor, which
+        // creates the confidential VM but then the security monitor makes an SBI call to the hypervisor to let him know
+        // that this VM become an confidential VM. The hypervisor should then return to the confidential VM providing it
         // with the result of this transformation.
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -73,7 +70,7 @@ impl ConfidentialHart {
         self.confidential_vm_id
     }
 
-    pub(super) fn confidential_hart_id(&self) -> usize {
+    pub fn confidential_hart_id(&self) -> usize {
         self.confidential_hart_state.id
     }
 
@@ -100,8 +97,40 @@ impl ConfidentialHart {
             ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
             ExposeToConfidentialVm::GuestStorePageFaultResult(v) => self.apply_guest_store_page_fault_result(v),
             ExposeToConfidentialVm::Resume() => {}
+            ExposeToConfidentialVm::SbiHsmHartStart(v) => self.apply_sbi_hart_start(v),
+            ExposeToConfidentialVm::InterProcessorInterrupt(v) => self.apply_inter_processor_interrupt(v),
+            ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_remote_fence_i(v),
+            ExposeToConfidentialVm::SbiRemoteSfenceVma(v) => self.apply_remote_sfence_vma(v),
+            ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v) => self.apply_remote_sfence_vma_asid(v),
         }
         core::ptr::addr_of!(self.confidential_hart_state) as usize
+    }
+
+    fn apply_inter_processor_interrupt(&mut self, _result: SbiIpi) {
+        // IPI exposes itself as supervisor-level software interrupt this is the 2nd bit of the vsip controlled by the
+        // hvip register. Check the RISC-V privileged specification for more information.
+        const VSSIP: usize = 1 << 2; // virtual supervisor software interrupt pending bit in the hvip register
+        self.confidential_hart_state.hvip |= VSSIP;
+    }
+
+    fn apply_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
+        unsafe { core::arch::asm!("fence.i") };
+    }
+
+    fn apply_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
+        // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
+        unsafe { core::arch::asm!("sfence.vma") };
+    }
+
+    fn apply_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
+        // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
+        unsafe { core::arch::asm!("sfence.vma") };
+    }
+
+    fn apply_sbi_hart_start(&mut self, result: SbiHsmHartStart) {
+        self.confidential_hart_state.set_gpr(GpRegister::a1, self.confidential_hart_id());
+        self.confidential_hart_state.set_gpr(GpRegister::a2, result.blob);
+        self.confidential_hart_state.mepc = result.boot_code_address;
     }
 
     fn apply_sbi_result(&mut self, result: SbiResult) {
@@ -163,6 +192,48 @@ impl ConfidentialHart {
         let sbi_request = SbiRequest::kvm_ace_page_in(shared_page_address);
 
         Ok((share_page_request, sbi_request))
+    }
+
+    pub fn sbi_ipi(&self) -> InterHartRequest {
+        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        InterHartRequest::InterProcessorInterrupt(SbiIpi::new(hart_mask, hart_mask_base))
+    }
+
+    pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {
+        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
+        let boot_code_address = self.confidential_hart_state.gpr(GpRegister::a1);
+        let blob = self.confidential_hart_state.gpr(GpRegister::a2);
+        SbiHsmHartStart::new(confidential_hart_id, boot_code_address, blob)
+    }
+
+    pub fn sbi_remote_fence_i(&self) -> InterHartRequest {
+        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        InterHartRequest::SbiRemoteFenceI(SbiRemoteFenceI::new(hart_mask, hart_mask_base))
+    }
+
+    pub fn sbi_remote_sfence_vma(&self) -> InterHartRequest {
+        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
+        let size = self.confidential_hart_state.gpr(GpRegister::a3);
+        InterHartRequest::SbiRemoteSfenceVma(SbiRemoteSfenceVma::new(hart_mask, hart_mask_base, start_address, size))
+    }
+
+    pub fn sbi_remote_sfence_vma_asid(&self) -> InterHartRequest {
+        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
+        let size = self.confidential_hart_state.gpr(GpRegister::a3);
+        let asid = self.confidential_hart_state.gpr(GpRegister::a4);
+        InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(
+            hart_mask,
+            hart_mask_base,
+            start_address,
+            size,
+            asid,
+        ))
     }
 
     fn read_instruction(&self) -> (usize, usize) {

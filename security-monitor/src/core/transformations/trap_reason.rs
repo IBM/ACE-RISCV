@@ -156,12 +156,12 @@ impl IpiExtension {
 #[derive(Debug)]
 pub enum RfenceExtension {
     RemoteFenceI,
-    RemoteFenceVma,
-    RemoteFenceVmaAsid,
-    RemoteFenceGvmaVmid,
-    RemoteFenceGvma,
-    RemoteFenceVvmaAsid,
-    RemoteFenceVvma,
+    RemoteSfenceVma,
+    RemoteSfenceVmaAsid,
+    RemoteHfenceGvmaVmid,
+    RemoteHfenceGvma,
+    RemoteHfenceVvmaAsid,
+    RemoteHfenceVvma,
     Unknown(usize, usize),
 }
 
@@ -171,12 +171,12 @@ impl RfenceExtension {
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
             0 => Self::RemoteFenceI,
-            1 => Self::RemoteFenceVma,
-            2 => Self::RemoteFenceVmaAsid,
-            3 => Self::RemoteFenceGvmaVmid,
-            4 => Self::RemoteFenceGvma,
-            5 => Self::RemoteFenceVvmaAsid,
-            6 => Self::RemoteFenceVvma,
+            1 => Self::RemoteSfenceVma,
+            2 => Self::RemoteSfenceVmaAsid,
+            3 => Self::RemoteHfenceGvmaVmid,
+            4 => Self::RemoteHfenceGvma,
+            5 => Self::RemoteHfenceVvmaAsid,
+            6 => Self::RemoteHfenceVvma,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }
@@ -193,13 +193,17 @@ pub enum HsmExtension {
 
 impl HsmExtension {
     pub const EXTID: usize = 0x48534D;
+    pub const HART_START_FID: usize = 0x0;
+    pub const HART_STOP_FID: usize = 0x1;
+    pub const HART_STATUS_FID: usize = 0x2;
+    pub const HART_SUSPEND_FID: usize = 0x3;
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
-            0 => Self::HartStart,
-            1 => Self::HartStop,
-            2 => Self::HartGetStatus,
-            3 => Self::HartSuspend,
+            Self::HART_START_FID => Self::HartStart,
+            Self::HART_STOP_FID => Self::HartStop,
+            Self::HART_STATUS_FID => Self::HartGetStatus,
+            Self::HART_SUSPEND_FID => Self::HartSuspend,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }
