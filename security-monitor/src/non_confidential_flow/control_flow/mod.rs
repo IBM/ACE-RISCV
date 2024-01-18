@@ -2,8 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::arch::AceExtension::*;
-use crate::core::arch::SbiExtension::*;
+use crate::core::architecture::AceExtension::*;
+use crate::core::architecture::SbiExtension::*;
 use crate::core::control_data::{ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
@@ -41,7 +41,7 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn route(self) -> ! {
-        use crate::core::arch::TrapReason::*;
+        use crate::core::architecture::TrapReason::*;
         use crate::non_confidential_flow::handlers::*;
 
         match self.hardware_hart.trap_reason() {

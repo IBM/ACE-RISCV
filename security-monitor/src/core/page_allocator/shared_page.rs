@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
+use crate::core::memory_layout::{ConfidentialVmVirtualAddress, MemoryLayout, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::PageSize;
-use crate::core::transformations::{ConfidentialVmVirtualAddress, SharePageRequest};
+use crate::core::transformations::SharePageRequest;
 use crate::error::Error;
 
 /// `SharedPage` stores internally a raw pointer to an address in non-confidential memory that the shared page

@@ -1,14 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_layout::NonConfidentialMemoryAddress;
+use crate::core::memory_layout::{ConfidentialVmVirtualAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
 use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
 use crate::core::memory_protector::mmu::paging_system::{PageTableLevel, PagingSystem};
 use crate::core::page_allocator::{MemoryTracker, SharedPage};
-use crate::core::transformations::ConfidentialVmVirtualAddress;
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;

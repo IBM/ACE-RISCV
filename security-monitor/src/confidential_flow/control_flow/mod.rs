@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::arch::SbiExtension::*;
+use crate::core::architecture::SbiExtension::*;
 use crate::core::control_data::{ConfidentialVmId, ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToConfidentialVm, PendingRequest};
 use crate::non_confidential_flow::NonConfidentialFlow;
@@ -32,13 +32,13 @@ impl<'a> ConfidentialFlow<'a> {
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception.
     pub fn route(self) -> ! {
         use crate::confidential_flow::handlers::*;
-        use crate::core::arch::AceExtension::*;
-        use crate::core::arch::BaseExtension::*;
-        use crate::core::arch::HsmExtension::*;
-        use crate::core::arch::IpiExtension::*;
-        use crate::core::arch::RfenceExtension::*;
-        use crate::core::arch::SrstExtension::*;
-        use crate::core::arch::TrapReason::*;
+        use crate::core::architecture::AceExtension::*;
+        use crate::core::architecture::BaseExtension::*;
+        use crate::core::architecture::HsmExtension::*;
+        use crate::core::architecture::IpiExtension::*;
+        use crate::core::architecture::RfenceExtension::*;
+        use crate::core::architecture::SrstExtension::*;
+        use crate::core::architecture::TrapReason::*;
 
         let confidential_hart = self.hart.confidential_hart();
         match confidential_hart.trap_reason() {

@@ -17,7 +17,7 @@ pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;
 pub use sbi_rfence::{SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid};
 pub use sbi_vm_request::SbiVmRequest;
-pub use share_page_request::{ConfidentialVmVirtualAddress, SharePageRequest};
+pub use share_page_request::SharePageRequest;
 pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
 

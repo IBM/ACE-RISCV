@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::arch::{FpRegisters, GpRegister, GpRegisters, TrapReason};
+use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, TrapReason};
 
 /// HartState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]

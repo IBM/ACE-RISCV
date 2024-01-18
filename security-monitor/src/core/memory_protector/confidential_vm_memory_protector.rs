@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::arch::HartState;
+use crate::core::architecture::HartState;
 use crate::core::control_data::ConfidentialVmId;
+use crate::core::memory_layout::ConfidentialVmVirtualAddress;
 use crate::core::memory_protector::mmu::RootPageTable;
 use crate::core::memory_protector::{mmu, pmp};
 use crate::core::page_allocator::SharedPage;
-use crate::core::transformations::ConfidentialVmVirtualAddress;
 use crate::error::Error;
 use riscv::register::hgatp::Hgatp;
 

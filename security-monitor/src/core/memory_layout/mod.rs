@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 pub use confidential_memory_address::ConfidentialMemoryAddress;
+pub use confidential_vm_virtual_address::ConfidentialVmVirtualAddress;
 pub use non_confidential_memory_address::NonConfidentialMemoryAddress;
 
 use crate::core::memory_protector::PageSize;
@@ -10,6 +11,7 @@ use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 use spin::Once;
 
 mod confidential_memory_address;
+mod confidential_vm_virtual_address;
 mod non_confidential_memory_address;
 
 const NOT_INITIALIZED_MEMORY_LAYOUT: &str = "Bug. Could not access MemoryLayout because is has not been initialized";

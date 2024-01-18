@@ -8,7 +8,7 @@ pub use confidential_vm_measurement::ConfidentialVmMeasurement;
 pub use hardware_hart::HardwareHart;
 pub use storage::{ControlData, CONTROL_DATA};
 
-use crate::core::arch::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartState};
 
 mod confidential_hart;
 mod confidential_vm;
