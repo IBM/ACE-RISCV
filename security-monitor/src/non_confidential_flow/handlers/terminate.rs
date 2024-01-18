@@ -10,7 +10,7 @@ use crate::non_confidential_flow::NonConfidentialFlow;
 pub fn handle(terminate_request: TerminateRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
     let transformation = ControlData::try_write(|control_data| {
         let confidential_vm_id = terminate_request.confidential_vm_id();
-        ensure_confidential_vm_can_be_terminated(control_data, confidential_vm_id)?;
+        ensure_that_the_confidential_vm_can_be_terminated(control_data, confidential_vm_id)?;
         debug!("Terminating the confidential VM[id={:?}]", confidential_vm_id);
         control_data.remove_confidential_vm(confidential_vm_id)
     })
@@ -20,10 +20,10 @@ pub fn handle(terminate_request: TerminateRequest, non_confidential_flow: NonCon
     non_confidential_flow.exit_to_hypervisor(transformation)
 }
 
-fn ensure_confidential_vm_can_be_terminated(
+fn ensure_that_the_confidential_vm_can_be_terminated(
     control_data: &ControlData, confidential_vm_id: ConfidentialVmId,
 ) -> Result<(), Error> {
-    let cvm = control_data.confidential_vm(confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())?;
-    assure_not!(cvm.is_running(), Error::RunningVHart())?;
+    let confidential_vm = control_data.confidential_vm(confidential_vm_id)?;
+    assure_not!(confidential_vm.is_running(), Error::RunningVHart())?;
     Ok(())
 }

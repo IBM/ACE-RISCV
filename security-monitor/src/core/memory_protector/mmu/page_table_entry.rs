@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_protector::mmu::page_table::PageTable;
-use crate::core::memory_tracker::{Allocated, Page, SharedPage};
+use crate::core::page_allocator::{Allocated, Page, SharedPage};
 use alloc::boxed::Box;
 
 pub(super) enum PageTableEntry {

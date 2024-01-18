@@ -2,12 +2,16 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
+use crate::core::architecture::AceExtension::*;
+use crate::core::architecture::SbiExtension::*;
 use crate::core::control_data::{ControlData, HardwareHart};
-use crate::core::transformations::SbiExtension::*;
-use crate::core::transformations::{AceExtension, ExposeToHypervisor, ResumeRequest};
+use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 
 extern "C" {
+    // TODO: To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
+    // never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
+    // KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
 }
 
@@ -28,8 +32,8 @@ impl<'a> NonConfidentialFlow<'a> {
     ) -> Result<ConfidentialFlow<'a>, (NonConfidentialFlow<'a>, Error)> {
         let confidential_vm_id = resume_request.confidential_vm_id();
         let confidential_hart_id = resume_request.confidential_hart_id();
-        match ControlData::try_confidential_vm(confidential_vm_id, |mut cvm| {
-            cvm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
+        match ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+            confidential_vm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
         }) {
             Ok(()) => Ok(ConfidentialFlow::create(self.hardware_hart)),
             Err(error) => Err((self, error)),
@@ -37,21 +41,17 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn route(self) -> ! {
-        use crate::core::transformations::TrapReason::*;
+        use crate::core::architecture::TrapReason::*;
         use crate::non_confidential_flow::handlers::*;
 
         match self.hardware_hart.trap_reason() {
             Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            VsEcall(Ace(AceExtension::ConvertToConfidentialVm)) => {
+            VsEcall(Ace(ConvertToConfidentialVm)) => {
                 convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
             }
             VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            HsEcall(Ace(AceExtension::ResumeConfidentialHart)) => {
-                resume::handle(self.hardware_hart.resume_request(), self)
-            }
-            HsEcall(Ace(AceExtension::TerminateConfidentialVm)) => {
-                terminate::handle(self.hardware_hart.terminate_request(), self)
-            }
+            HsEcall(Ace(ResumeConfidentialHart)) => resume::handle(self.hardware_hart.resume_request(), self),
+            HsEcall(Ace(TerminateConfidentialVm)) => terminate::handle(self.hardware_hart.terminate_request(), self),
             HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),

@@ -4,6 +4,7 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::transformations::{ExposeToHypervisor, PendingRequest, SbiRequest};
 
+/// Handles a hypercall from a confidential hart to hypervisor.
 pub fn handle(sbi_request: SbiRequest, confidential_flow: ConfidentialFlow) -> ! {
     confidential_flow
         .set_pending_request(PendingRequest::SbiRequest())

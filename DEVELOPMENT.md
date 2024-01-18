@@ -1,4 +1,4 @@
-# Development Guide
+    # Development Guide
 
 ## Setup of a shared development machine
 We use `/opt` as a shared directory to which we install common tools, like Rust.

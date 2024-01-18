@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::memory_layout::ConfidentialVmVirtualAddress;
 use crate::core::memory_protector::PageSize;
 use crate::error::Error;
 
@@ -12,7 +13,7 @@ pub struct SharePageRequest {
 
 impl SharePageRequest {
     pub fn new(address: usize) -> Result<Self, Error> {
-        let confidential_vm_virtual_address = ConfidentialVmVirtualAddress(address);
+        let confidential_vm_virtual_address = ConfidentialVmVirtualAddress::new(address);
         Ok(Self { confidential_vm_virtual_address, page_size: PageSize::Size4KiB })
     }
 
@@ -22,14 +23,5 @@ impl SharePageRequest {
 
     pub fn page_size(&self) -> PageSize {
         self.page_size
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct ConfidentialVmVirtualAddress(usize);
-
-impl ConfidentialVmVirtualAddress {
-    pub fn usize(&self) -> usize {
-        self.0
     }
 }

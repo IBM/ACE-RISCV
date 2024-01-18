@@ -126,7 +126,7 @@ enter_from_hypervisor_or_vm_asm:
     csrw        mscratch, sp
 
     # trap handler expects as a first argument (a0)
-    # a pointer to the VCPU
+    # a pointer to the dumped state of the hart
     add         a0, sp, 0
 
     # set the stack for this HART

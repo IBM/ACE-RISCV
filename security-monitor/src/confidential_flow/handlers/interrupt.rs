@@ -24,9 +24,12 @@ const STIP_MASK: usize = 1 << STIP;
 const SEIP: usize = 9;
 const SEIP_MASK: usize = 1 << SEIP;
 
-/// Interrupts are reflected to the hypervisor because it has to decide what to
-/// do with them.
-pub fn handle(confidential_flow: ConfidentialFlow) -> ! {
+/// Handles interrupts of a confidential hart.
+///
+/// Control flows:
+/// - to the hypervisor when an interrupt comes from a hardware device.
+/// - to the confidential hart in case of software interrupts
+pub fn handle(mut confidential_flow: ConfidentialFlow) -> ! {
     // TODO: handle interrupts targeted for confidential VM by reflecting them
     // directly to the confidential VM
     let mip = riscv::register::mip::read().bits();
@@ -51,6 +54,13 @@ pub fn handle(confidential_flow: ConfidentialFlow) -> ! {
     } else {
         Err(Error::NotSupportedInterrupt())
     };
+
+    // One of the reasons why the confidential hart was interrupted with SSIP is that it got InterHartRequest from
+    // another confidential hart. If this is the case, we must process all queued requests before resuming confidential
+    // hart's execution.
+    if interrupt_code.as_ref().is_ok_and(|v| v == &SSIP) {
+        confidential_flow.process_inter_hart_requests();
+    }
 
     let transformation = match interrupt_code {
         Ok(v) => ExposeToHypervisor::InterruptRequest(InterruptRequest::new(v)),

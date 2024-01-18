@@ -7,8 +7,6 @@ use core::ptr::null_mut;
 #[derive(Clone, Copy)]
 pub struct TrapFrame {
     pub regs: [usize; 32],
-    pub fregs: [usize; 32],
-    pub satp: usize,
     pub trap_stack: *mut u8,
 }
 
@@ -16,8 +14,6 @@ impl TrapFrame {
     pub const fn zero() -> Self {
         TrapFrame {
             regs: [0; 32],
-            fregs: [0; 32],
-            satp: 0,
             trap_stack: null_mut(),
         }
     }
@@ -25,36 +21,35 @@ impl TrapFrame {
 
 #[no_mangle]
 extern "C" fn trap_handler(
-    epc: usize,
-    tval: usize,
-    cause: usize,
-    hart: usize,
-    _status: usize,
-    _frame: &mut TrapFrame,
+    sepc: usize,
+    stval: usize,
+    scause: usize,
 ) -> usize {
-    let is_async = (cause >> 63 & 1) == 1;
-    let cause_num = cause & 0xfff;
-    let mut return_pc = epc;
+    let is_async = (scause >> 63 & 1) == 1;
+    let cause_num = scause & 0xfff;
+    let mut return_pc = sepc;
     if is_async {
-        match cause_num {
-            _ => panic!("Unhandled interrupt -> {}\n", cause_num),
-        }
+        // println!("Supervisor software interrupt!");
+        // match cause_num {
+            // _ => panic!("Unhandled interrupt -> {}\n", cause_num),
+        // }
     } else {
-        match cause_num {
-            2 => {
-                println!("Illegal instruction at 0x{:08x}: 0x{:08x}", epc, tval);
-                return_pc += 4;
-            }
-            5 => {
-                println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
-                return_pc += 4;
-            }
-            7 => {
-                println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
-                return_pc += 4;
-            }
-            _ => panic!("Unhandled trap -> {}\n", cause_num),
-        }
+        // match cause_num {
+        //     2 => {
+        //         // println!("Illegal instruction at 0x{:08x}: 0x{:08x}", epc, tval);
+        //         return_pc += 4;
+        //     }
+        //     5 => {
+        //         // println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
+        //         return_pc += 4;
+        //     }
+        //     7 => {
+        //         // println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
+        //         return_pc += 4;
+        //     }
+        //     _ => panic!("Unhandled trap -> {}\n", cause_num),
+        // }
+        return_pc += 4;
     };
     return_pc
 }

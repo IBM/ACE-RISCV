@@ -5,18 +5,21 @@ use crate::confidential_flow::ConfidentialFlow;
 use crate::core::transformations::{ExposeToHypervisor, PendingRequest, SbiRequest, SharePageRequest};
 use crate::error::Error;
 
-pub fn handle(
-    share_page_request: Result<(SharePageRequest, SbiRequest), Error>, confidential_flow: ConfidentialFlow,
-) -> ! {
-    match share_page_request {
-        Ok((request, sbi_request)) => {
+/// Handles a request from the confidential VM about creating a shared page.
+///
+/// Control flows:
+/// - to the hypervisor
+/// - back to the confidential VM on error
+pub fn handle(request: Result<(SharePageRequest, SbiRequest), Error>, confidential_flow: ConfidentialFlow) -> ! {
+    match request {
+        Ok((share_page_request, sbi_request)) => {
             debug!(
-                "Confidential VM[id={:?}] requested a shared page mapped to {:x}",
+                "Confidential VM[confidential_vm_id={:?}] requested a shared page mapped to address [guest_physical_address={:?}]",
                 confidential_flow.confidential_vm_id(),
-                &request.confidential_vm_virtual_address().usize()
+                share_page_request.confidential_vm_virtual_address()
             );
             confidential_flow
-                .set_pending_request(PendingRequest::SharePage(request))
+                .set_pending_request(PendingRequest::SharePage(share_page_request))
                 .into_non_confidential_flow()
                 .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(sbi_request))
         }

@@ -4,9 +4,11 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::HardwareHart;
 
-/// This is a private function, not accessible from safe Rust but accessible
-/// from the assembly. It creates the mutable reference to HardwareHart by
-/// casting a raw pointer obtained from the assembly and then jumps to the router.
+/// Creates the mutable reference to HardwareHart by casting a raw pointer obtained from the context switch (assembly)
+/// and then jumps to the `router`.
+///
+/// This is a private function, not accessible to safe Rust but accessible to the assembly code performing the context
+/// switch.
 #[no_mangle]
 extern "C" fn enter_from_confidential_vm(hart_ptr: *mut HardwareHart) -> ! {
     let hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };

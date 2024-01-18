@@ -48,13 +48,6 @@ exit_to_confidential_vm_asm:
     ld	        t0, ({HART_MEPC_OFFSET})(a0)
     csrw        mepc, t0
 
-    # TESTING:
-    # li          t0, 0
-    # # csrw        hgeip, t0
-    # csrw        hvip, t0
-    # csrw        hip, t0
-    # END TESTING:
-
     # restore VS-mode specific CSRs
     ld	        t0, ({HART_VSSTATUS_OFFSET})(a0)
     csrw        vsstatus, t0
@@ -81,8 +74,9 @@ exit_to_confidential_vm_asm:
     # ld	        t0, ({HART_SCOUNTEREN_OFFSET})(a0)
     # csrw        scounteren, t0
     # ld	        t0, ({HART_HVIP_OFFSET})(a0)
-    # li          t0, 0            # clear interrupts
-    # csrw        hvip, t0
+    # inject interrupts
+    ld	        t0, ({HART_HVIP_OFFSET})(a0)
+    csrw        hvip, t0
     ld	        t0, ({HART_HSTATUS_OFFSET})(a0)
     csrw        hstatus, t0
 

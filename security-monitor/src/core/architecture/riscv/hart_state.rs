@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::hart::{FpRegisters, GpRegister, GpRegisters};
-use crate::core::transformations::TrapReason;
+use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, TrapReason};
 
-/// HartState is the dump state of the processor's core (HART)
-/// It represents the state of the physical or virtual HART.
+/// HartState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
 pub struct HartState {
     // gprs must be the first element in this structure because it is used to calculate the HartState address in the

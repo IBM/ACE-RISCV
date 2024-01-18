@@ -80,11 +80,9 @@ exit_to_hypervisor_asm:
     csrw        scause, t0
     ld          t0, ({HART_STVAL_OFFSET})(a0)
     csrw        stval, t0
-    ld          t0, ({HART_SIP_OFFSET})(a0)
-    csrw        sip, t0    
-    ld          t0, ({HART_SIE_OFFSET})(a0)
-    csrw        sie, t0
-    # we set up sepc to support VS ecalls.
+    # ld          t0, ({HART_SIE_OFFSET})(a0)
+    # csrw        sie, t0
+    # we set up sepc to support VS ecalls from non-confidential VMs
     # TODO: we must make sure that we never expose real PC of the confidential VM because 
     # we do not want to reveal such information to the hypervisor
     ld          t0, ({HART_SEPC_OFFSET})(a0)

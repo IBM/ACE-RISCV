@@ -6,7 +6,7 @@
 function run_baremetal() {
     fallocate -l 128M hdd.dsk
 
-    qemu-system-riscv64 -machine virt -cpu rv64 -smp 1 -m 128M \
+    qemu-system-riscv64 -machine virt -cpu rv64 -smp 2 -m 128M \
         --enable-kvm \
         -drive if=none,format=raw,file=hdd.dsk,id=foo \
         -device virtio-blk-device,scsi=off,drive=foo -nographic -bios none \

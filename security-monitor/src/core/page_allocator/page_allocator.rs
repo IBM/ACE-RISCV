@@ -11,11 +11,11 @@ use alloc::vec::Vec;
 use core::ops::Range;
 use spin::{Once, RwLock, RwLockWriteGuard};
 
-const NOT_INITIALIZED_MEMORY_TRACKER: &str = "Bug. Could not access memory tracker because it is not initialized";
+const NOT_INITIALIZED_PAGE_ALLOCATOR: &str = "Bug. Could not access memory tracker because it is not initialized";
 
 /// A static global structure containing unallocated pages. Once<> guarantees
 /// that it the memory tracker can only be initialized once.
-pub static MEMORY_TRACKER: Once<RwLock<MemoryTracker>> = Once::new();
+static PAGE_ALLOCATOR: Once<RwLock<MemoryTracker>> = Once::new();
 
 /// Memory tracker allocates pages of confidential memory. It guarantees that a single page is not
 /// allocated twice. It does so by giving away page tokens that represent ownership of a page in a
@@ -25,6 +25,22 @@ pub struct MemoryTracker {
 }
 
 impl<'a> MemoryTracker {
+    /// Initializes the global instance of a `MemoryTracker`. Returns error if it has already been initialized.
+    ///
+    /// # Arguments:
+    ///
+    /// See the `MemoryTracker::new` for requirements on arguments.
+    ///    
+    /// # Safety
+    ///
+    /// See the `MemoryTracker::new` for safety requirements.
+    pub unsafe fn initialize(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
+        let page_allocator = unsafe { Self::new(memory_start, memory_end) }?;
+        assure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
+        PAGE_ALLOCATOR.call_once(|| RwLock::new(page_allocator));
+        Ok(())
+    }
+
     /// Constructs the memory tracker over the memory region defined by start and end addresses.
     /// It creates page tokens of unallocated pages.
     ///
@@ -39,7 +55,7 @@ impl<'a> MemoryTracker {
     /// This function must only be called only once during the system lifecycle. The caller must guarantee
     /// that the memory tracker becomes the exclusive owner of the memory region described by the input
     /// arguments.
-    pub unsafe fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
+    unsafe fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
         debug!("Memory tracker {:x}-{:x}", memory_start.as_usize(), memory_end as usize);
         assert!(memory_start.is_aligned_to(PageSize::smallest().in_bytes()));
         assert!(memory_start.offset_from(memory_end) as usize % PageSize::smallest().in_bytes() == 0);
@@ -86,13 +102,13 @@ impl<'a> MemoryTracker {
     pub fn acquire_continous_pages(
         number_of_pages: usize, page_size: PageSize,
     ) -> Result<Vec<Page<UnAllocated>>, Error> {
-        let pages = try_write(|tracker| Ok(tracker.acquire(number_of_pages, page_size)))?;
+        let pages = Self::try_write(|tracker| Ok(tracker.acquire(number_of_pages, page_size)))?;
         assure_not!(pages.is_empty(), Error::OutOfMemory())?;
         Ok(pages)
     }
 
     pub fn release_pages(pages: Vec<Page<UnAllocated>>) {
-        let _ = try_write(|tracker| {
+        let _ = Self::try_write(|tracker| {
             Ok(pages.into_iter().for_each(|page| {
                 tracker.map.get_mut(&page.size()).and_then(|v| Some(v.push(page)));
             }))
@@ -175,14 +191,9 @@ impl<'a> MemoryTracker {
         }
         None
     }
-}
 
-fn try_write<F, O>(op: O) -> Result<F, Error>
-where O: FnOnce(&mut RwLockWriteGuard<'static, MemoryTracker>) -> Result<F, Error> {
-    MEMORY_TRACKER
-        .get()
-        .expect(NOT_INITIALIZED_MEMORY_TRACKER)
-        .try_write()
-        .ok_or(Error::OptimisticLocking())
-        .and_then(|ref mut memory_tracker| op(memory_tracker))
+    fn try_write<F, O>(op: O) -> Result<F, Error>
+    where O: FnOnce(&mut RwLockWriteGuard<'static, MemoryTracker>) -> Result<F, Error> {
+        op(&mut PAGE_ALLOCATOR.get().expect(NOT_INITIALIZED_PAGE_ALLOCATOR).write())
+    }
 }
