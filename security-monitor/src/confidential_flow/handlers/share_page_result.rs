@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::control_data::ControlData;
-use crate::core::memory_tracker::SharedPage;
+use crate::core::page_allocator::SharedPage;
 use crate::core::transformations::{ExposeToConfidentialVm, SbiResult, SharePageRequest, SharePageResult};
 
 /// Handles a response from the hypervisor about the creation of a shared page.

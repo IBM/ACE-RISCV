@@ -7,7 +7,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::mem;
 use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 
-pub type MemoryAllocator = Locked<LinkedListAllocator>;
+pub type HeapAllocator = Locked<LinkedListAllocator>;
 
 pub struct LinkedListAllocator {
     head: FreeMemoryRegion,
@@ -104,7 +104,7 @@ impl FreeMemoryRegion {
     }
 }
 
-unsafe impl GlobalAlloc for MemoryAllocator {
+unsafe impl GlobalAlloc for HeapAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.try_alloc(layout)
     }
@@ -115,7 +115,7 @@ unsafe impl GlobalAlloc for MemoryAllocator {
     }
 }
 
-impl MemoryAllocator {
+impl HeapAllocator {
     pub const fn empty() -> Self {
         Locked::new(LinkedListAllocator::empty())
     }

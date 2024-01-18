@@ -5,7 +5,7 @@ use crate::core::arch::HartState;
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_protector::mmu::RootPageTable;
 use crate::core::memory_protector::{mmu, pmp};
-use crate::core::memory_tracker::SharedPage;
+use crate::core::page_allocator::SharedPage;
 use crate::core::transformations::ConfidentialVmVirtualAddress;
 use crate::error::Error;
 use riscv::register::hgatp::Hgatp;

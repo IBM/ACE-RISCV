@@ -5,7 +5,7 @@ use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
-use crate::core::memory_tracker::{MemoryTracker, Page, UnAllocated};
+use crate::core::page_allocator::{MemoryTracker, Page, UnAllocated};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -165,16 +165,16 @@ fn initalize_security_monitor_state(
     let mut heap_start_address = confidential_memory_start;
     let heap_end_address =
         MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
-    crate::core::heap::init_heap(heap_start_address, heap_size_in_bytes);
+    crate::core::heap_allocator::init_heap(heap_start_address, heap_size_in_bytes);
 
     // Memory tracker starts directly after the heap
-    let memory_tracker_start_address = heap_end_address;
-    assert!(memory_tracker_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
+    let page_allocator_start_address = heap_end_address;
+    assert!(page_allocator_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
     // Memory tracker takes ownership of the rest of the confidential memory.
-    let memory_tracker_end_address = confidential_memory_end;
+    let page_allocator_end_address = confidential_memory_end;
     // It is safe to construct the memory tracker because we own the corresponding memory region and pass this
     // ownership to the memory tracker.
-    unsafe { MemoryTracker::initialize(memory_tracker_start_address, memory_tracker_end_address)? };
+    unsafe { MemoryTracker::initialize(page_allocator_start_address, page_allocator_end_address)? };
     unsafe { InterruptController::initialize()? };
 
     CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));

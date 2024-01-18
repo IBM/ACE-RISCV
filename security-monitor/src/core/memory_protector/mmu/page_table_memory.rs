@@ -6,7 +6,7 @@ use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::PageTableEntry;
 use crate::core::memory_protector::mmu::paging_system::PageTableLevel;
 use crate::core::memory_protector::mmu::PageSize;
-use crate::core::memory_tracker::{Allocated, MemoryTracker, Page};
+use crate::core::page_allocator::{Allocated, MemoryTracker, Page};
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::ops::Range;

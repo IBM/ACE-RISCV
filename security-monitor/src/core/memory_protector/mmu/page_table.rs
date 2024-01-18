@@ -7,7 +7,7 @@ use crate::core::memory_protector::mmu::page_table_entry::{
 };
 use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
 use crate::core::memory_protector::mmu::paging_system::{PageTableLevel, PagingSystem};
-use crate::core::memory_tracker::{MemoryTracker, SharedPage};
+use crate::core::page_allocator::{MemoryTracker, SharedPage};
 use crate::core::transformations::ConfidentialVmVirtualAddress;
 use crate::error::Error;
 use alloc::boxed::Box;

@@ -5,10 +5,10 @@ pub mod arch;
 pub mod control_data;
 pub mod memory_layout;
 pub mod memory_protector;
-pub mod memory_tracker;
+pub mod page_allocator;
 pub mod transformations;
 
-mod heap;
+mod heap_allocator;
 mod initialization;
 mod interrupt_controller;
 mod panic;
