@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::arch::{FpRegisters, GpRegister, GpRegisters, HartState, TrapReason};
 use crate::core::control_data::ConfidentialVmId;
-use crate::core::hart::{FpRegisters, GpRegister, GpRegisters, HartState};
 use crate::core::transformations::{
     ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
     GuestStorePageFaultResult, InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart,
     SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
-    TrapReason,
 };
 use crate::error::Error;
 
@@ -25,14 +24,36 @@ pub struct ConfidentialHart {
 }
 
 impl ConfidentialHart {
+    /// Constructs a dummy hart. This dummy hart carries no confidential information. It is used to indicate that a real
+    /// confidential hart has been assigned to a hardware hart for execution.
     pub fn dummy(id: usize) -> Self {
-        let confidential_hart_state = HartState::empty(id);
-        Self { confidential_hart_state, pending_request: None, confidential_vm_id: None }
+        Self::new(HartState::empty(id))
     }
 
+    /// Constructs a confidential hart with the state after a reset.
     pub fn from_vm_hart_reset(id: usize, from: &HartState) -> Self {
         let mut confidential_hart_state = HartState::from_existing(id, from);
+        GpRegisters::iter().for_each(|x| {
+            confidential_hart_state.gprs.0[x] = 0;
+        });
+        FpRegisters::iter().for_each(|x| {
+            confidential_hart_state.fprs.0[x] = 0;
+        });
+        // TODO: reset PC and other state-related csrs
+        Self::new(confidential_hart_state)
+    }
 
+    pub fn from_vm_hart(id: usize, from: &HartState) -> Self {
+        let mut confidential_hart = Self::new(HartState::from_existing(id, from));
+        // We create a virtual hart as a result of the SBI request the ESM call traps in the security monitor, which
+        // creates the confidential VM but then the security monitor makes an SBI call to the hypervisor to let him know
+        // that this VM become an confidential VM. The hypervisor should then return to the confidential VM providing it
+        // with the result of this transformation.
+        confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
+        confidential_hart
+    }
+
+    fn new(mut confidential_hart_state: HartState) -> Self {
         // delegate VS-level interrupts directly to the confidential VM. All other
         // interrupts will trap in the security monitor.
         confidential_hart_state.mideleg = 0b010001001110;
@@ -43,23 +64,6 @@ impl ConfidentialHart {
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
 
         Self { confidential_hart_state, pending_request: None, confidential_vm_id: None }
-    }
-
-    pub fn from_vm_hart(id: usize, from: &HartState) -> Self {
-        let mut confidential_hart = Self::from_vm_hart_reset(id, from);
-        GpRegisters::iter().for_each(|x| {
-            confidential_hart.confidential_hart_state.gprs.0[x] = from.gprs.0[x];
-        });
-        FpRegisters::iter().for_each(|x| {
-            confidential_hart.confidential_hart_state.fprs.0[x] = from.fprs.0[x];
-        });
-
-        // We create a virtual hart as a result of the SBI request the ESM call traps in the security monitor, which
-        // creates the confidential VM but then the security monitor makes an SBI call to the hypervisor to let him know
-        // that this VM become an confidential VM. The hypervisor should then return to the confidential VM providing it
-        // with the result of this transformation.
-        confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
-        confidential_hart
     }
 
     pub fn set_confidential_vm_id(&mut self, confidential_vm_id: ConfidentialVmId) {

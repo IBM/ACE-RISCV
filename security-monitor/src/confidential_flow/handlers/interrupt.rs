@@ -24,8 +24,11 @@ const STIP_MASK: usize = 1 << STIP;
 const SEIP: usize = 9;
 const SEIP_MASK: usize = 1 << SEIP;
 
-/// Interrupts are reflected to the hypervisor because it has to decide what to
-/// do with them.
+/// Handles interrupts of a confidential hart.
+///
+/// Control flows:
+/// - to the hypervisor when an interrupt comes from a hardware device.
+/// - to the confidential hart in case of software interrupts
 pub fn handle(mut confidential_flow: ConfidentialFlow) -> ! {
     // TODO: handle interrupts targeted for confidential VM by reflecting them
     // directly to the confidential VM

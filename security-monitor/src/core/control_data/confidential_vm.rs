@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::{ConfidentialHart, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::transformations::InterHartRequest;
@@ -10,23 +10,27 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard};
 
-const MAX_HASH_SIZE: usize = 512; // 512b for SHA-512
-
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
-    _measurements: [Measurement; 4],
+    measurements: [ConfidentialVmMeasurement; 4],
     confidential_harts: Vec<ConfidentialHart>,
     memory_protector: ConfidentialVmMemoryProtector,
     inter_hart_requests: BTreeMap<usize, Mutex<Vec<InterHartRequest>>>,
 }
 
 impl ConfidentialVm {
+    /// An average number of inter hart requests that are buffered before being processed.
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
-    const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 256;
+    /// A maximum number of inter hart requests that can be buffered.
+    const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
 
+    /// Constructs a new confidential VM.
+    ///
+    /// Safety:
+    /// * The id of the confidential VM must be unique.
     pub fn new(
         id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>,
-        mut memory_protector: ConfidentialVmMemoryProtector,
+        measurements: [ConfidentialVmMeasurement; 4], mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
         let mut inter_hart_requests = BTreeMap::new();
@@ -35,16 +39,20 @@ impl ConfidentialVm {
             let inter_hart_requests_buffer = Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS));
             inter_hart_requests.insert(confidential_hart.confidential_hart_id(), inter_hart_requests_buffer);
         });
-        Self { id, _measurements: [Measurement::empty(); 4], confidential_harts, memory_protector, inter_hart_requests }
+        Self { id, measurements, confidential_harts, memory_protector, inter_hart_requests }
+    }
+
+    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
+        self.id
     }
 
     pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
         &mut self.memory_protector
     }
 
-    /// Steals a confidential hart from the confidential VM and assigns it to the hardware hart. The hardware memory
-    /// isolation mechanism is reconfigured to enforce memory access control for the confidential VM. Returns error if
-    /// the confidential VM's virtual hart has been already stolen.
+    /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
+    /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
+    /// virtual hart has been already stolen.
     ///
     /// Guarantees:
     /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory
@@ -69,6 +77,10 @@ impl ConfidentialVm {
         Ok(())
     }
 
+    /// Unassigns a confidential hart from the hardware hart.
+    ///
+    /// Safety:
+    /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart.is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
@@ -85,9 +97,10 @@ impl ConfidentialVm {
         self.confidential_harts.iter().filter(|confidential_hart| confidential_hart.is_dummy()).count() > 0
     }
 
-    /// Queues a request to other confidential hart and emits a hardware interrupt to the physical hart that executes
-    /// that confidential hart. If the confidential hart is not executing, then no hardware interrupt is emmited.
-    /// Returns error when 1) a queue that stores the confidential hart's InterHartRequests is full, 2) when sending an IPI failed.
+    /// Queues a request from one confidential hart to another and emits a hardware interrupt to the physical hart that
+    /// executes that confidential hart. If the confidential hart is not executing, then no hardware interrupt is
+    /// emmited. Returns error when 1) a queue that stores the confidential hart's InterHartRequests is full, 2) when
+    /// sending an IPI failed.
     pub fn add_inter_hart_request(&self, inter_hart_request: InterHartRequest) -> Result<(), Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| inter_hart_request.is_hart_selected(*confidential_hart_id))
@@ -121,29 +134,5 @@ impl ConfidentialVm {
     pub fn try_inter_hart_requests<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<InterHartRequest>>) -> Result<F, Error> {
         op(self.inter_hart_requests.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
-    }
-}
-
-#[derive(PartialEq, Eq, Hash, Debug, PartialOrd, Ord, Copy, Clone)]
-pub struct ConfidentialVmId(usize);
-
-impl ConfidentialVmId {
-    pub fn new(value: usize) -> Self {
-        Self(value)
-    }
-
-    pub fn usize(&self) -> usize {
-        self.0
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Measurement {
-    pub value: [u8; MAX_HASH_SIZE / 8],
-}
-
-impl Measurement {
-    pub const fn empty() -> Measurement {
-        Self { value: [0u8; MAX_HASH_SIZE / 8] }
     }
 }

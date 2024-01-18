@@ -1,11 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId};
-use crate::core::memory_protector::ConfidentialVmMemoryProtector;
+use crate::core::control_data::{ConfidentialVm, ConfidentialVmId};
 use crate::error::{Error, NOT_INITIALIZED_CONTROL_DATA};
 use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard, Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// The control data region is located in the confidential memory. It is visible only to the security monitor. The
@@ -24,27 +22,25 @@ impl ControlData {
         Self { confidential_vms: BTreeMap::new() }
     }
 
-    /// This function persists a confidential VM inside the control data. A unique identifier is calculated and assigned
-    /// to it. This identifier is not secret and reflects the number of confidential VMs that have been created up to
-    /// now. The maximum allowed number of confidential VMs created is limited by the size of the `usize` type.
-    pub fn store_confidential_vm(
-        confidential_harts: Vec<ConfidentialHart>, memory_protector: ConfidentialVmMemoryProtector,
-    ) -> Result<ConfidentialVmId, Error> {
-        Self::try_write(|control_data| {
-            control_data
-                .confidential_vms
-                .keys()
-                .max()
-                .map(|v| v.usize().checked_add(1))
-                .unwrap_or(Some(0))
-                .and_then(|max_id| {
-                    let id = ConfidentialVmId::new(max_id);
-                    let confidential_vm = ConfidentialVm::new(id, confidential_harts, memory_protector);
-                    control_data.confidential_vms.insert(id, Mutex::new(confidential_vm));
-                    Some(id)
-                })
-                .ok_or(Error::ReachedMaximumNumberOfCvms())
-        })
+    pub fn unique_id(&self) -> Result<ConfidentialVmId, Error> {
+        self.confidential_vms
+            .keys()
+            .max()
+            .map(|v| v.usize().checked_add(1))
+            .unwrap_or(Some(0))
+            .and_then(|max_id| Some(ConfidentialVmId::new(max_id)))
+            .ok_or(Error::ReachedMaximumNumberOfCvms())
+    }
+
+    pub fn insert_confidential_vm(&mut self, confidential_vm: ConfidentialVm) -> Result<ConfidentialVmId, Error> {
+        let id = confidential_vm.confidential_vm_id();
+        match self.confidential_vms.contains_key(&id) {
+            false => {
+                self.confidential_vms.insert(id, Mutex::new(confidential_vm));
+                Ok(id)
+            }
+            true => Err(Error::InvalidConfidentialVmId()),
+        }
     }
 
     pub fn confidential_vm(&self, id: ConfidentialVmId) -> Result<MutexGuard<'_, ConfidentialVm>, Error> {

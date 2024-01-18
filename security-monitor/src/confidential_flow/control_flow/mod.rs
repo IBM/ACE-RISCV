@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::arch::SbiExtension::*;
 use crate::core::control_data::{ConfidentialVmId, ControlData, HardwareHart};
-use crate::core::transformations::SbiExtension::*;
 use crate::core::transformations::{ExposeToConfidentialVm, PendingRequest};
 use crate::non_confidential_flow::NonConfidentialFlow;
 
@@ -10,28 +10,35 @@ extern "C" {
     fn exit_to_confidential_vm_asm(confidential_hart_address: usize) -> !;
 }
 
-/// The token that ensures correct control flow integrity within the `confidential flow` part of the finite state
-/// machine (FSM) of the security monitor.
+/// Ensures control flow integrity within the `confidential flow` part of the finite state machine (FSM) of the security
+/// monitor.
+///
+/// Guarantees:
+/// - A confidential hart is assigned to the hardware hart.
+/// - The confidential VM logically owning the confidential hart is valid (exists in the control data).
 pub struct ConfidentialFlow<'a> {
     hart: &'a mut HardwareHart,
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    /// Creates the confidential flow token.
+    /// Creates an instance of the confidential flow.
+    ///
+    /// Safety:
+    /// - A confidential hart must be assigned to the hardware hart.
     pub fn create(hart: &'a mut HardwareHart) -> Self {
         Self { hart }
     }
 
-    /// Routers the processing of confidential VM's trap to the responsible handler.
+    /// Routes the control flow to a handler that will process the confidential hart interrupt or exception.
     pub fn route(self) -> ! {
         use crate::confidential_flow::handlers::*;
-        use crate::core::transformations::AceExtension::*;
-        use crate::core::transformations::BaseExtension::*;
-        use crate::core::transformations::HsmExtension::*;
-        use crate::core::transformations::IpiExtension::*;
-        use crate::core::transformations::RfenceExtension::*;
-        use crate::core::transformations::SrstExtension::*;
-        use crate::core::transformations::TrapReason::*;
+        use crate::core::arch::AceExtension::*;
+        use crate::core::arch::BaseExtension::*;
+        use crate::core::arch::HsmExtension::*;
+        use crate::core::arch::IpiExtension::*;
+        use crate::core::arch::RfenceExtension::*;
+        use crate::core::arch::SrstExtension::*;
+        use crate::core::arch::TrapReason::*;
 
         let confidential_hart = self.hart.confidential_hart();
         match confidential_hart.trap_reason() {
@@ -63,21 +70,18 @@ impl<'a> ConfidentialFlow<'a> {
             GuestStorePageFault => {
                 guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self)
             }
-            HsEcall(_) => panic!("Bug: Incorrect interrupt delegation configuration"),
-            StoreAccessFault => panic!("Bug: Incorrect interrupt delegation configuration"),
-            _ => invalid_call::handle(self),
+            _ => panic!("Bug: Incorrect interrupt delegation configuration"),
         }
     }
 
     /// Processes pending requests from other confidential harts by applying corresponding state transformation to this
-    /// confidential hart. Returns error if it fails to access the shared state that stores InterHartRequests.
+    /// confidential hart.
     ///
-    /// InterHartRequests are applied on the confidential hart only when the hypervisor resumes execution of a
-    /// confidential hart or when a hardware hart executing a confidential hart is interrupted with the
-    /// inter-processor-interrupt (IPI).
+    /// This function should be called when the hypervisor requested resume of confidential hart's execution or when a
+    /// hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
     pub fn process_inter_hart_requests(&mut self) {
         let confidential_vm_id = self.confidential_vm_id();
-        let confidential_hart_id = self.hart.confidential_hart().confidential_hart_id();
+        let confidential_hart_id = self.confidential_hart_id();
         ControlData::try_confidential_vm(confidential_vm_id, |confidential_vm| {
             confidential_vm.try_inter_hart_requests(confidential_hart_id, |ref mut inter_hart_requests| {
                 inter_hart_requests
@@ -104,7 +108,8 @@ impl<'a> ConfidentialFlow<'a> {
         self.process_inter_hart_requests();
 
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a
-        // hypercall) to the hypervisor. We must now handle the response or resume confidential hart's execution.
+        // hypercall) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's
+        // execution.
         match self.hart.confidential_hart_mut().take_request() {
             Some(SbiRequest()) => hypercall_result::handle(self.hart.hypercall_result(), self),
             Some(GuestLoadPageFault(request)) => {
@@ -140,6 +145,10 @@ impl<'a> ConfidentialFlow<'a> {
             .confidential_hart()
             .confidential_vm_id()
             .expect("Bug: found dummy hart instead of a confidential hart")
+    }
+
+    pub fn confidential_hart_id(&'a self) -> usize {
+        self.hart.confidential_hart().confidential_hart_id()
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {

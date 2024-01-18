@@ -2,14 +2,18 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 pub use confidential_hart::ConfidentialHart;
-pub use confidential_vm::{ConfidentialVm, ConfidentialVmId};
+pub use confidential_vm::ConfidentialVm;
+pub use confidential_vm_id::ConfidentialVmId;
+pub use confidential_vm_measurement::ConfidentialVmMeasurement;
 pub use hardware_hart::HardwareHart;
 pub use storage::{ControlData, CONTROL_DATA};
 
-use crate::core::hart::{GpRegister, HartState};
+use crate::core::arch::{GpRegister, HartState};
 
 mod confidential_hart;
 mod confidential_vm;
+mod confidential_vm_id;
+mod confidential_vm_measurement;
 mod hardware_hart;
 mod storage;
 

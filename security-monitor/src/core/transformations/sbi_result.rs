@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::hart::{GpRegister, HartState};
+use crate::core::arch::{GpRegister, HartState};
 
 /// Sbi is a result of the SBI call from the Hypervisor to the SBI
 /// firmware or a result of the SBI call to the security monitor.

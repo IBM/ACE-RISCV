@@ -28,8 +28,9 @@ extern "C" fn worker_init(hart_id: usize) {
         riscv::register::sstatus::set_sie();
     }
 
-    loop {
-        uart.println(&format!("Hart hart_id={} doing nothing", hart_id));
-        // do nothing waiting for an interrupt
-    }
+    sbi::system_reset::system_reset(
+        sbi::system_reset::ResetType::Shutdown,
+        sbi::system_reset::ResetReason::NoReason,
+    )
+    .expect("system reset failed");
 } 

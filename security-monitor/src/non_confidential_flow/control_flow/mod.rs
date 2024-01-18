@@ -2,9 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
+use crate::core::arch::AceExtension::*;
+use crate::core::arch::SbiExtension::*;
 use crate::core::control_data::{ControlData, HardwareHart};
-use crate::core::transformations::SbiExtension::*;
-use crate::core::transformations::{AceExtension, ExposeToHypervisor, ResumeRequest};
+use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 
 extern "C" {
@@ -40,21 +41,17 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn route(self) -> ! {
-        use crate::core::transformations::TrapReason::*;
+        use crate::core::arch::TrapReason::*;
         use crate::non_confidential_flow::handlers::*;
 
         match self.hardware_hart.trap_reason() {
             Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            VsEcall(Ace(AceExtension::ConvertToConfidentialVm)) => {
+            VsEcall(Ace(ConvertToConfidentialVm)) => {
                 convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
             }
             VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            HsEcall(Ace(AceExtension::ResumeConfidentialHart)) => {
-                resume::handle(self.hardware_hart.resume_request(), self)
-            }
-            HsEcall(Ace(AceExtension::TerminateConfidentialVm)) => {
-                terminate::handle(self.hardware_hart.terminate_request(), self)
-            }
+            HsEcall(Ace(ResumeConfidentialHart)) => resume::handle(self.hardware_hart.resume_request(), self),
+            HsEcall(Ace(TerminateConfidentialVm)) => terminate::handle(self.hardware_hart.terminate_request(), self),
             HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),

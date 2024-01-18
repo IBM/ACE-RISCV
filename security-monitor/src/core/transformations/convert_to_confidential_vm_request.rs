@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::hart::HartState;
+use crate::core::arch::HartState;
 
 pub struct ConvertToConfidentialVm {
     hart_state: HartState,

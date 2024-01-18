@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData};
+use crate::core::control_data::{
+    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData,
+};
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::transformations::{ConvertToConfidentialVm, ExposeToHypervisor, SbiRequest};
 use crate::error::Error;
@@ -12,7 +14,7 @@ const BOOT_HART_ID: usize = 0;
 pub fn handle(
     convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow,
 ) -> ! {
-    debug!("Converting a virtual machine into a confidential virtual machine");
+    debug!("Converting a VM into a confidential VM");
     let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => error.into_non_confidential_transformation(),
@@ -38,8 +40,15 @@ fn create_confidential_vm(
     // TODO: measure the confidential VM
 
     // TODO: perform local attestation (optional)
+    let measurements = [ConfidentialVmMeasurement::empty(); 4];
 
-    let confidential_vm_id = ControlData::store_confidential_vm(confidential_harts, memory_protector)?;
+    let confidential_vm_id = ControlData::try_write(|control_data| {
+        // We have a write lock on the entire control data! Spend as little time here as possible because we are
+        // blocking all other harts from accessing the control data.
+        let id = control_data.unique_id()?;
+        let confidential_vm = ConfidentialVm::new(id, confidential_harts, measurements, memory_protector);
+        control_data.insert_confidential_vm(confidential_vm)
+    })?;
 
     debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
 

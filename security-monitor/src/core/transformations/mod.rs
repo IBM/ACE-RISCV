@@ -20,9 +20,6 @@ pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::{ConfidentialVmVirtualAddress, SharePageRequest};
 pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
-pub use trap_reason::{
-    AceExtension, BaseExtension, HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension, TrapReason,
-};
 
 mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
@@ -43,8 +40,8 @@ mod sbi_vm_request;
 mod share_page_request;
 mod share_page_result;
 mod terminate_request;
-mod trap_reason;
 
+/// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum ExposeToHypervisor {
     SbiRequest(SbiRequest),
     SbiResult(SbiResult),
@@ -54,6 +51,7 @@ pub enum ExposeToHypervisor {
     InterruptRequest(InterruptRequest),
 }
 
+/// Declassifiers that expose part of the hypervisor's state to a confidential VM's hart.
 pub enum ExposeToConfidentialVm {
     SbiResult(SbiResult),
     GuestLoadPageFaultResult(GuestLoadPageFaultResult),
@@ -66,6 +64,8 @@ pub enum ExposeToConfidentialVm {
     SbiHsmHartStart(SbiHsmHartStart),
 }
 
+/// An intermediate confidential hart state that requested certain operation from the hypervisor and is waiting for the
+/// response.
 #[derive(PartialEq)]
 pub enum PendingRequest {
     SharePage(SharePageRequest),
@@ -74,6 +74,7 @@ pub enum PendingRequest {
     SbiRequest(),
 }
 
+/// A request send from one confidential hart to another confidential hart belonging to the same confidential VM.
 #[derive(Debug, PartialEq, Clone)]
 pub enum InterHartRequest {
     SbiHsmHartStart(SbiHsmHartStart),

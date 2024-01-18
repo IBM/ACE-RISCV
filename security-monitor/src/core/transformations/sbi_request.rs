@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::arch::{GpRegister, HartState};
 use crate::core::control_data::ConfidentialVmId;
-use crate::core::hart::{GpRegister, HartState};
 
 pub struct SbiRequest {
     extension_id: usize,
@@ -38,7 +38,7 @@ impl SbiRequest {
     }
 
     pub fn kvm_hsm_hart_start(virtual_hart_id: usize) -> Self {
-        use crate::core::transformations::HsmExtension;
+        use crate::core::arch::HsmExtension;
         Self::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, virtual_hart_id, 0, 0, 0, 0, 0)
     }
 

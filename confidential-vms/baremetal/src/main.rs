@@ -93,12 +93,9 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
         Err(error) => uart.println(&format!("HSM hart_start: error {:?}", error)),
     };    
 
-    //
-    sbi::system_reset::system_reset(
-        sbi::system_reset::ResetType::Shutdown,
-        sbi::system_reset::ResetReason::NoReason,
-    )
-    .expect("system reset failed");
+    loop {
+        // do nothing, wait for hart 1 to terminate the VM
+    }
 }
 
 fn test_exception_delegation(uart: &mut Uart) {

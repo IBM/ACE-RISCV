@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::arch::{GpRegister, HartState, TrapReason};
 use crate::core::control_data::ConfidentialHart;
-use crate::core::hart::{GpRegister, HartState};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::memory_tracker::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
     ConvertToConfidentialVm, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest,
     MmioLoadRequest, MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest,
-    SharePageResult, TerminateRequest, TrapReason,
+    SharePageResult, TerminateRequest,
 };
 
 #[repr(C)]
