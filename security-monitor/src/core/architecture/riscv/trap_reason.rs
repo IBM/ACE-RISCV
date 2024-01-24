@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::sbi::SbiExtension;
-use crate::core::architecture::HartState;
+use crate::core::architecture::HartArchitecturalState;
 
 #[derive(Debug)]
 pub enum TrapReason {
@@ -24,7 +24,7 @@ impl TrapReason {
     const GUEST_LOAD_PAGE_FAULT: usize = 21;
     const GUEST_STORE_PAGE_FAULT: usize = 23;
 
-    pub fn from_hart_state(hart_state: &HartState) -> Self {
+    pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
         let mcause = riscv::register::mcause::read();
         if mcause.is_interrupt() {
             return Self::Interrupt;

@@ -17,6 +17,6 @@ impl ConfidentialVmVirtualAddress {
 
 impl core::fmt::Debug for ConfidentialVmVirtualAddress {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "[confidential_vm_virtual_address={:x}]", self.0)
+        write!(f, "confidential_vm_virtual_address={:x}", self.0)
     }
 }

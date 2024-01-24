@@ -46,6 +46,7 @@ impl Uart {
     }
 
     pub fn println(&mut self, out: &str) {
+        use alloc::format;
         crate::sync::acquire(crate::sync::UART_SYNC_ADDRESS);
         for c in out.bytes() {
             self.put(c);

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState, TrapReason};
+use crate::core::architecture::{GpRegister, HartArchitecturalState, TrapReason};
 use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
@@ -13,9 +13,9 @@ use crate::core::transformations::{
 
 #[repr(C)]
 pub struct HardwareHart {
-    // Careful, HardwareHart and ConfidentialHart must both start with the HartState element because based on this we
-    // automatically calculate offsets of registers' and CSRs' for the asm code.
-    pub(super) non_confidential_hart_state: HartState,
+    // Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
+    // on this we automatically calculate offsets of registers' and CSRs' for the asm code.
+    pub(super) non_confidential_hart_state: HartArchitecturalState,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
     // to the memory region owned by the hypervisor.
     hypervisor_memory_protector: HypervisorMemoryProtector,
@@ -38,7 +38,7 @@ pub struct HardwareHart {
 impl HardwareHart {
     pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
-            non_confidential_hart_state: HartState::empty(id),
+            non_confidential_hart_state: HartArchitecturalState::empty(id),
             hypervisor_memory_protector,
             stack_address: stack.end_address(),
             stack: stack.zeroize(),

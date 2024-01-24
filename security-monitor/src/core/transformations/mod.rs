@@ -11,7 +11,7 @@ pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
 pub use resume_request::ResumeRequest;
-pub use sbi_hsm::SbiHsmHartStart;
+pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
 pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;
@@ -61,7 +61,8 @@ pub enum ExposeToConfidentialVm {
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
-    SbiHsmHartStart(SbiHsmHartStart),
+    SbiHsmHartStart(),
+    SbiHsmHartStartPending(),
 }
 
 /// An intermediate confidential hart state that requested certain operation from the hypervisor and is waiting for the
@@ -71,13 +72,14 @@ pub enum PendingRequest {
     SharePage(SharePageRequest),
     GuestLoadPageFault(GuestLoadPageFaultRequest),
     GuestStorePageFault(GuestStorePageFaultRequest),
+    SbiHsmHartStart(),
+    SbiHsmHartStartPending(),
     SbiRequest(),
 }
 
 /// A request send from one confidential hart to another confidential hart belonging to the same confidential VM.
 #[derive(Debug, PartialEq, Clone)]
 pub enum InterHartRequest {
-    SbiHsmHartStart(SbiHsmHartStart),
     InterProcessorInterrupt(SbiIpi),
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
@@ -88,7 +90,6 @@ impl InterHartRequest {
     pub fn into_expose_to_confidential_vm(self) -> ExposeToConfidentialVm {
         match self {
             Self::InterProcessorInterrupt(v) => ExposeToConfidentialVm::InterProcessorInterrupt(v),
-            Self::SbiHsmHartStart(v) => ExposeToConfidentialVm::SbiHsmHartStart(v),
             Self::SbiRemoteFenceI(v) => ExposeToConfidentialVm::SbiRemoteFenceI(v),
             Self::SbiRemoteSfenceVma(v) => ExposeToConfidentialVm::SbiRemoteSfenceVma(v),
             Self::SbiRemoteSfenceVmaAsid(v) => ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v),
@@ -98,7 +99,6 @@ impl InterHartRequest {
     pub fn is_hart_selected(&self, hart_id: usize) -> bool {
         match self {
             Self::InterProcessorInterrupt(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiHsmHartStart(v) => hart_id == v.confidential_hart_id,
             Self::SbiRemoteFenceI(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
             Self::SbiRemoteSfenceVma(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
             Self::SbiRemoteSfenceVmaAsid(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),

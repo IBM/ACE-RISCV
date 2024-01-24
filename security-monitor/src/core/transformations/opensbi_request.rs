@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 
 pub struct OpensbiRequest {
     pub regs: opensbi_sys::sbi_trap_regs,
 }
 
 impl OpensbiRequest {
-    pub fn new(hart_state: &HartState) -> Self {
+    pub fn new(hart_state: &HartArchitecturalState) -> Self {
         Self {
             regs: opensbi_sys::sbi_trap_regs {
                 zero: 0,

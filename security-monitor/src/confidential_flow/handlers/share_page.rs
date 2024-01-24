@@ -14,7 +14,7 @@ pub fn handle(request: Result<(SharePageRequest, SbiRequest), Error>, confidenti
     match request {
         Ok((share_page_request, sbi_request)) => {
             debug!(
-                "Confidential VM[confidential_vm_id={:?}] requested a shared page mapped to address [guest_physical_address={:?}]",
+                "Confidential VM[{:?}] requested a shared page mapped to address [{:?}]",
                 confidential_flow.confidential_vm_id(),
                 share_page_request.confidential_vm_virtual_address()
             );

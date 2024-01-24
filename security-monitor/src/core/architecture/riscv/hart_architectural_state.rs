@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, TrapReason};
 
-/// HartState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
+/// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
-pub struct HartState {
-    // gprs must be the first element in this structure because it is used to calculate the HartState address in the
-    // memory. This address is used by the assembly code.
+pub struct HartArchitecturalState {
+    // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
+    // address in the memory. This address is used by the assembly code.
     pub gprs: GpRegisters,
     // floating-point related
     pub fprs: FpRegisters,
@@ -54,9 +54,9 @@ pub struct HartState {
     pub mtval2: usize,
 }
 
-impl HartState {
-    pub fn from_existing(id: usize, existing: &HartState) -> HartState {
-        HartState {
+impl HartArchitecturalState {
+    pub fn from_existing(id: usize, existing: &HartArchitecturalState) -> HartArchitecturalState {
+        HartArchitecturalState {
             id,
             gprs: existing.gprs.clone(),
             // M-mode
@@ -102,8 +102,8 @@ impl HartState {
         }
     }
 
-    pub fn empty(id: usize) -> HartState {
-        HartState {
+    pub fn empty(id: usize) -> HartArchitecturalState {
+        HartArchitecturalState {
             id,
             gprs: GpRegisters::empty(),
             sstatus: 0,
@@ -145,7 +145,7 @@ impl HartState {
     }
 }
 
-impl HartState {
+impl HartArchitecturalState {
     pub fn gpr(&self, register: GpRegister) -> usize {
         self.gprs.get(register)
     }
@@ -154,12 +154,33 @@ impl HartState {
         self.gprs.set(register, value)
     }
 
+    pub fn reset(&mut self) {
+        self.gprs = GpRegisters::empty();
+        self.fprs = FpRegisters::empty();
+        self.fcsr = 0;
+        self.htinst = 0;
+        self.htval = 0;
+        self.sepc = 0;
+        self.scounteren = 0;
+        self.vsie = 0;
+        self.vstvec = 0;
+        self.vsscratch = 0;
+        self.vsepc = 0;
+        self.vscause = 0;
+        self.vstval = 0;
+        self.hvip = 0;
+        self.vsatp = 0;
+        // TODO: what should be the sstatus on reset?
+        // self.sstatus = 0;
+        self.vsstatus = 0;
+    }
+
     pub fn trap_reason(&self) -> TrapReason {
         TrapReason::from_hart_state(self)
     }
 }
 
-impl core::fmt::Debug for HartState {
+impl core::fmt::Debug for HartArchitecturalState {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         write!(f, "hart_id: {}, ", self.id)?;
         GpRegisters::iter().try_for_each(|x| -> core::fmt::Result {
