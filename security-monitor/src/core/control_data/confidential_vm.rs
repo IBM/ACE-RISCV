@@ -4,7 +4,7 @@
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
-use crate::core::transformations::InterHartRequest;
+use crate::core::transformations::{InterHartRequest, SbiHsmHartStart};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -52,7 +52,7 @@ impl ConfidentialVm {
 
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
-    /// virtual hart has been already stolen.
+    /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
     /// Guarantees:
     /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory
@@ -65,7 +65,9 @@ impl ConfidentialVm {
         // because after a confidential_hart is scheduled for the first time, its token is stolen and the
         // ConfidentialVM is left with a dummy confidential_hart. A dummy confidential hart is a hart not associated
         // with any confidential vm.
-        assure_not!(confidential_hart.is_dummy(), Error::RunningVHart())?;
+        assure_not!(confidential_hart.is_dummy(), Error::HartAlreadyRunning())?;
+        // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
+        assure!(confidential_hart.is_executable(), Error::HartAlreadyRunning())?;
         // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
         // error.
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
@@ -80,7 +82,7 @@ impl ConfidentialVm {
     /// Unassigns a confidential hart from the hardware hart.
     ///
     /// Safety:
-    /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
+    /// * A confidential hart belonging to this confidential VM is assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart.is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
@@ -95,6 +97,14 @@ impl ConfidentialVm {
 
     pub fn is_running(&self) -> bool {
         self.confidential_harts.iter().filter(|confidential_hart| confidential_hart.is_dummy()).count() > 0
+    }
+
+    /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
+    /// not in the `Stopped` state or a confidential hart with the requested id does not exist.
+    pub fn transit_confidential_hart_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
+        let hart = self.confidential_harts.get_mut(request.confidential_hart_id).ok_or(Error::InvalidHartId())?;
+        hart.transition_from_stopped_to_start_pending(request)?;
+        Ok(())
     }
 
     /// Queues a request from one confidential hart to another and emits a hardware interrupt to the physical hart that

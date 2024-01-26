@@ -28,6 +28,10 @@ extern "C" fn worker_init(hart_id: usize) {
         riscv::register::sstatus::set_sie();
     }
 
+    loop {
+        uart.println(&format!("Hello from hart id: {}", hart_id));
+    }
+
     sbi::system_reset::system_reset(
         sbi::system_reset::ResetType::Shutdown,
         sbi::system_reset::ResetReason::NoReason,

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::HartState;
+use crate::core::architecture::HartArchitecturalState;
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::ConfidentialVmVirtualAddress;
 use crate::core::memory_protector::mmu::RootPageTable;
@@ -23,7 +23,7 @@ impl ConfidentialVmMemoryProtector {
     /// Constructs the memory protector of a confidential VM from the dumped state of a hart that was running a
     /// non-confidential VM at the time it requested to be converted in a confidential VM. This function copies the
     /// entire configuration of the underlying hardware memory isolation component into the confidential memory.
-    pub fn from_vm_state(hart_state: &HartState) -> Result<Self, Error> {
+    pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
         let hgatp = Hgatp::from(hart_state.hgatp);
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 use crate::core::transformations::SbiRequest;
 
 pub struct SbiVmRequest {
@@ -10,7 +10,7 @@ pub struct SbiVmRequest {
 }
 
 impl SbiVmRequest {
-    pub fn from_hart_state(hart_state: &HartState) -> Self {
+    pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
         let sbi_request = SbiRequest::new(
             hart_state.gpr(GpRegister::a7),
             hart_state.gpr(GpRegister::a6),

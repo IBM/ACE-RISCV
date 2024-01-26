@@ -4,13 +4,17 @@
 pub use compressed_instructions::decode_result_register;
 pub use fp_registers::FpRegisters;
 pub use gp_registers::{GpRegister, GpRegisters};
-pub use hart_state::HartState;
+pub use hart_architectural_state::HartArchitecturalState;
+pub use hart_lifecycle_state::HartLifecycleState;
+pub use hart_lifecycle_state_transition::HartLifecycleStateTransition;
 pub use sbi::{AceExtension, BaseExtension, HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension};
 pub use trap_reason::TrapReason;
 
 mod compressed_instructions;
 mod fp_registers;
 mod gp_registers;
-mod hart_state;
+mod hart_architectural_state;
+mod hart_lifecycle_state;
+mod hart_lifecycle_state_transition;
 mod sbi;
 mod trap_reason;

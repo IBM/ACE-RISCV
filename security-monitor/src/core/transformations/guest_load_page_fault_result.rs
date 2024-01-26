@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 use crate::core::transformations::GuestLoadPageFaultRequest;
 
 pub struct GuestLoadPageFaultResult {
@@ -11,7 +11,7 @@ pub struct GuestLoadPageFaultResult {
 }
 
 impl GuestLoadPageFaultResult {
-    pub fn new(hart_state: &HartState, request: GuestLoadPageFaultRequest) -> Self {
+    pub fn new(hart_state: &HartArchitecturalState, request: GuestLoadPageFaultRequest) -> Self {
         Self {
             result_gpr: request.result_gpr(),
             value: hart_state.gpr(request.result_gpr()),

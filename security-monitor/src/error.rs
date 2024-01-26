@@ -51,7 +51,7 @@ pub enum Error {
     #[error("Invalid confidential VM ID")]
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
-    RunningVHart(),
+    HartAlreadyRunning(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
     #[error("Not supported interrupt")]
@@ -64,6 +64,16 @@ pub enum Error {
     ReachedMaxNumberOfRemoteHartRequests(),
     #[error("Sending interrupt error")]
     InterruptSendingError(),
+
+    // SBI HSM extension related errors
+    #[error("Cannot start a confidential hart because it is not in the Stopped state.")]
+    CannotStartNotStoppedHart(),
+    #[error("Cannot stop a confidential hart because it is not in the Started state.")]
+    CannotStopNotStartedHart(),
+    #[error("Cannot suspend a confidential hart because it is not in the Started state.")]
+    CannotSuspedNotStartedHart(),
+    #[error("Cannot start a confidential hart because it is not in the Suspended state.")]
+    CannotStartNotSuspendedHart(),
 }
 
 impl Error {

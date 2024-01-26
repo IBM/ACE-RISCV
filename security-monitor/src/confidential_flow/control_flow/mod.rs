@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::HartLifecycleStateTransition;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::control_data::{ConfidentialVmId, ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToConfidentialVm, PendingRequest};
+use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 extern "C" {
@@ -60,9 +62,11 @@ impl<'a> ConfidentialFlow<'a> {
             }
             VsEcall(Rfence(_)) => invalid_call::handle(self),
             VsEcall(Hsm(HartStart)) => sbi_hsm_hart_start::handle(confidential_hart.sbi_hsm_hart_start(), self),
+            VsEcall(Hsm(HartStop)) => sbi_hsm_hart_stop::handle(self),
+            VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), self),
             VsEcall(Hsm(HartGetStatus)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Ipi(SendIpi)) => inter_hart_request::handle(confidential_hart.sbi_ipi(), self),
-            VsEcall(Srst(SystemReset)) => hypercall::handle(confidential_hart.hypercall_request(), self),
+            VsEcall(Srst(SystemReset)) => sbi_srst::handle(confidential_hart.hypercall_request(), self),
             VsEcall(_) => invalid_call::handle(self),
             GuestLoadPageFault => {
                 guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self)
@@ -117,6 +121,10 @@ impl<'a> ConfidentialFlow<'a> {
             }
             Some(GuestStorePageFault(request)) => guest_store_page_fault_result::handle(self, request),
             Some(SharePage(request)) => share_page_result::handle(self.hart.share_page_result(), self, request),
+            Some(SbiHsmHartStart()) => self.exit_to_confidential_vm(ExposeToConfidentialVm::SbiHsmHartStart()),
+            Some(SbiHsmHartStartPending()) => {
+                self.exit_to_confidential_vm(ExposeToConfidentialVm::SbiHsmHartStartPending())
+            }
             None => self.exit_to_confidential_vm(ExposeToConfidentialVm::Resume()),
         }
     }
@@ -149,6 +157,22 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn confidential_hart_id(&'a self) -> usize {
         self.hart.confidential_hart().confidential_hart_id()
+    }
+
+    pub fn transit_hart_lifecycle(&mut self, state_transition: HartLifecycleStateTransition) -> Result<(), Error> {
+        use crate::core::architecture::HartLifecycleStateTransition::*;
+        match state_transition {
+            StoppedToStartPending(request) => {
+                ControlData::try_confidential_vm_mut(self.confidential_vm_id(), |ref mut confidential_vm| {
+                    confidential_vm.transit_confidential_hart_to_start_pending(request)
+                })
+            }
+            StartedToSuspended(request) => {
+                self.hart.confidential_hart_mut().transition_from_started_to_suspended(request)
+            }
+            SuspendedToStarted() => self.hart.confidential_hart_mut().transition_from_suspended_to_started(),
+            StartedToStopped() => self.hart.confidential_hart_mut().transition_from_started_to_stopped(),
+        }
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {

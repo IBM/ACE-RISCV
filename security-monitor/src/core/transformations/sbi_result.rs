@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 
 /// Sbi is a result of the SBI call from the Hypervisor to the SBI
 /// firmware or a result of the SBI call to the security monitor.
@@ -19,7 +19,7 @@ impl SbiResult {
         Self { a0, a1, pc_offset }
     }
 
-    pub fn ecall(hart_state: &HartState) -> Self {
+    pub fn ecall(hart_state: &HartArchitecturalState) -> Self {
         Self::new(hart_state.gpr(GpRegister::a0), hart_state.gpr(GpRegister::a1), Self::ECALL_INSTRUCTION_LENGTH)
     }
 

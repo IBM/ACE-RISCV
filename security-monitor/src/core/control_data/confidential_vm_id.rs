@@ -17,6 +17,6 @@ impl ConfidentialVmId {
 
 impl core::fmt::Debug for ConfidentialVmId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "[confidential_vm_id={:x}]", self.0)
+        write!(f, "confidential_vm_id={:x}", self.0)
     }
 }

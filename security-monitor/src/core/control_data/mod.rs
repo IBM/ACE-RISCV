@@ -8,7 +8,7 @@ pub use confidential_vm_measurement::ConfidentialVmMeasurement;
 pub use hardware_hart::HardwareHart;
 pub use storage::{ControlData, CONTROL_DATA};
 
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 
 mod confidential_hart;
 mod confidential_vm;
@@ -19,19 +19,20 @@ mod storage;
 
 const fn hart_gpr_offset(index: GpRegister) -> usize {
     memoffset::offset_of!(HardwareHart, non_confidential_hart_state)
-        + memoffset::offset_of!(HartState, gprs)
+        + memoffset::offset_of!(HartArchitecturalState, gprs)
         + (index as usize) * core::mem::size_of::<u64>()
 }
 
 const fn hart_fpr_offset(index: usize) -> usize {
     memoffset::offset_of!(HardwareHart, non_confidential_hart_state)
-        + memoffset::offset_of!(HartState, fprs)
+        + memoffset::offset_of!(HartArchitecturalState, fprs)
         + index * core::mem::size_of::<u64>()
 }
 
 macro_rules! hart_csr_offset {
     ($reg:tt) => {
-        memoffset::offset_of!(HardwareHart, non_confidential_hart_state) + memoffset::offset_of!(HartState, $reg)
+        memoffset::offset_of!(HardwareHart, non_confidential_hart_state)
+            + memoffset::offset_of!(HartArchitecturalState, $reg)
     };
 }
 

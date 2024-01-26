@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartState};
+use crate::core::architecture::{GpRegister, HartArchitecturalState};
 use crate::core::control_data::ConfidentialVmId;
 
 pub struct SbiRequest {
@@ -42,9 +42,19 @@ impl SbiRequest {
         Self::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, virtual_hart_id, 0, 0, 0, 0, 0)
     }
 
-    // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the HartState
-    // storing confidential information
-    pub fn from_hart_state(hart_state: &HartState) -> Self {
+    pub fn kvm_hsm_hart_stop() -> Self {
+        use crate::core::architecture::HsmExtension;
+        Self::new(HsmExtension::EXTID, HsmExtension::HART_STOP_FID, 0, 0, 0, 0, 0, 0)
+    }
+
+    pub fn kvm_hsm_hart_suspend() -> Self {
+        use crate::core::architecture::HsmExtension;
+        Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0, 0, 0, 0, 0)
+    }
+
+    // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the
+    // HartArchitecturalState storing confidential information
+    pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
         Self::new(
             hart_state.gpr(GpRegister::a7),
             hart_state.gpr(GpRegister::a6),
