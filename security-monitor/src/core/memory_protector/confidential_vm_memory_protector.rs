@@ -31,8 +31,7 @@ impl ConfidentialVmMemoryProtector {
     }
 
     pub fn set_confidential_vm_id(&mut self, id: ConfidentialVmId) {
-        let hgatp =
-            Hgatp::new(self.root_page_table.address(), self.root_page_table.paging_system().hgatp_mode(), id.usize());
+        let hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.paging_system().hgatp_mode(), id.usize());
         self.hgatp = hgatp.bits();
     }
 

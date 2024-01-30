@@ -2,7 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::HartLifecycleStateTransition;
 use crate::core::transformations::{ExposeToHypervisor, SbiHsmHartSuspend, SbiRequest};
 
 /// Suspends a confidential hart that made this request. This is an implementation of the HartSuspend function from the
@@ -13,10 +12,10 @@ use crate::core::transformations::{ExposeToHypervisor, SbiHsmHartSuspend, SbiReq
 /// confidential hart if this confidential hart cannot be suspended, for example, because it is not in the started
 /// state.
 pub fn handle(request: SbiHsmHartSuspend, mut confidential_flow: ConfidentialFlow) -> ! {
-    match confidential_flow.transit_hart_lifecycle(HartLifecycleStateTransition::StartedToSuspended(request)) {
+    match confidential_flow.suspend_confidential_hart(request) {
         Ok(_) => confidential_flow
             .into_non_confidential_flow()
             .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend())),
-        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
+        Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     }
 }

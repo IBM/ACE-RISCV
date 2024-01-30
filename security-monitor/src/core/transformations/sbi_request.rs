@@ -21,16 +21,7 @@ impl SbiRequest {
     const KVM_ACE_PAGE_IN_FID: usize = 2;
 
     pub fn kvm_ace_register(confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize) -> Self {
-        Self::new(
-            Self::KVM_ACE_EXTID,
-            Self::KVM_ACE_REGISTER_FID,
-            confidential_vm_id.usize(),
-            confidential_hart_id,
-            0,
-            0,
-            0,
-            0,
-        )
+        Self::new(Self::KVM_ACE_EXTID, Self::KVM_ACE_REGISTER_FID, confidential_vm_id.usize(), confidential_hart_id, 0, 0, 0, 0)
     }
 
     pub fn kvm_ace_page_in(page_address: usize) -> Self {
@@ -52,6 +43,11 @@ impl SbiRequest {
         Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0, 0, 0, 0, 0)
     }
 
+    pub fn kvm_srst_system_reset() -> Self {
+        use crate::core::architecture::SrstExtension;
+        Self::new(SrstExtension::EXTID, SrstExtension::SYSTEM_RESET_FID, 0, 0, 0, 0, 0, 0)
+    }
+
     // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the
     // HartArchitecturalState storing confidential information
     pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
@@ -67,9 +63,7 @@ impl SbiRequest {
         )
     }
 
-    pub fn new(
-        extension_id: usize, function_id: usize, a0: usize, a1: usize, a2: usize, a3: usize, a4: usize, a5: usize,
-    ) -> Self {
+    pub fn new(extension_id: usize, function_id: usize, a0: usize, a1: usize, a2: usize, a3: usize, a4: usize, a5: usize) -> Self {
         Self { extension_id, function_id, a0, a1, a2, a3, a4, a5 }
     }
 

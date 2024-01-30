@@ -12,11 +12,9 @@ pub const CTX_SWITCH_ERROR_MSG: &str =
 
 pub const NOT_INITIALIZED_HART: &str = "Physical hart does not have a state allocated in the confidential memory. There is an error in the security monitor initialization vector";
 
-pub const NOT_INITIALIZED_HARTS: &str =
-    "Bug. Could not set mscratch before initializing memory region for HARTs states";
+pub const NOT_INITIALIZED_HARTS: &str = "Bug. Could not set mscratch before initializing memory region for HARTs states";
 
-pub const NOT_INITIALIZED_CONTROL_DATA: &str =
-    "Bug. Could not access the control data static variable because it is not initialized";
+pub const NOT_INITIALIZED_CONTROL_DATA: &str = "Bug. Could not access the control data static variable because it is not initialized";
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -38,8 +36,8 @@ pub enum Error {
     PageTableConfiguration(),
     #[error("Page Table is corrupted")]
     PageTableCorrupted(),
-    #[error("Reached a maximum number of CVMs")]
-    ReachedMaximumNumberOfCvms(),
+    #[error("Reached a maximum number of confidential VMs")]
+    TooManyConfidentialVms(),
     #[error("Unsupported paging mode")]
     UnsupportedPagingMode(),
     #[error("Memory access not authorized")]
@@ -52,6 +50,8 @@ pub enum Error {
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
     HartAlreadyRunning(),
+    #[error("Hart is not executable")]
+    HartNotExecutable(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
     #[error("Not supported interrupt")]
@@ -79,12 +79,6 @@ pub enum Error {
 impl Error {
     pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
         let error_code = 0x1000;
-        match self {
-            Error::InvalidCall(_) => {}
-            _ => {
-                debug!("Error {:?} into_non_confidential_transformation", &self);
-            }
-        }
         ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))
     }
 

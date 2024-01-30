@@ -29,8 +29,8 @@ impl ConfidentialVm {
     /// Safety:
     /// * The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>,
-        measurements: [ConfidentialVmMeasurement; 4], mut memory_protector: ConfidentialVmMemoryProtector,
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: [ConfidentialVmMeasurement; 4],
+        mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
         let mut inter_hart_requests = BTreeMap::new();
@@ -55,11 +55,9 @@ impl ConfidentialVm {
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
     /// Guarantees:
-    /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory
-    ///   access control of the confidential VM.
-    pub fn steal_confidential_hart(
-        &mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart,
-    ) -> Result<(), Error> {
+    /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
+    ///   the confidential VM.
+    pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
         // because after a confidential_hart is scheduled for the first time, its token is stolen and the
@@ -67,7 +65,7 @@ impl ConfidentialVm {
         // with any confidential vm.
         assure_not!(confidential_hart.is_dummy(), Error::HartAlreadyRunning())?;
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
-        assure!(confidential_hart.is_executable(), Error::HartAlreadyRunning())?;
+        assure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
         // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
         // error.
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
@@ -95,8 +93,8 @@ impl ConfidentialVm {
         unsafe { hardware_hart.enable_hypervisor_memory_protector() };
     }
 
-    pub fn is_running(&self) -> bool {
-        self.confidential_harts.iter().filter(|confidential_hart| confidential_hart.is_dummy()).count() > 0
+    pub fn are_all_harts_shutdown(&self) -> bool {
+        self.confidential_harts.iter().filter(|confidential_hart| !confidential_hart.is_shutdown()).count() == 0
     }
 
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
@@ -109,30 +107,38 @@ impl ConfidentialVm {
 
     /// Queues a request from one confidential hart to another and emits a hardware interrupt to the physical hart that
     /// executes that confidential hart. If the confidential hart is not executing, then no hardware interrupt is
-    /// emmited. Returns error when 1) a queue that stores the confidential hart's InterHartRequests is full, 2) when
-    /// sending an IPI failed.
-    pub fn add_inter_hart_request(&self, inter_hart_request: InterHartRequest) -> Result<(), Error> {
+    /// emmited.
+    ///
+    /// Returns error when 1) a queue that stores the confidential hart's InterHartRequests is full, 2) when sending an
+    /// IPI failed.
+    pub fn broadcast_inter_hart_request(&mut self, inter_hart_request: InterHartRequest) -> Result<(), Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| inter_hart_request.is_hart_selected(*confidential_hart_id))
             .try_for_each(|confidential_hart_id| {
-                self.try_inter_hart_requests(confidential_hart_id, |ref mut inter_hart_requests| {
-                    assure!(
-                        inter_hart_requests.len() < Self::MAX_NUMBER_OF_REMOTE_HART_REQUESTS,
-                        Error::ReachedMaxNumberOfRemoteHartRequests()
-                    )?;
-                    inter_hart_requests.push(inter_hart_request.clone());
-                    // TODO: should we also inject IPI so that the interrupted confidential hart is aware of the inter
-                    // hart request?
-                    Ok(())
-                })?;
-
-                let hart = &self.confidential_harts[confidential_hart_id];
-                if hart.is_dummy() {
+                let is_assigned_to_hardware_hart = { self.confidential_harts[confidential_hart_id].is_dummy() };
+                if !is_assigned_to_hardware_hart {
+                    // The confidential hart that should receive an InterHartRequest is not running on any hardware
+                    // hart. Thus, we can apply the InterHartRequest directly.
+                    let transition = inter_hart_request.clone().into_expose_to_confidential_vm();
+                    self.confidential_harts[confidential_hart_id].apply(transition);
+                } else {
                     // The confidential hart that should receive an InterHartRequest is currently running on a hardware
-                    // hart. We interrupt that hardware hart with IPI. Consequently, that hardware
-                    // hart will trap into the security monitor that will execute InterHartRequests
-                    // on the targetted confidential hart.
-                    let id_of_hardware_hart_running_confidential_hart = hart.confidential_hart_id();
+                    // hart. We add the InterHartRequest to a per confidential hart queue and then interrupt that
+                    // hardware hart with IPI. Consequently, the hardware hart running the target confidential hart will
+                    // trap into the security monitor, which will execute InterHartRequests on the targetted
+                    // confidential hart.
+                    self.try_inter_hart_requests(confidential_hart_id, |ref mut inter_hart_requests| {
+                        assure!(
+                            inter_hart_requests.len() < Self::MAX_NUMBER_OF_REMOTE_HART_REQUESTS,
+                            Error::ReachedMaxNumberOfRemoteHartRequests()
+                        )?;
+                        inter_hart_requests.push(inter_hart_request.clone());
+                        // TODO: should we also inject IPI so that the interrupted confidential hart is aware of the
+                        // inter hart request?
+                        Ok(())
+                    })?;
+                    let confidential_hart = &self.confidential_harts[confidential_hart_id];
+                    let id_of_hardware_hart_running_confidential_hart = confidential_hart.confidential_hart_id();
                     InterruptController::try_read(|interrupt_controller| {
                         interrupt_controller.send_ipi(id_of_hardware_hart_running_confidential_hart)
                     })?;
@@ -141,7 +147,7 @@ impl ConfidentialVm {
             })
     }
 
-    pub fn try_inter_hart_requests<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
+    pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<InterHartRequest>>) -> Result<F, Error> {
         op(self.inter_hart_requests.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }

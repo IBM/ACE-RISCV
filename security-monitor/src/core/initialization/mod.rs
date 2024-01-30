@@ -91,9 +91,9 @@ fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
         // make sure the CPU has the required architecture
         assure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
         // make sure the CPU supports all required ISA extensions
-        required_extensions.into_iter().try_for_each(|ext| {
-            assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension(*ext)))
-        })?;
+        required_extensions
+            .into_iter()
+            .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension(*ext))))?;
     }
 
     Ok(fdt.cpus().count())
@@ -118,9 +118,8 @@ fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *co
 
     // First region of memory is defined as non-confidential memory
     let non_confidential_memory_start = memory_start;
-    let non_confidential_memory_end =
-        ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
-            .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+    let non_confidential_memory_end = ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
+        .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
     debug!("Non-confidential memory {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
 
     // Second region of memory is defined as confidential memory
@@ -129,12 +128,7 @@ fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *co
     debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
     let (confidential_memory_address_start, confidential_memory_address_end) = unsafe {
-        MemoryLayout::init(
-            non_confidential_memory_start,
-            non_confidential_memory_end,
-            confidential_memory_start,
-            confidential_memory_end,
-        )
+        MemoryLayout::init(non_confidential_memory_start, non_confidential_memory_end, confidential_memory_start, confidential_memory_end)
     }?;
 
     Ok((confidential_memory_address_start, confidential_memory_address_end))
@@ -163,8 +157,7 @@ fn initalize_security_monitor_state(
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
-    let heap_end_address =
-        MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
+    let heap_end_address = MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
     crate::core::heap_allocator::init_heap(heap_start_address, heap_size_in_bytes);
 
     // Memory tracker starts directly after the heap
@@ -236,9 +229,8 @@ fn setup_this_hart() -> Result<(), Error> {
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    let trap_vector_address = (enter_from_hypervisor_or_vm_asm as usize)
-        .try_into()
-        .map_err(|_| Error::Init(InitType::InvalidAssemblyAddress))?;
+    let trap_vector_address =
+        (enter_from_hypervisor_or_vm_asm as usize).try_into().map_err(|_| Error::Init(InitType::InvalidAssemblyAddress))?;
     debug!("Physical HART [hart_id={}] trap handler address: {:x}", hart_id, trap_vector_address);
     unsafe {
         riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);

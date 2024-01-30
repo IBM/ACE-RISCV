@@ -49,12 +49,9 @@ impl Page<UnAllocated> {
 
     /// Moves a page to the Allocated state after filling its content with the
     /// content of a page located in the non-confidential memory.
-    pub fn copy_from_non_confidential_memory(
-        mut self, mut address: NonConfidentialMemoryAddress,
-    ) -> Result<Page<Allocated>, Error> {
+    pub fn copy_from_non_confidential_memory(mut self, mut address: NonConfidentialMemoryAddress) -> Result<Page<Allocated>, Error> {
         self.offsets().into_iter().try_for_each(|offset_in_bytes| {
-            let non_confidential_address =
-                MemoryLayout::read().non_confidential_address_at_offset(&mut address, offset_in_bytes)?;
+            let non_confidential_address = MemoryLayout::read().non_confidential_address_at_offset(&mut address, offset_in_bytes)?;
             // TODO: describe why below unsafe block is safe in this invocation.
             let data_to_copy = unsafe { non_confidential_address.read() };
             self.write(offset_in_bytes, data_to_copy)?;
@@ -76,9 +73,8 @@ impl Page<UnAllocated> {
                 let offset_in_bytes = i * smaller_page_size.in_bytes();
                 // Safety: below unwrap is safe because a size of a larger page is a
                 // multiply of a smaller page size, thus we will never exceed the outer page boundary.
-                let smaller_page_start = memory_layout
-                    .confidential_address_at_offset_bounded(&mut self.address, offset_in_bytes, page_end)
-                    .unwrap();
+                let smaller_page_start =
+                    memory_layout.confidential_address_at_offset_bounded(&mut self.address, offset_in_bytes, page_end).unwrap();
                 // Safety: The below token creation is safe because the current page owns the entire memory
                 // associated with the page and within this function it partitions this memory into smaller
                 // disjoined pages, passing the ownership to these smaller memory regions to new tokens.

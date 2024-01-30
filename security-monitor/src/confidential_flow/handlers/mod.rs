@@ -16,3 +16,4 @@ pub mod sbi_hsm_hart_suspend;
 pub mod sbi_srst;
 pub mod share_page;
 pub mod share_page_result;
+pub mod shutdown_confidential_hart;

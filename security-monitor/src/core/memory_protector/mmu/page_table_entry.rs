@@ -19,10 +19,7 @@ impl PageTableEntry {
                 PageTableBits::Valid.mask() | PageTableAddress::encode(page_table.address()) | configuration.encode()
             }
             PageTableEntry::Leaf(page, configuration, permissions) => {
-                PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(page.start_address())
-                    | configuration.encode()
-                    | permissions.encode()
+                PageTableBits::Valid.mask() | PageTableAddress::encode(page.start_address()) | configuration.encode() | permissions.encode()
             }
             PageTableEntry::Shared(shared_page, configuration, permissions) => {
                 PageTableBits::Valid.mask()

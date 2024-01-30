@@ -181,10 +181,11 @@ pub enum SrstExtension {
 
 impl SrstExtension {
     pub const EXTID: usize = 0x53525354;
+    pub const SYSTEM_RESET_FID: usize = 0x0;
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
-            0 => Self::SystemReset,
+            Self::SYSTEM_RESET_FID => Self::SystemReset,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

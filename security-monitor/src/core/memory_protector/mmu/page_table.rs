@@ -18,9 +18,7 @@ pub struct RootPageTable {
 }
 
 impl RootPageTable {
-    pub fn copy_from_non_confidential_memory(
-        address: NonConfidentialMemoryAddress, paging_system: PagingSystem,
-    ) -> Result<Self, Error> {
+    pub fn copy_from_non_confidential_memory(address: NonConfidentialMemoryAddress, paging_system: PagingSystem) -> Result<Self, Error> {
         let page_table = PageTable::copy_from_non_confidential_memory(address, paging_system, paging_system.levels())?;
         Ok(Self { paging_system, page_table })
     }
@@ -149,9 +147,7 @@ impl PageTable {
         Ok(())
     }
 
-    pub fn unmap_shared_page(
-        &mut self, _paging_system: PagingSystem, _address: ConfidentialVmVirtualAddress,
-    ) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, _paging_system: PagingSystem, _address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
         panic!("Unimplemented");
     }
 

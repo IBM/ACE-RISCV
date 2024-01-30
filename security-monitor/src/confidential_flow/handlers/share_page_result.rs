@@ -16,12 +16,12 @@ pub fn handle(share_page_result: SharePageResult, confidential_flow: Confidentia
         // hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
         // confidential VM.
         let transformation = ExposeToConfidentialVm::SbiResult(SbiResult::failure(share_page_result.response_code()));
-        confidential_flow.exit_to_confidential_vm(transformation);
+        confidential_flow.exit_to_confidential_hart(transformation);
     }
 
     let shared_page = match SharedPage::new(share_page_result.hypervisor_page_address(), request) {
         Ok(v) => v,
-        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
+        Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     };
 
     debug!(
@@ -36,5 +36,5 @@ pub fn handle(share_page_result: SharePageResult, confidential_flow: Confidentia
     .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
     .unwrap_or_else(|error| error.into_confidential_transformation());
 
-    confidential_flow.exit_to_confidential_vm(transformation)
+    confidential_flow.exit_to_confidential_hart(transformation)
 }

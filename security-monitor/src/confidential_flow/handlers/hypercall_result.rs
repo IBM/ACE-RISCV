@@ -8,5 +8,5 @@ use crate::core::transformations::{ExposeToConfidentialVm, SbiResult};
 /// requested by the confidential hart.
 pub fn handle(hypercall_result: SbiResult, confidential_flow: ConfidentialFlow) -> ! {
     let transformation = ExposeToConfidentialVm::SbiResult(hypercall_result);
-    confidential_flow.exit_to_confidential_vm(transformation)
+    confidential_flow.exit_to_confidential_hart(transformation)
 }

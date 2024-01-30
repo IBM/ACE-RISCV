@@ -28,7 +28,7 @@ extern "C" fn worker_init(hart_id: usize) {
         riscv::register::sstatus::set_sie();
     }
 
-    loop {
+    for _ in 0..5 {
         uart.println(&format!("Hello from hart id: {}", hart_id));
     }
 

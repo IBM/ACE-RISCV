@@ -18,10 +18,7 @@ pub(super) fn split_memory_into_confidential_and_non_confidential(
     const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
     let number_of_pmps = 64;
     debug!("Number of PMPs={}", number_of_pmps);
-    assure!(
-        number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED,
-        Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps)
-    )?;
+    assure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps))?;
 
     // TODO: simplify to use a single PMP to isolate the confidential memory.
     // first shift PMP0, and PMP1 by two to make space for the confidential memory

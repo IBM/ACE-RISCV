@@ -31,8 +31,7 @@ const fn hart_fpr_offset(index: usize) -> usize {
 
 macro_rules! hart_csr_offset {
     ($reg:tt) => {
-        memoffset::offset_of!(HardwareHart, non_confidential_hart_state)
-            + memoffset::offset_of!(HartArchitecturalState, $reg)
+        memoffset::offset_of!(HardwareHart, non_confidential_hart_state) + memoffset::offset_of!(HartArchitecturalState, $reg)
     };
 }
 

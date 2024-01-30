@@ -23,6 +23,6 @@ pub fn handle(request: Result<(SharePageRequest, SbiRequest), Error>, confidenti
                 .into_non_confidential_flow()
                 .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(sbi_request))
         }
-        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
+        Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     }
 }

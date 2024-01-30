@@ -6,9 +6,8 @@ use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    ConvertToConfidentialVm, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest,
-    MmioLoadRequest, MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest,
-    SharePageResult, TerminateRequest,
+    ConvertToConfidentialVm, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest, MmioLoadRequest,
+    MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
 };
 
 #[repr(C)]
@@ -206,11 +205,9 @@ impl HardwareHart {
         self.non_confidential_hart_state.mstatus = self.non_confidential_hart_state.mstatus & !(1 << MSTATUS_SIE_BIT);
         // set GVA
         if (self.non_confidential_hart_state.mstatus & (1 << MSTATUS_GVA_BIT)) > 0 {
-            self.non_confidential_hart_state.hstatus =
-                self.non_confidential_hart_state.hstatus | (1 << HSTATUS_GVA_BIT);
+            self.non_confidential_hart_state.hstatus = self.non_confidential_hart_state.hstatus | (1 << HSTATUS_GVA_BIT);
         } else {
-            self.non_confidential_hart_state.hstatus =
-                self.non_confidential_hart_state.hstatus & !(1 << HSTATUS_GVA_BIT);
+            self.non_confidential_hart_state.hstatus = self.non_confidential_hart_state.hstatus & !(1 << HSTATUS_GVA_BIT);
         }
     }
 }

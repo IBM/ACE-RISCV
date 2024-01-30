@@ -44,9 +44,7 @@ impl LinkedListAllocator {
         }
     }
 
-    pub(self) fn find_free_memory_region(
-        &mut self, size: usize, align: usize,
-    ) -> Option<(*mut usize, *mut usize, usize)> {
+    pub(self) fn find_free_memory_region(&mut self, size: usize, align: usize) -> Option<(*mut usize, *mut usize, usize)> {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
             if let Ok((alloc_start, alloc_end, free_space_left)) = region.try_allocation(size, align) {
@@ -83,9 +81,7 @@ impl FreeMemoryRegion {
 
     // TODO: this function should return three disjoined continous memory regions if allocation is possible
     // One region would represent the allocation, and two other the remaining free memory.
-    pub(self) fn try_allocation(
-        &mut self, size_in_bytes: usize, align_in_bytes: usize,
-    ) -> Result<(*mut usize, *mut usize, usize), Error> {
+    pub(self) fn try_allocation(&mut self, size_in_bytes: usize, align_in_bytes: usize) -> Result<(*mut usize, *mut usize, usize), Error> {
         let alloc_start = ptr_align(self.start_address_ptr(), align_in_bytes, self.end_address_ptr())?;
         let alloc_end = ptr_byte_add_mut(alloc_start, size_in_bytes, self.end_address_ptr())?;
 
