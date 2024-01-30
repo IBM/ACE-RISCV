@@ -52,6 +52,11 @@ impl SbiRequest {
         Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0, 0, 0, 0, 0)
     }
 
+    pub fn kvm_srst_system_reset() -> Self {
+        use crate::core::architecture::SrstExtension;
+        Self::new(SrstExtension::EXTID, SrstExtension::SYSTEM_RESET_FID, 0, 0, 0, 0, 0, 0)
+    }
+
     // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the
     // HartArchitecturalState storing confidential information
     pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {

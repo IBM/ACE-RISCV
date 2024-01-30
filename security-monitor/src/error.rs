@@ -52,6 +52,8 @@ pub enum Error {
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
     HartAlreadyRunning(),
+    #[error("Hart is not executable")]
+    HartNotExecutable(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
     #[error("Not supported interrupt")]
@@ -79,12 +81,6 @@ pub enum Error {
 impl Error {
     pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
         let error_code = 0x1000;
-        match self {
-            Error::InvalidCall(_) => {}
-            _ => {
-                debug!("Error {:?} into_non_confidential_transformation", &self);
-            }
-        }
         ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))
     }
 

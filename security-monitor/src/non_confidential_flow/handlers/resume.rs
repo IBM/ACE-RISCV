@@ -6,10 +6,9 @@ use crate::non_confidential_flow::NonConfidentialFlow;
 
 /// Resume handler is called by the hypervisor to resume the confidential VM execution.
 pub fn handle(resume_request: ResumeRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
-    match non_confidential_flow.into_confidential_flow(resume_request) {
-        Ok(confidential_flow) => confidential_flow.resume_confidential_hart_execution(),
-        Err((non_confidential_flow, e)) => {
-            non_confidential_flow.exit_to_hypervisor(e.into_non_confidential_transformation())
-        }
-    }
+    let (non_confidential_flow, error) = non_confidential_flow.into_confidential_flow(resume_request);
+    // Failure of transition into confidential flow indicates an error in the hypervisor because the hypervisor tried to
+    // schedule an invalid confidential VM, an invalid confidential hart, or a confidential hart that is already
+    // running on another physical hart.
+    non_confidential_flow.exit_to_hypervisor(error.into_non_confidential_transformation())
 }

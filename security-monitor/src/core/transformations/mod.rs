@@ -16,6 +16,7 @@ pub use sbi_ipi::SbiIpi;
 pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;
 pub use sbi_rfence::{SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid};
+pub use sbi_srst::SbiSrstSystemReset;
 pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::SharePageRequest;
 pub use share_page_result::SharePageResult;
@@ -36,6 +37,7 @@ mod sbi_ipi;
 mod sbi_request;
 mod sbi_result;
 mod sbi_rfence;
+mod sbi_srst;
 mod sbi_vm_request;
 mod share_page_request;
 mod share_page_result;
@@ -57,12 +59,13 @@ pub enum ExposeToConfidentialVm {
     GuestLoadPageFaultResult(GuestLoadPageFaultResult),
     GuestStorePageFaultResult(GuestStorePageFaultResult),
     Resume(),
-    InterProcessorInterrupt(SbiIpi),
+    SbiIpi(SbiIpi),
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
     SbiHsmHartStart(),
     SbiHsmHartStartPending(),
+    SbiSrstSystemReset(),
 }
 
 /// An intermediate confidential hart state that requested certain operation from the hypervisor and is waiting for the
@@ -80,42 +83,42 @@ pub enum PendingRequest {
 /// A request send from one confidential hart to another confidential hart belonging to the same confidential VM.
 #[derive(Debug, PartialEq, Clone)]
 pub enum InterHartRequest {
-    InterProcessorInterrupt(SbiIpi),
+    SbiIpi(SbiIpi),
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
+    SbiSrstSystemReset(SbiSrstSystemReset),
 }
 
 impl InterHartRequest {
     pub fn into_expose_to_confidential_vm(self) -> ExposeToConfidentialVm {
         match self {
-            Self::InterProcessorInterrupt(v) => ExposeToConfidentialVm::InterProcessorInterrupt(v),
+            Self::SbiIpi(v) => ExposeToConfidentialVm::SbiIpi(v),
             Self::SbiRemoteFenceI(v) => ExposeToConfidentialVm::SbiRemoteFenceI(v),
             Self::SbiRemoteSfenceVma(v) => ExposeToConfidentialVm::SbiRemoteSfenceVma(v),
             Self::SbiRemoteSfenceVmaAsid(v) => ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v),
+            Self::SbiSrstSystemReset(_) => ExposeToConfidentialVm::SbiSrstSystemReset(),
         }
     }
 
     pub fn is_hart_selected(&self, hart_id: usize) -> bool {
         match self {
-            Self::InterProcessorInterrupt(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteFenceI(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteSfenceVma(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteSfenceVmaAsid(v) => Self::check_if_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiIpi(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiRemoteFenceI(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiRemoteSfenceVma(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiRemoteSfenceVmaAsid(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id != hart_id,
         }
     }
 
-    fn check_if_hart_selected(hart_id: usize, hart_mask: usize, hart_mask_base: usize) -> bool {
-        if hart_mask_base == usize::MAX {
-            // all harts are selected
-            return true;
+    fn _is_hart_selected(hart_id: usize, hart_mask: usize, hart_mask_base: usize) -> bool {
+        // according to SBI documentation all harts are selected when the mask_base is of its maximum value
+        match hart_mask_base == usize::MAX {
+            true => true,
+            false => hart_id
+                .checked_sub(hart_mask_base)
+                .filter(|id| *id >= usize::BITS as usize)
+                .is_some_and(|id| hart_mask & (1 << id) != 0),
         }
-        let Some(id) = hart_id.checked_sub(hart_mask_base) else {
-            return false;
-        };
-        if id >= usize::BITS as usize {
-            return false;
-        }
-        hart_mask & (1 << id) != 0
     }
 }

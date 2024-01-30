@@ -50,7 +50,8 @@ impl ControlData {
     pub fn remove_confidential_vm(
         &mut self, confidential_vm_id: ConfidentialVmId,
     ) -> Result<Mutex<ConfidentialVm>, Error> {
-        assure_not!(self.confidential_vm(confidential_vm_id)?.is_running(), Error::HartAlreadyRunning())?;
+        assure!(self.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
+        debug!("ConfidentialVM[{:?}] removed from the control data structure", confidential_vm_id);
         self.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
     }
 

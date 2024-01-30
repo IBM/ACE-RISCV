@@ -21,23 +21,15 @@ pub struct NonConfidentialFlow<'a> {
 }
 
 impl<'a> NonConfidentialFlow<'a> {
-    /// This token can be created only by the code owning a mutable reference to
-    /// the HardwareHart. This can be only the router and the ConfidentialFlow.
+    /// Creates an instance of non-confidential flow token. NonConfidentialFlow instance can be created only by the code
+    /// owning a mutable reference to the HardwareHart. This can be only the piece of code invoked by assembly and the
+    /// ConfidentialFlow.
+    ///
+    /// Safety:
+    /// * A confidential hart must be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
+        assert!(hardware_hart.confidential_hart().is_dummy());
         Self { hardware_hart }
-    }
-
-    pub fn into_confidential_flow(
-        self, resume_request: ResumeRequest,
-    ) -> Result<ConfidentialFlow<'a>, (NonConfidentialFlow<'a>, Error)> {
-        let confidential_vm_id = resume_request.confidential_vm_id();
-        let confidential_hart_id = resume_request.confidential_hart_id();
-        match ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
-            confidential_vm.steal_confidential_hart(confidential_hart_id, self.hardware_hart)
-        }) {
-            Ok(()) => Ok(ConfidentialFlow::create(self.hardware_hart)),
-            Err(error) => Err((self, error)),
-        }
     }
 
     pub fn route(self) -> ! {
@@ -60,11 +52,23 @@ impl<'a> NonConfidentialFlow<'a> {
         }
     }
 
+    pub fn into_confidential_flow(self, resume_request: ResumeRequest) -> (NonConfidentialFlow<'a>, Error) {
+        match ControlData::try_confidential_vm(resume_request.confidential_vm_id(), |mut confidential_vm| {
+            confidential_vm.steal_confidential_hart(resume_request.confidential_hart_id(), self.hardware_hart)
+        }) {
+            Ok(()) => ConfidentialFlow::resume_confidential_hart_execution(self.hardware_hart),
+            Err(error) => (self, error),
+        }
+    }
+
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {
         self.hardware_hart.apply(&transformation);
         unsafe { exit_to_hypervisor_asm() }
     }
 
+    /// Swaps the mscratch register value with the original mascratch value used by OpenSBI. This function must be
+    /// called before executing any OpenSBI function. If we get rid of OpenSBI firmware, then we can remove this
+    /// function.
     pub fn swap_mscratch(&mut self) {
         self.hardware_hart.swap_mscratch()
     }

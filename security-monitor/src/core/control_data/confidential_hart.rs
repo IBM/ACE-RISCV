@@ -99,11 +99,15 @@ impl ConfidentialHart {
         self.confidential_vm_id.is_none()
     }
 
-    /// Returns true if this confidential hart can execute.
+    /// Returns true if this confidential hart can be scheduled on the physical hart.
     pub fn is_executable(&self) -> bool {
         let hart_states_allowed_to_resume =
             [HartLifecycleState::Started, HartLifecycleState::StartPending, HartLifecycleState::Suspended];
-        hart_states_allowed_to_resume.contains(&self.lifecycle_state)
+        !self.is_dummy() && hart_states_allowed_to_resume.contains(&self.lifecycle_state)
+    }
+
+    pub fn is_shutdown(&self) -> bool {
+        !self.is_dummy() && self.lifecycle_state == HartLifecycleState::Shutdown
     }
 
     /// Stores a pending request inside the confidential hart's state. Before the next execution of this confidential
@@ -117,7 +121,7 @@ impl ConfidentialHart {
 }
 
 // Methods related to lifecycle state transitions of the confidential hart. These methods manipulate the internal hart
-// state in a response to requests from (1) the confidential hart it self (started->stop or started->suspend), from
+// state in a response to requests from (1) the confidential hart itself (started->stop or started->suspend), from
 // other confidential hart (stopped->started), or hypervisor (suspend->started). Check out the SBI' HSM extensions for
 // more details.
 impl ConfidentialHart {
@@ -175,43 +179,49 @@ impl ConfidentialHart {
         self.lifecycle_state = HartLifecycleState::Started;
         Ok(())
     }
+
+    pub fn transition_to_shutdown(&mut self) {
+        assert!(!self.is_dummy());
+        self.lifecycle_state = HartLifecycleState::Shutdown;
+    }
 }
 
-// methods to inject information to a confidential VM.
+// Methods that declassify information from the hypervisor and expose them to the confidential hart.
 impl ConfidentialHart {
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
             ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
             ExposeToConfidentialVm::GuestStorePageFaultResult(v) => self.apply_guest_store_page_fault_result(v),
-            ExposeToConfidentialVm::InterProcessorInterrupt(v) => self.apply_inter_processor_interrupt(v),
-            ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_remote_fence_i(v),
-            ExposeToConfidentialVm::SbiRemoteSfenceVma(v) => self.apply_remote_sfence_vma(v),
-            ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v) => self.apply_remote_sfence_vma_asid(v),
+            ExposeToConfidentialVm::SbiIpi(v) => self.apply_sbi_ipi(v),
+            ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_sbi_remote_fence_i(v),
+            ExposeToConfidentialVm::SbiRemoteSfenceVma(v) => self.apply_sbi_remote_sfence_vma(v),
+            ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v) => self.apply_sbi_remote_sfence_vma_asid(v),
             ExposeToConfidentialVm::SbiHsmHartStartPending() => self.transition_from_start_pending_to_started(),
             ExposeToConfidentialVm::SbiHsmHartStart() => self.apply_sbi_result_success(),
+            ExposeToConfidentialVm::SbiSrstSystemReset() => self.transition_to_shutdown(),
             ExposeToConfidentialVm::Resume() => {}
         }
         core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
-    fn apply_inter_processor_interrupt(&mut self, _result: SbiIpi) {
+    fn apply_sbi_ipi(&mut self, _result: SbiIpi) {
         // IPI exposes itself as supervisor-level software interrupt this is the 2nd bit of the vsip controlled by the
         // hvip register. Check the RISC-V privileged specification for more information.
         const VSSIP: usize = 1 << 2; // virtual supervisor software interrupt pending bit in the hvip register
         self.confidential_hart_state.hvip |= VSSIP;
     }
 
-    fn apply_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
+    fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
         unsafe { core::arch::asm!("fence.i") };
     }
 
-    fn apply_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
+    fn apply_sbi_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
         unsafe { core::arch::asm!("sfence.vma") };
     }
 
-    fn apply_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
+    fn apply_sbi_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
         unsafe { core::arch::asm!("sfence.vma") };
     }
@@ -238,7 +248,7 @@ impl ConfidentialHart {
     }
 }
 
-// functions to expose portions of confidential virtual hart state
+// Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
     pub fn trap_reason(&self) -> TrapReason {
         self.confidential_hart_state.trap_reason()
@@ -286,7 +296,7 @@ impl ConfidentialHart {
     pub fn sbi_ipi(&self) -> InterHartRequest {
         let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
         let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
-        InterHartRequest::InterProcessorInterrupt(SbiIpi::new(hart_mask, hart_mask_base))
+        InterHartRequest::SbiIpi(SbiIpi::new(hart_mask, hart_mask_base))
     }
 
     pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {

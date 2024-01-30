@@ -35,11 +35,12 @@ impl<'a> InterruptController {
         Ok(Self {})
     }
 
-    pub fn send_ipi(&self, hart_id: usize) -> Result<(), Error> {
-        debug!("Sending an IPI to physical hart: {}", hart_id);
+    pub fn send_ipi(&self, target_hart_id: usize) -> Result<(), Error> {
+        let current_hart_id = riscv::register::mhartid::read();
+        debug!("Sending an IPI from physical hart {} to {}", current_hart_id, target_hart_id);
 
         let hart_mask = 1;
-        let hart_mask_base = hart_id;
+        let hart_mask_base = target_hart_id;
         // for now we rely on the underlying OpenSBI to send IPIs to hardware harts
         match unsafe { sbi_ipi_send_smode(hart_mask, hart_mask_base) } {
             0 => Ok(()),
