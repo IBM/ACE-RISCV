@@ -115,10 +115,9 @@ impl InterHartRequest {
         // according to SBI documentation all harts are selected when the mask_base is of its maximum value
         match hart_mask_base == usize::MAX {
             true => true,
-            false => hart_id
-                .checked_sub(hart_mask_base)
-                .filter(|id| *id >= usize::BITS as usize)
-                .is_some_and(|id| hart_mask & (1 << id) != 0),
+            false => {
+                hart_id.checked_sub(hart_mask_base).filter(|id| *id >= usize::BITS as usize).is_some_and(|id| hart_mask & (1 << id) != 0)
+            }
         }
     }
 }

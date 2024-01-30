@@ -1,15 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{
-    FpRegisters, GpRegister, GpRegisters, HartArchitecturalState, HartLifecycleState, TrapReason,
-};
+use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, HartArchitecturalState, HartLifecycleState, TrapReason};
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
-    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
-    GuestStorePageFaultResult, InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart,
-    SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult,
-    SharePageRequest,
+    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest, GuestStorePageFaultResult,
+    InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI,
+    SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
 };
 use crate::error::Error;
 
@@ -101,8 +98,7 @@ impl ConfidentialHart {
 
     /// Returns true if this confidential hart can be scheduled on the physical hart.
     pub fn is_executable(&self) -> bool {
-        let hart_states_allowed_to_resume =
-            [HartLifecycleState::Started, HartLifecycleState::StartPending, HartLifecycleState::Suspended];
+        let hart_states_allowed_to_resume = [HartLifecycleState::Started, HartLifecycleState::StartPending, HartLifecycleState::Suspended];
         !self.is_dummy() && hart_states_allowed_to_resume.contains(&self.lifecycle_state)
     }
 
@@ -333,13 +329,7 @@ impl ConfidentialHart {
         let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
         let size = self.confidential_hart_state.gpr(GpRegister::a3);
         let asid = self.confidential_hart_state.gpr(GpRegister::a4);
-        InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(
-            hart_mask,
-            hart_mask_base,
-            start_address,
-            size,
-            asid,
-        ))
+        InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(hart_mask, hart_mask_base, start_address, size, asid))
     }
 
     fn read_instruction(&self) -> (usize, usize) {

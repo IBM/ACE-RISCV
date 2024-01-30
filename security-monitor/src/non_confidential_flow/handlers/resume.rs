@@ -10,5 +10,6 @@ pub fn handle(resume_request: ResumeRequest, non_confidential_flow: NonConfident
     // Failure of transition into confidential flow indicates an error in the hypervisor because the hypervisor tried to
     // schedule an invalid confidential VM, an invalid confidential hart, or a confidential hart that is already
     // running on another physical hart.
+    debug!("Resume failed: bug in the hypervisor?");
     non_confidential_flow.exit_to_hypervisor(error.into_non_confidential_transformation())
 }

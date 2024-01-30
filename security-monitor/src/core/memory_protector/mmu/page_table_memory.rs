@@ -31,8 +31,7 @@ impl PageTableMemory {
             .enumerate()
             .map(|(i, page)| {
                 let offset_in_bytes = i * page.size().in_bytes();
-                let page_address =
-                    MemoryLayout::read().non_confidential_address_at_offset(&address, offset_in_bytes)?;
+                let page_address = MemoryLayout::read().non_confidential_address_at_offset(&address, offset_in_bytes)?;
                 page.copy_from_non_confidential_memory(page_address)
             })
             .collect::<Result<Vec<Page<Allocated>>, Error>>()?;
@@ -43,10 +42,7 @@ impl PageTableMemory {
 
     pub(super) fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let number_of_pages = paging_system.configuration_pages(level);
-        let pages = MemoryTracker::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE)?
-            .into_iter()
-            .map(|f| f.zeroize())
-            .collect();
+        let pages = MemoryTracker::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE)?.into_iter().map(|f| f.zeroize()).collect();
         let number_of_entries = paging_system.entries(level);
         let entry_size = paging_system.entry_size();
         Ok(Self { pages, number_of_entries, entry_size })

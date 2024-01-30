@@ -6,5 +6,5 @@ use crate::core::transformations::{ExposeToConfidentialVm, GuestStorePageFaultRe
 
 pub fn handle(confidential_flow: ConfidentialFlow, request: GuestStorePageFaultRequest) -> ! {
     let transformation = ExposeToConfidentialVm::GuestStorePageFaultResult(GuestStorePageFaultResult::new(request));
-    confidential_flow.exit_to_confidential_vm(transformation)
+    confidential_flow.exit_to_confidential_hart(transformation)
 }

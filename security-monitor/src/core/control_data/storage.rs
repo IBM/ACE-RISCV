@@ -29,7 +29,7 @@ impl ControlData {
             .map(|v| v.usize().checked_add(1))
             .unwrap_or(Some(0))
             .and_then(|max_id| Some(ConfidentialVmId::new(max_id)))
-            .ok_or(Error::ReachedMaximumNumberOfCvms())
+            .ok_or(Error::TooManyConfidentialVms())
     }
 
     pub fn insert_confidential_vm(&mut self, confidential_vm: ConfidentialVm) -> Result<ConfidentialVmId, Error> {
@@ -47,12 +47,12 @@ impl ControlData {
         self.confidential_vms.get(&id).ok_or(Error::InvalidConfidentialVmId()).and_then(|v| Ok(v.lock()))
     }
 
-    pub fn remove_confidential_vm(
-        &mut self, confidential_vm_id: ConfidentialVmId,
-    ) -> Result<Mutex<ConfidentialVm>, Error> {
-        assure!(self.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
-        debug!("ConfidentialVM[{:?}] removed from the control data structure", confidential_vm_id);
-        self.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
+    pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<Mutex<ConfidentialVm>, Error> {
+        ControlData::try_write(|control_data| {
+            assure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
+            debug!("ConfidentialVM[{:?}] removed from the control data structure", confidential_vm_id);
+            control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
+        })
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>

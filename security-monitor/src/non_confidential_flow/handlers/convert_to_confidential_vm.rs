@@ -1,9 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::{
-    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData,
-};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData};
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::transformations::{ConvertToConfidentialVm, ExposeToHypervisor, SbiRequest};
 use crate::error::Error;
@@ -11,9 +9,7 @@ use crate::non_confidential_flow::NonConfidentialFlow;
 
 const BOOT_HART_ID: usize = 0;
 
-pub fn handle(
-    convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow,
-) -> ! {
+pub fn handle(convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow) -> ! {
     debug!("Converting a VM into a confidential VM");
     let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
@@ -22,9 +18,7 @@ pub fn handle(
     non_confidential_flow.exit_to_hypervisor(transformation)
 }
 
-fn create_confidential_vm(
-    convert_to_confidential_vm_request: ConvertToConfidentialVm,
-) -> Result<ConfidentialVmId, Error> {
+fn create_confidential_vm(convert_to_confidential_vm_request: ConvertToConfidentialVm) -> Result<ConfidentialVmId, Error> {
     let hart_state = convert_to_confidential_vm_request.into();
     let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
     // TODO: read number of harts from fdt

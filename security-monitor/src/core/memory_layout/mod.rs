@@ -47,8 +47,8 @@ impl MemoryLayout {
     ///
     /// This function must be called only once by the initialization procedure during the boot of the system.
     pub unsafe fn init(
-        non_confidential_memory_start: *mut usize, non_confidential_memory_end: *const usize,
-        confidential_memory_start: *mut usize, mut confidential_memory_end: *const usize,
+        non_confidential_memory_start: *mut usize, non_confidential_memory_end: *const usize, confidential_memory_start: *mut usize,
+        mut confidential_memory_end: *const usize,
     ) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
         assert!((non_confidential_memory_start as *const usize) < non_confidential_memory_end);
         assert!(non_confidential_memory_end <= (confidential_memory_start as *const usize));
@@ -57,9 +57,8 @@ impl MemoryLayout {
         // We align the start of the confidential memory to the smallest possible page size (4KiB on RISC-V) and make
         // sure that its size is the multiply of this page size.
         let smalles_page_size_in_bytes = PageSize::smallest().in_bytes();
-        let confidential_memory_start =
-            ptr_align(confidential_memory_start, smalles_page_size_in_bytes, confidential_memory_end)
-                .map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
+        let confidential_memory_start = ptr_align(confidential_memory_start, smalles_page_size_in_bytes, confidential_memory_end)
+            .map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
         // Let's make sure that the end of the confidential memory is properly aligned. I.e., there are no dangling
         // bytes after the last page.
         let memory_size = ptr_byte_offset(confidential_memory_end, confidential_memory_start);
@@ -68,8 +67,7 @@ impl MemoryLayout {
         let memory_size_in_bytes = number_of_pages * smalles_page_size_in_bytes;
         if memory_size > memory_size_in_bytes {
             // We must modify the end_address because the current one is not a multiply of the smallest page size
-            confidential_memory_end =
-                ptr_byte_add_mut(confidential_memory_start, memory_size_in_bytes, confidential_memory_end)?;
+            confidential_memory_end = ptr_byte_add_mut(confidential_memory_start, memory_size_in_bytes, confidential_memory_end)?;
         }
 
         MEMORY_LAYOUT.call_once(|| MemoryLayout {
@@ -87,8 +85,8 @@ impl MemoryLayout {
     pub fn confidential_address_at_offset(
         &self, address: &ConfidentialMemoryAddress, offset_in_bytes: usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
-        let incremented_address = unsafe { address.add(offset_in_bytes, self.confidential_memory_end) }
-            .map_err(|_| Error::MemoryAccessAuthorization())?;
+        let incremented_address =
+            unsafe { address.add(offset_in_bytes, self.confidential_memory_end) }.map_err(|_| Error::MemoryAccessAuthorization())?;
         Ok(incremented_address)
     }
 
@@ -106,8 +104,8 @@ impl MemoryLayout {
     pub fn non_confidential_address_at_offset(
         &self, address: &NonConfidentialMemoryAddress, offset_in_bytes: usize,
     ) -> Result<NonConfidentialMemoryAddress, Error> {
-        let incremented_address = unsafe { address.add(offset_in_bytes, self.non_confidential_memory_end) }
-            .map_err(|_| Error::MemoryAccessAuthorization())?;
+        let incremented_address =
+            unsafe { address.add(offset_in_bytes, self.non_confidential_memory_end) }.map_err(|_| Error::MemoryAccessAuthorization())?;
         Ok(incremented_address)
     }
 

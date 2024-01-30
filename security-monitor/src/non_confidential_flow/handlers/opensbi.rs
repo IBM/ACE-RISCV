@@ -21,8 +21,8 @@ pub fn handle(mut opensbi_request: OpensbiRequest, mut non_confidential_flow: No
     unsafe { sbi_trap_handler(&mut opensbi_request.regs as *mut _) };
     non_confidential_flow.swap_mscratch();
 
-    let transformation = create_transformation(&opensbi_request.regs, previous_mepc)
-        .unwrap_or_else(|e| e.into_non_confidential_transformation());
+    let transformation =
+        create_transformation(&opensbi_request.regs, previous_mepc).unwrap_or_else(|e| e.into_non_confidential_transformation());
     non_confidential_flow.exit_to_hypervisor(transformation)
 }
 

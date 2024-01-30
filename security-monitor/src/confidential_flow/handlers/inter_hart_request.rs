@@ -11,5 +11,5 @@ pub fn handle(inter_hart_request: InterHartRequest, mut confidential_flow: Confi
         .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
         .unwrap_or_else(|error| error.into_confidential_transformation());
 
-    confidential_flow.exit_to_confidential_vm(transformation)
+    confidential_flow.exit_to_confidential_hart(transformation)
 }

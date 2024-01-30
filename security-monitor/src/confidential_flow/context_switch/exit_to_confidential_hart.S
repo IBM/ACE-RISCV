@@ -15,9 +15,9 @@
 # Restore the confidential VM virtual HART state and return the confidential VM execution. 
 # We do not store the security monitor's state because the security monitor is stateless.
 # A0 = pointer to VirtualCPU.
-.globl exit_to_confidential_vm_asm
+.globl exit_to_confidential_hart_asm
 .align 4
-exit_to_confidential_vm_asm:
+exit_to_confidential_hart_asm:
     # Should we maintain the mstatus when entering the confidential VM?
 	li		    t0, (0b01 << MSTATUS_MPP_SHIFT) | (0b1 << MSTATUS_MPV_SHIFT) | (1 << MSTATUS_MPIE_SHIFT)
 	csrw	    mstatus, t0
@@ -41,7 +41,7 @@ exit_to_confidential_vm_asm:
     csrw        hideleg, t0
 
     # set the trap vector, so any interrupt invokes the security monitor
-    la		    t0, enter_from_confidential_vm_asm
+    la		    t0, enter_from_confidential_hart_asm
 	csrw	    mtvec, t0    
     
 	# mepc stores the address of code that will start executing after mret

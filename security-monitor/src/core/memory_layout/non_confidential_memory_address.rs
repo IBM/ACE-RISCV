@@ -27,11 +27,8 @@ impl NonConfidentialMemoryAddress {
     ///
     /// The caller must ensure that the address advanced by the offset is still within the non-confidential memory
     /// region.
-    pub unsafe fn add(
-        &self, offset_in_bytes: usize, upper_bound: *const usize,
-    ) -> Result<NonConfidentialMemoryAddress, Error> {
-        let pointer =
-            ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::MemoryAccessAuthorization())?;
+    pub unsafe fn add(&self, offset_in_bytes: usize, upper_bound: *const usize) -> Result<NonConfidentialMemoryAddress, Error> {
+        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::MemoryAccessAuthorization())?;
         Ok(NonConfidentialMemoryAddress(pointer))
     }
 

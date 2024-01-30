@@ -69,11 +69,8 @@ impl<'a> MemoryTracker {
             let new_pages = (0..number_of_new_pages)
                 .map(|i| {
                     let page_offset_in_bytes = i * page_size.in_bytes();
-                    let address = memory_layout.confidential_address_at_offset_bounded(
-                        &mut page_address,
-                        page_offset_in_bytes,
-                        memory_end,
-                    )?;
+                    let address =
+                        memory_layout.confidential_address_at_offset_bounded(&mut page_address, page_offset_in_bytes, memory_end)?;
                     // Safety: It is safe to create this page token here if:
                     // 1) this `MemoryTracker` constructor is guaranteed to be called only once
                     // during the system lifetime
@@ -86,11 +83,7 @@ impl<'a> MemoryTracker {
             let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
             map.insert(page_size.clone(), new_pages);
 
-            match memory_layout.confidential_address_at_offset_bounded(
-                &mut page_address,
-                pages_size_in_bytes,
-                memory_end,
-            ) {
+            match memory_layout.confidential_address_at_offset_bounded(&mut page_address, pages_size_in_bytes, memory_end) {
                 Ok(ptr) => page_address = ptr,
                 Err(_) => break,
             }
@@ -99,9 +92,7 @@ impl<'a> MemoryTracker {
         Ok(Self { map })
     }
 
-    pub fn acquire_continous_pages(
-        number_of_pages: usize, page_size: PageSize,
-    ) -> Result<Vec<Page<UnAllocated>>, Error> {
+    pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|tracker| Ok(tracker.acquire(number_of_pages, page_size)))?;
         assure_not!(pages.is_empty(), Error::OutOfMemory())?;
         Ok(pages)
@@ -164,9 +155,7 @@ impl<'a> MemoryTracker {
         false
     }
 
-    fn find_allocation_within_page_size(
-        &mut self, number_of_pages: usize, page_size: PageSize,
-    ) -> Option<Range<usize>> {
+    fn find_allocation_within_page_size(&mut self, number_of_pages: usize, page_size: PageSize) -> Option<Range<usize>> {
         if let Some(pages) = self.map.get_mut(&page_size) {
             if pages.len() < number_of_pages {
                 return None;

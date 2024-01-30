@@ -10,14 +10,14 @@ use crate::core::control_data::HardwareHart;
 /// This is a private function, not accessible to safe Rust but accessible to the assembly code performing the context
 /// switch.
 #[no_mangle]
-extern "C" fn enter_from_confidential_vm(hart_ptr: *mut HardwareHart) -> ! {
+extern "C" fn enter_from_confidential_hart(hart_ptr: *mut HardwareHart) -> ! {
     let hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
     ConfidentialFlow::create(hart).route()
 }
 
 core::arch::global_asm!(
-    include_str!("enter_from_confidential_vm.S"),
-    include_str!("exit_to_confidential_vm.S"),
+    include_str!("enter_from_confidential_hart.S"),
+    include_str!("exit_to_confidential_hart.S"),
 
     HART_RA_OFFSET = const crate::core::control_data::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::control_data::HART_SP_OFFSET,

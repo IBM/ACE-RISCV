@@ -16,6 +16,6 @@ pub fn handle(mut confidential_flow: ConfidentialFlow) -> ! {
     let shutdown_ipi = InterHartRequest::SbiSrstSystemReset(SbiSrstSystemReset::new(confidential_hart_id));
     match confidential_flow.broadcast_inter_hart_request(shutdown_ipi) {
         Ok(_) => crate::confidential_flow::handlers::shutdown_confidential_hart::handle(confidential_flow),
-        Err(error) => confidential_flow.exit_to_confidential_vm(error.into_confidential_transformation()),
+        Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     }
 }

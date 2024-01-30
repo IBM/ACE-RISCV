@@ -4,8 +4,7 @@
 use crate::error::Error;
 use spin::{Once, RwLock, RwLockReadGuard};
 
-const NOT_INITIALIZED_INTERRUPT_CONTROLLER: &str =
-    "Bug. Could not access interrupt controller because it has not been initialized";
+const NOT_INITIALIZED_INTERRUPT_CONTROLLER: &str = "Bug. Could not access interrupt controller because it has not been initialized";
 
 /// A static global structure for the interrupt controller. Once<> guarantees that it the interrupt controller can only
 /// be initialized once.

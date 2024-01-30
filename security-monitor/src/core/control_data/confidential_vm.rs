@@ -29,8 +29,8 @@ impl ConfidentialVm {
     /// Safety:
     /// * The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>,
-        measurements: [ConfidentialVmMeasurement; 4], mut memory_protector: ConfidentialVmMemoryProtector,
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: [ConfidentialVmMeasurement; 4],
+        mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
         let mut inter_hart_requests = BTreeMap::new();
@@ -55,11 +55,9 @@ impl ConfidentialVm {
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
     /// Guarantees:
-    /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory
-    ///   access control of the confidential VM.
-    pub fn steal_confidential_hart(
-        &mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart,
-    ) -> Result<(), Error> {
+    /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
+    ///   the confidential VM.
+    pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
         // because after a confidential_hart is scheduled for the first time, its token is stolen and the

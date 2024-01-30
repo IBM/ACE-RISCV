@@ -7,9 +7,9 @@
 
 # This is the trap vector that gets executed on any interrupt or confidential VM-driven exception.
 # The trap vector address must be 4B aligned according to the spec.
-.globl enter_from_confidential_vm_asm
+.globl enter_from_confidential_hart_asm
 .align 4
-enter_from_confidential_vm_asm:
+enter_from_confidential_hart_asm:
     csrrw	    a0,	sscratch, a0
     # store current processor state (except for a0) in memory
     sd	        ra, ({HART_RA_OFFSET})(a0)
@@ -144,4 +144,4 @@ enter_from_confidential_vm_asm:
     # first argument (a0) must point to the dumped hart memory area
     # TODO: Prove that we don't violate C calling conventions and parameters 
     # are correctly passed.
-    j        enter_from_confidential_vm
+    j        enter_from_confidential_hart
