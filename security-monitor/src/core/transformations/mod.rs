@@ -11,7 +11,7 @@ pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
 pub use resume_request::ResumeRequest;
-pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartSuspend};
+pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
 pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;

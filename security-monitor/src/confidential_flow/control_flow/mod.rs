@@ -77,7 +77,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Hsm(HartStart)) => sbi_hsm_hart_start::handle(confidential_hart.sbi_hsm_hart_start(), self),
             VsEcall(Hsm(HartStop)) => sbi_hsm_hart_stop::handle(self),
             VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), self),
-            VsEcall(Hsm(HartGetStatus)) => hypercall::handle(confidential_hart.hypercall_request(), self),
+            VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), self),
             VsEcall(Ipi(SendIpi)) => inter_hart_request::handle(confidential_hart.sbi_ipi(), self),
             VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
             VsEcall(_) => invalid_call::handle(self),
