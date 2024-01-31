@@ -7,9 +7,9 @@ use crate::error::Error;
 
 /// Handles a request from the confidential VM about creating a shared page.
 ///
-/// Control flows:
-/// - to the hypervisor
-/// - back to the confidential VM on error
+/// Control flows to the hypervisor when the sharing of the given `guest physical address` is allowed. The hypervisor is requested to
+/// allocate a page of non-confidential memory and return back the `host physical address` of this page. Control flows back to the
+/// confidential hart if the request was invalid, e.g., the `guest physical address` was not correct.
 pub fn handle(request: Result<(SharePageRequest, SbiRequest), Error>, confidential_flow: ConfidentialFlow) -> ! {
     match request {
         Ok((share_page_request, sbi_request)) => {

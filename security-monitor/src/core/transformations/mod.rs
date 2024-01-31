@@ -21,6 +21,7 @@ pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::SharePageRequest;
 pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
+pub use unshare_page_request::UnsharePageRequest;
 
 mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
@@ -42,6 +43,7 @@ mod sbi_vm_request;
 mod share_page_request;
 mod share_page_result;
 mod terminate_request;
+mod unshare_page_request;
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum ExposeToHypervisor {

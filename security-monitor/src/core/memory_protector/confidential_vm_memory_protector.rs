@@ -45,7 +45,7 @@ impl ConfidentialVmMemoryProtector {
 
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
     /// shared page is unmapped from the address space of the confidential VM.
-    pub fn _unmap_shared_page(&mut self, address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
         self.root_page_table.unmap_shared_page(address)?;
         super::tlb::tlb_shutdown();
         Ok(())

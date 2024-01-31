@@ -95,7 +95,7 @@ impl ConfidentialVm {
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {
-        self.confidential_harts.iter().filter(|confidential_hart| !confidential_hart.is_shutdown()).count() == 0
+        self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::Shutdown).count() == 0
     }
 
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is

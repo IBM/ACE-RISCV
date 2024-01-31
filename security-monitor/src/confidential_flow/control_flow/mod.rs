@@ -63,6 +63,7 @@ impl<'a> ConfidentialFlow<'a> {
         match confidential_hart.trap_reason() {
             Interrupt => interrupt::handle(self),
             VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
+            VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
             VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
@@ -70,15 +71,18 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Base(GetMvendorId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetMarchid)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetMimpid)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Rfence(RemoteFenceI)) => inter_hart_request::handle(confidential_hart.sbi_remote_fence_i(), self),
-            VsEcall(Rfence(RemoteSfenceVma)) => inter_hart_request::handle(confidential_hart.sbi_remote_sfence_vma(), self),
-            VsEcall(Rfence(RemoteSfenceVmaAsid)) => inter_hart_request::handle(confidential_hart.sbi_remote_sfence_vma_asid(), self),
-            VsEcall(Rfence(_)) => invalid_call::handle(self),
+            VsEcall(Ipi(SendIpi)) => sbi_ipi::handle(confidential_hart.sbi_ipi(), self),
+            VsEcall(Rfence(RemoteFenceI)) => sbi_ipi::handle(confidential_hart.sbi_remote_fence_i(), self),
+            VsEcall(Rfence(RemoteSfenceVma)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma(), self),
+            VsEcall(Rfence(RemoteSfenceVmaAsid)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma_asid(), self),
+            VsEcall(Rfence(RemoteHfenceGvmaVmid)) => sbi_rfence_nop::handle(self),
+            VsEcall(Rfence(RemoteHfenceGvma)) => sbi_rfence_nop::handle(self),
+            VsEcall(Rfence(RemoteHfenceVvmaAsid)) => sbi_rfence_nop::handle(self),
+            VsEcall(Rfence(RemoteHfenceVvma)) => sbi_rfence_nop::handle(self),
             VsEcall(Hsm(HartStart)) => sbi_hsm_hart_start::handle(confidential_hart.sbi_hsm_hart_start(), self),
             VsEcall(Hsm(HartStop)) => sbi_hsm_hart_stop::handle(self),
             VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), self),
             VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), self),
-            VsEcall(Ipi(SendIpi)) => inter_hart_request::handle(confidential_hart.sbi_ipi(), self),
             VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
             VsEcall(_) => invalid_call::handle(self),
             GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
@@ -205,7 +209,8 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     pub fn is_confidential_hart_shutdown(&self) -> bool {
-        self.hardware_hart.confidential_hart().is_shutdown()
+        use crate::core::architecture::HartLifecycleState;
+        self.hardware_hart.confidential_hart().lifecycle_state() == &HartLifecycleState::Shutdown
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {
