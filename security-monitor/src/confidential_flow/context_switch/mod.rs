@@ -94,6 +94,8 @@ core::arch::global_asm!(
     HART_VSEPC_OFFSET = const crate::core::control_data::HART_VSEPC_OFFSET,
     HART_VSCAUSE_OFFSET = const crate::core::control_data::HART_VSCAUSE_OFFSET,
     HART_VSTVAL_OFFSET = const crate::core::control_data::HART_VSTVAL_OFFSET,
+    HART_VSTIMECMP_OFFSET = const crate::core::control_data::HART_VSTIMECMP_OFFSET,
+    HART_HTIMEDELTA_OFFSET = const crate::core::control_data::HART_HTIMEDELTA_OFFSET,
     HART_HVIP_OFFSET = const crate::core::control_data::HART_HVIP_OFFSET,
     // HART_HTVAL_OFFSET = const crate::core::control_data::HART_HTVAL_OFFSET,
     HART_VSATP_OFFSET = const crate::core::control_data::HART_VSATP_OFFSET,

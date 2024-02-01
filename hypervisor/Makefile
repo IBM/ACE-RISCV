@@ -38,10 +38,11 @@ patch:
 	fi
 
 new_patches:
-	cd $(LINUX_SOURCE_DIR); git add . ; git diff HEAD > ../patches/linux/linux-kernel-next.patch; cd $(MAKEFILE_SOURCE_DIR)
+	cd $(LINUX_SOURCE_DIR); git add . ; git diff HEAD > $(LINUX_PATCH); cd $(MAKEFILE_SOURCE_DIR)
 
 buildroot: setup
 	if [ ! -f "${BUILDROOT_WORK_DIR}/images/rootfs.ext2" ]; then \
+		echo "Building buildroot"; \
 		rm -rf $(BUILDROOT_WORK_DIR); \
 		mkdir -p $(BUILDROOT_WORK_DIR); \
 		mkdir -p $(OVERLAY_ROOT_DIR); \
@@ -50,7 +51,7 @@ buildroot: setup
 		sed "s@^BR2_ROOTFS_OVERLAY=.*@BR2_ROOTFS_OVERLAY=\"$(OVERLAY_DIR)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_TARGET_ROOTFS_EXT2_SIZE=.*@BR2_TARGET_ROOTFS_EXT2_SIZE=\"512M\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) olddefconfig; \
-		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR); \
+		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) BR2_JLEVEL=12; \
 	fi
 
 overlay:
@@ -66,6 +67,7 @@ rootfs:
 
 linux: setup patch
 	if [ ! -f "${LINUX_IMAGE}" ]; then \
+		echo "Building Linux kernel"; \
 		rm -rf $(LINUX_WORK_DIR); \
 		mkdir -p $(LINUX_WORK_DIR); \
 		cp $(CONFIGURATION_DIR)/linux64-defconfig $(LINUX_WORK_DIR)/.config; \

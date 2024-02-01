@@ -37,11 +37,8 @@ extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_a
     if cold_boot {
         debug!("initializing the ACE extension");
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
+            // TODO: lock access to attestation keys/seed/credentials.
             debug!("Failed to initialize the ACE extension: {:?}", error);
-        }
-    } else {
-        if let Err(error) = setup_this_hart() {
-            debug!("Failed to initialize the ACE extension on a hart: {:?}", error);
         }
     }
 }
@@ -64,9 +61,10 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 
     // Prepares memory required to store physical hart state
     prepare_harts(number_of_harts)?;
-    setup_this_hart()?;
 
-    // if we reached this line, then the security monitor has been correctly initialized.
+    // TODO: lock access to attestation keys/seed/credentials.
+
+    // if we reached this line, then the security monitor control data has been correctly initialized.
     Ok(())
 }
 
@@ -95,6 +93,8 @@ fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
             .into_iter()
             .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension(*ext))))?;
     }
+
+    // TODO: make sure there are enough PMPs
 
     Ok(fdt.cpus().count())
 }
@@ -191,7 +191,8 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 
 /// Enables entry points to the security monitor by taking control over some interrupts and protecting confidential
 /// memory region using hardware isolation mechanisms.
-fn setup_this_hart() -> Result<(), Error> {
+#[no_mangle]
+extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
     while !HARTS_STATES.is_completed() {
         unsafe { core::arch::asm!("fence w,o") };
@@ -217,8 +218,8 @@ fn setup_this_hart() -> Result<(), Error> {
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
     // the `MemoryLayout` is initialized on the boot hart and this happens before the hart setup.
-    unsafe {
-        hart.hypervisor_memory_protector().setup()?;
+    if let Err(_error) = unsafe { hart.hypervisor_memory_protector().setup() } {
+        return;
     }
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
@@ -229,12 +230,10 @@ fn setup_this_hart() -> Result<(), Error> {
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    let trap_vector_address =
-        (enter_from_hypervisor_or_vm_asm as usize).try_into().map_err(|_| Error::Init(InitType::InvalidAssemblyAddress))?;
-    debug!("Physical HART [hart_id={}] trap handler address: {:x}", hart_id, trap_vector_address);
-    unsafe {
-        riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);
+    if let Ok(trap_vector_address) = (enter_from_hypervisor_or_vm_asm as usize).try_into() {
+        debug!("Physical HART [hart_id={}] trap handler address: {:x}", hart_id, trap_vector_address);
+        unsafe {
+            riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);
+        }
     }
-
-    Ok(())
 }

@@ -40,9 +40,14 @@ debug: hack
 	cp $(SM_WORK_DIR)/$(CHAIN)/debug/$(EXEC_NAME)* $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)
 
-opensbi: build
+opensbi: build patch
 	mkdir -p $(OPENSBI_WORK_DIR) ; \
 	SM_WORK_DIR=$(SM_WORK_DIR) $(MAKE) -j$(nproc) -C $(OPENSBI_SOURCE_DIR) O=$(OPENSBI_WORK_DIR) PLATFORM_DIR="$(PLATFORM_SOURCE_DIR)" PLATFORM="generic" CROSS_COMPILE=$(CROSS_COMPILE) FW_PAYLOAD_PATH=$(LINUX_IMAGE) FW_PAYLOAD=y PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI)
+
+patch:
+	if ! grep -q ace_setup_this_hart "lib/sbi/sbi_hart.c"; then \
+		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(PLATFORM_SOURCE_DIR)/opensbi_v1.4.patch; cd $(MAKEFILE_SOURCE_DIR); \
+	fi
 
 hack:
 	INSTALL_DIR=$(ACE_DIR) OPENSBI_SOURCE_DIR=$(OPENSBI_SOURCE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ./rust-crates/opensbi.sh

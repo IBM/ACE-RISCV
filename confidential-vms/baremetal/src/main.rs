@@ -99,7 +99,9 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
     };
 
     loop {
-        // do nothing, wait for hart 1 to terminate the VM
+        let time_value = riscv::register::time::read();
+        uart.println(&format!("Hart {} time {}", hart_id, time_value));
+        // wait for hart 1 to terminate the VM
     }
 }
 

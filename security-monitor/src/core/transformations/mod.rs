@@ -10,6 +10,7 @@ pub use interrupt_request::InterruptRequest;
 pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
+pub use opensbi_result::OpensbiResult;
 pub use resume_request::ResumeRequest;
 pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
@@ -32,6 +33,7 @@ mod interrupt_request;
 mod mmio_load_request;
 mod mmio_store_request;
 mod opensbi_request;
+mod opensbi_result;
 mod resume_request;
 mod sbi_hsm;
 mod sbi_ipi;
@@ -49,6 +51,7 @@ mod unshare_page_request;
 pub enum ExposeToHypervisor {
     SbiRequest(SbiRequest),
     SbiResult(SbiResult),
+    OpensbiResult(OpensbiResult),
     SbiVmRequest(SbiVmRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),

@@ -1,5 +1,5 @@
 diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
-index cc7da66ee0c0..901ea5be5bc4 100644
+index cc7da66ee0c0..a52718c3dbd7 100644
 --- a/arch/riscv/include/asm/kvm_host.h
 +++ b/arch/riscv/include/asm/kvm_host.h
 @@ -154,6 +154,7 @@ struct kvm_vcpu_csr {
@@ -32,7 +32,7 @@ index cc7da66ee0c0..901ea5be5bc4 100644
  int kvm_riscv_vcpu_set_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);
  int kvm_riscv_vcpu_unset_interrupt(struct kvm_vcpu *vcpu, unsigned int irq);
 diff --git a/arch/riscv/include/asm/kvm_vcpu_sbi.h b/arch/riscv/include/asm/kvm_vcpu_sbi.h
-index 8425556af7d1..d6d81aa6143d 100644
+index 8425556af7d1..e7fd6c4d0182 100644
 --- a/arch/riscv/include/asm/kvm_vcpu_sbi.h
 +++ b/arch/riscv/include/asm/kvm_vcpu_sbi.h
 @@ -59,5 +59,6 @@ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_srst;
@@ -43,7 +43,7 @@ index 8425556af7d1..d6d81aa6143d 100644
  
  #endif /* __RISCV_KVM_VCPU_SBI_H__ */
 diff --git a/arch/riscv/include/asm/sbi.h b/arch/riscv/include/asm/sbi.h
-index 945b7be249c1..254fe69becf3 100644
+index 945b7be249c1..87871324865b 100644
 --- a/arch/riscv/include/asm/sbi.h
 +++ b/arch/riscv/include/asm/sbi.h
 @@ -30,6 +30,7 @@ enum sbi_ext_id {
@@ -67,7 +67,7 @@ index df9444397908..153bc32b3072 100644
  	OFFSET(KVM_ARCH_HOST_ZERO, kvm_vcpu_arch, host_context.zero);
  	OFFSET(KVM_ARCH_HOST_RA, kvm_vcpu_arch, host_context.ra);
 diff --git a/arch/riscv/kvm/Makefile b/arch/riscv/kvm/Makefile
-index 278e97c06e0a..34846bc51877 100644
+index 278e97c06e0a..56bfdde53fa4 100644
 --- a/arch/riscv/kvm/Makefile
 +++ b/arch/riscv/kvm/Makefile
 @@ -25,4 +25,5 @@ kvm-y += vcpu_sbi_base.o
@@ -97,7 +97,7 @@ index 78211aed36fa..5860fc82611a 100644
  
  	vma = vma_lookup(current->mm, hva);
 diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
-index 7d010b0be54e..6e24dcbeb575 100644
+index 7d010b0be54e..b93c76ea0ad2 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
 @@ -743,6 +743,8 @@ void kvm_riscv_vcpu_sync_interrupts(struct kvm_vcpu *vcpu)
@@ -117,16 +117,16 @@ index 7d010b0be54e..6e24dcbeb575 100644
 -	__kvm_riscv_switch_to(&vcpu->arch);
 -	vcpu->arch.last_exit_cpu = vcpu->cpu;
 -	guest_state_exit_irqoff();
-+	if (vcpu->arch.is_svm) {		
++	if (vcpu->arch.is_svm) {
++		// printk(KERN_INFO "kvm kvm_riscv_vcpu_enter_exit CONFIDENITLA VM!\n");
 +		guest_state_enter_irqoff();
-+		// 1010 is the resume SM-call
 +		__kvm_riscv_ace_switch_to(&vcpu->arch, 1010, vcpu->arch.svm_id, vcpu->arch.vcpu_id);
 +		vcpu->arch.last_exit_cpu = vcpu->cpu;
 +		guest_state_exit_irqoff();
++		// printk(KERN_INFO "kvm kvm_riscv_vcpu_enter_exit CONFIDENITLA VM EXIT!\n");
 +	} else {
 +		guest_state_enter_irqoff();
-+		//printk(KERN_INFO "return %x %x %x\n", vcpu->arch.guest_context.sepc, vcpu->arch.guest_context.sstatus, vcpu->arch.guest_context.hstatus);
-+		__kvm_riscv_switch_to(&vcpu->arch);		
++		__kvm_riscv_switch_to(&vcpu->arch);
 +		vcpu->arch.last_exit_cpu = vcpu->cpu;
 +		guest_state_exit_irqoff();
 +	}
@@ -142,17 +142,8 @@ index 7d010b0be54e..6e24dcbeb575 100644
  	switch (run->exit_reason) {
  	case KVM_EXIT_MMIO:
  		/* Process MMIO value returned from user-space */
-@@ -1101,6 +1114,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
- 		trap.htval = csr_read(CSR_HTVAL);
- 		trap.htinst = csr_read(CSR_HTINST);
- 
-+		// kvm_err("kvm_arch_vcpu_ioctl_run: %lx\n", trap.htinst);
-+
- 		/* Syncup interrupts state with HW */
- 		kvm_riscv_vcpu_sync_interrupts(vcpu);
- 
 diff --git a/arch/riscv/kvm/vcpu_exit.c b/arch/riscv/kvm/vcpu_exit.c
-index 4ea101a73d8b..5a4eab6e2f23 100644
+index 4ea101a73d8b..a872fc01e928 100644
 --- a/arch/riscv/kvm/vcpu_exit.c
 +++ b/arch/riscv/kvm/vcpu_exit.c
 @@ -24,6 +24,8 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
@@ -173,12 +164,17 @@ index 4ea101a73d8b..5a4eab6e2f23 100644
  	ret = kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva,
  		(trap->scause == EXC_STORE_GUEST_PAGE_FAULT) ? true : false);
  	if (ret < 0)
-@@ -172,35 +176,60 @@ void kvm_riscv_vcpu_trap_redirect(struct kvm_vcpu *vcpu,
- int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
- 			struct kvm_cpu_trap *trap)
- {
--	int ret;
-+	int ret;	
+@@ -65,6 +69,8 @@ unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu,
+ 	register unsigned long ttmp asm("a1");
+ 	unsigned long flags, val, tmp, old_stvec, old_hstatus;
+ 
++	// printk(KERN_INFO "kvm_riscv_vcpu_unpriv_read: %lx %lx\n", taddr, ttmp);
++
+ 	local_irq_save(flags);
+ 
+ 	old_hstatus = csr_swap(CSR_HSTATUS, vcpu->arch.guest_context.hstatus);
+@@ -175,32 +181,57 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	int ret;
  
  	/* If we got host interrupt then do nothing */
 -	if (trap->scause & CAUSE_IRQ_FLAG)
@@ -195,7 +191,7 @@ index 4ea101a73d8b..5a4eab6e2f23 100644
  	switch (trap->scause) {
  	case EXC_INST_ILLEGAL:
  		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			kvm_err("kvm_riscv_vcpu_exit: enter EXC_INST_ILLEGAL\n");
++			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_INST_ILLEGAL\n");
  			kvm_riscv_vcpu_trap_redirect(vcpu, trap);
  			ret = 1;
  		}
@@ -203,7 +199,7 @@ index 4ea101a73d8b..5a4eab6e2f23 100644
  	case EXC_VIRTUAL_INST_FAULT:
 -		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 +		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			kvm_err("kvm_riscv_vcpu_exit: enter EXC_VIRTUAL_INST_FAULT\n");
++			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_VIRTUAL_INST_FAULT\n");
  			ret = kvm_riscv_vcpu_virtual_insn(vcpu, run, trap);
 +		}
  		break;
@@ -225,14 +221,14 @@ index 4ea101a73d8b..5a4eab6e2f23 100644
 +			// kvm_err("21=0x%lx 22=0x%lx 23=0x%lx\n", vcpu->arch.guest_context.s5, vcpu->arch.guest_context.s6, vcpu->arch.guest_context.s7);
 +			// kvm_err("24=0x%lx 25=0x%lx 26=0x%lx\n", vcpu->arch.guest_context.s8, vcpu->arch.guest_context.s9, vcpu->arch.guest_context.s10);
 +			// kvm_err("27=0x%lx 28=0x%lx 29=0x%lx\n", vcpu->arch.guest_context.s11, vcpu->arch.guest_context.t3, vcpu->arch.guest_context.t4);
-+			// kvm_err("30=0x%lx 31=0x%lx\n", vcpu->arch.guest_context.t5, vcpu->arch.guest_context.t6);			
++			// kvm_err("30=0x%lx 31=0x%lx\n", vcpu->arch.guest_context.t5, vcpu->arch.guest_context.t6);
 +			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_STORE_GUEST_PAGE_FAULT\n");
  			ret = gstage_page_fault(vcpu, run, trap);
 +		}
  		break;
  	case EXC_SUPERVISOR_SYSCALL:
 -		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
-+		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {		
++		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
 +			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_SUPERVISOR_SYSCALL\n");
  			ret = kvm_riscv_vcpu_sbi_ecall(vcpu, run);
 +		}
@@ -240,7 +236,7 @@ index 4ea101a73d8b..5a4eab6e2f23 100644
  	default:
  		break;
 diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
-index f689337b78ff..a66416983df3 100644
+index f689337b78ff..fa7ffb6f2bf5 100644
 --- a/arch/riscv/kvm/vcpu_insn.c
 +++ b/arch/riscv/kvm/vcpu_insn.c
 @@ -106,6 +106,7 @@
@@ -265,7 +261,7 @@ index f689337b78ff..a66416983df3 100644
  							  ct->sepc,
  							  &utrap);
 +			}
-+			
++
  			if (utrap.scause) {
  				utrap.sepc = ct->sepc;
  				kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
@@ -293,7 +289,7 @@ index f689337b78ff..a66416983df3 100644
 +		} else {
 +			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc, &utrap);
 +		}
-+		
++
  		if (utrap.scause) {
  			/* Redirect trap if we failed to read instruction */
  			utrap.sepc = ct->sepc;
@@ -335,7 +331,7 @@ index f689337b78ff..a66416983df3 100644
 +		} else {
 +			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc, &utrap);
 +		}
-+		
++
  		if (utrap.scause) {
 +			// printk(KERN_INFO "KVM store: redirect trap\n");
  			/* Redirect trap if we failed to read instruction */
@@ -375,16 +371,7 @@ index f689337b78ff..a66416983df3 100644
  		   ((insn >> SH_RD) & 0x1f)) {
  		len = 4;
  		data32 = GET_RS2C(insn, &vcpu->arch.guest_context);
-@@ -644,7 +673,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
- 
- 	/* Fault address should be aligned to length of MMIO */
- 	if (fault_addr & (len - 1))
--		return -EIO;
-+		return -EIO;	
- 
- 	/* Save instruction decode info */
- 	vcpu->arch.mmio_decode.insn = insn;
-@@ -708,14 +737,16 @@ int kvm_riscv_vcpu_mmio_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -708,8 +737,10 @@ int kvm_riscv_vcpu_mmio_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
  	ulong insn;
  	int len, shift;
  
@@ -396,13 +383,6 @@ index f689337b78ff..a66416983df3 100644
  
  	vcpu->arch.mmio_decode.return_handled = 1;
  	insn = vcpu->arch.mmio_decode.insn;
- 
- 	if (run->mmio.is_write)
--		goto done;
-+		goto done;	
- 
- 	len = vcpu->arch.mmio_decode.len;
- 	shift = vcpu->arch.mmio_decode.shift;
 @@ -723,21 +754,25 @@ int kvm_riscv_vcpu_mmio_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
  	switch (len) {
  	case 1:
@@ -430,7 +410,7 @@ index f689337b78ff..a66416983df3 100644
  			(ulong)data64 << shift >> shift);
  		break;
 diff --git a/arch/riscv/kvm/vcpu_sbi.c b/arch/riscv/kvm/vcpu_sbi.c
-index 15fde15f9fb8..a17c23dd93bd 100644
+index 15fde15f9fb8..c453b2a91983 100644
 --- a/arch/riscv/kvm/vcpu_sbi.c
 +++ b/arch/riscv/kvm/vcpu_sbi.c
 @@ -41,6 +41,7 @@ static const struct kvm_vcpu_sbi_extension *sbi_ext[] = {
@@ -441,41 +421,45 @@ index 15fde15f9fb8..a17c23dd93bd 100644
  };
  
  void kvm_riscv_vcpu_sbi_forward(struct kvm_vcpu *vcpu, struct kvm_run *run)
-@@ -69,6 +70,12 @@ void kvm_riscv_vcpu_sbi_system_reset(struct kvm_vcpu *vcpu,
+@@ -69,6 +70,11 @@ void kvm_riscv_vcpu_sbi_system_reset(struct kvm_vcpu *vcpu,
  	unsigned long i;
  	struct kvm_vcpu *tmp;
  
 +	if (vcpu->arch.is_svm) {
-+		sbi_ecall(0x510000, 3001, vcpu->arch.svm_id, 0, 0, 0, 0, 0);
++		//sbi_ecall(0x510000, 3001, vcpu->arch.svm_id, 0, 0, 0, 0, 0);
 +		vcpu->arch.is_svm = 0;
-+		printk(KERN_INFO "ACE KVM: SVM terminated\n");
 +	}
 +
  	kvm_for_each_vcpu(i, tmp, vcpu->kvm)
  		tmp->arch.power_off = true;
  	kvm_make_all_cpus_request(vcpu->kvm, KVM_REQ_SLEEP);
-@@ -127,6 +134,9 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -92,6 +98,7 @@ int kvm_riscv_vcpu_sbi_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 	/* Update return values */
+ 	cp->a0 = run->riscv_sbi.ret[0];
+ 	cp->a1 = run->riscv_sbi.ret[1];
++	printk(KERN_INFO "KVM kvm_riscv_vcpu_sbi_return: %d %d\n", cp->a0, cp->a1);
+ 
+ 	/* Move to next instruction */
+ 	vcpu->arch.guest_context.sepc += 4;
+@@ -127,6 +134,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
  	bool ext_is_v01 = false;
  
  	sbi_ext = kvm_vcpu_sbi_find_ext(cp->a7);
 +
-+	// kvm_err("kvm_riscv_vcpu_sbi_ecall: :%ld %ld\n", sbi_ext, cp->a7);
-+
  	if (sbi_ext && sbi_ext->handler) {
  #ifdef CONFIG_RISCV_SBI_V01
  		if (cp->a7 >= SBI_EXT_0_1_SET_TIMER &&
-@@ -134,7 +144,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
- 			ext_is_v01 = true;
- #endif
- 		ret = sbi_ext->handler(vcpu, run, &sbi_ret);
--	} else {
-+	} else {		
- 		/* Return error for unsupported SBI calls */
- 		cp->a0 = SBI_ERR_NOT_SUPPORTED;
- 		goto ecall_done;
+@@ -151,6 +159,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
+ 
+ 	/* Handle special error cases i.e trap, exit or userspace forward */
+ 	if (sbi_ret.utrap->scause) {
++		printk(KERN_INFO "kvm kvm_riscv_vcpu_sbi_ecall scause!\n");
+ 		/* No need to increment sepc or exit ioctl loop */
+ 		ret = 1;
+ 		sbi_ret.utrap->sepc = cp->sepc;
 diff --git a/arch/riscv/kvm/vcpu_sbi_ace.c b/arch/riscv/kvm/vcpu_sbi_ace.c
 new file mode 100644
-index 000000000000..223ad1997d71
+index 000000000000..809a1ef06ec6
 --- /dev/null
 +++ b/arch/riscv/kvm/vcpu_sbi_ace.c
 @@ -0,0 +1,140 @@
@@ -552,7 +536,7 @@ index 000000000000..223ad1997d71
 +	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
 +	unsigned long svm_id = vcpu->arch.svm_id;
 +	unsigned long hart_id = vcpu->arch.vcpu_id;
-+	unsigned long virt_addr = cp->a0;	
++	unsigned long virt_addr = cp->a0;
 +	unsigned long is_error = 0;
 +	int page_size = 4096;
 +	struct sbiret result;
@@ -569,7 +553,7 @@ index 000000000000..223ad1997d71
 +
 +	struct kvm_cpu_context *reset_cntx = &vcpu->arch.guest_reset_context;
 +	// reset_cntx = &target_vcpu->arch.;
-+	// reset_cntx->sepc = cp->a1;	
++	// reset_cntx->sepc = cp->a1;
 +
 +	retdata->out_val = hpa;
 +
@@ -619,15 +603,36 @@ index 000000000000..223ad1997d71
 +	.extid_end = SBI_EXT_ACE,
 +	.handler = kvm_sbi_ext_ace_handler,
 +};
+diff --git a/arch/riscv/kvm/vcpu_sbi_hsm.c b/arch/riscv/kvm/vcpu_sbi_hsm.c
+index 7dca0e9381d9..b0fdc4f39d7a 100644
+--- a/arch/riscv/kvm/vcpu_sbi_hsm.c
++++ b/arch/riscv/kvm/vcpu_sbi_hsm.c
+@@ -32,8 +32,15 @@ static int kvm_sbi_hsm_vcpu_start(struct kvm_vcpu *vcpu)
+ 	reset_cntx->a0 = target_vcpuid;
+ 	/* private data passed from kernel */
+ 	reset_cntx->a1 = cp->a2;
+-	kvm_make_request(KVM_REQ_VCPU_RESET, target_vcpu);
+ 
++	if (vcpu->arch.is_svm) {
++		printk(KERN_INFO "ACE KVM: starting new vcpu\n");
++		target_vcpu->arch.is_svm = 1;
++		target_vcpu->arch.svm_id = vcpu->arch.svm_id;
++		target_vcpu->arch.vcpu_id = target_vcpuid;
++	}
++
++	kvm_make_request(KVM_REQ_VCPU_RESET, target_vcpu);
+ 	kvm_riscv_vcpu_power_on(target_vcpu);
+ 
+ 	return 0;
 diff --git a/arch/riscv/kvm/vcpu_switch.S b/arch/riscv/kvm/vcpu_switch.S
-index d74df8eb4d71..5e25d05ef969 100644
+index d74df8eb4d71..d47fe00d11e9 100644
 --- a/arch/riscv/kvm/vcpu_switch.S
 +++ b/arch/riscv/kvm/vcpu_switch.S
 @@ -210,6 +210,216 @@ __kvm_switch_return:
  	ret
  ENDPROC(__kvm_riscv_switch_to)
  
-+# ACE START, 
++# ACE START,
 +#	a0 - address of the vcpu->arch
 +#	a1 - SM-call function ID
 +#   a2 - first argument of the SM-call
@@ -695,7 +700,7 @@ index d74df8eb4d71..5e25d05ef969 100644
 +	add		t0, a2, 0	 # first argument of the SM-call
 +	add		t1, a3, 0	 # 2nd argument of the SM-call
 +	add		t2, a4, 0	 # 3rd argument of the SM-call
-+	add		t3, a5, 0	 # 4th argument of the SM-call	
++	add		t3, a5, 0	 # 4th argument of the SM-call
 +
 +	/* Restore Guest GPRs (except A0) */
 +	REG_L	ra, (KVM_ARCH_GUEST_RA)(a0)
@@ -703,7 +708,7 @@ index d74df8eb4d71..5e25d05ef969 100644
 +	REG_L	gp, (KVM_ARCH_GUEST_GP)(a0)
 +	REG_L	tp, (KVM_ARCH_GUEST_TP)(a0)
 +	# our convention: we use t0-t5 as arguments to ACE
-+	# because a0-a5 is used by KVM for hcalls, mmio etc	
++	# because a0-a5 is used by KVM for hcalls, mmio etc
 +	# REG_L	t0, (KVM_ARCH_GUEST_T0)(a0)
 +	# REG_L	t1, (KVM_ARCH_GUEST_T1)(a0)
 +	# REG_L	t2, (KVM_ARCH_GUEST_T2)(a0)
@@ -840,16 +845,207 @@ index d74df8eb4d71..5e25d05ef969 100644
  ENTRY(__kvm_riscv_unpriv_trap)
  	/*
  	 * We assume that faulting unpriv load/store instruction is
-diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
-index d255964ec331..211c795b2c03 100644
---- a/virt/kvm/kvm_main.c
-+++ b/virt/kvm/kvm_main.c
-@@ -4095,7 +4095,7 @@ static long kvm_vcpu_ioctl(struct file *filp,
- 			if (oldpid)
- 				synchronize_rcu();
- 			put_pid(oldpid);
--		}
-+		}		
- 		r = kvm_arch_vcpu_ioctl_run(vcpu);
- 		trace_kvm_userspace_exit(vcpu->run->exit_reason, r);
- 		break;
+diff --git a/rust/alloc/alloc.rs b/rust/alloc/alloc.rs
+index ca224a541770..65ce3fea232a 100644
+--- a/rust/alloc/alloc.rs
++++ b/rust/alloc/alloc.rs
+@@ -31,13 +31,13 @@ extern "Rust" {
+     // like `malloc`, `realloc`, and `free`, respectively.
+     #[rustc_allocator]
+     #[rustc_allocator_nounwind]
+-    fn __rust_alloc(size: usize, align: usize) -> *mut u8;
++    fn __rust_alloc(size: usize, align: usize) -> *mut usize;
+     #[rustc_allocator_nounwind]
+-    fn __rust_dealloc(ptr: *mut u8, size: usize, align: usize);
++    fn __rust_dealloc(ptr: *mut usize, size: usize, align: usize);
+     #[rustc_allocator_nounwind]
+-    fn __rust_realloc(ptr: *mut u8, old_size: usize, align: usize, new_size: usize) -> *mut u8;
++    fn __rust_realloc(ptr: *mut usize, old_size: usize, align: usize, new_size: usize) -> *mut usize;
+     #[rustc_allocator_nounwind]
+-    fn __rust_alloc_zeroed(size: usize, align: usize) -> *mut u8;
++    fn __rust_alloc_zeroed(size: usize, align: usize) -> *mut usize;
+ }
+ 
+ /// The global memory allocator.
+@@ -87,7 +87,7 @@ pub use std::alloc::Global;
+ #[stable(feature = "global_alloc", since = "1.28.0")]
+ #[must_use = "losing the pointer will leak memory"]
+ #[inline]
+-pub unsafe fn alloc(layout: Layout) -> *mut u8 {
++pub unsafe fn alloc(layout: Layout) -> *mut usize {
+     unsafe { __rust_alloc(layout.size(), layout.align()) }
+ }
+ 
+@@ -105,7 +105,7 @@ pub unsafe fn alloc(layout: Layout) -> *mut u8 {
+ /// See [`GlobalAlloc::dealloc`].
+ #[stable(feature = "global_alloc", since = "1.28.0")]
+ #[inline]
+-pub unsafe fn dealloc(ptr: *mut u8, layout: Layout) {
++pub unsafe fn dealloc(ptr: *mut usize, layout: Layout) {
+     unsafe { __rust_dealloc(ptr, layout.size(), layout.align()) }
+ }
+ 
+@@ -124,7 +124,7 @@ pub unsafe fn dealloc(ptr: *mut u8, layout: Layout) {
+ #[stable(feature = "global_alloc", since = "1.28.0")]
+ #[must_use = "losing the pointer will leak memory"]
+ #[inline]
+-pub unsafe fn realloc(ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
++pub unsafe fn realloc(ptr: *mut usize, layout: Layout, new_size: usize) -> *mut usize {
+     unsafe { __rust_realloc(ptr, layout.size(), layout.align(), new_size) }
+ }
+ 
+@@ -158,7 +158,7 @@ pub unsafe fn realloc(ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8
+ #[stable(feature = "global_alloc", since = "1.28.0")]
+ #[must_use = "losing the pointer will leak memory"]
+ #[inline]
+-pub unsafe fn alloc_zeroed(layout: Layout) -> *mut u8 {
++pub unsafe fn alloc_zeroed(layout: Layout) -> *mut usize {
+     unsafe { __rust_alloc_zeroed(layout.size(), layout.align()) }
+ }
+ 
+@@ -317,7 +317,7 @@ unsafe impl Allocator for Global {
+ #[cfg(all(not(no_global_oom_handling), not(test)))]
+ #[lang = "exchange_malloc"]
+ #[inline]
+-unsafe fn exchange_malloc(size: usize, align: usize) -> *mut u8 {
++unsafe fn exchange_malloc(size: usize, align: usize) -> *mut usize {
+     let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
+     match Global.allocate(layout) {
+         Ok(ptr) => ptr.as_mut_ptr(),
+diff --git a/rust/alloc/boxed.rs b/rust/alloc/boxed.rs
+index dcfe87b14f3a..309506c36080 100644
+--- a/rust/alloc/boxed.rs
++++ b/rust/alloc/boxed.rs
+@@ -1020,7 +1020,7 @@ impl<T: ?Sized, A: Allocator> Box<T, A> {
+     /// let p = Box::into_raw(x);
+     /// unsafe {
+     ///     ptr::drop_in_place(p);
+-    ///     dealloc(p as *mut u8, Layout::new::<String>());
++    ///     dealloc(p as *mut usize, Layout::new::<String>());
+     /// }
+     /// ```
+     ///
+diff --git a/rust/alloc/vec/mod.rs b/rust/alloc/vec/mod.rs
+index f77c7368d534..c7d756a82276 100644
+--- a/rust/alloc/vec/mod.rs
++++ b/rust/alloc/vec/mod.rs
+@@ -1313,7 +1313,7 @@ impl<T, A: Allocator> Vec<T, A> {
+     /// # extern "C" {
+     /// #     fn deflateGetDictionary(
+     /// #         strm: *mut std::ffi::c_void,
+-    /// #         dictionary: *mut u8,
++    /// #         dictionary: *mut usize,
+     /// #         dictLength: *mut usize,
+     /// #     ) -> i32;
+     /// # }
+diff --git a/rust/kernel/allocator.rs b/rust/kernel/allocator.rs
+index 397a3dd57a9b..f3cea1551117 100644
+--- a/rust/kernel/allocator.rs
++++ b/rust/kernel/allocator.rs
+@@ -10,13 +10,13 @@ use crate::bindings;
+ struct KernelAllocator;
+ 
+ unsafe impl GlobalAlloc for KernelAllocator {
+-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
++    unsafe fn alloc(&self, layout: Layout) -> *mut usize {
+         // `krealloc()` is used instead of `kmalloc()` because the latter is
+         // an inline function and cannot be bound to as a result.
+-        unsafe { bindings::krealloc(ptr::null(), layout.size(), bindings::GFP_KERNEL) as *mut u8 }
++        unsafe { bindings::krealloc(ptr::null(), layout.size(), bindings::GFP_KERNEL) as *mut usize }
+     }
+ 
+-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
++    unsafe fn dealloc(&self, ptr: *mut usize, _layout: Layout) {
+         unsafe {
+             bindings::kfree(ptr as *const core::ffi::c_void);
+         }
+@@ -32,33 +32,33 @@ static ALLOCATOR: KernelAllocator = KernelAllocator;
+ //
+ // Note that `#[no_mangle]` implies exported too, nowadays.
+ #[no_mangle]
+-fn __rust_alloc(size: usize, _align: usize) -> *mut u8 {
+-    unsafe { bindings::krealloc(core::ptr::null(), size, bindings::GFP_KERNEL) as *mut u8 }
++fn __rust_alloc(size: usize, _align: usize) -> *mut usize {
++    unsafe { bindings::krealloc(core::ptr::null(), size, bindings::GFP_KERNEL) as *mut usize }
+ }
+ 
+ #[no_mangle]
+-fn __rust_dealloc(ptr: *mut u8, _size: usize, _align: usize) {
++fn __rust_dealloc(ptr: *mut usize, _size: usize, _align: usize) {
+     unsafe { bindings::kfree(ptr as *const core::ffi::c_void) };
+ }
+ 
+ #[no_mangle]
+-fn __rust_realloc(ptr: *mut u8, _old_size: usize, _align: usize, new_size: usize) -> *mut u8 {
++fn __rust_realloc(ptr: *mut usize, _old_size: usize, _align: usize, new_size: usize) -> *mut usize {
+     unsafe {
+         bindings::krealloc(
+             ptr as *const core::ffi::c_void,
+             new_size,
+             bindings::GFP_KERNEL,
+-        ) as *mut u8
++        ) as *mut usize
+     }
+ }
+ 
+ #[no_mangle]
+-fn __rust_alloc_zeroed(size: usize, _align: usize) -> *mut u8 {
++fn __rust_alloc_zeroed(size: usize, _align: usize) -> *mut usize {
+     unsafe {
+         bindings::krealloc(
+             core::ptr::null(),
+             size,
+             bindings::GFP_KERNEL | bindings::__GFP_ZERO,
+-        ) as *mut u8
++        ) as *mut usize
+     }
+ }
+diff --git a/rust/kernel/str.rs b/rust/kernel/str.rs
+index b771310fa4a4..f3e0c2035f86 100644
+--- a/rust/kernel/str.rs
++++ b/rust/kernel/str.rs
+@@ -407,7 +407,7 @@ impl RawFormatter {
+     ///
+     /// If `pos` is less than `end`, then the region between `pos` (inclusive) and `end`
+     /// (exclusive) must be valid for writes for the lifetime of the returned [`RawFormatter`].
+-    pub(crate) unsafe fn from_ptrs(pos: *mut u8, end: *mut u8) -> Self {
++    pub(crate) unsafe fn from_ptrs(pos: *mut usize, end: *mut usize) -> Self {
+         // INVARIANT: The safety requierments guarantee the type invariants.
+         Self {
+             beg: pos as _,
+@@ -422,7 +422,7 @@ impl RawFormatter {
+     ///
+     /// The memory region starting at `buf` and extending for `len` bytes must be valid for writes
+     /// for the lifetime of the returned [`RawFormatter`].
+-    pub(crate) unsafe fn from_buffer(buf: *mut u8, len: usize) -> Self {
++    pub(crate) unsafe fn from_buffer(buf: *mut usize, len: usize) -> Self {
+         let pos = buf as usize;
+         // INVARIANT: We ensure that `end` is never less then `buf`, and the safety requirements
+         // guarantees that the memory region is valid for writes.
+@@ -436,7 +436,7 @@ impl RawFormatter {
+     /// Returns the current insert position.
+     ///
+     /// N.B. It may point to invalid memory.
+-    pub(crate) fn pos(&self) -> *mut u8 {
++    pub(crate) fn pos(&self) -> *mut usize {
+         self.pos as _
+     }
+ 
+@@ -461,7 +461,7 @@ impl fmt::Write for RawFormatter {
+             unsafe {
+                 core::ptr::copy_nonoverlapping(
+                     s.as_bytes().as_ptr(),
+-                    self.pos as *mut u8,
++                    self.pos as *mut usize,
+                     len_to_copy,
+                 )
+             };
+@@ -484,7 +484,7 @@ impl Formatter {
+     ///
+     /// The memory region starting at `buf` and extending for `len` bytes must be valid for writes
+     /// for the lifetime of the returned [`Formatter`].
+-    pub(crate) unsafe fn from_buffer(buf: *mut u8, len: usize) -> Self {
++    pub(crate) unsafe fn from_buffer(buf: *mut usize, len: usize) -> Self {
+         // SAFETY: The safety requirements of this function satisfy those of the callee.
+         Self(unsafe { RawFormatter::from_buffer(buf, len) })
+     }

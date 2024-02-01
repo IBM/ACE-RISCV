@@ -28,8 +28,8 @@ sudo apt -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev 
 # OpenSBI
 sudo apt -qq -y install clang
 
-# Qemu
-sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build 
+# Qemu 8.2
+sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev
 
 # Buildroot
 sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
