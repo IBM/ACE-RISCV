@@ -7,7 +7,7 @@ RELEASE = --release
 CHAIN=riscv64gc-unknown-none-elf
 TARGET = --target=$(CHAIN)
 RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie #-Ccode-model=medium 
-EXEC_NAME = libsm.a
+EXEC_NAME = libace.a
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
@@ -17,39 +17,41 @@ SM_WORK_DIR=$(ACE_DIR)/security-monitor
 PLATFORM_SOURCE_DIR=$(MAKEFILE_SOURCE_DIR)/platform
 OPENSBI_SOURCE_DIR=$(MAKEFILE_SOURCE_DIR)/opensbi
 OPENSBI_WORK_DIR=$(ACE_DIR)/opensbi
+OPENSBI_SYS_WORK_DIR=$(ACE_DIR)/opensbi_bindings
 
 PLATFORM_RISCV_ABI ?= lp64d 
 PLATFORM_RISCV_ISA ?= rv64gc
 PLATFORM_RISCV_XLEN ?= 64 
 CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 
-all: audit hack build
+all: audit opensbi_bindings build
 
-build: hack fmt
+build: opensbi_bindings fmt
 	mkdir -p $(SM_WORK_DIR) ; \
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) --features verbose ; \
 	cp $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
-	rm -rf $(OPENSBI_WORK_DIR)/platform
+	rm -rf $(OPENSBI_WORK_DIR)/
 
 refinedrust: build
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) refinedrust $(RELEASE) $(TARGET) --features verbose
 
-debug: hack
+debug: opensbi_bindings
 	mkdir -p $(SM_WORK_DIR) ; \
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(TARGET) --features verbose ; \
 	cp $(SM_WORK_DIR)/$(CHAIN)/debug/$(EXEC_NAME)* $(SM_WORK_DIR)/ ; \
-	rm -rf $(OPENSBI_WORK_DIR)/platform
+	rm -rf $(OPENSBI_WORK_DIR)/
 
-opensbi: build patch
+opensbi: build	
+	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(PLATFORM_SOURCE_DIR)/opensbi_v1.4.patch; cd $(MAKEFILE_SOURCE_DIR); \
+	fi; \
 	mkdir -p $(OPENSBI_WORK_DIR) ; \
 	SM_WORK_DIR=$(SM_WORK_DIR) $(MAKE) -j$(nproc) -C $(OPENSBI_SOURCE_DIR) O=$(OPENSBI_WORK_DIR) PLATFORM_DIR="$(PLATFORM_SOURCE_DIR)" PLATFORM="generic" CROSS_COMPILE=$(CROSS_COMPILE) FW_PAYLOAD_PATH=$(LINUX_IMAGE) FW_PAYLOAD=y PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI)
 
-patch:
-	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
-		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(PLATFORM_SOURCE_DIR)/opensbi_v1.4.patch; cd $(MAKEFILE_SOURCE_DIR); \
-	fi
-
-hack:
+opensbi_bindings:
+	if grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+		cd $(OPENSBI_SOURCE_DIR); git apply -R --whitespace=fix $(PLATFORM_SOURCE_DIR)/opensbi_v1.4.patch; cd $(MAKEFILE_SOURCE_DIR); \
+	fi; \
 	INSTALL_DIR=$(ACE_DIR) OPENSBI_SOURCE_DIR=$(OPENSBI_SOURCE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) ./rust-crates/opensbi.sh
 
 doc:
