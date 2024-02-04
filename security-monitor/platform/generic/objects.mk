@@ -11,7 +11,7 @@
 platform-cppflags-y =
 platform-cflags-y =
 platform-asflags-y =
-platform-ldflags-y =-L$(SM_WORK_DIR) -lsm
+platform-ldflags-y =-L$(SM_WORK_DIR) -lace
 
 # Command for platform specific "make run"
 platform-runcmd = qemu-system-riscv$(PLATFORM_RISCV_XLEN) -M virt -m 256M \
