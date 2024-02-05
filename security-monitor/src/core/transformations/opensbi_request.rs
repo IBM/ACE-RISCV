@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GpRegister, HartArchitecturalState};
 
+#[derive(Debug)]
 pub struct OpensbiRequest {
     pub regs: opensbi_sys::sbi_trap_regs,
 }

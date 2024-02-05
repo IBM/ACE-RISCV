@@ -23,6 +23,10 @@ pub struct HartArchitecturalState {
     pub vscause: usize,
     pub vstval: usize,
     pub vsatp: usize,
+    // timer-related
+    // vstimecmp is provided by the Sstc (supervisor arch extensions for timecmp)
+    pub vstimecmp: usize,
+    pub htimedelta: usize,
     // virtualization-related
     pub hvip: usize,
     pub hgatp: usize,
@@ -96,6 +100,9 @@ impl HartArchitecturalState {
             vscause: existing.vscause,
             vstval: existing.vstval,
             vsatp: existing.vsatp,
+            // timer-related
+            vstimecmp: existing.vstimecmp,
+            htimedelta: existing.htimedelta,
             // F-extension
             fprs: existing.fprs.clone(),
             fcsr: existing.fcsr,
@@ -121,6 +128,8 @@ impl HartArchitecturalState {
             vsepc: 0,
             vscause: 0,
             vstval: 0,
+            vstimecmp: usize::MAX - 1,
+            htimedelta: 0,
             hvip: 0,
             vsatp: 0,
             hgatp: 0,
@@ -170,6 +179,10 @@ impl HartArchitecturalState {
         self.vstval = 0;
         self.hvip = 0;
         self.vsatp = 0;
+        // set the timer interrupt to happen in 'infinity'
+        self.vstimecmp = usize::MAX - 1;
+        // TODO: set to the timer value observed during the confidential VM start?
+        self.htimedelta = 0;
         // TODO: what should be the sstatus on reset?
         // self.sstatus = 0;
         self.vsstatus = 0;

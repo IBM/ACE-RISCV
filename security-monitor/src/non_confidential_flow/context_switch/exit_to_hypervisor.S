@@ -64,7 +64,7 @@ exit_to_hypervisor_asm:
     csrw        hideleg, t0
     ld          t0, ({HART_HEDELEG_OFFSET})(a0)
     csrw        hedeleg, t0
-    # set the trap vector, so S/VS ecall invokes the security monitor
+    # set the trap vector, so HS/VS ecall invokes the security monitor
     la		    t0, enter_from_hypervisor_or_vm_asm
 	csrw	    mtvec, t0
 
@@ -96,7 +96,7 @@ exit_to_hypervisor_asm:
     ld          t0, ({HART_SSCRATCH_OFFSET})(a0)
     csrw        sscratch, t0
 
-    # zeroize VS-mode CSRs: 
+    # TODO: only zeroize VS-mode CSRs when coming from the CVM
     li	        t0, 0
     csrw        vsstatus, t0
     csrw        vsie, t0

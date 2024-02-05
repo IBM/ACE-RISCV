@@ -27,3 +27,14 @@ impl SbiHsmHartSuspend {
         Self { suspend_type, resume_address, opaque }
     }
 }
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SbiHsmHartStatus {
+    pub confidential_hart_id: usize,
+}
+
+impl SbiHsmHartStatus {
+    pub fn new(confidential_hart_id: usize) -> Self {
+        Self { confidential_hart_id }
+    }
+}

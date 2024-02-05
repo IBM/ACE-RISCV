@@ -96,8 +96,6 @@ pub enum InitType {
     NotEnoughMemory,
     #[error("Invalid memory boundaries")]
     MemoryBoundary,
-    #[error("Invalid assembly address")]
-    InvalidAssemblyAddress,
 }
 
 #[derive(Error, Debug)]

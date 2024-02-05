@@ -15,10 +15,6 @@ pub struct SbiResult {
 impl SbiResult {
     const ECALL_INSTRUCTION_LENGTH: usize = 4;
 
-    pub fn with_mstatus(a0: usize, a1: usize, pc_offset: usize) -> Self {
-        Self { a0, a1, pc_offset }
-    }
-
     pub fn ecall(hart_state: &HartArchitecturalState) -> Self {
         Self::new(hart_state.gpr(GpRegister::a0), hart_state.gpr(GpRegister::a1), Self::ECALL_INSTRUCTION_LENGTH)
     }

@@ -7,7 +7,7 @@ use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
     ConvertToConfidentialVm, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InterruptRequest, MmioLoadRequest,
-    MmioStoreRequest, OpensbiRequest, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
+    MmioStoreRequest, OpensbiRequest, OpensbiResult, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
 };
 
 #[repr(C)]
@@ -82,6 +82,7 @@ impl HardwareHart {
             ExposeToHypervisor::SbiRequest(v) => self.apply_sbi_request(v),
             ExposeToHypervisor::SbiVmRequest(v) => self.apply_sbi_vm_request(v),
             ExposeToHypervisor::SbiResult(v) => self.apply_sbi_result(v),
+            ExposeToHypervisor::OpensbiResult(v) => self.apply_opensbi_result(v),
             ExposeToHypervisor::MmioLoadRequest(v) => self.apply_mmio_load_request(v),
             ExposeToHypervisor::MmioStoreRequest(v) => self.apply_mmio_store_request(v),
             ExposeToHypervisor::InterruptRequest(v) => self.apply_interrupt_request(v),
@@ -92,6 +93,31 @@ impl HardwareHart {
         self.non_confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
         self.non_confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
         self.non_confidential_hart_state.mepc += result.pc_offset();
+    }
+
+    fn apply_opensbi_result(&mut self, result: &OpensbiResult) {
+        // this is a temporal solution to reflect changes to the state made by OpenSBI execution. Eventually, we will reimplement context
+        // switches that would improve performance and enable better integration with OpenSBI.
+        self.non_confidential_hart_state.hstatus = result.hstatus;
+        self.non_confidential_hart_state.htval = result.htval;
+        self.non_confidential_hart_state.htinst = result.htinst;
+        self.non_confidential_hart_state.vsstatus = result.vsstatus;
+        self.non_confidential_hart_state.vstval = result.vstval;
+        self.non_confidential_hart_state.vscause = result.vscause;
+        self.non_confidential_hart_state.stval = result.stval;
+        self.non_confidential_hart_state.scause = result.scause;
+        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap();
+        let new_mepc = if self.non_confidential_hart_state.vsepc != result.vsepc {
+            result.vsepc
+        } else if self.non_confidential_hart_state.sepc != result.sepc {
+            result.sepc
+        } else {
+            result.trap_regs.mepc.try_into().unwrap()
+        };
+        self.non_confidential_hart_state.mepc = new_mepc;
+        self.non_confidential_hart_state.set_gpr(GpRegister::a0, result.trap_regs.a0.try_into().unwrap());
+        self.non_confidential_hart_state.set_gpr(GpRegister::a1, result.trap_regs.a1.try_into().unwrap());
+        // TODO: what about the rest of registers?
     }
 
     fn apply_sbi_vm_request(&mut self, request: &SbiVmRequest) {
@@ -164,6 +190,7 @@ impl HardwareHart {
         //  - htinst to learn about faulting instructions
         self.non_confidential_hart_state.stval = request.stval();
         self.non_confidential_hart_state.htval = request.htval();
+        self.non_confidential_hart_state.htinst = request.instruction();
         self.non_confidential_hart_state.set_gpr(request.gpr(), request.gpr_value());
 
         // hack: we do not allow the hypervisor to look into the guest memory

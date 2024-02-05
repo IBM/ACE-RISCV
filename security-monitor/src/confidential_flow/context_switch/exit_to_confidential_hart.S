@@ -66,6 +66,13 @@ exit_to_confidential_hart_asm:
     ld	        t0, ({HART_VSATP_OFFSET})(a0)
     csrw        vsatp, t0
 
+    # timer-related registers
+    # vstimecmp is introduces as part of the Zstc extension
+    ld	        t0, ({HART_VSTIMECMP_OFFSET})(a0)
+    csrw        vstimecmp, t0
+    ld	        t0, ({HART_HTIMEDELTA_OFFSET})(a0)
+    csrw        htimedelta, t0
+
     # restore S-mode specific CSRs
     ld	        t0, ({HART_SSTATUS_OFFSET})(a0)
     csrw        sstatus, t0
@@ -74,7 +81,7 @@ exit_to_confidential_hart_asm:
     # ld	        t0, ({HART_SCOUNTEREN_OFFSET})(a0)
     # csrw        scounteren, t0
     # ld	        t0, ({HART_HVIP_OFFSET})(a0)
-    # inject interrupts
+    # inject interrupts via hvip
     ld	        t0, ({HART_HVIP_OFFSET})(a0)
     csrw        hvip, t0
     ld	        t0, ({HART_HSTATUS_OFFSET})(a0)

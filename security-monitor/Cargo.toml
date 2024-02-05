@@ -2,47 +2,41 @@
 name = "security-monitor"
 version = "0.3.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
-description = "Security monitor implementation for the canonical confidential computing for RISC-V"
+description = "Assured Confidential Execution (ACE): security monitor implementation targetting RISC-V"
 edition = "2021"
 
 [dependencies]
-# This crate simplifies access to RISC-V registers
-# we do not use the upstream version because it still lacks
-# support for the hypervisor extension
+# This crate simplifies access to RISC-V registers we do not use the upstream version because it still 
+# lacks support for the hypervisor extension
 riscv = {path = "rust-crates/riscv"}
 
-riscv-decode = "0.2" # decodes RISC-V instructions unfortunately it does not support the C-instructions yet
+# This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
+riscv-decode = "0.2" 
 
-# flattened device tree parser
+# The `fdt` crate provides a parser of flattened device tree (FDT) data. Used in the initialization procedure
+# and when converting a VM into a confidential VM.
 fdt = "0.1.5"
 
 # Rust bindings to OpenSBI C code.
 opensbi-sys = {path = "rust-crates/opensbi-sys"}
 
-# spin provides synchronization primitives (Mutexes etc) using spinlocks
+# The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
-# custom utility library to work with raw pointers. We can get rid of it in future
-# if there is equivalent for it in the standard library
+# This is our custom utility library to work with raw pointers. We might get rid of it in future, once there is
+# an equivalent for it in the standard Rust library
 pointers_utility = {path = "rust-crates/pointers_utility"}
 
-# allows parsing untrusted input without using unsafe rust
-# used commonly in safety&security critical applications
-# for example, in cryptographic libraries
-# untrusted = "0.9"
+# Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by 
+# assembly code in the context switch implementation.
+memoffset = { version = "0.8", default-features = false, features = ["unstable_const"] }
 
-# provides macros that help removing boilerplate code in rust error handling
+# provides macros that help removing boilerplate code in the rust error handling
 thiserror-no-std = "2.0" 
 
-[dependencies.memoffset]
-version = "0.8"
-features = ["unstable_const"]
-
 [lib]
-name="sm"
+name="ace"
 crate-type=["staticlib"]
-
-[build-dependencies]
 
 [features]
 # verbose feature enables printing out debug information from the security monitor

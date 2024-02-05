@@ -33,6 +33,6 @@ mkdir -p ${WORK_DIR}
 cd ${OPENSBI_SOURCE_DIR}/
 
 make CROSS_COMPILE=${CROSS_COMPILE} O=${WORK_DIR} PLATFORM=generic -j$(nproc) 
-make CROSS_COMPILE=${CROSS_COMPILE} I=${WORK_DIR} PLATFORM=generic install
+make CROSS_COMPILE=${CROSS_COMPILE} I=${WORK_DIR} PLATFORM=generic install  -j$(nproc) 
 
 echo "export PATH=${WORK_DIR}/lib:${WORK_DIR}/bin:\${PATH}" >> ${INSTALL_DIR}/env

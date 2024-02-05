@@ -10,8 +10,9 @@ pub use interrupt_request::InterruptRequest;
 pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
+pub use opensbi_result::OpensbiResult;
 pub use resume_request::ResumeRequest;
-pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartSuspend};
+pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
 pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;
@@ -21,6 +22,7 @@ pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::SharePageRequest;
 pub use share_page_result::SharePageResult;
 pub use terminate_request::TerminateRequest;
+pub use unshare_page_request::UnsharePageRequest;
 
 mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
@@ -31,6 +33,7 @@ mod interrupt_request;
 mod mmio_load_request;
 mod mmio_store_request;
 mod opensbi_request;
+mod opensbi_result;
 mod resume_request;
 mod sbi_hsm;
 mod sbi_ipi;
@@ -42,11 +45,13 @@ mod sbi_vm_request;
 mod share_page_request;
 mod share_page_result;
 mod terminate_request;
+mod unshare_page_request;
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum ExposeToHypervisor {
     SbiRequest(SbiRequest),
     SbiResult(SbiResult),
+    OpensbiResult(OpensbiResult),
     SbiVmRequest(SbiVmRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),

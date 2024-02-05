@@ -43,16 +43,6 @@ pub fn __print_pmp_configuration() {
     let pmp1cfg = pmpcfg0.into_config(1);
     debug!("pmp1 value: {:x}, shifted {:x}", pmp1, pmp1 << PMP_SHIFT);
     debug!("pmp1 cfg: {:?}", pmp1cfg);
-
-    let pmp2 = riscv::register::pmpaddr2::read();
-    let pmp2cfg = pmpcfg0.into_config(2);
-    debug!("pmp2 value: {:x}, shifted {:x}", pmp2, pmp2 << PMP_SHIFT);
-    debug!("pmp2 cfg: {:?}", pmp2cfg);
-
-    let pmp3 = riscv::register::pmpaddr3::read();
-    let pmp3cfg = pmpcfg0.into_config(3);
-    debug!("pmp3 value: {:x}, shifted {:x}", pmp3, pmp3 << PMP_SHIFT);
-    debug!("pmp3 cfg: {:?}", pmp3cfg);
 }
 
 #[cfg(feature = "verbose")]

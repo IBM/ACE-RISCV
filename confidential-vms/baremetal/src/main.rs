@@ -82,6 +82,11 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
     };
 
     // time to test multi-cpu setup
+    match sbi::hart_state_management::hart_status(0x1) {
+        Ok(status) => uart.println(&format!("HSM hart_status: hart 0x1 status={:?}", status)),
+        Err(error) => uart.println(&format!("HSM hart_start: error {:?}", error)),
+    };
+
     let boot_address_asm = (_secondary_start as *const fn()) as usize;
     match sbi::hart_state_management::hart_start(0x1, boot_address_asm, 0) {
         Ok(_) => uart.println("HSM hart_start: success"),
@@ -91,10 +96,12 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
     match sbi::hart_state_management::hart_status(0x1) {
         Ok(status) => uart.println(&format!("HSM hart_status: hart 0x1 status={:?}", status)),
         Err(error) => uart.println(&format!("HSM hart_start: error {:?}", error)),
-    };    
+    };
 
     loop {
-        // do nothing, wait for hart 1 to terminate the VM
+        let time_value = riscv::register::time::read();
+        uart.println(&format!("Hart {} time {}", hart_id, time_value));
+        // wait for hart 1 to terminate the VM
     }
 }
 

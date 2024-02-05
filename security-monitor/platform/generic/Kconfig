@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: BSD-2-Clause
+
+config PLATFORM_GENERIC
+	bool
+	select FDT
+	select FDT_DOMAIN
+	select FDT_PMU
+	default y
+
+if PLATFORM_GENERIC
+
+config PLATFORM_GENERIC_NAME
+	string "Platform default name"
+	default "Generic"
+
+config PLATFORM_GENERIC_MAJOR_VER
+	int "Platform major version"
+	range 0 65535
+	default 0
+
+config PLATFORM_GENERIC_MINOR_VER
+	int "Platform minor version"
+	range 0 65535
+	default 1
+
+endif

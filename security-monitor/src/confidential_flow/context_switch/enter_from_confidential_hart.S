@@ -105,6 +105,13 @@ enter_from_confidential_hart_asm:
     csrr        t0, vsatp
     sd	        t0, ({HART_VSATP_OFFSET})(a0)
 
+    # timer-related registers
+    # vstimecmp is introduces as part of the Zstc extension
+    csrr        t0, vstimecmp
+    sd	        t0, ({HART_VSTIMECMP_OFFSET})(a0)
+    csrr        t0, htimedelta
+    sd	        t0, ({HART_HTIMEDELTA_OFFSET})(a0)
+
     # virtualization-related CSRs
     csrr        t0, hvip
     sd	        t0, ({HART_HVIP_OFFSET})(a0)

@@ -42,6 +42,9 @@ devtools: setup
 hypervisor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor
 
+new_patches:
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor new_patches
+
 cvms: setup devtools hypervisor
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CVMS_SOURCE_DIR)/baremetal/ debug ; \
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor overlay rootfs;
@@ -52,7 +55,7 @@ firmware: setup devtools hypervisor
 emulator: setup devtools
 	if [ ! -f "${QEMU_WORK_DIR}/bin/qemu-system-riscv64" ]; then \
 		mkdir -p $(QEMU_WORK_DIR); \
-		cd $(QEMU_SOURCE_DIR); ./configure --prefix=$(QEMU_WORK_DIR) --target-list=riscv64-softmmu,riscv64-linux-user; \
+		cd $(QEMU_SOURCE_DIR); ./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu,riscv64-linux-user; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) >/dev/null; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) install; \
 	fi

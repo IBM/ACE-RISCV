@@ -5,8 +5,8 @@ use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, HartArchit
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
     ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest, GuestStorePageFaultResult,
-    InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI,
-    SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
+    InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi,
+    SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest, UnsharePageRequest,
 };
 use crate::error::Error;
 
@@ -34,7 +34,9 @@ impl ConfidentialHart {
     /// Constructs a dummy hart. This dummy hart carries no confidential information. It is used to indicate that a real
     /// confidential hart has been assigned to a hardware hart for execution.
     pub fn dummy(id: usize) -> Self {
-        Self::new(HartArchitecturalState::empty(id), HartLifecycleState::Stopped)
+        // The lifecycle state of the dummy hart is Started because it means that the confidential hart is assigned for execution and this
+        // is only possible when the confidential hart is in the Started state.
+        Self::new(HartArchitecturalState::empty(id), HartLifecycleState::Started)
     }
 
     /// Constructs a confidential hart with the state after a reset.
@@ -102,10 +104,6 @@ impl ConfidentialHart {
         !self.is_dummy() && hart_states_allowed_to_resume.contains(&self.lifecycle_state)
     }
 
-    pub fn is_shutdown(&self) -> bool {
-        !self.is_dummy() && self.lifecycle_state == HartLifecycleState::Shutdown
-    }
-
     /// Stores a pending request inside the confidential hart's state. Before the next execution of this confidential
     /// hart, the security monitor will declassify a response to this request that should come from another security
     /// domain, like hypervisor.
@@ -121,6 +119,10 @@ impl ConfidentialHart {
 // other confidential hart (stopped->started), or hypervisor (suspend->started). Check out the SBI' HSM extensions for
 // more details.
 impl ConfidentialHart {
+    pub fn lifecycle_state(&self) -> &HartLifecycleState {
+        &self.lifecycle_state
+    }
+
     /// Changes the lifecycle state of the hart into the `StartPending` state. Confidential hart's state is set as if
     /// the hart was reset. This function is called as a response of another confidential hart (typically a boot hart)
     /// to start another confidential hart. Returns error if the confidential hart is not in stopped state.
@@ -285,8 +287,12 @@ impl ConfidentialHart {
         let shared_page_address = self.confidential_hart_state.gpr(GpRegister::a0);
         let share_page_request = SharePageRequest::new(shared_page_address)?;
         let sbi_request = SbiRequest::kvm_ace_page_in(shared_page_address);
-
         Ok((share_page_request, sbi_request))
+    }
+
+    pub fn unshare_page_request(&self) -> Result<UnsharePageRequest, Error> {
+        let page_to_unshare_address = self.confidential_hart_state.gpr(GpRegister::a0);
+        Ok(UnsharePageRequest::new(page_to_unshare_address)?)
     }
 
     pub fn sbi_ipi(&self) -> InterHartRequest {
@@ -307,6 +313,11 @@ impl ConfidentialHart {
         let resume_addr = self.confidential_hart_state.gpr(GpRegister::a1);
         let opaque = self.confidential_hart_state.gpr(GpRegister::a2);
         SbiHsmHartSuspend::new(suspend_type, resume_addr, opaque)
+    }
+
+    pub fn sbi_hsm_hart_status(&self) -> SbiHsmHartStatus {
+        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
+        SbiHsmHartStatus::new(confidential_hart_id)
     }
 
     pub fn sbi_remote_fence_i(&self) -> InterHartRequest {

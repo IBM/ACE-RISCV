@@ -7,7 +7,7 @@
 /// confidential hart without the need to go through the StopPending or SuspendPending states. We introduced one
 /// additional lifecycle state `Shutdown` that represents a final state of the confidential hart that has been shutdown
 /// as part of the `VM shutdown` procedure.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum HartLifecycleState {
     Started,
     Stopped,
@@ -30,4 +30,18 @@ pub enum HartLifecycleState {
     // been shutdown and cannot be used anymore. When all confidential harts are shutdown the confidential VM can be
     // removed from the control data.
     Shutdown,
+}
+
+impl HartLifecycleState {
+    /// Returns the HSM state id, which is a number assigned to a specific state defined by the SBI HSM extension specification.
+    pub fn sbi_code(&self) -> usize {
+        match self {
+            Self::Started => 0,
+            Self::Stopped => 1,
+            Self::StartPending => 2,
+            Self::Suspended => 4,
+            // Shutdown state is not part of the SBI spec, we represent it as Stopped
+            Self::Shutdown => 1,
+        }
+    }
 }

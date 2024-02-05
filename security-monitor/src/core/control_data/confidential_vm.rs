@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
@@ -94,7 +95,7 @@ impl ConfidentialVm {
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {
-        self.confidential_harts.iter().filter(|confidential_hart| !confidential_hart.is_shutdown()).count() == 0
+        self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::Shutdown).count() == 0
     }
 
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
@@ -145,6 +146,12 @@ impl ConfidentialVm {
                 }
                 Ok(())
             })
+    }
+
+    /// Returns the lifecycle state of the confidential hart
+    pub fn confidential_hart_lifecycle_state(&self, confidential_hart_id: usize) -> Result<HartLifecycleState, Error> {
+        assure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
+        Ok(self.confidential_harts[confidential_hart_id].lifecycle_state().clone())
     }
 
     pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>

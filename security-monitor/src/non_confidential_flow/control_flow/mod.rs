@@ -38,17 +38,22 @@ impl<'a> NonConfidentialFlow<'a> {
 
         match self.hardware_hart.trap_reason() {
             Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            IllegalInstruction => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            LoadAddressMisaligned => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            LoadAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            StoreAddressMisaligned => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            HsEcall(Ace(ResumeConfidentialHart)) => resume::handle(self.hardware_hart.resume_request(), self),
+            HsEcall(Ace(TerminateConfidentialVm)) => terminate::handle(self.hardware_hart.terminate_request(), self),
+            HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             VsEcall(Ace(ConvertToConfidentialVm)) => {
                 convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
             }
             VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            HsEcall(Ace(ResumeConfidentialHart)) => resume::handle(self.hardware_hart.resume_request(), self),
-            HsEcall(Ace(TerminateConfidentialVm)) => terminate::handle(self.hardware_hart.terminate_request(), self),
-            HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            MachineEcall => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
             GuestStorePageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
-            _ => invalid_call::handle(self),
+            Unknown => invalid_call::handle(self),
         }
     }
 
