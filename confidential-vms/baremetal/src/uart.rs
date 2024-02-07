@@ -2,8 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use core::convert::TryInto;
-use core::fmt::Error;
-use core::fmt::Write;
+use core::fmt::{Error, Write};
 
 pub struct Uart {
     base_address: usize,

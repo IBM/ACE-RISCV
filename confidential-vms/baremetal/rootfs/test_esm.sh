@@ -5,9 +5,9 @@
 
 . common.sh
 
-run_baremetal
-sleep 15 # wait for the test to finish
-kill_baremetal
+run_confidential_vm "baremetal/baremetal" 2 128M
+sleep 25 # wait for the test to finish
+kill_confidential_vm
 
 result="$(grep 'Hello IBM from confidential VM' guest.log | wc -l)"
 if [[ "$result" -ne 1 ]]; then

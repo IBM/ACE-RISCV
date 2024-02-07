@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use core::{ptr::NonNull, sync::atomic::Ordering};
-use virtio_drivers::PAGE_SIZE;
-use virtio_drivers::{BufferDirection, Hal, PhysAddr};
+use core::ptr::NonNull;
+use core::sync::atomic::Ordering;
+use virtio_drivers::{BufferDirection, Hal, PhysAddr, PAGE_SIZE};
 
 pub struct ScratchPage {
     pub base_paddr: usize,
@@ -60,12 +60,7 @@ unsafe impl Hal for HalSvmImpl {
                 .and_then(|sp| {
                     let position = sp.position;
                     let paddr = sp.base_paddr + position;
-                    sp.translations.push(BufferTranslation {
-                        vaddr,
-                        paddr,
-                        position,
-                        len: buffer.len(),
-                    });
+                    sp.translations.push(BufferTranslation { vaddr, paddr, position, len: buffer.len() });
                     for i in 0..buffer.len() {
                         let input_ptr = (vaddr + i) as *mut u8;
                         let output_ptr = (sp.base_paddr + sp.position) as *mut u8;

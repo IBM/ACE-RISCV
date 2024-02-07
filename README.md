@@ -90,6 +90,11 @@ Build the firmware that will boot the system and the security monitor (SM)
 make firmware
 ```
 
+Build test confidential VMs
+```
+make confidential_vms
+```
+
 Build the RISC-V emulator and tools that will simplify running the test environment
 ```
 make emulator

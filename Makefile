@@ -6,24 +6,31 @@ MAKEFILE_PATH 							:= $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR 					:= $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 export ACE_DIR 							?= $(MAKEFILE_SOURCE_DIR)/build/
+# QEMU
 export QEMU_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/qemu/
 export QEMU_WORK_DIR					?= $(ACE_DIR)/qemu/
 export QEMU_RISCV_WORK_DIR				?= $(ACE_DIR)/qemu-riscv/
+# Riscv toolchain
 export RISCV_GNU_TOOLCHAIN_SOURCE_DIR	?= $(MAKEFILE_SOURCE_DIR)/riscv-gnu-toolchain/
 export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
-export CVMS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/confidential-vms
-export OVERLAY_ROOT_DIR					?= $(ACE_DIR)/overlay/root
-export LINUX_IMAGE						?= $(ACE_DIR)/linux/arch/riscv/boot/Image
+# Confidential VMs
+export CONFIDENTIAL_VMS_SOURCE_DIR		?= $(MAKEFILE_SOURCE_DIR)/confidential-vms
+# Hypervisor
+export HYPERVISOR_WORK_DIR				?= $(ACE_DIR)/hypervisor/
+export HYPERVISOR_OVERLAY_DIR			?= $(HYPERVISOR_WORK_DIR)/overlay
+export HYPERVISOR_OVERLAY_ROOT_DIR		?= $(HYPERVISOR_OVERLAY_DIR)/root
+export LINUX_IMAGE						?= $(HYPERVISOR_WORK_DIR)/buildroot/images/Image
+# Tools
 export TOOLS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/tools
 export TOOLS_WORK_DIR					?= $(ACE_DIR)/tools
-export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
 
+export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
 export PLATFORM_RISCV_XLEN				= 64
 export PLATFORM_RISCV_ISA				= rv64gc
 export PLATFORM_RISCV_ABI				= lp64d
 export PATH 							:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)
 
-all: emulator tools firmware cvms
+all: emulator tools firmware confidential_vms
 
 setup:
 	echo $(ACE_DIR)
@@ -45,9 +52,10 @@ hypervisor: setup devtools
 new_patches:
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor new_patches
 
-cvms: setup devtools hypervisor
-	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CVMS_SOURCE_DIR)/baremetal/ debug ; \
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor overlay rootfs;
+confidential_vms: setup devtools hypervisor
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" RELEASE="" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/baremetal/ ;\
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ ;\
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
 firmware: setup devtools hypervisor
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) LINUX_IMAGE=$(LINUX_IMAGE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C security-monitor opensbi

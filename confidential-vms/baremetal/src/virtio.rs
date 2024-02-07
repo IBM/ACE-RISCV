@@ -6,15 +6,12 @@ use core::ptr::NonNull;
 use fdt::node::FdtNode;
 use fdt::Fdt;
 use virtio_drivers::device::blk::VirtIOBlk;
-use virtio_drivers::transport::mmio::VirtIOHeader;
-use virtio_drivers::transport::{mmio::MmioTransport, DeviceType, Transport};
+use virtio_drivers::transport::mmio::{MmioTransport, VirtIOHeader};
+use virtio_drivers::transport::{DeviceType, Transport};
 
 pub fn get_block_device(dtb: usize) -> Option<VirtIOBlk<HalSvmImpl, MmioTransport>> {
     let transport = get_transport(dtb).expect("blk device not found");
-    Some(
-        VirtIOBlk::<HalSvmImpl, MmioTransport>::new(transport)
-            .expect("failed to create blk driver"),
-    )
+    Some(VirtIOBlk::<HalSvmImpl, MmioTransport>::new(transport).expect("failed to create blk driver"))
 }
 
 pub fn get_transport(dtb: usize) -> Option<MmioTransport> {
