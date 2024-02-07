@@ -62,31 +62,36 @@ impl<'a> MemoryTracker {
 
         let mut map = BTreeMap::new();
         let memory_layout = MemoryLayout::read();
-        let mut page_address = memory_start;
-        for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
-            let free_memory_in_bytes = usize::try_from(page_address.offset_from(memory_end))?;
-            let number_of_new_pages = free_memory_in_bytes / page_size.in_bytes();
-            let new_pages = (0..number_of_new_pages)
-                .map(|i| {
-                    let page_offset_in_bytes = i * page_size.in_bytes();
-                    let address =
-                        memory_layout.confidential_address_at_offset_bounded(&mut page_address, page_offset_in_bytes, memory_end)?;
-                    // Safety: It is safe to create this page token here if:
-                    // 1) this `MemoryTracker` constructor is guaranteed to be called only once
-                    // during the system lifetime
-                    // 2) all pages created here are guaranteed to be disjoined.
-                    let new_page = Page::<UnAllocated>::init(address, page_size.clone());
-                    Ok(new_page)
-                })
-                .collect::<Result<Vec<_>, Error>>()?;
-            debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);
-            let pages_size_in_bytes = new_pages.len() * page_size.in_bytes();
-            map.insert(page_size.clone(), new_pages);
 
-            match memory_layout.confidential_address_at_offset_bounded(&mut page_address, pages_size_in_bytes, memory_end) {
-                Ok(ptr) => page_address = ptr,
-                Err(_) => break,
-            }
+        let mut next_page_address = Ok(memory_start);
+        for page_size in &[PageSize::Size1GiB, PageSize::Size2MiB, PageSize::Size4KiB] {
+            let new_pages = match next_page_address {
+                Ok(mut page_address) => {
+                    let free_memory_in_bytes = usize::try_from(page_address.offset_from(memory_end))?;
+                    let number_of_new_pages = free_memory_in_bytes / page_size.in_bytes();
+                    let occupied_memory_in_bytes = number_of_new_pages * page_size.in_bytes();
+                    next_page_address =
+                        memory_layout.confidential_address_at_offset_bounded(&mut page_address, occupied_memory_in_bytes, memory_end);
+                    (0..number_of_new_pages)
+                        .map(|page_number| {
+                            let page_offset_in_bytes = page_number * page_size.in_bytes();
+                            let address = memory_layout.confidential_address_at_offset_bounded(
+                                &mut page_address,
+                                page_offset_in_bytes,
+                                memory_end,
+                            )?;
+                            // Safety: It is safe to create this page token here if:
+                            // 1) this `MemoryTracker` constructor is guaranteed to be called only once
+                            // during the system lifetime
+                            // 2) all pages created here are guaranteed to be disjoined.
+                            Ok(Page::<UnAllocated>::init(address, page_size.clone()))
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?
+                }
+                Err(_) => Vec::<_>::with_capacity(512),
+            };
+            debug!("Created {} page tokens of size {:?}", new_pages.len(), page_size);
+            map.insert(page_size.clone(), new_pages);
         }
 
         Ok(Self { map })
@@ -94,7 +99,7 @@ impl<'a> MemoryTracker {
 
     pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|tracker| Ok(tracker.acquire(number_of_pages, page_size)))?;
-        assure_not!(pages.is_empty(), Error::OutOfMemory())?;
+        assure_not!(pages.is_empty(), Error::OutOfPages())?;
         Ok(pages)
     }
 
@@ -143,11 +148,12 @@ impl<'a> MemoryTracker {
     }
 
     /// Tries to divide a page of size 'from' into smaller pages
-    fn divide_page(&mut self, from: PageSize) -> bool {
-        if let Some(to) = from.smaller() {
-            if let Some(page) = self.map.get_mut(&from).and_then(|pages| pages.pop()) {
-                if let Some(ref mut pages) = self.map.get_mut(&to) {
-                    pages.append(&mut page.divide());
+    fn divide_page(&mut self, from_size: PageSize) -> bool {
+        if let Some(to_size) = from_size.smaller() {
+            if let Some(page) = self.map.get_mut(&from_size).and_then(|pages| pages.pop()) {
+                if let Some(ref mut pages) = self.map.get_mut(&to_size) {
+                    let mut v = page.divide();
+                    pages.append(&mut v);
                     return true;
                 }
             }

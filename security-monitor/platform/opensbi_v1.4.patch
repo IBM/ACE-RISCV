@@ -57,3 +57,154 @@ index 770fee0..fa87f0d 100644
  	/*
  	 * As per section 3.7.2 of privileged specification v1.12,
  	 * virtual address translations can be speculatively performed
+diff --git a/lib/sbi/sbi_hart.c b/lib/sbi/sbi_hart.c
+index 770fee0..e103675 100644
+--- a/lib/sbi/sbi_hart.c
++++ b/lib/sbi/sbi_hart.c
+@@ -26,6 +26,7 @@
+ 
+ extern void __sbi_expected_trap(void);
+ extern void __sbi_expected_trap_hext(void);
++extern void ace_setup_this_hart();
+ 
+ void (*sbi_hart_expected_trap)(void) = &__sbi_expected_trap;
+ 
+@@ -369,7 +370,10 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
+ 	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
+ 
+ 	/* Program M-only regions when MML is not set. */
+-	pmp_idx = 0;
++	// ACE start
++	// we need first two PMP entries to protect the confidential memory
++	pmp_idx = 2;
++	// ACE end
+ 	sbi_domain_for_each_memregion(dom, reg) {
+ 		/* Skip reserved entry */
+ 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
+@@ -432,7 +436,10 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
+ {
+ 	struct sbi_domain_memregion *reg;
+ 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
+-	unsigned int pmp_idx = 0;
++	// ACE start
++	// we need first two PMP entries to protect the confidential memory
++	unsigned int pmp_idx = 2;
++	// ACE end
+ 	unsigned int pmp_flags;
+ 	unsigned long pmp_addr;
+ 
+@@ -523,6 +530,11 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
+ 	if (!pmp_count)
+ 		return 0;
+ 
++	// ACE START
++	// we need 2 pmps to protect confidential memory region
++	pmp_count = pmp_count - 2;
++	// ACE END
++
+ 	pmp_log2gran = sbi_hart_pmp_log2gran(scratch);
+ 	pmp_bits = sbi_hart_pmp_addrbits(scratch) - 1;
+ 	pmp_addr_max = (1UL << pmp_bits) | ((1UL << pmp_bits) - 1);
+@@ -534,6 +546,10 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
+ 		rc = sbi_hart_oldpmp_configure(scratch, pmp_count,
+ 						pmp_log2gran, pmp_addr_max);
+ 
++	// ACE START
++	// temporal hack to reconfigure PMPs after they have been reconfigured by OpenSBI.
++	ace_setup_this_hart();
++	// ACE END
+ 	/*
+ 	 * As per section 3.7.2 of privileged specification v1.12,
+ 	 * virtual address translations can be speculatively performed
+diff --git a/lib/sbi/sbi_init.c b/lib/sbi/sbi_init.c
+index 6a98e13..e4bac24 100644
+--- a/lib/sbi/sbi_init.c
++++ b/lib/sbi/sbi_init.c
+@@ -385,16 +385,20 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
+ 		sbi_hart_hang();
+ 	}
+ 
++	sbi_printf("ACE TEST %d\n", hartid);
+ 	sbi_boot_print_general(scratch);
+ 
++	sbi_printf("ACE TEST2 %d\n", hartid);
+ 	sbi_boot_print_domains(scratch);
+ 
++	sbi_printf("ACE TEST3 %d\n", hartid);
+ 	sbi_boot_print_hart(scratch, hartid);
+ 
+ 	/*
+ 	 * Configure PMP at last because if SMEPMP is detected,
+ 	 * M-mode access to the S/U space will be rescinded.
+ 	 */
++	 sbi_printf("ACE TEST4 %d\n", hartid);
+ 	rc = sbi_hart_pmp_configure(scratch);
+ 	if (rc) {
+ 		sbi_printf("%s: PMP configure failed (error %d)\n",
+@@ -402,6 +406,7 @@ static void __noreturn init_coldboot(struct sbi_scratch *scratch, u32 hartid)
+ 		sbi_hart_hang();
+ 	}
+ 
++	sbi_printf("ACE TEST5 %d\n", hartid);
+ 	wake_coldboot_harts(scratch, hartid);
+ 
+ 	count = sbi_scratch_offset_ptr(scratch, init_count_offset);
+diff --git a/lib/sbi/sbi_hart.c b/lib/sbi/sbi_hart.c
+index 770fee0..e103675 100644
+--- a/lib/sbi/sbi_hart.c
++++ b/lib/sbi/sbi_hart.c
+@@ -26,6 +26,7 @@
+ 
+ extern void __sbi_expected_trap(void);
+ extern void __sbi_expected_trap_hext(void);
++extern void ace_setup_this_hart();
+ 
+ void (*sbi_hart_expected_trap)(void) = &__sbi_expected_trap;
+ 
+@@ -369,7 +370,10 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
+ 	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
+ 
+ 	/* Program M-only regions when MML is not set. */
+-	pmp_idx = 0;
++	// ACE start
++	// we need first two PMP entries to protect the confidential memory
++	pmp_idx = 2;
++	// ACE end
+ 	sbi_domain_for_each_memregion(dom, reg) {
+ 		/* Skip reserved entry */
+ 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
+@@ -432,7 +436,10 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
+ {
+ 	struct sbi_domain_memregion *reg;
+ 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
+-	unsigned int pmp_idx = 0;
++	// ACE start
++	// we need first two PMP entries to protect the confidential memory
++	unsigned int pmp_idx = 2;
++	// ACE end
+ 	unsigned int pmp_flags;
+ 	unsigned long pmp_addr;
+ 
+@@ -523,6 +530,11 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
+ 	if (!pmp_count)
+ 		return 0;
+ 
++	// ACE START
++	// we need 2 pmps to protect confidential memory region
++	pmp_count = pmp_count - 2;
++	// ACE END
++
+ 	pmp_log2gran = sbi_hart_pmp_log2gran(scratch);
+ 	pmp_bits = sbi_hart_pmp_addrbits(scratch) - 1;
+ 	pmp_addr_max = (1UL << pmp_bits) | ((1UL << pmp_bits) - 1);
+@@ -534,6 +546,10 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
+ 		rc = sbi_hart_oldpmp_configure(scratch, pmp_count,
+ 						pmp_log2gran, pmp_addr_max);
+ 
++	// ACE START
++	// temporal hack to reconfigure PMPs after they have been reconfigured by OpenSBI.
++	ace_setup_this_hart();
++	// ACE END
+ 	/*
+ 	 * As per section 3.7.2 of privileged specification v1.12,
+ 	 * virtual address translations can be speculatively performed

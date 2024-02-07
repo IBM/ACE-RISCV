@@ -26,7 +26,6 @@ impl ConfidentialVmMemoryProtector {
     pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
         let hgatp = Hgatp::from(hart_state.hgatp);
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
-
         Ok(Self { root_page_table, hgatp: 0 })
     }
 
