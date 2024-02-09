@@ -37,6 +37,7 @@ pub enum AceExtension {
     ConvertToConfidentialVm,
     ResumeConfidentialHart,
     TerminateConfidentialVm,
+    PrintDebugInfo,
     Unknown(usize, usize),
 }
 
@@ -51,6 +52,7 @@ impl AceExtension {
             1000 => Self::ConvertToConfidentialVm,
             1010 => Self::ResumeConfidentialHart,
             3001 => Self::TerminateConfidentialVm,
+            8000 => Self::PrintDebugInfo,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

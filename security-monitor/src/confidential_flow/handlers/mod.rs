@@ -9,6 +9,7 @@ pub mod hypercall;
 pub mod hypercall_result;
 pub mod interrupt;
 pub mod invalid_call;
+pub mod print_debug_info;
 pub mod sbi_hsm_hart_start;
 pub mod sbi_hsm_hart_status;
 pub mod sbi_hsm_hart_stop;

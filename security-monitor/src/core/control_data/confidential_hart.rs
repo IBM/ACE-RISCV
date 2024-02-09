@@ -237,6 +237,7 @@ impl ConfidentialHart {
     }
 
     fn apply_guest_load_page_fault_result(&mut self, result: GuestLoadPageFaultResult) {
+        // debug!("MMIO load fault result: gpr={:?} value={:x}", result.result_gpr(), result.value());
         self.confidential_hart_state.set_gpr(result.result_gpr(), result.value());
         self.confidential_hart_state.mepc += result.instruction_length();
     }
@@ -248,6 +249,11 @@ impl ConfidentialHart {
 
 // Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
+    // TODO: remove below
+    pub fn debug(&self) -> HartArchitecturalState {
+        HartArchitecturalState::from_existing(0, &self.confidential_hart_state)
+    }
+
     pub fn trap_reason(&self) -> TrapReason {
         self.confidential_hart_state.trap_reason()
     }

@@ -60,10 +60,13 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::TrapReason::*;
 
         let confidential_hart = self.hardware_hart.confidential_hart();
+        let state = confidential_hart.debug();
+        // debug!("Trap reason={:?} mepc={:x}", confidential_hart.trap_reason(), state.mepc);
         match confidential_hart.trap_reason() {
             Interrupt => interrupt::handle(self),
             VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
             VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
+            VsEcall(Ace(PrintDebugInfo)) => print_debug_info::handle(confidential_hart.debug(), self),
             VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
@@ -95,6 +98,9 @@ impl<'a> ConfidentialFlow<'a> {
     /// This is an entry point to the confidential flow from the non-confidential flow.
     pub fn resume_confidential_hart_execution(hardware_hart: &'a mut HardwareHart) -> ! {
         let mut confidential_flow = Self::create(hardware_hart);
+
+        let state = confidential_flow.hardware_hart.debug_confidential_hart().debug();
+        // debug!("Resume CVM PC={:x}", state.mepc);
 
         // During the time when this confidential hart was not running, other confidential harts could have sent it
         // InterHartRequests. We must process them before resuming confidential hart's execution.
