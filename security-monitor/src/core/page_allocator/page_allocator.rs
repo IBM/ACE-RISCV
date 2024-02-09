@@ -157,8 +157,8 @@ impl<'a> PageAllocator {
             return vec![];
         }
 
-        // Checks if consecutive pages at the given range compose a continous memory region. The assumption is that pages are sorted.
-        // Thus, it is enough to look check if all neighboring page tokens compose a continous memory region.
+        // Checks if consecutive pages at the given range compose a continuous memory region. The assumption is that pages are sorted.
+        // Thus, it is enough to check if all neighbouring page tokens compose a continuous memory region.
         let is_memory_region_continous = |pages: &mut Vec<Page<UnAllocated>>, start_index: usize, end_index: usize| {
             (start_index..(end_index - 1))
                 .map(|page_index| pages[page_index].end_address() == pages[page_index + 1].start_address())
