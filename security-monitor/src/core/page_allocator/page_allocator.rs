@@ -106,7 +106,7 @@ impl<'a> PageAllocator {
     }
 
     /// Returns page tokens that all together have ownership over a continous unallocated memory region of the requested size. Returns error
-    /// if could not obtain write access to the global instance of the page allocator or if there is not enough page tokens satisfying the
+    /// if it could not obtain write access to the global instance of the page allocator or if there are not enough page tokens satisfying the
     /// requested criteria.
     pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size)))?;
