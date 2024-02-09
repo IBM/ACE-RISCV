@@ -56,7 +56,7 @@ impl<'a> PageAllocator {
     ///
     /// # Safety
     ///
-    /// This function must only be called only once during the system lifecycle. The caller must guarantee
+    /// This function must only be called once during the system lifecycle. The caller must guarantee
     /// that the PageAllocator becomes the exclusive owner of the memory region described by the input
     /// arguments.
     unsafe fn new(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<Self, Error> {
