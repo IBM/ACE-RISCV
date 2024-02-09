@@ -203,7 +203,7 @@ impl<'a> PageAllocator {
         }
     }
 
-    /// Tries to divide a page of the given size into smaller pages. Returns false if there is no page of the given size of the given size
+    /// Tries to divide a page of the given size into smaller pages. Returns false if there is no page of the given size or the given size
     /// is the smallest possible page size supported by the architecture.
     fn divide_page(&mut self, from_size: PageSize) -> bool {
         from_size
