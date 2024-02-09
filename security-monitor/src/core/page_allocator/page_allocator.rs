@@ -46,8 +46,8 @@ impl<'a> PageAllocator {
     /// # Arguments:
     ///
     /// `memory_start` address must be aligned to the smallest page size.
-    /// `memory_end` does not belong to the memory region owned by the PageAllocator. The total memory
-    /// size assigned to the PageAllocator must be a multiply of the smallest page size.
+    /// `memory_end` is one-past-the end of the memory region owned by the `PageAllocator`. The total memory
+    /// size assigned to the `PageAllocator` must be a multiple of the smallest page size.
     ///
     /// # Guarantees
     ///
