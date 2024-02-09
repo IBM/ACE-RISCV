@@ -15,9 +15,9 @@ const NOT_INITIALIZED_PAGE_ALLOCATOR: &str = "Bug. Could not access page allocat
 /// A static global structure containing unallocated pages. Once<> guarantees that it the PageAllocator can only be initialized once.
 static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 
-/// PageAllocator jobs is to pass ownership of free pages residing in the confidential memory. It guarantees that a physical page is not
-/// allocated twice. It does so by giving away page tokens that represent ownership of a physical page located in a confidental memory.
-/// PageAllocator constructor creates page tokens (maintaining an invariant that there are no two page tokens describing the same physical
+/// The `PageAllocator`'s job is to pass ownership of free pages residing in the confidential memory. It guarantees that a physical page is not
+/// allocated twice. It does so by giving away `Page` tokens that represent ownership of a physical page located in the confidental memory as described by `MemoryLayout`.
+/// `PageAllocator`'s constructor creates page tokens (maintaining an invariant that there are no two page tokens describing the same physical
 /// address).
 pub struct PageAllocator {
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
