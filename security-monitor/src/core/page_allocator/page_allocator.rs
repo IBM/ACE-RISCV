@@ -134,7 +134,7 @@ impl<'a> PageAllocator {
     }
 
     /// Returns vector of unallocated page tokens representing a continous memory region. If it failes to find allocation within free pages
-    /// of the requested size, it divides larger page tokens. Empty vector is returns if there are not enough page tokens in the system that
+    /// of the requested size, it divides larger page tokens. Empty vector is returned if there are not enough page tokens in the system that
     /// meet the requested criteria.
     fn acquire(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
         let mut available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size);
