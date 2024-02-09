@@ -120,7 +120,7 @@ impl HeapAllocator {
         match self.alloc_dynamic(layout) {
             Some(address) => address,
             None => {
-                debug!("Heap allocation failed. No more pages in the memory tracker");
+                debug!("Heap allocation failed. Could not add more memory to the heap because there are no more free pages in the page allocator");
                 panic!("Out of memory");
             }
         }
