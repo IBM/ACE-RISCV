@@ -28,9 +28,6 @@ CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
 all: setup buildroot
 
 setup:
-	env
-	uname -a
-	echo $(ACE_DIR)
 	@mkdir -p $(ACE_DIR)
 
 buildroot: setup

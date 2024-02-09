@@ -18,6 +18,7 @@ LINUX_VM_BUILDROOT_ROOTFS_SIZE		?= "5G"
 LINUX_VM_IMAGE						?= $(LINUX_VM_BUILDROOT_WORK_DIR)/images/Image
 LINUX_VM_KERNEL_CONFIG				?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/linux64-defconfig
 LINUX_VM_BUILDROOT_CONFIG			?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/qemu_riscv64_virt_defconfig
+LINUX_VM_BUILDROOT_OVERRIDE_DIR		?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/package_override.dev
 LINUX_VM_PATCHES_DIR				?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/patches/linux/6.3-rc4
 # overlays
 HYPERVISOR_OVERLAY_DIR				?= $(ACE_DIR)/hypervisor/overlay/
@@ -29,12 +30,9 @@ export PATH 						:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)
 
 CROSS_COMPILE						?= riscv64-unknown-linux-gnu-
 
-all: overlay
+all: buildroot
 
 setup:
-	env
-	uname -a
-	echo $(ACE_DIR)
 	@mkdir -p $(ACE_DIR)
 
 buildroot: setup
@@ -53,7 +51,11 @@ buildroot: setup
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV) PATH=$(PATH) O=$(LINUX_VM_BUILDROOT_WORK_DIR)  BR2_JLEVEL=0; \
 	fi
 
-overlay: setup buildroot 
+buildroot_linux_rebuild:
+	sed "s@^BR2_PACKAGE_OVERRIDE_FILE=.*@BR2_PACKAGE_OVERRIDE_FILE=\"$(LINUX_VM_BUILDROOT_OVERRIDE_DIR)\"@g" -i $(LINUX_VM_BUILDROOT_WORK_DIR)/.config; \
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV) PATH=$(PATH) O=$(LINUX_VM_BUILDROOT_WORK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BR2_JLEVEL=0 linux-rebuild all
+
+overlay: setup 
 	mkdir -p $(HYPERVISOR_OVERLAY_ROOT_DIR) ;\
 	cp $(LINUX_VM_ROOTFS_SOURCE_DIR)/*.sh $(HYPERVISOR_OVERLAY_ROOT_DIR)/ ;\
 	rm -rf $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\

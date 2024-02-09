@@ -54,7 +54,13 @@ new_patches:
 
 confidential_vms: setup devtools hypervisor
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" RELEASE="" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/baremetal/ ;\
-	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ ;\
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
+
+dev:
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot_linux_rebuild ;\
+	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
 firmware: setup devtools hypervisor

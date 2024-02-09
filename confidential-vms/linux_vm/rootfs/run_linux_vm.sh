@@ -53,11 +53,10 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     --enable-kvm \
     -machine virt -cpu rv64 -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
-    -append "root=/dev/vda ro console=ttyS0"  \
-    -drive if=none,format=raw,file=${DRIVE},id=hd0 \
-    -device virtio-blk-device,scsi=off,drive=hd0 \
     -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22 \
     -device virtio-net-device,netdev=net0 \
     -device virtio-rng-pci \
+    -append "root=/dev/vda ro console=ttyS0"  \
+    -drive if=none,format=raw,file=${DRIVE},id=hd0 \
+    -device virtio-blk-device,scsi=off,drive=hd0 \
     -nographic 
-
