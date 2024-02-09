@@ -196,7 +196,7 @@ impl<'a> PageAllocator {
                 // loop.
                 page_size_to_divide_next = page_size_to_divide_now.smaller();
             } else {
-                // in the case when there is no more page tokens in the system, the page_size_to_divide becomes eventually None and
+                // in the case when there are no more page tokens in the system, the page_size_to_divide becomes eventually None and
                 // exits the while loop.
                 page_size_to_divide_next = page_size_to_divide_now.larger();
             }
