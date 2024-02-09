@@ -99,7 +99,7 @@ impl<'a> PageAllocator {
                 // Safety: It is safe to create this page token here if:
                 // 1) this `MemoryTracker` constructor is guaranteed to be called only once
                 // during the system lifetime
-                // 2) all pages created here are guaranteed to be disjoined.
+                // 2) all pages created here are guaranteed to be disjoint.
                 Ok(Page::<UnAllocated>::init(address, page_size.clone()))
             })
             .collect::<Result<Vec<_>, Error>>()
