@@ -114,7 +114,7 @@ impl<'a> PageAllocator {
         Ok(pages)
     }
 
-    /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent of deallocation of the
+    /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
     /// physical memory region owned by the returned page tokens.
     ///
     /// TODO: to prevent fragmentation, run a procedure that will try to combine page tokens of smaller sizes into page tokens of bigger
