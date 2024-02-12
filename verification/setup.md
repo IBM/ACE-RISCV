@@ -31,11 +31,18 @@ opam switch link refinedrust-ace .
 
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/setup-coq.sh
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-typesystem.sh
+REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-stdlib.sh
 
 ```
-
 The setup script will setup your opam switch to include all dependencies of RefinedRust.
-Afterwards, we install Lithium (the proof automation engine RefinedRust uses) as well as RefinedRust itself.
+Afterwards, we install RefinedRust itself and its standard library specifications.
+
+#### Updating RefinedRust's Coq libraries
+To update for a new version of RefinedRust, update your checkout and then re-run the last two commands above from the verification subfolder of this repository:
+```
+REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-typesystem.sh
+REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-stdlib.sh
+```
 
 ### Installing the RefinedRust frontend
 
@@ -53,10 +60,17 @@ REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-frontend.sh
 This will install binaries `refinedrust-rustc` and `cargo-refinedrust` in your cargo path.
 This allows us to run `cargo refinedrust` in Rust projects.
 
+#### Updating RefinedRust's frontend
+To update for a new version of RefinedRust, update your checkout and then re-run the last command above from the verification subfolder of this repository:
+```
+REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-frontend.sh
+```
+
+
 ## Verifying the code
 
 Now, we are ready to run the verification.
-To that end, run
+To that end, run (from the root of the repository)
 ```
 make verify
 ```

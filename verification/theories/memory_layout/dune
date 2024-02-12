@@ -1,0 +1,6 @@
+(coq.theory
+ (name ace.theories.memory_layout)
+ (package ace)
+ (flags -w -notation-overridden -w -redundant-canonical-projection)
+ (synopsis "Manual proofs for ACE Security Monitor memory layout")
+ (theories stdpp iris Ltac2 caesium lithium lrust RecordUpdate Equations refinedrust))

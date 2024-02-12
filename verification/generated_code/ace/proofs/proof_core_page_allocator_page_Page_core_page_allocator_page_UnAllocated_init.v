@@ -6,7 +6,7 @@ From sm.ace.generated Require Import generated_template_core_page_allocator_page
 Set Default Proof Using "Type".
 
 Section proof.
-Context `{!typeGS Σ}.
+Context `{!refinedrustGS Σ}.
 Lemma core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_init_proof (π : thread_id) :
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_init_lemma π.
 Proof.

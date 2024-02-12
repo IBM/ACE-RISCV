@@ -44,6 +44,8 @@ jobs:
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/setup-coq.sh
     - name: Install RefinedRust type system
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-typesystem.sh
+    - name: Install RefinedRust stdlib
+      run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-stdlib.sh
     - name: install build dependencies
       run: sudo apt -qq -y install wget autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
     - name: install OpenSBI dependencies

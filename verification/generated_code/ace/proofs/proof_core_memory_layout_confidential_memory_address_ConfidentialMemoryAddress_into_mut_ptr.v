@@ -6,7 +6,7 @@ From sm.ace.generated Require Import generated_template_core_memory_layout_confi
 Set Default Proof Using "Type".
 
 Section proof.
-Context `{!typeGS Σ}.
+Context `{!refinedrustGS Σ}.
 Lemma core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_into_mut_ptr_proof (π : thread_id) :
   core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_into_mut_ptr_lemma π.
 Proof.

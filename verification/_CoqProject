@@ -7,7 +7,9 @@
 ## example theory for manually proved things
 -Q _build/default/theories/memory_tracker/page/ ace.theories.page
 -Q _build/default/theories/result ace.theories.result
+-Q _build/default/theories/memory_layout ace.theories.memory_layout
+
 
 
 # include RefinedRust-generated theories here
--Q _build/default/generated_code/sm/ ace.sm
+-Q _build/default/generated_code/ace sm.ace

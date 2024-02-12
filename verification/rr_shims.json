@@ -40,17 +40,5 @@
     "kind": "function",
     "name": "core_ptr_copy",
     "spec": "type_of_ptr_copy"
-  },
-  {
-    "path": ["core", "option", "Option", "unwrap"],
-    "kind": "method",
-    "name": "core_option_Option_unwrap_def",
-    "spec": "type_of_core_option_Option_unwrap"
-  },
-  {
-    "path": ["core", "result", "Result", "unwrap"],
-    "kind": "method",
-    "name": "core_result_Result_unwrap_def",
-    "spec": "type_of_core_result_Result_unwrap"
   }
 ]
