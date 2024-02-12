@@ -8,11 +8,24 @@ use pointers_utility::ptr_byte_add_mut;
 /// The wrapper over a raw pointer that is guaranteed to be an address located in the non-confidential memory region.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct NonConfidentialMemoryAddress(*mut usize);
+#[rr::refined_by("l" : "loc")]
+#[rr::context("onceG Σ memory_layout")]
+#[rr::exists("MEMORY_CONFIG")]
+#[rr::invariant(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
+#[rr::invariant("(MEMORY_CONFIG.(non_conf_start).2 ≤ l.2 < MEMORY_CONFIG.(non_conf_end).2)%Z")]
+pub struct NonConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
 
+#[rr::context("onceG Σ memory_layout")]
 impl NonConfidentialMemoryAddress {
     /// Constructs an address in a non-confidential memory. Returns error if the address is outside non-confidential
     /// memory.
+    #[rr::trust_me]
+    #[rr::params("l", "bounds")]
+    #[rr::args("l")]
+    #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some bounds)")]
+    #[rr::requires("bounds.(non_conf_start).2 ≤ l.2")]
+    #[rr::requires("l.2 < bounds.(non_conf_end).2")]
+    #[rr::returns("Ok (#l)")]
     pub fn new(address: *mut usize) -> Result<Self, Error> {
         match MemoryLayout::read().is_in_non_confidential_range(address) {
             false => Err(Error::AddressNotInNonConfidentialMemory()),
@@ -56,6 +69,10 @@ impl NonConfidentialMemoryAddress {
         self.0
     }
 
+    #[rr::only_spec]
+    #[rr::params("l")]
+    #[rr::args("#l")]
+    #[rr::returns("l.2")]
     pub fn usize(&self) -> usize {
         self.0 as usize
     }

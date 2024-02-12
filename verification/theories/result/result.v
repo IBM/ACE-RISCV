@@ -7,3 +7,4 @@ Notation result A B := (sum A B) (only parsing).
 
 
 Notation "'<#>' x" := (fmap (M := list) PlaceIn x) (at level 30).
+Notation "'<#>@{' A '}' x" := (fmap (M := A) PlaceIn x) (at level 30).

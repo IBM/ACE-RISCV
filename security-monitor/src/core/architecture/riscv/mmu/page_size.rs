@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![rr::import("ace.theories.page", "page_extra")]
+#![rr::include("option")]
 
 // The order of page size in this enum must follow the increasing sizes of page to guarantee that the Ord/PartialOrd are correctly derived
 // for the `PageSize`.
@@ -46,7 +47,7 @@ impl PageSize {
     #[rr::trust_me]
     #[rr::params("x")]
     #[rr::args("#x")]
-    #[rr::returns("PlaceIn <$> page_size_smaller x")]
+    #[rr::returns("<#>@{option} page_size_smaller x")]
     pub fn smaller(&self) -> Option<PageSize> {
         match self {
             PageSize::Size128TiB => Some(PageSize::Size512GiB),
@@ -61,7 +62,7 @@ impl PageSize {
     #[rr::trust_me]
     #[rr::params("x")]
     #[rr::args("#x")]
-    #[rr::returns("PlaceIn <$> page_size_larger x")]
+    #[rr::returns("<#>@{option} page_size_larger x")]
     pub fn larger(&self) -> Option<PageSize> {
         match self {
             PageSize::Size128TiB => None,

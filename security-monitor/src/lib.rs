@@ -22,7 +22,12 @@
 #![register_tool(rr)]
 #![feature(custom_inner_attributes)]
 #![feature(stmt_expr_attributes)]
-#![rr::coq_prefix("ace")]
+#![rr::coq_prefix("sm")]
+#![rr::include("spin")]
+#![rr::include("alloc")]
+#![rr::include("vec")]
+#![rr::include("option")]
+#![rr::include("result")]
 
 extern crate alloc;
 

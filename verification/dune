@@ -1,2 +1,2 @@
 ; Add project-wide flags here.
-(dirs :standard \ refinedrust generated_code.bak)
+(dirs :standard \ generated_code.bak)

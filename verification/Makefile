@@ -26,6 +26,8 @@ generate: echo_toolchain backup_build_artifacts
 
 verify: generate
 	@dune build --display short
+	@echo "✅︎ Verification succeeded"
+
 
 clean:
 	rm -rf $(ACE_DIR)

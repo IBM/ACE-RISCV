@@ -15,7 +15,7 @@ Proof. solve_decision. Defined.
 Global Instance page_size_countable : Countable page_size.
 Proof.
   (* TODO *)
-Abort.
+Admitted.
 
 Definition page_size_in_words_nat (sz : page_size) : nat :=
   match sz with
@@ -70,3 +70,17 @@ Definition zero_page (sz : page_size) : list val :=
  *)
 Definition zero_page (sz : page_size) : list Z :=
   replicate (page_size_in_words_nat sz) 0.
+
+Record page : Type := mk_page {
+  page_loc : loc;
+  page_sz : page_size;
+  page_val : list Z
+}.
+Global Instance page_inh : Inhabited page.
+Proof. exact (populate (mk_page inhabitant inhabitant inhabitant)). Qed.
+Global Instance page_eqdec : EqDecision page.
+Proof. solve_decision. Defined.
+Global Instance page_countable : Countable page.
+Proof.
+  (* TODO *)
+Admitted.

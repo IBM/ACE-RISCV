@@ -9,11 +9,18 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 #[repr(transparent)]
 #[derive(Debug, PartialEq)]
 #[rr::refined_by("l" : "loc")]
+#[rr::context("onceG Σ memory_layout")]
+#[rr::exists("MEMORY_CONFIG")]
+#[rr::invariant(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
+#[rr::invariant("(MEMORY_CONFIG.(conf_start).2 ≤ l.2 < MEMORY_CONFIG.(conf_end).2)%Z")]
 pub struct ConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
 
+#[rr::context("onceG Σ memory_layout")]
 impl ConfidentialMemoryAddress {
-    #[rr::params("l")]
+    #[rr::params("l", "MEMORY_CONFIG")]
     #[rr::args("l")]
+    #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
+    #[rr::requires("(MEMORY_CONFIG.(conf_start).2 ≤ l.2 < MEMORY_CONFIG.(conf_end).2)%Z")]
     #[rr::returns("l")]
     pub(super) fn new(address: *mut usize) -> Self {
         Self(address)
@@ -43,10 +50,18 @@ impl ConfidentialMemoryAddress {
         self.0 as usize
     }
 
+    #[rr::only_spec]
+    #[rr::params("l", "align")]
+    #[rr::args("#l", "align")]
+    #[rr::returns("bool_decide (l `aligned_to` (Z.to_nat align))")]
     pub fn is_aligned_to(&self, align: usize) -> bool {
         self.0.is_aligned_to(align)
     }
 
+    #[rr::only_spec]
+    #[rr::params("this", "other")]
+    #[rr::args("#this", "other")]
+    #[rr::returns("other.2 - this.2")]
     pub fn offset_from(&self, pointer: *const usize) -> isize {
         ptr_byte_offset(pointer, self.0)
     }
@@ -59,9 +74,11 @@ impl ConfidentialMemoryAddress {
     /// The caller must ensure that the address at given offset is still within the confidential memory region.
     // TODO: can we require the offset to be a multiple of usize?
     #[rr::only_spec]
-    #[rr::params("l", "off", "lmax")]
+    #[rr::params("l", "off", "lmax", "MEMORY_CONFIG")]
     #[rr::args("#l", "off", "lmax")]
     #[rr::requires("l.2 + off < lmax.2")]
+    #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
+    #[rr::requires("lmax.2 < MEMORY_CONFIG.(conf_end).2")]
     #[rr::returns("Ok(#(l +ₗ off))")]
     pub unsafe fn add(&self, offset_in_bytes: usize, upper_bound: *const usize) -> Result<ConfidentialMemoryAddress, Error> {
         let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::AddressNotInConfidentialMemory())?;
@@ -69,11 +86,12 @@ impl ConfidentialMemoryAddress {
     }
 
     /// Reads usize-sized sequence of bytes from the confidential memory region.
-    ///
     /// # Safety
-    /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::read_volatile` for
-    /// safety concerns
+    ///
+    /// Caller must ensure that the pointer is not used by two threads simultaneously and that it is correctly aligned for usize.
+    /// See `ptr::read_volatile` for safety concerns
     // TODO: currently only_spec because shim registration for read_volatile doesn't work
+    // TODO require that lifetime [lft_el] is actually alive
     #[rr::only_spec]
     #[rr::params("l", "z", "lft_el")]
     #[rr::args("#l")]
@@ -84,11 +102,10 @@ impl ConfidentialMemoryAddress {
     }
 
     /// Writes usize-sized sequence of bytes to the confidential memory region.
-    ///
     /// # Safety
     ///
-    /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::write_volatile` for
-    /// safety concerns
+    /// Caller must ensure that the pointer is not used by two threads simultaneously and that it is correctly aligned for usize.
+    /// See `ptr::write_volatile` for safety concerns
     // TODO: currently only_spec because shim registration for write_volatile doens't work
     #[rr::only_spec]
     #[rr::params("l", "z", "x")]

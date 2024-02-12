@@ -35,7 +35,7 @@ build: opensbi_bindings fmt
 	cp $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)/
 
-refinedrust: build
+refinedrust:
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) refinedrust $(RELEASE) $(TARGET) --features verbose
 
 debug: opensbi_bindings
