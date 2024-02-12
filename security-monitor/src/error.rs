@@ -64,7 +64,6 @@ pub enum Error {
     ReachedMaxNumberOfRemoteHartRequests(),
     #[error("Sending interrupt error")]
     InterruptSendingError(),
-
     // SBI HSM extension related errors
     #[error("Cannot start a confidential hart because it is not in the Stopped state.")]
     CannotStartNotStoppedHart(),

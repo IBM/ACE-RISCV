@@ -7,7 +7,7 @@ use crate::core::memory_protector::mmu::page_table_entry::{
 };
 use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
 use crate::core::memory_protector::mmu::paging_system::{PageTableLevel, PagingSystem};
-use crate::core::page_allocator::{MemoryTracker, SharedPage};
+use crate::core::page_allocator::{PageAllocator, SharedPage};
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -65,7 +65,7 @@ impl PageTable {
                 } else if PageTableBits::is_leaf(entry_raw) {
                     let address = NonConfidentialMemoryAddress::new(PageTableAddress::decode(entry_raw))?;
                     let page_size = paging_system.page_size(level);
-                    let page = MemoryTracker::acquire_continous_pages(1, page_size)?
+                    let page = PageAllocator::acquire_continous_pages(1, page_size)?
                         .remove(0)
                         .copy_from_non_confidential_memory(address)
                         .map_err(|_| Error::PageTableCorrupted())?;
@@ -163,7 +163,7 @@ impl PageTable {
         self.page_table_memory.set_entry(index, &entry);
         let entry_to_remove = core::mem::replace(&mut self.entries[index], entry);
         if let PageTableEntry::Leaf(page, _, _) = entry_to_remove {
-            MemoryTracker::release_page(page.deallocate());
+            PageAllocator::release_page(page.deallocate());
         }
     }
 }
@@ -174,7 +174,7 @@ impl Drop for PageTable {
         // that own a page.
         self.entries.drain(..).for_each(|entry| {
             if let PageTableEntry::Leaf(page, _, _) = entry {
-                MemoryTracker::release_page(page.deallocate());
+                PageAllocator::release_page(page.deallocate());
             }
         });
     }
