@@ -21,7 +21,7 @@
 #![register_tool(rr)]
 #![feature(custom_inner_attributes)]
 #![feature(stmt_expr_attributes)]
-#![rr::coq_prefix("ace")]
+#![rr::coq_prefix("sm")]
 
 extern crate alloc;
 

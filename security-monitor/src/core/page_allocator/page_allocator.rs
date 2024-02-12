@@ -17,7 +17,17 @@ static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 /// not allocated twice. It does so by giving away `Page` tokens that represent ownership of a physical page located in the confidental
 /// memory as described by `MemoryLayout`. `PageAllocator`'s constructor creates page tokens (maintaining an invariant that there are no two
 /// page tokens describing the same physical address).
+/// Specification:
+/// We model the memory tracker by a finite map assigning page sizes to the number of available pages.
+#[rr::refined_by("map" : "gmap page_size nat")]
+/// Internally, the tracker stores a map with more information, containing the full model of the pages.
+#[rr::exists("page_map : gmap page_size (Page_inv_t_rt)")]
+/// This map is related by containing the number of pages as specified by `m`.
+#[rr::invariants("page_allocator_maps_related map page_map")]
+/// The internal map should have a vector of pages for every page size.
+#[rr::invariants("∀ k : page_size, is_Some (page_map !! k)")]
 pub struct PageAllocator {
+    #[rr::field("page_map")]
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
 }
 
@@ -32,10 +42,26 @@ impl<'a> PageAllocator {
     /// # Arguments
     ///
     /// See the `PageAllocator::add_memory_region` for requirements on arguments.
-    ///    
+    ///
     /// # Safety
     ///
     /// See the `PageAllocator::add_memory_region` for safety requirements.
+    #[rr::skip]
+    #[rr::params("start", "end", "vs")]
+    #[rr::args("start", "end")]
+    /// Precondition: The start address needs to be aligned to the minimum page size.
+    #[rr::requires("Hstart_aligned" : "start `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
+    /// Precondition: The minimum page size divides the memory size.
+    #[rr::requires("Hsz_div" : "(page_size_in_bytes_nat Size4KiB) | (end.2 - start.2)")]
+    /// Precondition: The memory range should not be negative.
+    #[rr::requires("Hstart_lt" : "start.2 ≤ end.2")]
+    /// Precondition: We have ownership of the memory range, having (end - start) bytes.
+    #[rr::requires(#type "start" : "vs" @ "array_t (int u8) (end.2 - start.2)")]
+    /// Precondition: The page allocator should be uninitialized.
+    #[rr::requires(#iris "once_status PAGE_ALLOCATOR None")]
+    /// Postcondition: The page allocator is initialized.
+    #[rr::ensures(#iris "once_status PAGE_ALLOCATOR (Some ())")]
+    #[rr::returns("Ok(())")]
     pub unsafe fn initialize(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
         assure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
         let mut page_allocator = Self::empty();
@@ -49,6 +75,8 @@ impl<'a> PageAllocator {
     /// # Guarantees
     ///
     /// * The PageAllocator's map contains keys for every possible page size.
+    #[rr::exists("m")]
+    #[rr::returns("m")]
     fn empty() -> Self {
         let mut map = BTreeMap::new();
         for page_size in PageSize::all_from_largest_to_smallest() {
@@ -74,6 +102,21 @@ impl<'a> PageAllocator {
     /// # Safety
     ///
     /// The caller must guarantee that he passes the ownership to the memory region described by the input arguments to the PageAllocator.
+    #[rr::skip]
+    // TODO: require the memory layout to be initialized
+    #[rr::params("start", "end", "m", "γ")]
+    #[rr::args("(#m, γ)", "start", "end")]
+    /// Precondition: The start address needs to be aligned to the minimum page size.
+    #[rr::requires("Hstart_aligned" : "start `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
+    /// Precondition: The minimum page size divides the memory size.
+    #[rr::requires("Hsz_div" : "(page_size_in_bytes_nat Size4KiB) | (end.2 - start.2)")]
+    /// Precondition: The memory range is positive.
+    #[rr::requires("Hstart_lt" : "start.2 < end.2")]
+    /// Precondition: We have ownership of the memory range, having (end - start) bytes.
+    #[rr::requires(#type "start" : "vs" @ "array_t (int u8) (end.2 - start.2)")]
+    /// Postcondition: There exists some correctly initialized page assignment.
+    #[rr::exists("m'")]
+    #[rr::observe("γ": "m'")]
     unsafe fn add_memory_region(&mut self, memory_region_start: ConfidentialMemoryAddress, memory_region_end: *const usize) {
         debug!("Memory tracker: adding memory region: 0x{:x} - 0x{:x}", memory_region_start.as_usize(), memory_region_end as usize);
         assert!(memory_region_start.is_aligned_to(PageSize::smallest().in_bytes()));
@@ -147,6 +190,18 @@ impl<'a> PageAllocator {
     /// Returns page tokens that all together have ownership over a continous unallocated memory region of the requested size. Returns error
     /// if it could not obtain write access to the global instance of the page allocator or if there are not enough page tokens satisfying
     /// the requested criteria.
+    #[rr::skip]
+    #[rr::params("num", "sz")]
+    #[rr::args("num", "sz")]
+    /// Precondition: The page allocator needs to be initialized.
+    #[rr::requires("once_status PAGE_ALLOCATOR (Some ())")]
+    /// Postcondition: there exists a result (the error case is always a valid option)
+    #[rr::exists("res")]
+    /// Postcondition: errors are always a valid outcome
+    #[rr::ensures("if_err (λ err, err = error_Error_OutOfMemory)")]
+    /// Postcondition: if sucessful, we get the desired number of pages of the right size
+    #[rr::ensures("if_ok (λ pages, length pages = num ∧ (∀ x, x ∈ pages → ∃ page, x = #page ∧ x.2 = sz))")]
+    #[rr::returns("res")]
     pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size)))?;
         assure_not!(pages.is_empty(), Error::OutOfPages())?;
@@ -159,6 +214,11 @@ impl<'a> PageAllocator {
     /// TODO: to prevent fragmentation, run a procedure that will try to combine page tokens of smaller sizes into page tokens of bigger
     /// sizes. Otherwise, after long run, the security monitor's might start occupying to much memory (due to large number of page tokens)
     /// and being slow.
+    #[rr::skip]
+    #[rr::params("pages")]
+    #[rr::args("pages")]
+    /// Precondition: We require the page allocator to be initialized.
+    #[rr::requires("once_status PAGE_ALLOCATOR (Some ())")]
     pub fn release_pages(pages: Vec<Page<UnAllocated>>) {
         let _ = Self::try_write(|page_allocator| {
             Ok(pages.into_iter().for_each(|page| {
@@ -168,6 +228,11 @@ impl<'a> PageAllocator {
         .inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
+    #[rr::skip]
+    #[rr::params("page")]
+    #[rr::args("page")]
+    /// Precondition: We require the page allocator to be initialized.
+    #[rr::requires("once_status PAGE_ALLOCATOR (Some ())")]
     pub fn release_page(page: Page<UnAllocated>) {
         Self::release_pages(vec![page])
     }
@@ -175,6 +240,22 @@ impl<'a> PageAllocator {
     /// Returns vector of unallocated page tokens representing a continous memory region. If it failes to find allocation within free pages
     /// of the requested size, it divides larger page tokens. Empty vector is returned if there are not enough page tokens in the system
     /// that meet the requested criteria.
+    // NOTE: this has the same specification as `acquire_continuous_pages_of_given_size`
+    #[rr::skip]
+    #[rr::params("m", "γ", "num", "sz")]
+    #[rr::args("(#m, γ)", "num", "sz")]
+    /// Precondition: We require the page allocator to be initialized.
+    #[rr::requires("once_status PAGE_ALLOCATOR (Some ())")]
+    #[rr::exists("pages", "m'")]
+    /// Postcondition: If pages are available in the current PageAllocator, then we return them.
+    #[rr::ensures("if decide (m !!! sz ≥ num) then length pages = num else length pages = 0")]
+    /// Postcondition: The returned pages have the appropriate size
+    #[rr::ensures("∀ p i, pages !! i = p → p.2 = sz")]
+    /// Postcondition: The pages are continuous
+    #[rr::ensures("pages_are_continuous pages")]
+    /// Postcondition: The map has been updated.
+    #[rr::observe("γ": "m'")]
+    #[rr::returns("<#> pages")]
     fn acquire(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
         let mut available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size);
         // it might be that there is not enough page tokens of the requested page size. In such a case, let's try to divide page tokens of
@@ -188,6 +269,21 @@ impl<'a> PageAllocator {
 
     /// Tries to allocate a continous chunk of physical memory composed of the requested number of pages. Returns a vector of unallocated
     /// page tokens, all of them having the same size, or an empty vector if the allocation fails.
+    #[rr::skip]
+    #[rr::params("m", "γ", "num", "sz")]
+    #[rr::args("(#m, γ)", "num", "sz")]
+    /// Precondition: We require the page allocator to be initialized.
+    #[rr::requires("once_status PAGE_ALLOCATOR (Some ())")]
+    #[rr::exists("pages", "m'")]
+    /// Postcondition: If pages are available in the current PageAllocator, then we return them.
+    #[rr::ensures("if decide (m !!! sz ≥ num) then length pages = num else length pages = 0")]
+    /// Postcondition: The returned pages have the appropriate size
+    #[rr::ensures("∀ p i, pages !! i = p → p.2 = sz")]
+    /// Postcondition: The pages are continuous
+    #[rr::ensures("pages_are_continuous pages")]
+    /// Postcondition: The map has been updated.
+    #[rr::observe("γ": "m'")]
+    #[rr::returns("<#> pages")]
     fn acquire_continous_pages_of_given_size(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
         // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
         let pages = self.map.get_mut(&page_size).unwrap();
@@ -221,6 +317,14 @@ impl<'a> PageAllocator {
     }
 
     /// Tries to divide existing page tokens, so that the PageAllocator has page tokens of the requested page size.
+    #[rr::params("m", "γ", "sz")]
+    #[rr::args("(#m, γ)", "sz")]
+    #[rr::exists("pages_available", "m'")]
+    /// Postcondition: the page size division has been updated
+    #[rr::observe("γ": "m'")]
+    /// Postcondition: and there are sufficient pages at the requested size available
+    #[rr::ensures("if pages_available then m' !!! sz ≥ 256 else True")]
+    #[rr::returns("pages_available")]
     fn divide_pages(&mut self, page_size: PageSize) {
         let mut page_size_to_divide_next = page_size.larger();
         while let Some(page_size_to_divide_now) = page_size_to_divide_next {
@@ -242,6 +346,14 @@ impl<'a> PageAllocator {
 
     /// Tries to divide a page of the given size into smaller pages. Returns false if there is no page of the given size or the given size
     /// is the smallest possible page size supported by the architecture.
+    #[rr::params("m", "γ", "sz")]
+    #[rr::args("(#m, γ)", "sz")]
+    #[rr::exists("success", "m'")]
+    /// Postcondition: the page size division has been updated
+    #[rr::observe("γ": "m'")]
+    /// Postcondition: if the division was successful, then sufficient pages at the requested size available
+    #[rr::ensures("if success then m' !!! page_size_smaller sz ≥ 256 else m' = m")]
+    #[rr::returns("success")]
     fn divide_page(&mut self, from_size: PageSize) -> bool {
         from_size
             .smaller()
@@ -257,6 +369,8 @@ impl<'a> PageAllocator {
     }
 
     /// returns a mutable reference to the PageAllocator after obtaining a lock on the mutex
+    #[rr::inline]
+    // TODO: might be challenging to specify
     fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, PageAllocator>) -> Result<F, Error> {
         op(&mut PAGE_ALLOCATOR.get().expect(Self::NOT_INITIALIZED).write())

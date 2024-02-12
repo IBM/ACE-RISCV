@@ -6,4 +6,4 @@ Notation Err x := (inr x) (only parsing).
 Notation result A B := (sum A B) (only parsing).
 
 
-Notation "'<#>' x" := (fmap (M := list) PlaceIn x) (at level 30).
+Notation "'<#>' x" := (fmap (M := _) PlaceIn x) (at level 30).

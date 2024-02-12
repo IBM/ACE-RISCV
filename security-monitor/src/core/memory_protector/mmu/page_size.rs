@@ -54,6 +54,7 @@ impl PageSize {
     #[rr::trust_me]
     #[rr::params("x")]
     #[rr::args("#x")]
+    // TODO: add pattern for nicely injecting
     #[rr::returns("PlaceIn <$> page_size_larger x")]
     pub fn larger(&self) -> Option<PageSize> {
         match self {
@@ -70,6 +71,7 @@ impl PageSize {
         PageSize::Size4KiB
     }
 
+    #[rr::returns("[#Size128TiB; #Size512GiB; #Size1GiB; #Size2MiB; #Size4KiB]")]
     pub fn all_from_largest_to_smallest() -> alloc::vec::Vec<PageSize> {
         alloc::vec![Self::Size128TiB, Self::Size512GiB, Self::Size1GiB, Self::Size2MiB, Self::Size4KiB]
     }

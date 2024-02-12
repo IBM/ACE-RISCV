@@ -281,13 +281,11 @@ impl<T: PageState> Page<T> {
         self.offsets().for_each(
             #[rr::skip]
             #[rr::params("off", "v" : "list Z", "l", "sz")]
-
             #[rr::args("off")]
             // this should be dispatched by knowing that each argument is an element of the
             // iterator, i.e. be implied by what for_each can guarantee
             #[rr::requires("(ly_size usize_t | off)%Z")]
             #[rr::requires("(off + ly_size usize_t ≤ page_size_in_bytes_Z sz)%Z")]
-
             #[rr::exists("off'")]
             #[rr::ensures("off = (off' * ly_size usize_t)%Z")]
             #[rr::capture("self" : "(l, sz, v)" -> "(l, sz, <[Z.to_nat off' := 0]> v)")]

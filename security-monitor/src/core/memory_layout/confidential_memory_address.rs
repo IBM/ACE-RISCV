@@ -43,6 +43,10 @@ impl ConfidentialMemoryAddress {
         self.0.is_aligned_to(align)
     }
 
+    #[rr::only_spec]
+    #[rr::params("this", "other")]
+    #[rr::args("#this", "other")]
+    #[rr::returns("other.2 - this.2")]
     pub fn offset_from(&self, pointer: *const usize) -> isize {
         ptr_byte_offset(pointer, self.0)
     }
@@ -67,6 +71,7 @@ impl ConfidentialMemoryAddress {
     /// Reads usize-sized sequence of bytes from the confidential memory region.
     ///
     /// # Safety
+    ///
     /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::read_volatile` for
     /// safety concerns
     // TODO: currently only_spec because shim registration for read_volatile doesn't work
