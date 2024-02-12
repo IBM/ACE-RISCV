@@ -121,7 +121,7 @@ impl<'a> PageAllocator {
                 page_size = larger_size;
             }
             // Now let's find the largest size of a page that really fits in the given memory region. We do not have to check the alignment,
-            // because the smallest pages sizes are multiplies of the larger page sizes.
+            // because the larger pages sizes are multiplies of the smaller page sizes.
             while let Some(smaller_size) = page_size.smaller().filter(|smaller_size| !can_create_page(&address, &smaller_size)) {
                 page_size = smaller_size;
             }
