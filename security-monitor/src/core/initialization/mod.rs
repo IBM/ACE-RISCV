@@ -5,7 +5,7 @@ use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
-use crate::core::page_allocator::{MemoryTracker, Page, UnAllocated};
+use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -54,7 +54,7 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
     // TODO: make sure the system has enough physical memory
     let (confidential_memory_start, confidential_memory_end) = initialize_memory_layout(&fdt)?;
 
-    // Create page tokens, heap, memory tracker
+    // Creates page tokens, heap, page allocator
     initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
 
     let number_of_harts = verify_harts(&fdt)?;
@@ -145,7 +145,7 @@ fn initalize_security_monitor_state(
     // start allocating objects on heap, e.g., page tokens. We have to first
     // initialize the global allocator, which permits us to use heap. To initialize heap
     // we need to decide what is the confidential memory address range and split this memory
-    // into regions owned by heap allocator and page allocator (memory tracker).
+    // into regions owned by heap allocator and page allocator.
     let confidential_memory_size = confidential_memory_start.offset_from(confidential_memory_end);
     let number_of_pages = usize::try_from(confidential_memory_size)? / PageSize::smallest().in_bytes();
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
@@ -160,14 +160,14 @@ fn initalize_security_monitor_state(
     let heap_end_address = MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
     crate::core::heap_allocator::init_heap(heap_start_address, heap_size_in_bytes);
 
-    // Memory tracker starts directly after the heap
+    // PageAllocator's memory starts directly after the HeapAllocator's memory
     let page_allocator_start_address = heap_end_address;
     assert!(page_allocator_start_address.is_aligned_to(PageSize::smallest().in_bytes()));
-    // Memory tracker takes ownership of the rest of the confidential memory.
+    // PageAllocator takes ownership of the rest of the confidential memory.
     let page_allocator_end_address = confidential_memory_end;
-    // It is safe to construct the memory tracker because we own the corresponding memory region and pass this
-    // ownership to the memory tracker.
-    unsafe { MemoryTracker::initialize(page_allocator_start_address, page_allocator_end_address)? };
+    // It is safe to construct the PageAllocator because we own the corresponding memory region and pass this
+    // ownership to the PageAllocator.
+    unsafe { PageAllocator::initialize(page_allocator_start_address, page_allocator_end_address)? };
     unsafe { InterruptController::initialize()? };
 
     CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
@@ -179,7 +179,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     // we need to allocate stack for the dumped state of each physical HART.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
-        let stack = MemoryTracker::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
+        let stack = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));

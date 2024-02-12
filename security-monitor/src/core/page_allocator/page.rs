@@ -85,9 +85,8 @@ impl Page<UnAllocated> {
 }
 
 impl Page<Allocated> {
-    /// Clears the entire memory content by writing 0s to it and then converts
-    /// the Page from Allocated to UnAllocated so it can be returned to the
-    /// memory tracker.
+    /// Clears the entire memory content by writing 0s to it and then converts the Page from Allocated to UnAllocated so it can be returned
+    /// to the page allocator.
     pub fn deallocate(mut self) -> Page<UnAllocated> {
         self.clear();
         Page { address: self.address, size: self.size, _marker: PhantomData }
