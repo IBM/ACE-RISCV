@@ -51,6 +51,7 @@ impl<'a> NonConfidentialFlow<'a> {
             }
             VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
             MachineEcall => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            GuestInstructionPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
             GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
             GuestStorePageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
             Unknown => invalid_call::handle(self),

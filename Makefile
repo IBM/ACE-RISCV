@@ -58,6 +58,9 @@ confidential_vms: setup devtools hypervisor
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
+hypervisor_dev: 
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
+
 dev:
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot_linux_rebuild ;\
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\

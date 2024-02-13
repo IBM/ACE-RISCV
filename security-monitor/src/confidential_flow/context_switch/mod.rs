@@ -12,7 +12,7 @@ use crate::core::control_data::HardwareHart;
 #[no_mangle]
 extern "C" fn enter_from_confidential_hart(hart_ptr: *mut HardwareHart) -> ! {
     let hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-    ConfidentialFlow::create(hart).route()
+    ConfidentialFlow::create(hart).route();
 }
 
 core::arch::global_asm!(

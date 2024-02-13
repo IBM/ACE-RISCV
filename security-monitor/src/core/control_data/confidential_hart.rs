@@ -289,6 +289,12 @@ impl ConfidentialHart {
         Ok((guest_store_page_fault_request, mmio_store_request))
     }
 
+    pub fn guest_instruction_page_fault_request(&self) -> HartArchitecturalState {
+        // let (instruction, instruction_length) = self.read_instruction();
+        // debug!("Guest inst page fault {:x}", instruction);
+        self.debug()
+    }
+
     pub fn share_page_request(&self) -> Result<(SharePageRequest, SbiRequest), Error> {
         let shared_page_address = self.confidential_hart_state.gpr(GpRegister::a0);
         let share_page_request = SharePageRequest::new(shared_page_address)?;

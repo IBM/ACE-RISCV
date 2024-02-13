@@ -462,7 +462,7 @@ new file mode 100644
 index 000000000000..809a1ef06ec6
 --- /dev/null
 +++ b/arch/riscv/kvm/vcpu_sbi_ace.c
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,141 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2021 IBM.
@@ -498,10 +498,11 @@ index 000000000000..809a1ef06ec6
 +	int ret;
 +	long page;
 +
-+	printk(KERN_INFO "ACE KVM: loading all pages\n");
++	printk(KERN_INFO "ACE KVM: Loading all pages\n");
 +	long memory_start = 0x80000000;
-+	long memory_size = 128*1024*1024; // TODO: get the real value
-+	long number_of_pages = memory_size / 4096;
++	long memory_size = 4*1024*1024*1024; // TODO: get the real value
++	long number_of_pages = 1024*1024; // memory_size / 4096;
++	printk(KERN_INFO "ACE KVM: number of pages to load: %d\n", number_of_pages);
 +	for (page=0; page<number_of_pages; page++) {
 +		fault_addr = memory_start + page * 4096;
 +		gfn = fault_addr >> PAGE_SHIFT;

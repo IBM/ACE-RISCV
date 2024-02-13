@@ -60,13 +60,17 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::TrapReason::*;
 
         let confidential_hart = self.hardware_hart.confidential_hart();
-        let state = confidential_hart.debug();
-        // debug!("Trap reason={:?} mepc={:x}", confidential_hart.trap_reason(), state.mepc);
+        // let state = confidential_hart.debug();
+        // let mcause = riscv::register::mcause::read();
+        // debug!("Trap reason={:?} mepc={:x} mcause={:?}", confidential_hart.trap_reason(), state.mepc, mcause);
         match confidential_hart.trap_reason() {
             Interrupt => interrupt::handle(self),
             VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
             VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
             VsEcall(Ace(PrintDebugInfo)) => print_debug_info::handle(confidential_hart.debug(), self),
+            VsEcall(Ace(crate::core::architecture::AceExtension::Unknown(_, _))) => {
+                print_debug_info::handle(confidential_hart.debug(), self)
+            }
             VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
@@ -88,6 +92,9 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), self),
             VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
             VsEcall(_) => invalid_call::handle(self),
+            GuestInstructionPageFault => {
+                guest_instruction_page_fault::handle(confidential_hart.guest_instruction_page_fault_request(), self)
+            }
             GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
             GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self),
             _ => panic!("Bug: Incorrect interrupt delegation configuration"),
@@ -101,7 +108,6 @@ impl<'a> ConfidentialFlow<'a> {
 
         let state = confidential_flow.hardware_hart.debug_confidential_hart().debug();
         // debug!("Resume CVM PC={:x}", state.mepc);
-
         // During the time when this confidential hart was not running, other confidential harts could have sent it
         // InterHartRequests. We must process them before resuming confidential hart's execution.
         confidential_flow.process_inter_hart_requests();
@@ -163,8 +169,7 @@ impl<'a> ConfidentialFlow<'a> {
                 inter_hart_requests.drain(..).map(|inter_hart_request| inter_hart_request.into_expose_to_confidential_vm()).for_each(
                     |transformation| {
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
-                        // is assigned to the hardware hart. This is why it is the confidential hart who processes inter
-                        // hart requests and not the confidential VM.
+                        // is assigned to the hardware hart.
                         self.hardware_hart.confidential_hart_mut().apply(transformation);
                     },
                 );

@@ -14,7 +14,33 @@ pub fn handle(confidential_hart_state: HartArchitecturalState, confidential_flow
     let a2 = confidential_hart_state.gpr(GpRegister::a2);
     let a3 = confidential_hart_state.gpr(GpRegister::a3);
 
-    debug!("CVM debug: a0={} a1={} a2={} a3={} [pc={:x}]", a0, a1, a2, a3, confidential_hart_state.mepc);
+    let mtval = confidential_hart_state.mtval;
+    let mtval2 = confidential_hart_state.mtval2;
+    let fault_addr = (mtval2 << 2) | (mtval & 0x3);
+
+    let htinst = read_htinst();
+    let mtinst = read_mtinst();
+
+    debug!(
+        "CVM debug: GuestInstructionPageFault htinst={:x} mtinst={:x} fault_addr={:x} [mepc={:x}]",
+        htinst, mtinst, confidential_hart_state.mepc, fault_addr
+    );
     let transformation = ExposeToConfidentialVm::SbiResult(SbiResult::success(0));
     confidential_flow.exit_to_confidential_hart(transformation)
+}
+
+fn read_htinst() -> usize {
+    let r: usize;
+    unsafe {
+        core::arch::asm!(concat!("csrrs {0}, 0x64a, x0"), out(reg) r);
+    }
+    r
+}
+
+fn read_mtinst() -> usize {
+    let r: usize;
+    unsafe {
+        core::arch::asm!(concat!("csrrs {0}, 0x34a, x0"), out(reg) r);
+    }
+    r
 }

@@ -140,7 +140,7 @@ fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *co
 fn initalize_security_monitor_state(
     confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
-    const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
+    const NUMBER_OF_HEAP_PAGES: usize = 40 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
     // start allocating objects on heap, e.g., page tokens. We have to first
     // initialize the global allocator, which permits us to use heap. To initialize heap

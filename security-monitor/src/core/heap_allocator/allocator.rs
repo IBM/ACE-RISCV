@@ -26,21 +26,22 @@ impl LinkedListAllocator {
     pub fn add_free_memory_region(&mut self, base_address: *const usize, size: usize) {
         assert!(size < isize::MAX.try_into().unwrap());
         assert!(base_address.is_aligned_to(mem::align_of::<FreeMemoryRegion>()));
-        if size >= mem::size_of::<FreeMemoryRegion>() {
-            let mut free_node = FreeMemoryRegion::new(size);
-            free_node.next = self.head.next.take();
-            self.head.next = unsafe {
-                // Safety: casting to *mut FreeMemoryRegion is fine because the caller is giving the ownership
-                // of this memory region to us.
-                let node_pointer = base_address as *mut FreeMemoryRegion;
-                // Safety: we can write the whole FreeMemoryRegion because we checked in the beginning of this
-                // function that the memory region has enough space to hold the FreeMemoryRegion.
-                node_pointer.write(free_node);
-                Some(&mut *node_pointer)
-            }
-        } else {
+        if 0 < size && size < mem::size_of::<FreeMemoryRegion>() {
+            panic!("Memory leak?");
             // Potential memory leak? To make sure there are no memory leaks here, we must guarantee that we
             // never allocate chunks smaller than the size of a FreeMemoryRegion structure
+        }
+
+        let mut free_node = FreeMemoryRegion::new(size);
+        free_node.next = self.head.next.take();
+        self.head.next = unsafe {
+            // Safety: casting to *mut FreeMemoryRegion is fine because the caller is giving the ownership
+            // of this memory region to us.
+            let node_pointer = base_address as *mut FreeMemoryRegion;
+            // Safety: we can write the whole FreeMemoryRegion because we checked in the beginning of this
+            // function that the memory region has enough space to hold the FreeMemoryRegion.
+            node_pointer.write(free_node);
+            Some(&mut *node_pointer)
         }
     }
 
@@ -48,9 +49,8 @@ impl LinkedListAllocator {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
             if let Ok((alloc_start, alloc_end, free_space_left)) = region.try_allocation(size, align) {
-                let next = region.next.take();
+                current.next = region.next.take();
                 let ret = Some((alloc_start, alloc_end, free_space_left));
-                current.next = next;
                 return ret;
             } else {
                 current = current.next.as_mut().unwrap();
@@ -88,7 +88,7 @@ impl FreeMemoryRegion {
         // We only allow allocating from the given region if there is enough space to reuse the resulting space for a
         // FreeMemoryRegion
         let free_space_left = ptr_byte_offset(self.end_address_ptr(), alloc_end);
-        assure!(free_space_left >= (mem::size_of::<FreeMemoryRegion>() as isize), Error::OutOfMemory())?;
+        assure!(free_space_left == 0 || free_space_left >= (mem::size_of::<FreeMemoryRegion>() as isize), Error::OutOfMemory())?;
 
         Ok((alloc_start, alloc_end, free_space_left as usize))
     }
@@ -102,6 +102,11 @@ impl FreeMemoryRegion {
 
 unsafe impl GlobalAlloc for HeapAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let layout = if layout.size() < mem::size_of::<FreeMemoryRegion>() {
+            Layout::from_size_align(mem::size_of::<FreeMemoryRegion>(), layout.align()).unwrap()
+        } else {
+            layout
+        };
         self.try_alloc(layout)
     }
 
