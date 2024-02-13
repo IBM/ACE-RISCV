@@ -75,6 +75,7 @@ impl<'a> PageAllocator {
     /// # Guarantees
     ///
     /// * The PageAllocator's map contains keys for every possible page size.
+    #[rr::skip]
     #[rr::exists("m")]
     #[rr::returns("m")]
     fn empty() -> Self {
@@ -198,9 +199,9 @@ impl<'a> PageAllocator {
     /// Postcondition: there exists a result (the error case is always a valid option)
     #[rr::exists("res")]
     /// Postcondition: errors are always a valid outcome
-    #[rr::ensures("if_err (λ err, err = error_Error_OutOfMemory)")]
+    #[rr::ensures("if_err res (λ err, err = error_Error_OutOfMemory)")]
     /// Postcondition: if sucessful, we get the desired number of pages of the right size
-    #[rr::ensures("if_ok (λ pages, length pages = num ∧ (∀ x, x ∈ pages → ∃ page, x = #page ∧ x.2 = sz))")]
+    #[rr::ensures("if_ok res (λ pages, length pages = num ∧ (∀ x, x ∈ pages → ∃ page, x = #page ∧ x.2 = sz))")]
     #[rr::returns("res")]
     pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size)))?;
@@ -317,6 +318,7 @@ impl<'a> PageAllocator {
     }
 
     /// Tries to divide existing page tokens, so that the PageAllocator has page tokens of the requested page size.
+    #[rr::skip]
     #[rr::params("m", "γ", "sz")]
     #[rr::args("(#m, γ)", "sz")]
     #[rr::exists("pages_available", "m'")]
@@ -346,6 +348,7 @@ impl<'a> PageAllocator {
 
     /// Tries to divide a page of the given size into smaller pages. Returns false if there is no page of the given size or the given size
     /// is the smallest possible page size supported by the architecture.
+    #[rr::skip]
     #[rr::params("m", "γ", "sz")]
     #[rr::args("(#m, γ)", "sz")]
     #[rr::exists("success", "m'")]
@@ -369,7 +372,7 @@ impl<'a> PageAllocator {
     }
 
     /// returns a mutable reference to the PageAllocator after obtaining a lock on the mutex
-    #[rr::inline]
+    #[rr::skip]
     // TODO: might be challenging to specify
     fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, PageAllocator>) -> Result<F, Error> {

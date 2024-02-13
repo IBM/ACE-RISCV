@@ -29,7 +29,7 @@ impl PageState for Allocated {}
 #[rr::invariant(#type "l" : "<#> v" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
 // TODO: add this once we deal with the Once initialization
 //#[rr::exists("MEMORY_CONFIG")]
-//#[rr::invariant("once_initialized GLOBAL_MEMORY_LAYOUT MEMORY_CONFIG")]
+//#[rr::invariant("once_status MEMORY_LAYOUT (Some MEMORY_CONFIG)")]
 //#[rr::invariant("page is in range of MEMORY_CONFIG")]
 pub struct Page<S: PageState> {
     /// Specification: the `address` has mathematical value `l`.

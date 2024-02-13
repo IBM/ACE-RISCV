@@ -9,6 +9,10 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 #[repr(transparent)]
 #[derive(Debug, PartialEq)]
 #[rr::refined_by("l" : "loc")]
+// TODO: add this once we deal with the Once initialization
+//#[rr::exists("MEMORY_CONFIG")]
+//#[rr::invariant("once_status MEMORY_LAYOUT (Some MEMORY_CONFIG)")]
+//#[rr::invariant("(MEMORY_CONFIG.3.2 ≤ l.2 < MEMORY_CONFIG.4.2)%Z")]
 pub struct ConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
 
 impl ConfidentialMemoryAddress {
@@ -69,7 +73,6 @@ impl ConfidentialMemoryAddress {
     }
 
     /// Reads usize-sized sequence of bytes from the confidential memory region.
-    ///
     /// # Safety
     ///
     /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::read_volatile` for
@@ -85,7 +88,6 @@ impl ConfidentialMemoryAddress {
     }
 
     /// Writes usize-sized sequence of bytes to the confidential memory region.
-    ///
     /// # Safety
     ///
     /// Caller must ensure that the pointer is not used by two threads simultaneously. See `ptr::write_volatile` for

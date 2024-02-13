@@ -24,9 +24,12 @@ static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
 /// Provides an interface to offset addresses that are guaranteed to remain inside the same memory region, i.e.,
 /// confidential or non-confidential memory.
 #[rr::refined_by("(non_conf_start, non_conf_end, conf_start, conf_end)")]
-#[rr::invariant("non_conf_start < non_conf_end")]
-#[rr::invariant("conf_start < conf_end")]
-#[rr::invariant("non_conf_end ≤ conf_start")]
+#[rr::invariant("non_conf_start.2 ≤ non_conf_end.2")]
+#[rr::invariant("conf_start.2 ≤ conf_end.2")]
+#[rr::invariant("non_conf_end.2 ≤ conf_start.2")]
+/// Invariant: the bounds of the confidential memory region are aligned to 4KiB pages
+#[rr::invariant("conf_start `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
+#[rr::invariant("conf_end `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
 pub struct MemoryLayout {
     #[rr::field("non_conf_start")]
     non_confidential_memory_start: *mut usize,
@@ -54,6 +57,33 @@ impl MemoryLayout {
     /// # Safety
     ///
     /// This function must be called only once by the initialization procedure during the boot of the system.
+    #[rr::skip]
+    #[rr::args("non_conf_start", "non_conf_end", "conf_start", "conf_end")]
+    /// Precondition: The non-confidential memory should have positive size.
+    #[rr::requires("non_conf_start.2 < non_conf_end.2")]
+    /// Precondition: The non-condidential memory should preceed and not overlap with confidential memory.
+    #[rr::requires("non_conf_end.2 ≤ conf_start.2")]
+    /// Precondition: The confidential memory should have positive size.
+    #[rr::requires("conf_start.2 < conf_end.2")]
+    /// Precondition: The global MEMORY_LAYOUT has not been initialized yet.
+    #[rr::requires(#iris "once_status MEMORY_LAYOUT None")]
+    /// Postcondition: There exists a result -- failure is always an option
+    #[rr::exists("res")]
+    /// Postcondition: failure due to low memory can occur if there is no sufficiently aligned
+    /// confidential address
+    #[rr::ensures("if_err res (λ err, (conf_start.2 - conf_end.2 ≤ page_size_in_bytes_Z Size4KiB)%Z ∧ err = error_Error_Init error_InitType_NotEnoughMemory")]
+    /// Postcondition: if we return Ok, we get a new confidential memory range that is correctly
+    /// aligned for the smallest page size and is a subrange of [conf_start, conf_end)
+    #[rr::ensures(
+        "if_ok res (λ ok, ∃ conf_start' conf_end', conf_start' `aligned_to` (page_size_in_bytes_nat Size4KiB) ∧
+        conf_end' `aligned_to` (page_size_in_bytes_nat Size4KiB) ∧
+        conf_start ≤ conf_start' ∧ conf_end' ≤ conf_end ∧ conf_start' ≤ conf_end')%Z"
+    )]
+    /// Postcondition: if we return Ok, the MEMORY_LAYOUT has been initialized.
+    #[rr::ensures(#iris "once_status MEMORY_LAYOUT (match res with
+          Ok -[#conf_start; #conf_end] => Some (non_conf_start, non_conf_end, conf_start, conf_end)
+        | Err err => None)")]
+    #[rr::returns("res")]
     pub unsafe fn init(
         non_confidential_memory_start: *mut usize, non_confidential_memory_end: *const usize, confidential_memory_start: *mut usize,
         mut confidential_memory_end: *const usize,
@@ -70,6 +100,7 @@ impl MemoryLayout {
         // Let's make sure that the end of the confidential memory is properly aligned. I.e., there are no dangling
         // bytes after the last page.
         let memory_size = ptr_byte_offset(confidential_memory_end, confidential_memory_start);
+        // Note: this should not fail after the above `ptr_align` call
         let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
         let number_of_pages = memory_size / smalles_page_size_in_bytes;
         let memory_size_in_bytes = number_of_pages * smalles_page_size_in_bytes;
@@ -140,12 +171,17 @@ impl MemoryLayout {
     }
 
     #[rr::skip]
-    #[rr::requires(#iris "initialized_once MEMORY_LAYOUT (non_conf_start, non_conf_end, conf_start, conf_end)")]
-    #[rr::returns("#(non_start, non_end, conf_start, conf_end)")]
+    #[rr::params("x")]
+    #[rr::requires(#iris "once_status MEMORY_LAYOUT (Some x)")]
+    #[rr::returns("#x")]
     pub fn read() -> &'static MemoryLayout {
         MEMORY_LAYOUT.get().expect(NOT_INITIALIZED_MEMORY_LAYOUT)
     }
 
+    #[rr::only_spec]
+    #[rr::params("non_conf_start", "non_conf_end", "conf_start", "conf_end")]
+    #[rr::args("#(non_conf_start, non_conf_end, conf_start, conf_end)")]
+    #[rr::returns("-[#conf_start.2; #conf_end.2]")]
     pub fn confidential_memory_boundary(&self) -> (usize, usize) {
         (self.confidential_memory_start as usize, self.confidential_memory_end as usize)
     }
