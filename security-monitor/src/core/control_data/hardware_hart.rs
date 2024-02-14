@@ -177,9 +177,6 @@ impl HardwareHart {
         // TODO: consider using htinst register
         self.non_confidential_hart_state.set_gpr(GpRegister::t6, request.instruction());
 
-        let fault_addr = (request.htval() << 2) | (request.stval() & 0x3);
-        // debug!("MMIO load fault: inst={:x} fault_addr={:x}", request.instruction(), fault_addr);
-
         self.apply_trap();
     }
 
@@ -196,20 +193,11 @@ impl HardwareHart {
         self.non_confidential_hart_state.htinst = request.instruction();
         self.non_confidential_hart_state.set_gpr(request.gpr(), request.gpr_value());
 
-        let fault_addr = (request.htval() << 2) | (request.stval() & 0x3);
         // hack: we do not allow the hypervisor to look into the guest memory
         // but we have to inform him about the instruction that caused exception.
         // our approach is to expose this instruction via t6
         // TODO: consider using htinst register
         self.non_confidential_hart_state.set_gpr(GpRegister::t6, request.instruction());
-
-        // debug!(
-        //     "MMIO store fault: inst={:x} fault_addr={:x}, gpr={:?}, gpr_value={}",
-        //     request.instruction(),
-        //     fault_addr,
-        //     request.gpr(),
-        //     request.gpr_value()
-        // );
 
         self.apply_trap();
     }
@@ -252,11 +240,6 @@ impl HardwareHart {
 }
 
 impl HardwareHart {
-    // TODO: remove below
-    pub fn debug_confidential_hart(&self) -> &ConfidentialHart {
-        &self.confidential_hart
-    }
-
     pub fn trap_reason(&self) -> TrapReason {
         self.non_confidential_hart_state.trap_reason()
     }

@@ -149,7 +149,7 @@ impl<'a> PageAllocator {
     /// the requested criteria.
     pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
         let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size)))?;
-        assure_not!(pages.is_empty(), Error::OutOfMemory())?;
+        assure_not!(pages.is_empty(), Error::OutOfPages())?;
         Ok(pages)
     }
 

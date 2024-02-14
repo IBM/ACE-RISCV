@@ -193,13 +193,13 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 /// memory region using hardware isolation mechanisms.
 #[no_mangle]
 extern "C" fn ace_setup_this_hart() {
-    let hart_id = riscv::register::mhartid::read();
-    debug!("Setting up physical HART [hart_id={}]", hart_id);
-
     // wait until the boot hart initializes the security monitor's data structures
     while !HARTS_STATES.is_completed() {
         unsafe { core::arch::asm!("fence w,o") };
     }
+
+    let hart_id = riscv::register::mhartid::read();
+    debug!("Setting up physical HART [hart_id={}]", hart_id);
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
