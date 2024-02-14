@@ -17,4 +17,4 @@ buddy_system_allocator = "0.9.0"
 sbi = "0.2.0"
 
 # provides macros that help removing boilerplate code in rust error handling
-thiserror-no-std = "2.0" 
+thiserror-no-std = "2.0"

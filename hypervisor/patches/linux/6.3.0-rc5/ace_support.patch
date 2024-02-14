@@ -1,5 +1,5 @@
 diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
-index cc7da66ee0c0..a52718c3dbd7 100644
+index cc7da66ee0c0..3e1ab6d5cf55 100644
 --- a/arch/riscv/include/asm/kvm_host.h
 +++ b/arch/riscv/include/asm/kvm_host.h
 @@ -154,6 +154,7 @@ struct kvm_vcpu_csr {
@@ -16,8 +16,8 @@ index cc7da66ee0c0..a52718c3dbd7 100644
  	struct kvm_pmu pmu_context;
 +
 +	// ACE START
-+	bool is_svm;
-+	unsigned long svm_id;
++	bool is_confidential_vm;
++	unsigned long confidential_vm_id;
 +	unsigned long vcpu_id;
 +	// ACE END
  };
@@ -77,18 +77,10 @@ index 278e97c06e0a..56bfdde53fa4 100644
 +kvm-y += vcpu_sbi_ace.o
  kvm-$(CONFIG_RISCV_PMU_SBI) += vcpu_pmu.o vcpu_sbi_pmu.o
 diff --git a/arch/riscv/kvm/mmu.c b/arch/riscv/kvm/mmu.c
-index 78211aed36fa..5860fc82611a 100644
+index 78211aed36fa..73ea8455d9aa 100644
 --- a/arch/riscv/kvm/mmu.c
 +++ b/arch/riscv/kvm/mmu.c
-@@ -480,6 +480,7 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
- 
- 	mmap_read_lock(current->mm);
- 
-+
- 	/*
- 	 * A memory region could potentially cover multiple VMAs, and
- 	 * any holes between them, so iterate over all of them to find
-@@ -627,7 +628,6 @@ int kvm_riscv_gstage_map(struct kvm_vcpu *vcpu,
+@@ -627,7 +627,6 @@ int kvm_riscv_gstage_map(struct kvm_vcpu *vcpu,
  	bool logging = (memslot->dirty_bitmap &&
  			!(memslot->flags & KVM_MEM_READONLY)) ? true : false;
  	unsigned long vma_pagesize, mmu_seq;
@@ -97,19 +89,10 @@ index 78211aed36fa..5860fc82611a 100644
  
  	vma = vma_lookup(current->mm, hva);
 diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
-index 7d010b0be54e..b93c76ea0ad2 100644
+index 7d010b0be54e..e4e7ab5f3f2d 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
-@@ -743,6 +743,8 @@ void kvm_riscv_vcpu_sync_interrupts(struct kvm_vcpu *vcpu)
- 	struct kvm_vcpu_arch *v = &vcpu->arch;
- 	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
- 
-+	// printk(KERN_INFO "kvm_riscv_vcpu_sync_interrupts\n");
-+
- 	/* Read current HVIP and VSIE CSRs */
- 	csr->vsie = csr_read(CSR_VSIE);
- 
-@@ -982,10 +984,19 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
+@@ -982,10 +982,17 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
   */
  static void noinstr kvm_riscv_vcpu_enter_exit(struct kvm_vcpu *vcpu)
  {
@@ -117,13 +100,11 @@ index 7d010b0be54e..b93c76ea0ad2 100644
 -	__kvm_riscv_switch_to(&vcpu->arch);
 -	vcpu->arch.last_exit_cpu = vcpu->cpu;
 -	guest_state_exit_irqoff();
-+	if (vcpu->arch.is_svm) {
-+		// printk(KERN_INFO "kvm kvm_riscv_vcpu_enter_exit CONFIDENITLA VM!\n");
++	if (vcpu->arch.is_confidential_vm) {
 +		guest_state_enter_irqoff();
-+		__kvm_riscv_ace_switch_to(&vcpu->arch, 1010, vcpu->arch.svm_id, vcpu->arch.vcpu_id);
++		__kvm_riscv_ace_switch_to(&vcpu->arch, 1010, vcpu->arch.confidential_vm_id, vcpu->arch.vcpu_id);
 +		vcpu->arch.last_exit_cpu = vcpu->cpu;
 +		guest_state_exit_irqoff();
-+		// printk(KERN_INFO "kvm kvm_riscv_vcpu_enter_exit CONFIDENITLA VM EXIT!\n");
 +	} else {
 +		guest_state_enter_irqoff();
 +		__kvm_riscv_switch_to(&vcpu->arch);
@@ -133,38 +114,19 @@ index 7d010b0be54e..b93c76ea0ad2 100644
  }
  
  int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
-@@ -999,6 +1010,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
- 
- 	kvm_vcpu_srcu_read_lock(vcpu);
- 
-+	// printk(KERN_INFO "ACE KVM: kvm_arch_vcpu_ioctl_run: %d\n", run->exit_reason);
-+
- 	switch (run->exit_reason) {
- 	case KVM_EXIT_MMIO:
- 		/* Process MMIO value returned from user-space */
 diff --git a/arch/riscv/kvm/vcpu_exit.c b/arch/riscv/kvm/vcpu_exit.c
-index 4ea101a73d8b..a872fc01e928 100644
+index 4ea101a73d8b..35811202f271 100644
 --- a/arch/riscv/kvm/vcpu_exit.c
 +++ b/arch/riscv/kvm/vcpu_exit.c
-@@ -24,6 +24,8 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -23,6 +23,7 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	gfn = fault_addr >> PAGE_SHIFT;
  	memslot = gfn_to_memslot(vcpu->kvm, gfn);
  	hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
- 
 +	// kvm_err("gstage_page_fault A fault_addr=%lx hva=%lx writable=%d\n", fault_addr, hva, writable);
-+
+ 
  	if (kvm_is_error_hva(hva) ||
  	    (trap->scause == EXC_STORE_GUEST_PAGE_FAULT && !writable)) {
- 		switch (trap->scause) {
-@@ -40,6 +42,8 @@ static int gstage_page_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
- 		};
- 	}
- 
-+	// kvm_err("gstage_page_fault B kvm_riscv_gstage_map %lx %lx %lx %lx\n", fault_addr, hva, trap->htval, trap->stval);
-+
- 	ret = kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva,
- 		(trap->scause == EXC_STORE_GUEST_PAGE_FAULT) ? true : false);
- 	if (ret < 0)
-@@ -65,6 +69,8 @@ unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu,
+@@ -65,6 +66,8 @@ unsigned long kvm_riscv_vcpu_unpriv_read(struct kvm_vcpu *vcpu,
  	register unsigned long ttmp asm("a1");
  	unsigned long flags, val, tmp, old_stvec, old_hstatus;
  
@@ -173,7 +135,7 @@ index 4ea101a73d8b..a872fc01e928 100644
  	local_irq_save(flags);
  
  	old_hstatus = csr_swap(CSR_HSTATUS, vcpu->arch.guest_context.hstatus);
-@@ -175,32 +181,57 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -175,12 +178,15 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
  	int ret;
  
  	/* If we got host interrupt then do nothing */
@@ -185,21 +147,17 @@ index 4ea101a73d8b..a872fc01e928 100644
  	/* Handle guest traps */
  	ret = -EFAULT;
  	run->exit_reason = KVM_EXIT_UNKNOWN;
-+
 +	// kvm_err("kvm_riscv_vcpu_exit: cause=%ld\n", trap->scause);
 +
  	switch (trap->scause) {
  	case EXC_INST_ILLEGAL:
  		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_INST_ILLEGAL\n");
- 			kvm_riscv_vcpu_trap_redirect(vcpu, trap);
- 			ret = 1;
+@@ -189,18 +195,21 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
  		}
  		break;
  	case EXC_VIRTUAL_INST_FAULT:
 -		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 +		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_VIRTUAL_INST_FAULT\n");
  			ret = kvm_riscv_vcpu_virtual_insn(vcpu, run, trap);
 +		}
  		break;
@@ -208,35 +166,19 @@ index 4ea101a73d8b..a872fc01e928 100644
  	case EXC_STORE_GUEST_PAGE_FAULT:
 -		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 +		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			// kvm_err("SEPC=0x%lx SSTATUS=0x%lx HSTATUS=0x%lx\n", vcpu->arch.guest_context.sepc, vcpu->arch.guest_context.sstatus, vcpu->arch.guest_context.hstatus);
-+			// kvm_err("hvip=0x%lx scounteren=0x%lx htinst=0x%lx\n", vcpu->arch.guest_csr.hvip, vcpu->arch.guest_csr.scounteren, vcpu->arch.guest_csr.htinst);
-+			// kvm_err("SCAUSE=0x%lx STVAL=0x%lx HTVAL=0x%lx HTINST=0x%lx\n", trap->scause, trap->stval, trap->htval, trap->htinst);
-+			// kvm_err("0=0x%lx 1=0x%lx 2=0x%lx\n", vcpu->arch.guest_context.zero, vcpu->arch.guest_context.ra, vcpu->arch.guest_context.sp);
-+			// kvm_err("3=0x%lx 4=0x%lx 5=0x%lx\n", vcpu->arch.guest_context.gp, vcpu->arch.guest_context.tp, vcpu->arch.guest_context.t0);
-+			// kvm_err("6=0x%lx 7=0x%lx 8=0x%lx\n", vcpu->arch.guest_context.t1, vcpu->arch.guest_context.t2, vcpu->arch.guest_context.s0);
-+			// kvm_err("9=0x%lx 10=0x%lx 11=0x%lx\n", vcpu->arch.guest_context.s1, vcpu->arch.guest_context.a0, vcpu->arch.guest_context.a1);
-+			// kvm_err("12=0x%lx 13=0x%lx 14=0x%lx\n", vcpu->arch.guest_context.a2, vcpu->arch.guest_context.a3, vcpu->arch.guest_context.a4);
-+			// kvm_err("15=0x%lx 16=0x%lx 17=0x%lx\n", vcpu->arch.guest_context.a5, vcpu->arch.guest_context.a6, vcpu->arch.guest_context.a7);
-+			// kvm_err("18=0x%lx 19=0x%lx 20=0x%lx\n", vcpu->arch.guest_context.s2, vcpu->arch.guest_context.s3, vcpu->arch.guest_context.s4);
-+			// kvm_err("21=0x%lx 22=0x%lx 23=0x%lx\n", vcpu->arch.guest_context.s5, vcpu->arch.guest_context.s6, vcpu->arch.guest_context.s7);
-+			// kvm_err("24=0x%lx 25=0x%lx 26=0x%lx\n", vcpu->arch.guest_context.s8, vcpu->arch.guest_context.s9, vcpu->arch.guest_context.s10);
-+			// kvm_err("27=0x%lx 28=0x%lx 29=0x%lx\n", vcpu->arch.guest_context.s11, vcpu->arch.guest_context.t3, vcpu->arch.guest_context.t4);
-+			// kvm_err("30=0x%lx 31=0x%lx\n", vcpu->arch.guest_context.t5, vcpu->arch.guest_context.t6);
-+			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_STORE_GUEST_PAGE_FAULT\n");
  			ret = gstage_page_fault(vcpu, run, trap);
 +		}
  		break;
  	case EXC_SUPERVISOR_SYSCALL:
 -		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 +		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
-+			// kvm_err("kvm_riscv_vcpu_exit: enter EXC_SUPERVISOR_SYSCALL\n");
  			ret = kvm_riscv_vcpu_sbi_ecall(vcpu, run);
 +		}
  		break;
  	default:
  		break;
 diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
-index f689337b78ff..fa7ffb6f2bf5 100644
+index f689337b78ff..25b4cdc930cb 100644
 --- a/arch/riscv/kvm/vcpu_insn.c
 +++ b/arch/riscv/kvm/vcpu_insn.c
 @@ -106,6 +106,7 @@
@@ -252,7 +194,7 @@ index f689337b78ff..fa7ffb6f2bf5 100644
  		if (insn == 0) {
  			ct = &vcpu->arch.guest_context;
 -			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true,
-+			if (vcpu->arch.is_svm) {
++			if (vcpu->arch.is_confidential_vm) {
 +				// this is a hack because we have difficulties setting up htinst
 +				// from the M-mode. A workaround is to store htinst in t6.
 +				insn = ct->t6;
@@ -282,7 +224,7 @@ index f689337b78ff..fa7ffb6f2bf5 100644
  		 */
 -		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
 -						  &utrap);
-+		if (vcpu->arch.is_svm) {
++		if (vcpu->arch.is_confidential_vm) {
 +			// this is a hack because we have difficulties setting up htinst
 +			// from the M-mode. A workaround is to store htinst in t6.
 +			insn = ct->t6;
@@ -324,7 +266,7 @@ index f689337b78ff..fa7ffb6f2bf5 100644
  		 */
 -		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
 -						  &utrap);
-+		if (vcpu->arch.is_svm) {
++		if (vcpu->arch.is_confidential_vm) {
 +			// this is a hack because we have difficulties setting up htinst
 +			// from the M-mode. A workaround is to store htinst in t6.
 +			insn = ct->t6;
@@ -410,7 +352,7 @@ index f689337b78ff..fa7ffb6f2bf5 100644
  			(ulong)data64 << shift >> shift);
  		break;
 diff --git a/arch/riscv/kvm/vcpu_sbi.c b/arch/riscv/kvm/vcpu_sbi.c
-index 15fde15f9fb8..c453b2a91983 100644
+index 15fde15f9fb8..d4c0ab57d6a6 100644
 --- a/arch/riscv/kvm/vcpu_sbi.c
 +++ b/arch/riscv/kvm/vcpu_sbi.c
 @@ -41,6 +41,7 @@ static const struct kvm_vcpu_sbi_extension *sbi_ext[] = {
@@ -421,27 +363,18 @@ index 15fde15f9fb8..c453b2a91983 100644
  };
  
  void kvm_riscv_vcpu_sbi_forward(struct kvm_vcpu *vcpu, struct kvm_run *run)
-@@ -69,6 +70,11 @@ void kvm_riscv_vcpu_sbi_system_reset(struct kvm_vcpu *vcpu,
+@@ -69,6 +70,10 @@ void kvm_riscv_vcpu_sbi_system_reset(struct kvm_vcpu *vcpu,
  	unsigned long i;
  	struct kvm_vcpu *tmp;
  
-+	if (vcpu->arch.is_svm) {
-+		//sbi_ecall(0x510000, 3001, vcpu->arch.svm_id, 0, 0, 0, 0, 0);
-+		vcpu->arch.is_svm = 0;
++	if (vcpu->arch.is_confidential_vm) {
++		vcpu->arch.is_confidential_vm = 0;
 +	}
 +
  	kvm_for_each_vcpu(i, tmp, vcpu->kvm)
  		tmp->arch.power_off = true;
  	kvm_make_all_cpus_request(vcpu->kvm, KVM_REQ_SLEEP);
-@@ -92,6 +98,7 @@ int kvm_riscv_vcpu_sbi_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
- 	/* Update return values */
- 	cp->a0 = run->riscv_sbi.ret[0];
- 	cp->a1 = run->riscv_sbi.ret[1];
-+	printk(KERN_INFO "KVM kvm_riscv_vcpu_sbi_return: %d %d\n", cp->a0, cp->a1);
- 
- 	/* Move to next instruction */
- 	vcpu->arch.guest_context.sepc += 4;
-@@ -127,6 +134,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -127,6 +132,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
  	bool ext_is_v01 = false;
  
  	sbi_ext = kvm_vcpu_sbi_find_ext(cp->a7);
@@ -449,7 +382,7 @@ index 15fde15f9fb8..c453b2a91983 100644
  	if (sbi_ext && sbi_ext->handler) {
  #ifdef CONFIG_RISCV_SBI_V01
  		if (cp->a7 >= SBI_EXT_0_1_SET_TIMER &&
-@@ -151,6 +159,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -151,6 +157,7 @@ int kvm_riscv_vcpu_sbi_ecall(struct kvm_vcpu *vcpu, struct kvm_run *run)
  
  	/* Handle special error cases i.e trap, exit or userspace forward */
  	if (sbi_ret.utrap->scause) {
@@ -459,10 +392,10 @@ index 15fde15f9fb8..c453b2a91983 100644
  		sbi_ret.utrap->sepc = cp->sepc;
 diff --git a/arch/riscv/kvm/vcpu_sbi_ace.c b/arch/riscv/kvm/vcpu_sbi_ace.c
 new file mode 100644
-index 000000000000..809a1ef06ec6
+index 000000000000..0e3eee78d537
 --- /dev/null
 +++ b/arch/riscv/kvm/vcpu_sbi_ace.c
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,133 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2021 IBM.
@@ -497,12 +430,12 @@ index 000000000000..809a1ef06ec6
 +	gfn_t gfn;
 +	int ret;
 +	long page;
++	unsigned long memory_size = cp->a0;
 +
 +	printk(KERN_INFO "ACE KVM: Loading all pages\n");
-+	long memory_start = 0x80000000;
-+	long memory_size = 4*1024*1024*1024; // TODO: get the real value
-+	long number_of_pages = 1024*1024; // memory_size / 4096;
-+	printk(KERN_INFO "ACE KVM: number of pages to load: %d\n", number_of_pages);
++	unsigned long memory_start = 0x80000000;
++	// unsigned long number_of_pages = memory_size / 4096; 
++	unsigned long number_of_pages = 1024*1024; // ~4GiB because a page is 4KiB;
 +	for (page=0; page<number_of_pages; page++) {
 +		fault_addr = memory_start + page * 4096;
 +		gfn = fault_addr >> PAGE_SHIFT;
@@ -520,14 +453,14 @@ index 000000000000..809a1ef06ec6
 +{
 +	struct kvm *kvm = vcpu->kvm;
 +	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
-+	unsigned long svm_id = cp->a0;
++	unsigned long confidential_vm_id = cp->a0;
 +	unsigned long vcpu_id = cp->a1;
 +
-+	vcpu->arch.is_svm = 1;
-+	vcpu->arch.svm_id = svm_id;
++	vcpu->arch.is_confidential_vm = 1;
++	vcpu->arch.confidential_vm_id = confidential_vm_id;
 +	vcpu->arch.vcpu_id = vcpu_id;
 +
-+	printk(KERN_INFO "ACE KVM: registered SVM[id=%ld]\n", svm_id);
++	printk(KERN_INFO "ACE KVM: registered new confidential VM id=%ld\n", confidential_vm_id);
 +
 +	return 0;
 +}
@@ -535,7 +468,7 @@ index 000000000000..809a1ef06ec6
 +static int kvm_sbi_ace_page_in(struct kvm_vcpu *vcpu, struct kvm_vcpu_sbi_return *retdata)
 +{
 +	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
-+	unsigned long svm_id = vcpu->arch.svm_id;
++	unsigned long confidential_vm_id = vcpu->arch.confidential_vm_id;
 +	unsigned long hart_id = vcpu->arch.vcpu_id;
 +	unsigned long virt_addr = cp->a0;
 +	unsigned long is_error = 0;
@@ -553,15 +486,7 @@ index 000000000000..809a1ef06ec6
 +	phys_addr_t hpa = hfn << PAGE_SHIFT;
 +
 +	struct kvm_cpu_context *reset_cntx = &vcpu->arch.guest_reset_context;
-+	// reset_cntx = &target_vcpu->arch.;
-+	// reset_cntx->sepc = cp->a1;
-+
 +	retdata->out_val = hpa;
-+
-+	// result = sbi_ecall(SECURITY_MONITOR_EXTID, SECURITY_MONITOR_PAGE_IN_FID, cookie, is_error, svm_id, hart_id, hpa, 0);
-+	// if (result.error > 0) {
-+	// 	printk(KERN_INFO "KVM: Security Monitor returned error from PAGE_IN sm-call.\n");
-+	// }
 +
 +	return 0;
 +}
@@ -605,7 +530,7 @@ index 000000000000..809a1ef06ec6
 +	.handler = kvm_sbi_ext_ace_handler,
 +};
 diff --git a/arch/riscv/kvm/vcpu_sbi_hsm.c b/arch/riscv/kvm/vcpu_sbi_hsm.c
-index 7dca0e9381d9..b0fdc4f39d7a 100644
+index 7dca0e9381d9..46f33f29d411 100644
 --- a/arch/riscv/kvm/vcpu_sbi_hsm.c
 +++ b/arch/riscv/kvm/vcpu_sbi_hsm.c
 @@ -32,8 +32,15 @@ static int kvm_sbi_hsm_vcpu_start(struct kvm_vcpu *vcpu)
@@ -614,10 +539,10 @@ index 7dca0e9381d9..b0fdc4f39d7a 100644
  	reset_cntx->a1 = cp->a2;
 -	kvm_make_request(KVM_REQ_VCPU_RESET, target_vcpu);
  
-+	if (vcpu->arch.is_svm) {
++	if (vcpu->arch.is_confidential_vm) {
 +		printk(KERN_INFO "ACE KVM: starting new vcpu\n");
-+		target_vcpu->arch.is_svm = 1;
-+		target_vcpu->arch.svm_id = vcpu->arch.svm_id;
++		target_vcpu->arch.is_confidential_vm = 1;
++		target_vcpu->arch.confidential_vm_id = vcpu->arch.confidential_vm_id;
 +		target_vcpu->arch.vcpu_id = target_vcpuid;
 +	}
 +
