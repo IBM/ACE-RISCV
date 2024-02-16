@@ -30,8 +30,10 @@ pub enum Error {
     FdtParsing(),
     #[error("Could not convert SBI argument to usize: {0}")]
     SbiArgument(#[from] TryFromIntError),
-    #[error("Not enough memory to allocate")]
+    #[error("Not enough memory to allocate on heap")]
     OutOfMemory(),
+    #[error("Not enough memory to allocate a page")]
+    OutOfPages(),
     #[error("Page table error")]
     PageTableConfiguration(),
     #[error("Page Table is corrupted")]

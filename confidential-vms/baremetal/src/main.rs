@@ -21,8 +21,8 @@ mod macros;
 mod calls;
 mod error;
 mod hal;
-mod trap;
 mod sync;
+mod trap;
 mod virtio;
 mod worker;
 
@@ -144,8 +144,7 @@ fn test_virtio(fdt_paddr: usize) -> Result<(), Error> {
 
     let (input_paddr, output_paddr) = prepare_shared_memory()?;
     let input: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(input_paddr as *mut u8, 512) };
-    let mut output: &mut [u8] =
-        unsafe { core::slice::from_raw_parts_mut(output_paddr as *mut u8, 512) };
+    let mut output: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(output_paddr as *mut u8, 512) };
     for x in input.iter_mut() {
         *x = 'I' as u8;
     }
@@ -169,22 +168,10 @@ fn test_virtio(fdt_paddr: usize) -> Result<(), Error> {
 
 fn init_memory(uart: &mut Uart) {
     unsafe {
-        HEAP_ALLOCATOR
-            .lock()
-            .init(_heap_start as usize, _heap_size as usize);
-        uart.println(&format!(
-            "Stack 0x{:x}-0x{:x}",
-            _stack_start as usize, _stack_end as usize
-        ));
-        uart.println(&format!(
-            "DMA   0x{:x}-0x{:x}",
-            _dma_start as usize, _dma_end as usize
-        ));
-        uart.println(&format!(
-            "Heap  0x{:x}-0x{:x}",
-            _heap_start as usize,
-            _heap_start as usize + _heap_size as usize
-        ));
+        HEAP_ALLOCATOR.lock().init(_heap_start as usize, _heap_size as usize);
+        uart.println(&format!("Stack 0x{:x}-0x{:x}", _stack_start as usize, _stack_end as usize));
+        uart.println(&format!("DMA   0x{:x}-0x{:x}", _dma_start as usize, _dma_end as usize));
+        uart.println(&format!("Heap  0x{:x}-0x{:x}", _heap_start as usize, _heap_start as usize + _heap_size as usize));
         let dma_start = (_dma_start as usize + 4096 - 1) & !(4096 - 1);
         crate::DMA_PADDR = Some(AtomicUsize::new(dma_start));
     }
@@ -202,10 +189,7 @@ fn prepare_shared_memory() -> Result<(usize, usize), Error> {
     let pages_to_allocate = 3;
     let paddr = unsafe {
         if let Some(v) = &crate::DMA_PADDR {
-            v.fetch_add(
-                virtio_drivers::PAGE_SIZE * pages_to_allocate,
-                core::sync::atomic::Ordering::SeqCst,
-            )
+            v.fetch_add(virtio_drivers::PAGE_SIZE * pages_to_allocate, core::sync::atomic::Ordering::SeqCst)
         } else {
             return Err(Error::DmaNotInitialized());
         }
@@ -218,14 +202,9 @@ fn prepare_shared_memory() -> Result<(usize, usize), Error> {
     let scratch_paddr = paddr + 2 * 4096;
 
     unsafe {
-        crate::SCRATCH_PAGE = Some(crate::hal::ScratchPage {
-            base_paddr: scratch_paddr,
-            position: 0,
-            translations: alloc::vec![],
-        });
+        crate::SCRATCH_PAGE =
+            Some(crate::hal::ScratchPage { base_paddr: scratch_paddr, position: 0, translations: alloc::vec![] });
     }
 
     Ok((input_paddr, output_paddr))
 }
-
-

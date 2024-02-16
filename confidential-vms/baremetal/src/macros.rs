@@ -28,12 +28,7 @@ macro_rules! println
 fn panic(info: &core::panic::PanicInfo) -> ! {
     print!("Aborting: ");
     if let Some(p) = info.location() {
-        println!(
-            "line {}, file {}: {}",
-            p.line(),
-            p.file(),
-            info.message().unwrap()
-        );
+        println!("line {}, file {}: {}", p.line(), p.file(), info.message().unwrap());
     } else {
         println!("no information available.");
     }

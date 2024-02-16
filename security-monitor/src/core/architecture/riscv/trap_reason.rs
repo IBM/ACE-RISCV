@@ -15,6 +15,7 @@ pub enum TrapReason {
     VsEcall(SbiExtension),
     HsEcall(SbiExtension),
     MachineEcall,
+    GuestInstructionPageFault,
     GuestLoadPageFault,
     GuestStorePageFault,
     Unknown,
@@ -31,6 +32,7 @@ impl TrapReason {
     const HYPERVISOR_ECALL: usize = 9;
     const VIRTUAL_SUPERVISOR_ECALL: usize = 10;
     const MACHINE_ECALL: usize = 11;
+    const GUEST_INSTRUCTION_PAGE_FAULT: usize = 20;
     const GUEST_LOAD_PAGE_FAULT: usize = 21;
     const GUEST_STORE_PAGE_FAULT: usize = 23;
 
@@ -48,6 +50,7 @@ impl TrapReason {
                 Self::HYPERVISOR_ECALL => Self::HsEcall(SbiExtension::decode(hart_state)),
                 Self::VIRTUAL_SUPERVISOR_ECALL => Self::VsEcall(SbiExtension::decode(hart_state)),
                 Self::MACHINE_ECALL => Self::MachineEcall,
+                Self::GUEST_INSTRUCTION_PAGE_FAULT => Self::GuestInstructionPageFault,
                 Self::GUEST_LOAD_PAGE_FAULT => Self::GuestLoadPageFault,
                 Self::GUEST_STORE_PAGE_FAULT => Self::GuestStorePageFault,
                 _ => Self::Unknown,

@@ -43,5 +43,5 @@ jobs:
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make hypervisor
     - name: build firmware
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make firmware
-    - name: build cvms
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make cvms
+    - name: build confidential_vms
+      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make confidential_vms

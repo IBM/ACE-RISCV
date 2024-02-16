@@ -7,7 +7,8 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 
 **This is an active research project, without warranties of any kind.** Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about our approach and goals.
 
-We are currently building on RISC-V with hypervisor extentions. We will adapt the AP-TEE extension once it is ratified.
+## Hardware requirements
+We are currently building on RISC-V with hypervisor extentions, physical memory protection (PMP), IOPMP, and supervisor timecmp extension (Sstc). We plan to adapt some of the RISC-V confidential computing extensions, such as [the CoVE extension](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/specification/riscv-cove.pdf) and [the Smmtt extension](https://github.com/riscv/riscv-smmtt).
 
 ## Quick Start
 Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
@@ -90,6 +91,11 @@ Build the firmware that will boot the system and the security monitor (SM)
 make firmware
 ```
 
+Build test confidential VMs
+```
+make confidential_vms
+```
+
 Build the RISC-V emulator and tools that will simplify running the test environment
 ```
 make emulator
@@ -111,9 +117,14 @@ You should see the output from the boot process and a promt to login to the hype
 # login: root, password: passwd
 ```
 
-To run the sample confidential VM execute:
+To run the sample `baremetal` confidential VM execute:
 ```
-./run.sh
+./run_baremetal.sh
+```
+
+To run the sample Linux kernel confidential VM execute:
+```
+./run_linux_vm.sh
 ```
 
 # License

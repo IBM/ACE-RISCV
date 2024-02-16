@@ -1,0 +1,588 @@
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 484d04a92fa6..26724205e22e 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -269,6 +269,12 @@ struct kvm_vcpu_arch {
+ 		gpa_t shmem;
+ 		u64 last_steal;
+ 	} sta;
++
++	// ACE START
++	bool is_confidential_vm;
++	unsigned long confidential_vm_id;
++	unsigned long vcpu_id;
++	// ACE END
+ };
+ 
+ static inline void kvm_arch_sync_events(struct kvm *kvm) {}
+@@ -359,6 +365,7 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 			struct kvm_cpu_trap *trap);
+ 
+ void __kvm_riscv_switch_to(struct kvm_vcpu_arch *vcpu_arch);
++void __kvm_riscv_ace_switch_to(struct kvm_vcpu_arch *vcpu_arch, long fid, long arg0, long arg1);
+ 
+ void kvm_riscv_vcpu_setup_isa(struct kvm_vcpu *vcpu);
+ unsigned long kvm_riscv_vcpu_num_regs(struct kvm_vcpu *vcpu);
+diff --git a/arch/riscv/include/asm/kvm_vcpu_sbi.h b/arch/riscv/include/asm/kvm_vcpu_sbi.h
+index b96705258cf9..990233754a05 100644
+--- a/arch/riscv/include/asm/kvm_vcpu_sbi.h
++++ b/arch/riscv/include/asm/kvm_vcpu_sbi.h
+@@ -88,6 +88,7 @@ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_dbcn;
+ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_sta;
+ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_experimental;
+ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_vendor;
++extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_ace;
+ 
+ #ifdef CONFIG_RISCV_PMU_SBI
+ extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_pmu;
+diff --git a/arch/riscv/include/asm/sbi.h b/arch/riscv/include/asm/sbi.h
+index 6e68f8dff76b..e3b3b7706258 100644
+--- a/arch/riscv/include/asm/sbi.h
++++ b/arch/riscv/include/asm/sbi.h
+@@ -31,6 +31,7 @@ enum sbi_ext_id {
+ 	SBI_EXT_SRST = 0x53525354,
+ 	SBI_EXT_SUSP = 0x53555350,
+ 	SBI_EXT_PMU = 0x504D55,
++	SBI_EXT_ACE = 0x509999,
+ 	SBI_EXT_DBCN = 0x4442434E,
+ 	SBI_EXT_STA = 0x535441,
+ 
+diff --git a/arch/riscv/include/uapi/asm/kvm.h b/arch/riscv/include/uapi/asm/kvm.h
+index 7499e88a947c..02ead3ea21e4 100644
+--- a/arch/riscv/include/uapi/asm/kvm.h
++++ b/arch/riscv/include/uapi/asm/kvm.h
+@@ -183,6 +183,7 @@ enum KVM_RISCV_SBI_EXT_ID {
+ 	KVM_RISCV_SBI_EXT_PMU,
+ 	KVM_RISCV_SBI_EXT_EXPERIMENTAL,
+ 	KVM_RISCV_SBI_EXT_VENDOR,
++	KVM_RISCV_SBI_EXT_ACE,
+ 	KVM_RISCV_SBI_EXT_DBCN,
+ 	KVM_RISCV_SBI_EXT_STA,
+ 	KVM_RISCV_SBI_EXT_MAX,
+diff --git a/arch/riscv/kernel/asm-offsets.c b/arch/riscv/kernel/asm-offsets.c
+index a03129f40c46..0b0829c138f3 100644
+--- a/arch/riscv/kernel/asm-offsets.c
++++ b/arch/riscv/kernel/asm-offsets.c
+@@ -162,6 +162,7 @@ void asm_offsets(void)
+ 	OFFSET(KVM_ARCH_GUEST_SSTATUS, kvm_vcpu_arch, guest_context.sstatus);
+ 	OFFSET(KVM_ARCH_GUEST_HSTATUS, kvm_vcpu_arch, guest_context.hstatus);
+ 	OFFSET(KVM_ARCH_GUEST_SCOUNTEREN, kvm_vcpu_arch, guest_csr.scounteren);
++	//OFFSET(KVM_ARCH_GUEST_HTINST, kvm_vcpu_arch, guest_csr.htinst);
+ 
+ 	OFFSET(KVM_ARCH_HOST_ZERO, kvm_vcpu_arch, host_context.zero);
+ 	OFFSET(KVM_ARCH_HOST_RA, kvm_vcpu_arch, host_context.ra);
+diff --git a/arch/riscv/kvm/Makefile b/arch/riscv/kvm/Makefile
+index c9646521f113..140bbd2e80c9 100644
+--- a/arch/riscv/kvm/Makefile
++++ b/arch/riscv/kvm/Makefile
+@@ -28,6 +28,7 @@ kvm-y += vcpu_sbi_replace.o
+ kvm-y += vcpu_sbi_hsm.o
+ kvm-y += vcpu_sbi_sta.o
+ kvm-y += vcpu_timer.o
++kvm-y += vcpu_sbi_ace.o
+ kvm-$(CONFIG_RISCV_PMU_SBI) += vcpu_pmu.o vcpu_sbi_pmu.o
+ kvm-y += aia.o
+ kvm-y += aia_device.o
+diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
+index b5ca9f2e98ac..a9e626e41349 100644
+--- a/arch/riscv/kvm/vcpu.c
++++ b/arch/riscv/kvm/vcpu.c
+@@ -668,10 +668,17 @@ static __always_inline void kvm_riscv_vcpu_swap_in_host_state(struct kvm_vcpu *v
+ static void noinstr kvm_riscv_vcpu_enter_exit(struct kvm_vcpu *vcpu)
+ {
+ 	kvm_riscv_vcpu_swap_in_guest_state(vcpu);
+-	guest_state_enter_irqoff();
+-	__kvm_riscv_switch_to(&vcpu->arch);
+-	vcpu->arch.last_exit_cpu = vcpu->cpu;
+-	guest_state_exit_irqoff();
++	if (vcpu->arch.is_confidential_vm) {
++		guest_state_enter_irqoff();
++		__kvm_riscv_ace_switch_to(&vcpu->arch, 1010, vcpu->arch.confidential_vm_id, vcpu->arch.vcpu_id);
++		vcpu->arch.last_exit_cpu = vcpu->cpu;
++		guest_state_exit_irqoff();
++	} else {	
++		guest_state_enter_irqoff();
++		__kvm_riscv_switch_to(&vcpu->arch);
++		vcpu->arch.last_exit_cpu = vcpu->cpu;
++		guest_state_exit_irqoff();
++	}
+ 	kvm_riscv_vcpu_swap_in_host_state(vcpu);
+ }
+ 
+diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
+index 7a6abed41bc1..66bcad91440d 100644
+--- a/arch/riscv/kvm/vcpu_insn.c
++++ b/arch/riscv/kvm/vcpu_insn.c
+@@ -417,9 +417,15 @@ int kvm_riscv_vcpu_virtual_insn(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	if (unlikely(INSN_IS_16BIT(insn))) {
+ 		if (insn == 0) {
+ 			ct = &vcpu->arch.guest_context;
+-			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true,
++			if (vcpu->arch.is_confidential_vm) {
++				// this is a hack because we have difficulties setting up htinst
++				// from the M-mode. A workaround is to store htinst in t6.
++				insn = ct->t6;
++			} else {
++				insn = kvm_riscv_vcpu_unpriv_read(vcpu, true,
+ 							  ct->sepc,
+ 							  &utrap);
++			}
+ 			if (utrap.scause) {
+ 				utrap.sepc = ct->sepc;
+ 				kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
+@@ -473,8 +479,14 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 		 * Bit[0] == 0 implies trapped instruction value is
+ 		 * zero or special value.
+ 		 */
+-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
++		 if (vcpu->arch.is_confidential_vm) {
++			// this is a hack because we have difficulties setting up htinst
++			// from the M-mode. A workaround is to store htinst in t6.
++			insn = ct->t6;
++		} else {
++			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+ 						  &utrap);
++		}
+ 		if (utrap.scause) {
+ 			/* Redirect trap if we failed to read instruction */
+ 			utrap.sepc = ct->sepc;
+@@ -599,8 +611,14 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 		 * Bit[0] == 0 implies trapped instruction value is
+ 		 * zero or special value.
+ 		 */
+-		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
++		if (vcpu->arch.is_confidential_vm) {
++			// this is a hack because we have difficulties setting up htinst
++			// from the M-mode. A workaround is to store htinst in t6.
++			insn = ct->t6;
++		} else {
++			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
+ 						  &utrap);
++		}
+ 		if (utrap.scause) {
+ 			/* Redirect trap if we failed to read instruction */
+ 			utrap.sepc = ct->sepc;
+diff --git a/arch/riscv/kvm/vcpu_sbi.c b/arch/riscv/kvm/vcpu_sbi.c
+index 72a2ffb8dcd1..7b1fa864faf3 100644
+--- a/arch/riscv/kvm/vcpu_sbi.c
++++ b/arch/riscv/kvm/vcpu_sbi.c
+@@ -82,6 +82,10 @@ static const struct kvm_riscv_sbi_extension_entry sbi_ext[] = {
+ 		.ext_idx = KVM_RISCV_SBI_EXT_VENDOR,
+ 		.ext_ptr = &vcpu_sbi_ext_vendor,
+ 	},
++	{
++		.ext_idx = KVM_RISCV_SBI_EXT_ACE,
++		.ext_ptr = &vcpu_sbi_ext_ace,
++	},	
+ };
+ 
+ static const struct kvm_riscv_sbi_extension_entry *
+@@ -138,6 +142,10 @@ void kvm_riscv_vcpu_sbi_system_reset(struct kvm_vcpu *vcpu,
+ 	unsigned long i;
+ 	struct kvm_vcpu *tmp;
+ 
++	if (vcpu->arch.is_confidential_vm) {
++		vcpu->arch.is_confidential_vm = 0;
++	}	
++
+ 	kvm_for_each_vcpu(i, tmp, vcpu->kvm)
+ 		tmp->arch.power_off = true;
+ 	kvm_make_all_cpus_request(vcpu->kvm, KVM_REQ_SLEEP);
+diff --git a/arch/riscv/kvm/vcpu_sbi_ace.c b/arch/riscv/kvm/vcpu_sbi_ace.c
+new file mode 100644
+index 000000000000..0e3eee78d537
+--- /dev/null
++++ b/arch/riscv/kvm/vcpu_sbi_ace.c
+@@ -0,0 +1,133 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2021 IBM.
++ *
++ * Authors:
++ *     Wojciech Ozga <woz@zurich.ibm.com>
++ */
++
++#include <linux/errno.h>
++#include <linux/err.h>
++#include <linux/kvm_host.h>
++#include <asm/sbi.h>
++#include <asm/kvm_vcpu_sbi.h>
++#include <asm/kvm_host.h>
++#include <asm/io.h>
++
++const int SECURITY_MONITOR_EXTID = 0x510000;
++const int SECURITY_MONITOR_PAGE_IN_FID = 2003;
++
++const int SBI_EXT_ACE_LOAD_ALL_PAGES = 0;
++const int SBI_EXT_ACE_REGISTER_SVM = 1;
++const int SBI_EXT_ACE_PAGE_IN = 2;
++
++phys_addr_t test_phys_addr = 0;
++
++static int kvm_sbi_ace_load_all_pages(struct kvm_vcpu *vcpu)
++{
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	struct kvm_memory_slot *memslot;
++	unsigned long hva, fault_addr;
++	bool writable;
++	gfn_t gfn;
++	int ret;
++	long page;
++	unsigned long memory_size = cp->a0;
++
++	printk(KERN_INFO "ACE KVM: Loading all pages\n");
++	unsigned long memory_start = 0x80000000;
++	// unsigned long number_of_pages = memory_size / 4096; 
++	unsigned long number_of_pages = 1024*1024; // ~4GiB because a page is 4KiB;
++	for (page=0; page<number_of_pages; page++) {
++		fault_addr = memory_start + page * 4096;
++		gfn = fault_addr >> PAGE_SHIFT;
++		memslot = gfn_to_memslot(vcpu->kvm, gfn);
++		hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
++		if (memslot != NULL && !kvm_is_error_hva(hva)) {
++			kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva, true);
++		}
++	}
++
++	return 0;
++}
++
++static int kvm_sbi_ace_register_svm(struct kvm_vcpu *vcpu)
++{
++	struct kvm *kvm = vcpu->kvm;
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	unsigned long confidential_vm_id = cp->a0;
++	unsigned long vcpu_id = cp->a1;
++
++	vcpu->arch.is_confidential_vm = 1;
++	vcpu->arch.confidential_vm_id = confidential_vm_id;
++	vcpu->arch.vcpu_id = vcpu_id;
++
++	printk(KERN_INFO "ACE KVM: registered new confidential VM id=%ld\n", confidential_vm_id);
++
++	return 0;
++}
++
++static int kvm_sbi_ace_page_in(struct kvm_vcpu *vcpu, struct kvm_vcpu_sbi_return *retdata)
++{
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	unsigned long confidential_vm_id = vcpu->arch.confidential_vm_id;
++	unsigned long hart_id = vcpu->arch.vcpu_id;
++	unsigned long virt_addr = cp->a0;
++	unsigned long is_error = 0;
++	int page_size = 4096;
++	struct sbiret result;
++	bool writable;
++
++	gpa_t gpa = virt_addr;
++	gfn_t gfn = gpa >> PAGE_SHIFT;
++
++	struct kvm_memory_slot *memslot = gfn_to_memslot(vcpu->kvm, gfn);
++	phys_addr_t hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
++	kvm_riscv_gstage_map(vcpu, memslot, gpa, hva, true);
++	unsigned long hfn = gfn_to_pfn_prot(vcpu->kvm, gfn, true, NULL);
++	phys_addr_t hpa = hfn << PAGE_SHIFT;
++
++	struct kvm_cpu_context *reset_cntx = &vcpu->arch.guest_reset_context;
++	retdata->out_val = hpa;
++
++	return 0;
++}
++
++static int kvm_sbi_ext_ace_handler(struct kvm_vcpu *vcpu, struct kvm_run *run,
++				   struct kvm_vcpu_sbi_return *retdata)
++{
++	int ret = 0;
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	struct kvm *kvm = vcpu->kvm;
++	unsigned long funcid = cp->a6;
++
++	switch (funcid) {
++	case SBI_EXT_ACE_LOAD_ALL_PAGES:
++		mutex_lock(&kvm->lock);
++		ret = kvm_sbi_ace_load_all_pages(vcpu);
++		mutex_unlock(&kvm->lock);
++		break;
++	case SBI_EXT_ACE_REGISTER_SVM:
++		mutex_lock(&kvm->lock);
++		ret = kvm_sbi_ace_register_svm(vcpu);
++		mutex_unlock(&kvm->lock);
++		break;
++	case SBI_EXT_ACE_PAGE_IN:
++		mutex_lock(&kvm->lock);
++		ret = kvm_sbi_ace_page_in(vcpu, retdata);
++		mutex_unlock(&kvm->lock);
++		break;
++	default:
++		ret = SBI_ERR_NOT_SUPPORTED;
++	}
++
++	retdata->err_val = ret;
++
++	return 0;
++}
++
++const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_ace = {
++	.extid_start = SBI_EXT_ACE,
++	.extid_end = SBI_EXT_ACE,
++	.handler = kvm_sbi_ext_ace_handler,
++};
+diff --git a/arch/riscv/kvm/vcpu_sbi_hsm.c b/arch/riscv/kvm/vcpu_sbi_hsm.c
+index 7dca0e9381d9..4507f99e07fb 100644
+--- a/arch/riscv/kvm/vcpu_sbi_hsm.c
++++ b/arch/riscv/kvm/vcpu_sbi_hsm.c
+@@ -32,6 +32,13 @@ static int kvm_sbi_hsm_vcpu_start(struct kvm_vcpu *vcpu)
+ 	reset_cntx->a0 = target_vcpuid;
+ 	/* private data passed from kernel */
+ 	reset_cntx->a1 = cp->a2;
++
++	if (vcpu->arch.is_confidential_vm) {
++		printk(KERN_INFO "ACE KVM: starting new vcpu\n");
++		target_vcpu->arch.is_confidential_vm = 1;
++		target_vcpu->arch.confidential_vm_id = vcpu->arch.confidential_vm_id;
++		target_vcpu->arch.vcpu_id = target_vcpuid;
++	}
+ 	kvm_make_request(KVM_REQ_VCPU_RESET, target_vcpu);
+ 
+ 	kvm_riscv_vcpu_power_on(target_vcpu);
+diff --git a/arch/riscv/kvm/vcpu_switch.S b/arch/riscv/kvm/vcpu_switch.S
+index 0c26189aa01c..a570bc94b76b 100644
+--- a/arch/riscv/kvm/vcpu_switch.S
++++ b/arch/riscv/kvm/vcpu_switch.S
+@@ -210,6 +210,216 @@ SYM_FUNC_START(__kvm_riscv_switch_to)
+ 	ret
+ SYM_FUNC_END(__kvm_riscv_switch_to)
+ 
++# ACE START,
++#	a0 - address of the vcpu->arch
++#	a1 - SM-call function ID
++#   a2 - first argument of the SM-call
++SYM_CODE_START(__kvm_riscv_ace_switch_to)
++	/* Save Host GPRs (except A0 and T0-T6) */
++	REG_S	ra, (KVM_ARCH_HOST_RA)(a0)
++	REG_S	sp, (KVM_ARCH_HOST_SP)(a0)
++	REG_S	gp, (KVM_ARCH_HOST_GP)(a0)
++	REG_S	tp, (KVM_ARCH_HOST_TP)(a0)
++	REG_S	s0, (KVM_ARCH_HOST_S0)(a0)
++	REG_S	s1, (KVM_ARCH_HOST_S1)(a0)
++	REG_S	a1, (KVM_ARCH_HOST_A1)(a0)
++	REG_S	a2, (KVM_ARCH_HOST_A2)(a0)
++	REG_S	a3, (KVM_ARCH_HOST_A3)(a0)
++	REG_S	a4, (KVM_ARCH_HOST_A4)(a0)
++	REG_S	a5, (KVM_ARCH_HOST_A5)(a0)
++	REG_S	a6, (KVM_ARCH_HOST_A6)(a0)
++	REG_S	a7, (KVM_ARCH_HOST_A7)(a0)
++	REG_S	s2, (KVM_ARCH_HOST_S2)(a0)
++	REG_S	s3, (KVM_ARCH_HOST_S3)(a0)
++	REG_S	s4, (KVM_ARCH_HOST_S4)(a0)
++	REG_S	s5, (KVM_ARCH_HOST_S5)(a0)
++	REG_S	s6, (KVM_ARCH_HOST_S6)(a0)
++	REG_S	s7, (KVM_ARCH_HOST_S7)(a0)
++	REG_S	s8, (KVM_ARCH_HOST_S8)(a0)
++	REG_S	s9, (KVM_ARCH_HOST_S9)(a0)
++	REG_S	s10, (KVM_ARCH_HOST_S10)(a0)
++	REG_S	s11, (KVM_ARCH_HOST_S11)(a0)
++
++	/* Load Guest CSR values */
++	REG_L	t0, (KVM_ARCH_GUEST_SSTATUS)(a0)
++	REG_L	t1, (KVM_ARCH_GUEST_HSTATUS)(a0)
++	REG_L	t2, (KVM_ARCH_GUEST_SCOUNTEREN)(a0)
++	la	t4, __kvm_ace_switch_return
++	REG_L	t5, (KVM_ARCH_GUEST_SEPC)(a0)
++
++	/* Save Host and Restore Guest SSTATUS */
++	csrrw	t0, CSR_SSTATUS, t0
++
++	/* Save Host and Restore Guest HSTATUS */
++	csrrw	t1, CSR_HSTATUS, t1
++
++	/* Save Host and Restore Guest SCOUNTEREN */
++	csrrw	t2, CSR_SCOUNTEREN, t2
++
++	/* Save Host STVEC and change it to return path */
++	csrrw	t4, CSR_STVEC, t4
++
++	/* Save Host SSCRATCH and change it to struct kvm_vcpu_arch pointer */
++	csrrw	t3, CSR_SSCRATCH, a0
++
++	/* Restore Guest SEPC */
++	csrw	CSR_SEPC, t5
++
++	/* Store Host CSR values */
++	REG_S	t0, (KVM_ARCH_HOST_SSTATUS)(a0)
++	REG_S	t1, (KVM_ARCH_HOST_HSTATUS)(a0)
++	REG_S	t2, (KVM_ARCH_HOST_SCOUNTEREN)(a0)
++	REG_S	t3, (KVM_ARCH_HOST_SSCRATCH)(a0)
++	REG_S	t4, (KVM_ARCH_HOST_STVEC)(a0)
++
++	# invoke security monitor resume sm-call
++	li		a7, 0x510000 # ACE_EXT_ID that identifies SM-call
++	add		a6, a1, 0	 # function ID
++	add		t0, a2, 0	 # first argument of the SM-call
++	add		t1, a3, 0	 # 2nd argument of the SM-call
++	add		t2, a4, 0	 # 3rd argument of the SM-call
++	add		t3, a5, 0	 # 4th argument of the SM-call
++
++	/* Restore Guest GPRs (except A0) */
++	REG_L	ra, (KVM_ARCH_GUEST_RA)(a0)
++	REG_L	sp, (KVM_ARCH_GUEST_SP)(a0)
++	REG_L	gp, (KVM_ARCH_GUEST_GP)(a0)
++	REG_L	tp, (KVM_ARCH_GUEST_TP)(a0)
++	# our convention: we use t0-t5 as arguments to ACE
++	# because a0-a5 is used by KVM for hcalls, mmio etc
++	# REG_L	t0, (KVM_ARCH_GUEST_T0)(a0)
++	# REG_L	t1, (KVM_ARCH_GUEST_T1)(a0)
++	# REG_L	t2, (KVM_ARCH_GUEST_T2)(a0)
++	REG_L	s0, (KVM_ARCH_GUEST_S0)(a0)
++	REG_L	s1, (KVM_ARCH_GUEST_S1)(a0)
++	REG_L	a1, (KVM_ARCH_GUEST_A1)(a0)
++	REG_L	a2, (KVM_ARCH_GUEST_A2)(a0)
++	REG_L	a3, (KVM_ARCH_GUEST_A3)(a0)
++	REG_L	a4, (KVM_ARCH_GUEST_A4)(a0)
++	REG_L	a5, (KVM_ARCH_GUEST_A5)(a0)
++	# REG_L	a6, (KVM_ARCH_GUEST_A6)(a0)
++	# REG_L	a7, (KVM_ARCH_GUEST_A7)(a0)
++	REG_L	s2, (KVM_ARCH_GUEST_S2)(a0)
++	REG_L	s3, (KVM_ARCH_GUEST_S3)(a0)
++	REG_L	s4, (KVM_ARCH_GUEST_S4)(a0)
++	REG_L	s5, (KVM_ARCH_GUEST_S5)(a0)
++	REG_L	s6, (KVM_ARCH_GUEST_S6)(a0)
++	REG_L	s7, (KVM_ARCH_GUEST_S7)(a0)
++	REG_L	s8, (KVM_ARCH_GUEST_S8)(a0)
++	REG_L	s9, (KVM_ARCH_GUEST_S9)(a0)
++	REG_L	s10, (KVM_ARCH_GUEST_S10)(a0)
++	REG_L	s11, (KVM_ARCH_GUEST_S11)(a0)
++	# REG_L	t3, (KVM_ARCH_GUEST_T3)(a0)
++	# REG_L	t4, (KVM_ARCH_GUEST_T4)(a0)
++	# REG_L	t5, (KVM_ARCH_GUEST_T5)(a0)
++	# REG_L	t6, (KVM_ARCH_GUEST_T6)(a0)
++
++	REG_L	a0, (KVM_ARCH_GUEST_A0)(a0)
++
++	/* Resume Guest */
++	ecall
++
++	/* Back to Host */
++	.align 4
++__kvm_ace_switch_return:
++	/* Swap Guest A0 with SSCRATCH */
++	csrrw	a0, CSR_SSCRATCH, a0
++
++	/* Save Guest GPRs (except A0) */
++	REG_S	ra, (KVM_ARCH_GUEST_RA)(a0)
++	REG_S	sp, (KVM_ARCH_GUEST_SP)(a0)
++	REG_S	gp, (KVM_ARCH_GUEST_GP)(a0)
++	REG_S	tp, (KVM_ARCH_GUEST_TP)(a0)
++	REG_S	t0, (KVM_ARCH_GUEST_T0)(a0)
++	REG_S	t1, (KVM_ARCH_GUEST_T1)(a0)
++	REG_S	t2, (KVM_ARCH_GUEST_T2)(a0)
++	REG_S	s0, (KVM_ARCH_GUEST_S0)(a0)
++	REG_S	s1, (KVM_ARCH_GUEST_S1)(a0)
++	REG_S	a1, (KVM_ARCH_GUEST_A1)(a0)
++	REG_S	a2, (KVM_ARCH_GUEST_A2)(a0)
++	REG_S	a3, (KVM_ARCH_GUEST_A3)(a0)
++	REG_S	a4, (KVM_ARCH_GUEST_A4)(a0)
++	REG_S	a5, (KVM_ARCH_GUEST_A5)(a0)
++	REG_S	a6, (KVM_ARCH_GUEST_A6)(a0)
++	REG_S	a7, (KVM_ARCH_GUEST_A7)(a0)
++	REG_S	s2, (KVM_ARCH_GUEST_S2)(a0)
++	REG_S	s3, (KVM_ARCH_GUEST_S3)(a0)
++	REG_S	s4, (KVM_ARCH_GUEST_S4)(a0)
++	REG_S	s5, (KVM_ARCH_GUEST_S5)(a0)
++	REG_S	s6, (KVM_ARCH_GUEST_S6)(a0)
++	REG_S	s7, (KVM_ARCH_GUEST_S7)(a0)
++	REG_S	s8, (KVM_ARCH_GUEST_S8)(a0)
++	REG_S	s9, (KVM_ARCH_GUEST_S9)(a0)
++	REG_S	s10, (KVM_ARCH_GUEST_S10)(a0)
++	REG_S	s11, (KVM_ARCH_GUEST_S11)(a0)
++	REG_S	t3, (KVM_ARCH_GUEST_T3)(a0)
++	REG_S	t4, (KVM_ARCH_GUEST_T4)(a0)
++	REG_S	t5, (KVM_ARCH_GUEST_T5)(a0)
++	REG_S	t6, (KVM_ARCH_GUEST_T6)(a0)
++
++	/* Load Host CSR values */
++	REG_L	t1, (KVM_ARCH_HOST_STVEC)(a0)
++	REG_L	t2, (KVM_ARCH_HOST_SSCRATCH)(a0)
++	REG_L	t3, (KVM_ARCH_HOST_SCOUNTEREN)(a0)
++	REG_L	t4, (KVM_ARCH_HOST_HSTATUS)(a0)
++	REG_L	t5, (KVM_ARCH_HOST_SSTATUS)(a0)
++
++	/* Save Guest SEPC */
++	csrr	t0, CSR_SEPC
++
++	/* Save Guest A0 and Restore Host SSCRATCH */
++	csrrw	t2, CSR_SSCRATCH, t2
++
++	/* Restore Host STVEC */
++	csrw	CSR_STVEC, t1
++
++	/* Save Guest and Restore Host SCOUNTEREN */
++	csrrw	t3, CSR_SCOUNTEREN, t3
++
++	/* Save Guest and Restore Host HSTATUS */
++	csrrw	t4, CSR_HSTATUS, t4
++
++	/* Save Guest and Restore Host SSTATUS */
++	csrrw	t5, CSR_SSTATUS, t5
++
++	/* Store Guest CSR values */
++	REG_S	t0, (KVM_ARCH_GUEST_SEPC)(a0)
++	REG_S	t2, (KVM_ARCH_GUEST_A0)(a0)
++	REG_S	t3, (KVM_ARCH_GUEST_SCOUNTEREN)(a0)
++	REG_S	t4, (KVM_ARCH_GUEST_HSTATUS)(a0)
++	REG_S	t5, (KVM_ARCH_GUEST_SSTATUS)(a0)
++
++	/* Restore Host GPRs (except A0 and T0-T6) */
++	REG_L	ra, (KVM_ARCH_HOST_RA)(a0)
++	REG_L	sp, (KVM_ARCH_HOST_SP)(a0)
++	REG_L	gp, (KVM_ARCH_HOST_GP)(a0)
++	REG_L	tp, (KVM_ARCH_HOST_TP)(a0)
++	REG_L	s0, (KVM_ARCH_HOST_S0)(a0)
++	REG_L	s1, (KVM_ARCH_HOST_S1)(a0)
++	REG_L	a1, (KVM_ARCH_HOST_A1)(a0)
++	REG_L	a2, (KVM_ARCH_HOST_A2)(a0)
++	REG_L	a3, (KVM_ARCH_HOST_A3)(a0)
++	REG_L	a4, (KVM_ARCH_HOST_A4)(a0)
++	REG_L	a5, (KVM_ARCH_HOST_A5)(a0)
++	REG_L	a6, (KVM_ARCH_HOST_A6)(a0)
++	REG_L	a7, (KVM_ARCH_HOST_A7)(a0)
++	REG_L	s2, (KVM_ARCH_HOST_S2)(a0)
++	REG_L	s3, (KVM_ARCH_HOST_S3)(a0)
++	REG_L	s4, (KVM_ARCH_HOST_S4)(a0)
++	REG_L	s5, (KVM_ARCH_HOST_S5)(a0)
++	REG_L	s6, (KVM_ARCH_HOST_S6)(a0)
++	REG_L	s7, (KVM_ARCH_HOST_S7)(a0)
++	REG_L	s8, (KVM_ARCH_HOST_S8)(a0)
++	REG_L	s9, (KVM_ARCH_HOST_S9)(a0)
++	REG_L	s10, (KVM_ARCH_HOST_S10)(a0)
++	REG_L	s11, (KVM_ARCH_HOST_S11)(a0)
++
++	/* Return to C code */
++	ret
++SYM_FUNC_END(__kvm_riscv_ace_switch_to)
++
++# ACE END
++
+ SYM_CODE_START(__kvm_riscv_unpriv_trap)
+ 	/*
+ 	 * We assume that faulting unpriv load/store instruction is
+diff --git a/tools/testing/selftests/kvm/riscv/get-reg-list.c b/tools/testing/selftests/kvm/riscv/get-reg-list.c
+index 4fd0f8951574..60b45df69fd4 100644
+--- a/tools/testing/selftests/kvm/riscv/get-reg-list.c
++++ b/tools/testing/selftests/kvm/riscv/get-reg-list.c
+@@ -519,6 +519,7 @@ static const char *sbi_ext_single_id_to_str(__u64 reg_off)
+ 		KVM_SBI_EXT_ARR(KVM_RISCV_SBI_EXT_STA),
+ 		KVM_SBI_EXT_ARR(KVM_RISCV_SBI_EXT_EXPERIMENTAL),
+ 		KVM_SBI_EXT_ARR(KVM_RISCV_SBI_EXT_VENDOR),
++		KVM_SBI_EXT_ARR(KVM_RISCV_SBI_EXT_ACE),
+ 		KVM_SBI_EXT_ARR(KVM_RISCV_SBI_EXT_DBCN),
+ 	};
+ 
+@@ -735,6 +736,7 @@ static __u64 sbi_base_regs[] = {
+ 	KVM_REG_RISCV | KVM_REG_SIZE_ULONG | KVM_REG_RISCV_SBI_EXT | KVM_REG_RISCV_SBI_SINGLE | KVM_RISCV_SBI_EXT_HSM,
+ 	KVM_REG_RISCV | KVM_REG_SIZE_ULONG | KVM_REG_RISCV_SBI_EXT | KVM_REG_RISCV_SBI_SINGLE | KVM_RISCV_SBI_EXT_EXPERIMENTAL,
+ 	KVM_REG_RISCV | KVM_REG_SIZE_ULONG | KVM_REG_RISCV_SBI_EXT | KVM_REG_RISCV_SBI_SINGLE | KVM_RISCV_SBI_EXT_VENDOR,
++	KVM_REG_RISCV | KVM_REG_SIZE_ULONG | KVM_REG_RISCV_SBI_EXT | KVM_REG_RISCV_SBI_SINGLE | KVM_RISCV_SBI_EXT_ACE,
+ };
+ 
+ static __u64 sbi_sta_regs[] = {

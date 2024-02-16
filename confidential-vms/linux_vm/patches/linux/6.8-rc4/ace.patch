@@ -1,0 +1,153 @@
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index bffbd869a068..426f4f5e89ea 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -248,6 +248,10 @@ config KASAN_SHADOW_OFFSET
+ 	default 0xdfffffff00000000 if 64BIT
+ 	default 0xffffffff if 32BIT
+ 
++config ARCH_HAS_MEM_ENCRYPT
++	def_bool y
++	select ARCH_HAS_FORCE_DMA_UNENCRYPTED
++
+ config ARCH_FLATMEM_ENABLE
+ 	def_bool !NUMA
+ 
+diff --git a/arch/riscv/include/asm/mem_encrypt.h b/arch/riscv/include/asm/mem_encrypt.h
+new file mode 100644
+index 000000000000..d0bc620d06cc
+--- /dev/null
++++ b/arch/riscv/include/asm/mem_encrypt.h
+@@ -0,0 +1,12 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef RISCV_ACE_MEM_ENCRYPT_H__
++#define RISCV_ACE_MEM_ENCRYPT_H__
++
++static inline bool force_dma_unencrypted(struct device *dev) {
++    // return true/false depending if we are a confidential VM
++	return true;
++}
++int set_memory_encrypted(unsigned long vaddr, int numpages);
++int set_memory_decrypted(unsigned long vaddr, int numpages);
++
++#endif	/* RISCV_ACE_MEM_ENCRYPT_H__ */
+diff --git a/arch/riscv/kernel/Makefile b/arch/riscv/kernel/Makefile
+index f71910718053..78fa62d3ccc8 100644
+--- a/arch/riscv/kernel/Makefile
++++ b/arch/riscv/kernel/Makefile
+@@ -35,6 +35,7 @@ endif
+ 
+ extra-y += vmlinux.lds
+ 
++obj-y	+= ace.o
+ obj-y	+= head.o
+ obj-y	+= soc.o
+ obj-$(CONFIG_RISCV_ALTERNATIVE) += alternative.o
+diff --git a/arch/riscv/kernel/ace.c b/arch/riscv/kernel/ace.c
+new file mode 100644
+index 000000000000..ef786886906f
+--- /dev/null
++++ b/arch/riscv/kernel/ace.c
+@@ -0,0 +1,47 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * ACE helper functions
++ *
++ * Copyright 2018 IBM Corporation
++ */
++
++#ifndef _ASM_RISCV_ACE_MEM_ENCRYPT_H
++#define _ASM_RISCV_ACE_MEM_ENCRYPT_H
++
++#include <linux/swiotlb.h>
++#include <asm/mem_encrypt.h>
++#include <asm/sbi.h>
++#include <linux/mm.h>
++#include <asm/errno.h>
++
++int set_memory_encrypted(unsigned long addr, int numpages)
++{
++    int i;
++    sbi_ecall(0x510000, 9000, 666, 660, 0, 0, 0, 0);
++
++	if (!PAGE_ALIGNED(addr))
++		return -EINVAL;
++
++    for (i=0; i<numpages; i) {
++        sbi_ecall(0x510000, 2001, __pa(addr), numpages, 0, 0, 0, 0);
++        addr = PAGE_SIZE;
++    }
++	return 0;
++}
++
++int set_memory_decrypted(unsigned long addr, int numpages)
++{
++    int i;
++    sbi_ecall(0x510000, 9000, 666, 661, 0, 0, 0, 0);
++
++	if (!PAGE_ALIGNED(addr))
++		return -EINVAL;
++
++    for (i=0; i<numpages; i) {
++        sbi_ecall(0x510000, 2000, __pa(addr), numpages, 0, 0, 0, 0);
++        addr = PAGE_SIZE;
++    }
++	return 0;
++}
++
++#endif /* _ASM_RISCV_ACE_MEM_ENCRYPT_H */
+\ No newline at end of file
+diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
+index 4f73c0ae44b2..3bee009fda6a 100644
+--- a/arch/riscv/kernel/setup.c
++++ b/arch/riscv/kernel/setup.c
+@@ -253,6 +253,14 @@ void __init setup_arch(char **cmdline_p)
+ 
+ 	*cmdline_p = boot_command_line;
+ 
++	// START ACE INIT
++	// Request the hypervisor to preload all pages
++	// TODO: read the total memory size and expose it to the hypervisor with the call
++	sbi_ecall(0x509999, 0, 0, 0, 0, 0, 0, 0);
++	// Request the security monitor to promote the VM to a confidential VM
++	sbi_ecall(0x510000, 1000, 0, 0, 0, 0, 0, 0);
++	// END ACE INIT
++
+ 	early_ioremap_setup();
+ 	sbi_init();
+ 	jump_label_init();
+diff --git a/arch/riscv/mm/init.c b/arch/riscv/mm/init.c
+index fa34cf55037b..7e91892a4efe 100644
+--- a/arch/riscv/mm/init.c
++++ b/arch/riscv/mm/init.c
+@@ -6,6 +6,7 @@
+  *  Nick Kossifidis <mick@ics.forth.gr>
+  */
+ 
++#include <asm/sbi.h>
+ #include <linux/init.h>
+ #include <linux/mm.h>
+ #include <linux/memblock.h>
+@@ -33,6 +34,8 @@
+ #include <asm/sections.h>
+ #include <asm/soc.h>
+ #include <asm/tlbflush.h>
++#include <linux/virtio_anchor.h>
++#include <linux/virtio_config.h>
+ 
+ #include "../kernel/head.h"
+ 
+@@ -166,7 +169,12 @@ void __init mem_init(void)
+ 	BUG_ON(!mem_map);
+ #endif /* CONFIG_FLATMEM */
+ 
+-	swiotlb_init(max_pfn > PFN_DOWN(dma32_phys_limit), SWIOTLB_VERBOSE);
++	// ACE START
++	virtio_set_mem_acc_cb(virtio_require_restricted_mem_acc);
++    swiotlb_init(true, SWIOTLB_ANY | SWIOTLB_FORCE | SWIOTLB_VERBOSE);
++    swiotlb_update_mem_attributes();
++	// ACE END
++	// swiotlb_init(max_pfn > PFN_DOWN(dma32_phys_limit), SWIOTLB_VERBOSE);
+ 	memblock_free_all();
+ 
+ 	print_vm_layout();

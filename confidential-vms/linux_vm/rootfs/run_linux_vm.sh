@@ -3,19 +3,14 @@
 # SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 # SPDX-License-Identifier: Apache-2.0
 
-if [ -z ${ACE_DIR} ]; then
-    echo "ACE_DIR must point to the directory where ACE is installed"
-    exit 1
-fi
-
-QEMU_CMD=${ACE_DIR}/qemu/bin/qemu-system-riscv64
-KERNEL=${ACE_DIR}/security-monitor/opensbi/platform/generic/firmware/fw_payload.elf
-DRIVE=${ACE_DIR}/hypervisor/buildroot/images/rootfs.ext4
+QEMU_CMD=qemu-system-riscv64
+KERNEL=/root/linux_vm/Image
+DRIVE=/root/linux_vm/rootfs.ext2
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=2
-MEMORY=8G
+SMP=1
+MEMORY=1G
 
 for i in "$@"; do
   case $i in
@@ -54,16 +49,15 @@ echo "SSH port: ${HOST_PORT}"
 echo "Number of cores assigned to the guest: ${SMP}"
 
 ${QEMU_CMD} ${DEBUG_OPTIONS} \
-    -m ${MEMORY} \
     ${INTERACTIVE} \
-    -machine virt -cpu rv64 \
-    -bios none \
+    --enable-kvm \
+    -machine virt -cpu rv64 -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
     -global virtio-mmio.force-legacy=false \
-    -append "console=ttyS0 ro root=/dev/vda" \
-    -drive if=none,format=raw,file=${DRIVE},id=hd0 \
-    -device virtio-blk-device,scsi=off,drive=hd0 \
+    -append "console=ttyS0 ro root=/dev/vda swiotlb=force" \
     -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22 \
     -device virtio-net-device,netdev=net0 \
     -device virtio-rng-pci \
-    -smp ${SMP}
+    -drive if=none,format=raw,file=${DRIVE},id=hd0 \
+    -device virtio-blk-device,scsi=off,drive=hd0 \
+    -nographic 

@@ -1,6 +1,3 @@
-[submodule "hypervisor/linux"]
-	path = hypervisor/linux
-	url = https://github.com/torvalds/linux.git
 [submodule "hypervisor/buildroot"]
 	path = hypervisor/buildroot
 	url = https://github.com/buildroot/buildroot.git

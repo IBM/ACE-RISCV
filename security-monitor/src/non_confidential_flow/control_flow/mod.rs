@@ -21,6 +21,8 @@ pub struct NonConfidentialFlow<'a> {
 }
 
 impl<'a> NonConfidentialFlow<'a> {
+    const INVALID_INTERRUPT_DELEGATION: &str = "Bug: Incorrect interrupt delegation configuration";
+
     /// Creates an instance of non-confidential flow token. NonConfidentialFlow instance can be created only by the code
     /// owning a mutable reference to the HardwareHart. This can be only the piece of code invoked by assembly and the
     /// ConfidentialFlow.
@@ -51,8 +53,7 @@ impl<'a> NonConfidentialFlow<'a> {
             }
             VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
             MachineEcall => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            GuestLoadPageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
-            GuestStorePageFault => panic!("Bug: Incorrect interrupt delegation configuration"),
+            GuestInstructionPageFault | GuestLoadPageFault | GuestStorePageFault => panic!("{}", Self::INVALID_INTERRUPT_DELEGATION),
             Unknown => invalid_call::handle(self),
         }
     }

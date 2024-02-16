@@ -140,7 +140,7 @@ fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *co
 fn initalize_security_monitor_state(
     confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
-    const NUMBER_OF_HEAP_PAGES: usize = 4 * 1024;
+    const NUMBER_OF_HEAP_PAGES: usize = 40 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
     // start allocating objects on heap, e.g., page tokens. We have to first
     // initialize the global allocator, which permits us to use heap. To initialize heap
@@ -198,12 +198,13 @@ extern "C" fn ace_setup_this_hart() {
         unsafe { core::arch::asm!("fence w,o") };
     }
 
+    let hart_id = riscv::register::mhartid::read();
+    debug!("Setting up physical HART [hart_id={}]", hart_id);
+
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
     let mut harts = HARTS_STATES.get().expect(NOT_INITIALIZED_HARTS).lock();
-    let hart_id = riscv::register::mhartid::read();
     let hart = harts.get_mut(hart_id).expect(NOT_INITIALIZED_HART);
-    debug!("Setting up physical HART [hart_id={}]", hart_id);
 
     // The mscratch must point to the memory region when the security monitor stores the dumped states of
     // confidential harts. This is crucial for context switches because assembly code will use the mscratch

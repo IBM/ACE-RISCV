@@ -12,26 +12,19 @@ pub struct TrapFrame {
 
 impl TrapFrame {
     pub const fn zero() -> Self {
-        TrapFrame {
-            regs: [0; 32],
-            trap_stack: null_mut(),
-        }
+        TrapFrame { regs: [0; 32], trap_stack: null_mut() }
     }
 }
 
 #[no_mangle]
-extern "C" fn trap_handler(
-    sepc: usize,
-    stval: usize,
-    scause: usize,
-) -> usize {
+extern "C" fn trap_handler(sepc: usize, stval: usize, scause: usize) -> usize {
     let is_async = (scause >> 63 & 1) == 1;
     let cause_num = scause & 0xfff;
     let mut return_pc = sepc;
     if is_async {
         // println!("Supervisor software interrupt!");
         // match cause_num {
-            // _ => panic!("Unhandled interrupt -> {}\n", cause_num),
+        // _ => panic!("Unhandled interrupt -> {}\n", cause_num),
         // }
     } else {
         // match cause_num {

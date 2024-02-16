@@ -6,4 +6,4 @@
 # this script is used for the development process to run the VM/confidential VM
 . common.sh
 
-run_baremetal
+run_confidential_vm "baremetal/baremetal" 2 128M

@@ -13,14 +13,5 @@ pub fn esm() -> Result<usize, Error> {
 }
 
 pub fn share_page(paddr: usize, number_of_pages: usize) -> Result<usize, Error> {
-    super::ecall(
-        ACE_EXTID,
-        ACE_SHARE_PAGE_FID,
-        paddr,
-        number_of_pages,
-        0,
-        0,
-        0,
-    )
-    .map_err(|_| Error::SharePageError())
+    super::ecall(ACE_EXTID, ACE_SHARE_PAGE_FID, paddr, number_of_pages, 0, 0, 0).map_err(|_| Error::SharePageError())
 }

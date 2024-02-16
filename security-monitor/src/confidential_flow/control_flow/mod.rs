@@ -64,6 +64,7 @@ impl<'a> ConfidentialFlow<'a> {
             Interrupt => interrupt::handle(self),
             VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
             VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
+            VsEcall(Ace(PrintDebugInfo)) => print_debug_info::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
@@ -136,8 +137,9 @@ impl<'a> ConfidentialFlow<'a> {
     /// Returns error if sending an IPI to other confidential hart failed or if there is too many pending IPI queued.
     pub fn broadcast_inter_hart_request(&mut self, inter_hart_request: InterHartRequest) -> Result<(), Error> {
         ControlData::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
-            // for the time-being, we rely on the OpenSBI implementation of physical IPIs. To use OpenSBI functions we
-            // must set the mscratch register to the value expected by OpenSBI.
+            // Hack: For the time-being, we rely on the OpenSBI implementation of physical IPIs. To use OpenSBI functions we
+            // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
+            // that knows the original value of the mscratch expected by OpenSBI.
             self.hardware_hart.swap_mscratch();
             let result = confidential_vm.broadcast_inter_hart_request(inter_hart_request);
             // We must revert the content of mscratch back to the value expected by our context switched.
@@ -157,8 +159,7 @@ impl<'a> ConfidentialFlow<'a> {
                 inter_hart_requests.drain(..).map(|inter_hart_request| inter_hart_request.into_expose_to_confidential_vm()).for_each(
                     |transformation| {
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
-                        // is assigned to the hardware hart. This is why it is the confidential hart who processes inter
-                        // hart requests and not the confidential VM.
+                        // is assigned to the hardware hart.
                         self.hardware_hart.confidential_hart_mut().apply(transformation);
                     },
                 );

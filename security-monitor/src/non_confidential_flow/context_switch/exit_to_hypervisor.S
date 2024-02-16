@@ -97,15 +97,15 @@ exit_to_hypervisor_asm:
     csrw        sscratch, t0
 
     # TODO: only zeroize VS-mode CSRs when coming from the CVM
-    li	        t0, 0
-    csrw        vsstatus, t0
-    csrw        vsie, t0
-    csrw        vstvec, t0
-    csrw        vsscratch, t0
-    csrw        vsepc, t0
-    csrw        vscause, t0
-    csrw        vstval, t0
-    csrw        vsatp, t0
+    # li	        t0, 0
+    # csrw        vsstatus, t0
+    # csrw        vsie, t0
+    # csrw        vstvec, t0
+    # csrw        vsscratch, t0
+    # csrw        vsepc, t0
+    # csrw        vscause, t0
+    # csrw        vstval, t0
+    # csrw        vsatp, t0
 
     # finally restore from memory the t0 and a0 registers
     ld	        t0, ({HART_T0_OFFSET})(a0)
