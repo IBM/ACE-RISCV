@@ -24,12 +24,6 @@ pub fn handle(share_page_result: SharePageResult, confidential_flow: Confidentia
         Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     };
 
-    debug!(
-        "Hypervisor shared a page with the confidential VM [{:?}] at address [physical address=0x{:x}]",
-        confidential_vm_id,
-        share_page_result.hypervisor_page_address()
-    );
-
     let transformation = ControlData::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
         confidential_vm.memory_protector_mut().map_shared_page(shared_page)
     })

@@ -12,17 +12,10 @@ use crate::error::Error;
 /// confidential hart if the request was invalid, e.g., the `guest physical address` was not correct.
 pub fn handle(request: Result<(SharePageRequest, SbiRequest), Error>, confidential_flow: ConfidentialFlow) -> ! {
     match request {
-        Ok((share_page_request, sbi_request)) => {
-            debug!(
-                "Confidential VM[{:?}] requested a shared page mapped to address [{:?}]",
-                confidential_flow.confidential_vm_id(),
-                share_page_request.confidential_vm_virtual_address()
-            );
-            confidential_flow
-                .set_pending_request(PendingRequest::SharePage(share_page_request))
-                .into_non_confidential_flow()
-                .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(sbi_request))
-        }
+        Ok((share_page_request, sbi_request)) => confidential_flow
+            .set_pending_request(PendingRequest::SharePage(share_page_request))
+            .into_non_confidential_flow()
+            .exit_to_hypervisor(ExposeToHypervisor::SbiRequest(sbi_request)),
         Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
     }
 }

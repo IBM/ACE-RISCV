@@ -64,6 +64,7 @@ impl<'a> ConfidentialFlow<'a> {
             Interrupt => interrupt::handle(self),
             VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
             VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
+            VsEcall(Ace(PrintDebugInfo)) => print_debug_info::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
             VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),

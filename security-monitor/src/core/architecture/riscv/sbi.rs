@@ -37,6 +37,7 @@ pub enum AceExtension {
     ConvertToConfidentialVm,
     ResumeConfidentialHart,
     TerminateConfidentialVm,
+    PrintDebugInfo,
     Unknown(usize, usize),
 }
 
@@ -46,11 +47,12 @@ impl AceExtension {
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
-            2000 => Self::SharePageWithHypervisor,
-            2001 => Self::StopSharingPageWithHypervisor,
             1000 => Self::ConvertToConfidentialVm,
             1010 => Self::ResumeConfidentialHart,
+            2000 => Self::SharePageWithHypervisor,
+            2001 => Self::StopSharingPageWithHypervisor,
             3001 => Self::TerminateConfidentialVm,
+            9000 => Self::PrintDebugInfo,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }
