@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, PendingRequest, SbiRequest, SbiResult};
+use crate::core::transformations::{ExposeToConfidentialVm, SbiRequest, SbiResult};
 
 /// Handles a hypercall from a confidential hart to hypervisor.
 pub fn handle(sbi_request: SbiRequest, confidential_flow: ConfidentialFlow) -> ! {

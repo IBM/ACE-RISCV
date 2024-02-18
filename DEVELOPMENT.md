@@ -1,7 +1,42 @@
-    # Development Guide
+# Development Guide
+This document contains information useful for developers. 
+
+## Build on MacOS
+While MacOS is not fully supported by us, building the security monitor on MacOS is also possible. We have not tested yet the build process of the hypervisor on MacOS or running the confidential VMs in QEMU.
+
+Install basic dependencies:
+```
+brew install coreutils  # to have nproc available
+brew install autoconf automake curl python libmpc mpfr gmp gawk flex texinfo libtool bc expat # for OpenSBI build
+```
+
+Install the RISC-V toolchain:
+```
+# https://github.com/riscv-software-src/homebrew-riscv
+brew tap riscv-software-src/riscv
+brew install riscv-gnu-toolchain
+```
+
+Set environment variables to use the RISC-V toolchain:
+```
+export RISCV_GNU_TOOLCHAIN_WORK_DIR=`brew --prefix riscv-gnu-toolchain`
+export PATH=$RISCV_GNU_TOOLCHAIN_WORK_DIR/bin:$PATH
+export CROSS_COMPILE=riscv64-unknown-elf-
+```
+
+Build the security monitor:
+```
+make security_monitor
+```
+
+### Build directory
+By default, ACE will be installed in the `build/` directory of this repository. You can install it to an alternative location by specifying the `ACE_DIR` environment variable. Please make sure that you have enough permissions to install in that location.
+```
+export ACE_DIR="/opt/ace/"
+```
 
 ## Setup of a shared development machine
-We use `/opt` as a shared directory to which we install common tools, like Rust.
+We will use `/opt` as a shared directory to which we will install common tools, like Rust.
 
 ### Install a shared version of Rust
 ```
@@ -29,23 +64,17 @@ export RUSTUP_HOME=/opt/rust/rustup
 export PATH=${PATH}:/opt/rust/cargo/bin
 ```
 
-### Build directory
-By default, ACE will be installed in the `build/` directory of this repository. You can install it to an alternative location by specifying the `ACE_DIR` environment variable. Please make sure that you have enough permissions to install in that location.
+## Modify the hypervisor's Linux kernel
+We use buildroot to fetch and compile the Linux kernel. It applies our changes to the Linux kernel using [patches](hypervisor/patches/). To build the Linux kernel using changes from custom Linux kernel sources you must do the following steps:
+
+Define the location of your custom Linux kernel sources (e.g., under `/tmp/linux`) in a configuration file:
 ```
-export ACE_DIR="/opt/ace/"
+echo "LINUX_OVERRIDE_SRCDIR=/tmp/linux" > hypervisor/configurations/package_override.dev
 ```
 
-## Modify the hypervisor
-Files in `configurations/overlay/root` will be included in the hypervisor filesystem during the build process. 
-
-To re-build the hypervisor without building all other components run:
+Now, re-run the build process:
 ```
-make rootfs
-```
-
-You can modify the kernel driver (`configurations/overlay/root/ace-kernel-module`) using the following command:
-```
-make overlay rootfs
+make hypervisor_dev
 ```
 
 ## Run & Test

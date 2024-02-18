@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use riscv::{
     decode_result_register, AceExtension, BaseExtension, FpRegisters, GpRegister, GpRegisters, HartArchitecturalState, HartLifecycleState,
-    HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension, TimerExtension, TrapReason,
+    HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension, TrapReason,
 };
 
 mod riscv;

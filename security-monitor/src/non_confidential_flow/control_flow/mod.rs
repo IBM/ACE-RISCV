@@ -21,7 +21,7 @@ pub struct NonConfidentialFlow<'a> {
 }
 
 impl<'a> NonConfidentialFlow<'a> {
-    const INVALID_INTERRUPT_DELEGATION: &str = "Bug: Incorrect interrupt delegation configuration";
+    const INVALID_INTERRUPT_DELEGATION: &'static str = "Bug: Incorrect interrupt delegation configuration";
 
     /// Creates an instance of non-confidential flow token. NonConfidentialFlow instance can be created only by the code
     /// owning a mutable reference to the HardwareHart. This can be only the piece of code invoked by assembly and the
