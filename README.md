@@ -1,9 +1,9 @@
-# Assured Confidential Execution (ACE) for RISC-V 
+# Assured Confidential Execution (ACE) for RISC-V
 ![Build Status](https://github.com/IBM/ACE-RISCV/actions/workflows/build.yml/badge.svg?branch=main)
 
-<img src=".github/ace.png" align="right" width="100" height="100"> 
- 
-ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on the [canonical architecture](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
+<img src=".github/ace.png" align="right" width="100" height="100">
+
+ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on the [canonical architecture](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor](security-monitor/) implementation. We invite collaborators to work with us to push the boundaries of provable confidential computing technology.
 
 **This is an active research project, without warranties of any kind.** Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about our approach and goals.
 
@@ -11,7 +11,7 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 We are currently building on RISC-V with hypervisor extentions, physical memory protection (PMP), IOPMP, and supervisor timecmp extension (Sstc). We plan to adapt some of the RISC-V confidential computing extensions, such as [the CoVE extension](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/specification/riscv-cove.pdf) and [the Smmtt extension](https://github.com/riscv/riscv-smmtt).
 
 ## Quick Start
-Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/). 
+Follow instructions to run a sample [confidential workload](harness/baremetal) under an [untrusted Linux-based hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/).
 
 ### Requirements
 Full compilation of the framework takes a long time because all the tools are built from sources. Our tool chain currently includes: RISC-V emulator (`qemu`), hypervisor kernel (`Linux kernel`), and firmware (`security monitor` with `OpenSBI firmware`). Make sure to build this project on a machine with at least 4 cores, 4GB RAM, and 50GB disk space for reasonable (~30min) build time.
@@ -68,7 +68,7 @@ export ACE_DIR=/your/path/to/build/ace
 ```
 
 #### Build everything
-The following command will build the entire framework. Set `-j` flag to the number of processor cores you have in the system. 
+The following command will build the entire framework. Set `-j` flag to the number of processor cores you have in the system.
 ```
 MAKEFLAGS="--silent -j4" make
 ```
@@ -86,7 +86,12 @@ Build the host and guest Linux-based OSes
 make hypervisor
 ```
 
-Build the firmware that will boot the system and the security monitor (SM)
+Build the security monitor (SM)
+```
+make security_monitor
+```
+
+Build the firmware that will boot the system
 ```
 make firmware
 ```
@@ -127,8 +132,35 @@ To run the sample Linux kernel confidential VM execute:
 ./run_linux_vm.sh
 ```
 
+## Build on MacOS
+While MacOS is not fully supported by us, building the security monitor on MacOS is also possible.
+We have not tested building the hypervisor on MacOS or running the VMs in Qemu.
+
+1. Install basic dependencies.
+```
+brew install coreutils  # to have nproc available
+brew install autoconf automake curl python libmpc mpfr gmp gawk flex texinfo libtool bc expat # for OpenSBI build
+```
+
+2. Install the Risc-V toolchain.
+```
+# https://github.com/riscv-software-src/homebrew-riscv
+brew tap riscv-software-src/riscv
+brew install riscv-gnu-toolchain
+```
+
+3. Source environment variables for using the toolchain.
+```
+source macos_env
+```
+
+4. Build the security monitor:
+```
+make security_monitor
+```
+
 # License
-This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE). 
+This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).
 
 # Citation
 ```
