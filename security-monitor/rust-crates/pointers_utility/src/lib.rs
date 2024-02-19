@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #![no_std]
 #![no_main]
+#![feature(pointer_byte_offsets)]
 
 mod error;
 use core::mem::size_of;
