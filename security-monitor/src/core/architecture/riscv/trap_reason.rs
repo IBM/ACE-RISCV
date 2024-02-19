@@ -17,8 +17,9 @@ pub enum TrapReason {
     MachineEcall,
     GuestInstructionPageFault,
     GuestLoadPageFault,
+    VirtualInstruction,
     GuestStorePageFault,
-    Unknown,
+    Unknown(usize),
 }
 
 impl TrapReason {
@@ -34,6 +35,7 @@ impl TrapReason {
     const MACHINE_ECALL: usize = 11;
     const GUEST_INSTRUCTION_PAGE_FAULT: usize = 20;
     const GUEST_LOAD_PAGE_FAULT: usize = 21;
+    const VIRTUAL_INSTRUCTION: usize = 22;
     const GUEST_STORE_PAGE_FAULT: usize = 23;
 
     pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
@@ -52,8 +54,9 @@ impl TrapReason {
                 Self::MACHINE_ECALL => Self::MachineEcall,
                 Self::GUEST_INSTRUCTION_PAGE_FAULT => Self::GuestInstructionPageFault,
                 Self::GUEST_LOAD_PAGE_FAULT => Self::GuestLoadPageFault,
+                Self::VIRTUAL_INSTRUCTION => Self::VirtualInstruction,
                 Self::GUEST_STORE_PAGE_FAULT => Self::GuestStorePageFault,
-                _ => Self::Unknown,
+                mcause => Self::Unknown(mcause),
             }
         }
     }

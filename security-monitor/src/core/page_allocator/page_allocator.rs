@@ -25,7 +25,7 @@ impl<'a> PageAllocator {
     // Usually there are 512 pages of size x that can fit in a single page of size y, where y is next page size larger than x (e.g., 2MiB
     // and 4KiB).
     const EXPECTED_NUMBER_OF_TOKENS_PER_SIZE: usize = 512;
-    const NOT_INITIALIZED: &str = "Bug. Could not access page allocator because it is not initialized";
+    const NOT_INITIALIZED: &'static str = "Bug. Could not access page allocator because it is not initialized";
 
     /// Initializes the global instance of a `PageAllocator`. Returns error if the `PageAllocator` has already been initialized.
     ///

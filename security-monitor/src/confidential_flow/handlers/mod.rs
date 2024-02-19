@@ -21,3 +21,4 @@ pub mod share_page;
 pub mod share_page_result;
 pub mod shutdown_confidential_hart;
 pub mod unshare_page;
+pub mod virtual_instruction_request;
