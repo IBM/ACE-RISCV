@@ -18,7 +18,7 @@ pub enum TrapReason {
     GuestInstructionPageFault,
     GuestLoadPageFault,
     GuestStorePageFault,
-    Unknown,
+    Unknown(usize),
 }
 
 impl TrapReason {
@@ -53,7 +53,7 @@ impl TrapReason {
                 Self::GUEST_INSTRUCTION_PAGE_FAULT => Self::GuestInstructionPageFault,
                 Self::GUEST_LOAD_PAGE_FAULT => Self::GuestLoadPageFault,
                 Self::GUEST_STORE_PAGE_FAULT => Self::GuestStorePageFault,
-                _ => Self::Unknown,
+                mcause => Self::Unknown(mcause),
             }
         }
     }

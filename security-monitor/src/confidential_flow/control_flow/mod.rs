@@ -88,7 +88,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(_) => invalid_call::handle(self),
             GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
             GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self),
-            _ => panic!("Bug: Incorrect interrupt delegation configuration"),
+            trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
 
