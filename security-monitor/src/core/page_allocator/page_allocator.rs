@@ -21,10 +21,6 @@ pub struct PageAllocator {
     map: BTreeMap<PageSize, Vec<Page<UnAllocated>>>,
 }
 
-pub struct PageAllocator {
-    map: Vec<Vec<Page>>,
-}
-
 impl<'a> PageAllocator {
     // Usually there are 512 pages of size x that can fit in a single page of size y, where y is next page size larger than x (e.g., 2MiB
     // and 4KiB).

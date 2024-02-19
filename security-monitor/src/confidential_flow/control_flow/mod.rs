@@ -87,6 +87,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
             VsEcall(_) => invalid_call::handle(self),
             GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
+            VirtualInstruction => virtual_instruction_request::handle(confidential_hart.virtual_instruction_request(), self),
             GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }

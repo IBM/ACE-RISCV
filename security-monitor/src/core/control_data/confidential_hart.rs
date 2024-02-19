@@ -7,6 +7,7 @@ use crate::core::transformations::{
     ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest, GuestStorePageFaultResult,
     InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi,
     SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest, UnsharePageRequest,
+    VirtualInstructionRequest, VirtualInstructionResult,
 };
 use crate::error::Error;
 
@@ -190,6 +191,7 @@ impl ConfidentialHart {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
             ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
+            ExposeToConfidentialVm::VirtualInstructionResult(v) => self.apply_virtual_instruction_result(v),
             ExposeToConfidentialVm::GuestStorePageFaultResult(v) => self.apply_guest_store_page_fault_result(v),
             ExposeToConfidentialVm::SbiIpi(v) => self.apply_sbi_ipi(v),
             ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_sbi_remote_fence_i(v),
@@ -244,6 +246,10 @@ impl ConfidentialHart {
     fn apply_guest_store_page_fault_result(&mut self, result: GuestStorePageFaultResult) {
         self.confidential_hart_state.mepc += result.instruction_length();
     }
+
+    fn apply_virtual_instruction_result(&mut self, result: VirtualInstructionResult) {
+        self.confidential_hart_state.mepc += result.instruction_length();
+    }
 }
 
 // Methods to declassify portions of confidential hart state.
@@ -254,6 +260,11 @@ impl ConfidentialHart {
 
     pub fn hypercall_request(&self) -> SbiRequest {
         SbiRequest::from_hart_state(&self.confidential_hart_state)
+    }
+
+    pub fn virtual_instruction_request(&self) -> VirtualInstructionRequest {
+        let (instruction, instruction_length) = self.read_instruction();
+        VirtualInstructionRequest { instruction, instruction_length }
     }
 
     pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
