@@ -30,6 +30,7 @@ all: audit opensbi_bindings build
 build: opensbi_bindings fmt
 	echo "Generating OpenSBI bindings" ;\
 	mkdir -p $(SM_WORK_DIR) ; \
+	rm -f $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME); \
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) --features verbose ; \
 	cp $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)/
@@ -40,18 +41,21 @@ refinedrust: build
 debug: opensbi_bindings
 	echo "Compiling the security monitor in DEBUG mode" ;\
 	mkdir -p $(SM_WORK_DIR) ; \
+	rm -f $(SM_WORK_DIR)/$(CHAIN)/debug/$(EXEC_NAME); \
 	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(TARGET) --features verbose ; \
-	cp $(SM_WORK_DIR)/$(CHAIN)/debug/$(EXEC_NAME)* $(SM_WORK_DIR)/ ; \
+	cp $(SM_WORK_DIR)/$(CHAIN)/debug/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)/
 
-opensbi: build	
+opensbi: build
 	echo "Compiling OpenSBI" ;\
 	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
 		echo "Applying patches to OpenSBI" ;\
 		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(OPENSBI_PATCH); cd $(MAKEFILE_SOURCE_DIR);\
 	fi ;\
-	mkdir -p $(OPENSBI_WORK_DIR) ;\
-	SM_WORK_DIR=$(SM_WORK_DIR) $(MAKE) -j$(nproc) -C $(OPENSBI_SOURCE_DIR) O=$(OPENSBI_WORK_DIR) PLATFORM_DIR="$(PLATFORM_SOURCE_DIR)" PLATFORM="generic" CROSS_COMPILE=$(CROSS_COMPILE) FW_PAYLOAD_PATH=$(LINUX_IMAGE) FW_PAYLOAD=y PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI)
+	if [ -f "$(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME)" ]; then \
+		mkdir -p $(OPENSBI_WORK_DIR) ;\
+		SM_WORK_DIR=$(SM_WORK_DIR) $(MAKE) -j$(nproc) -C $(OPENSBI_SOURCE_DIR) O=$(OPENSBI_WORK_DIR) PLATFORM_DIR="$(PLATFORM_SOURCE_DIR)" PLATFORM="generic" CROSS_COMPILE=$(CROSS_COMPILE) FW_PAYLOAD_PATH=$(LINUX_IMAGE) FW_PAYLOAD=y PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI); \
+	fi
 
 opensbi_bindings:
 	echo "Compiling OpenSBI bindings" ;\
