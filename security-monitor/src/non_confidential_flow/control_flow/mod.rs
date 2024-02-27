@@ -4,6 +4,7 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
+use crate::core::architecture::CSR;
 use crate::core::control_data::{ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
@@ -37,7 +38,6 @@ impl<'a> NonConfidentialFlow<'a> {
     pub fn route(self) -> ! {
         use crate::core::architecture::TrapReason::*;
         use crate::non_confidential_flow::handlers::*;
-
         match self.hardware_hart.trap_reason() {
             Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
             IllegalInstruction => opensbi::handle(self.hardware_hart.opensbi_request(), self),
@@ -59,12 +59,18 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn into_confidential_flow(self, resume_request: ResumeRequest) -> (NonConfidentialFlow<'a>, Error) {
-        match ControlData::try_confidential_vm(resume_request.confidential_vm_id(), |mut confidential_vm| {
+        if let Err(e) = ControlData::try_confidential_vm(resume_request.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.steal_confidential_hart(resume_request.confidential_hart_id(), self.hardware_hart)
         }) {
-            Ok(()) => ConfidentialFlow::resume_confidential_hart_execution(self.hardware_hart),
-            Err(error) => (self, error),
+            return (self, e);
         }
+
+        CSR.hie.set(self.hardware_hart.debug().hie);
+        CSR.mie.set(self.hardware_hart.debug().hie | 0b101010101010);
+        CSR.hvip.set(self.hardware_hart.debug().hvip);
+        //CSR.hgeip.set(self.hardware_hart.debug().hgeip);
+
+        ConfidentialFlow::resume_confidential_hart_execution(self.hardware_hart)
     }
 
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {

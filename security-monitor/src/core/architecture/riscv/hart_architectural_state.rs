@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, TrapReason};
+use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, CSR};
 
 /// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
@@ -17,6 +17,7 @@ pub struct HartArchitecturalState {
     // VS-mode
     pub vsstatus: usize,
     pub vsie: usize,
+    pub vsip: usize,
     pub vstvec: usize,
     pub vsscratch: usize,
     pub vsepc: usize,
@@ -29,6 +30,8 @@ pub struct HartArchitecturalState {
     pub htimedelta: usize,
     // virtualization-related
     pub hvip: usize,
+    pub hgeip: usize,
+    pub hie: usize,
     pub hgatp: usize,
     pub hedeleg: usize,
     pub hideleg: usize,
@@ -56,6 +59,7 @@ pub struct HartArchitecturalState {
     pub mtinst: usize,
     pub mtval: usize,
     pub mtval2: usize,
+    pub mtvec: usize,
 }
 
 impl HartArchitecturalState {
@@ -64,48 +68,52 @@ impl HartArchitecturalState {
             id,
             gprs: existing.gprs.clone(),
             // M-mode
-            mepc: existing.mepc,
-            medeleg: existing.medeleg,
-            mideleg: existing.mideleg,
-            mie: existing.mie,
-            mip: existing.mip,
-            mstatus: existing.mstatus,
-            mtinst: existing.mtinst,
-            mtval: existing.mtval,
-            mtval2: existing.mtval2,
+            mepc: CSR.mepc.read(),
+            medeleg: CSR.medeleg.read(),
+            mideleg: CSR.mideleg.read(),
+            mie: CSR.mie.read(),
+            mip: CSR.mip.read(),
+            mstatus: CSR.mstatus.read(),
+            mtinst: CSR.mtinst.read(),
+            mtval: CSR.mtval.read(),
+            mtval2: CSR.mtval2.read(),
+            mtvec: CSR.mtvec.read(),
             // S-mode
-            sstatus: existing.sstatus,
-            sepc: existing.sepc,
-            scounteren: existing.scounteren,
-            sip: existing.sip,
-            sie: existing.sie,
-            scause: existing.scause,
-            stvec: existing.stvec,
-            stval: existing.stval,
-            sscratch: existing.sscratch,
+            sstatus: CSR.sstatus.read(),
+            sepc: CSR.sepc.read(),
+            scounteren: CSR.scounteren.read(),
+            sip: CSR.sip.read(),
+            sie: CSR.sie.read(),
+            scause: CSR.scause.read(),
+            stvec: CSR.stvec.read(),
+            stval: CSR.stval.read(),
+            sscratch: CSR.sscratch.read(),
             // HS-mode
-            hstatus: existing.hstatus,
-            hedeleg: existing.hedeleg,
-            hideleg: existing.hideleg,
-            htinst: existing.htinst,
-            htval: existing.htval,
-            hvip: existing.hvip,
-            hgatp: existing.hgatp,
+            hstatus: CSR.hstatus.read(),
+            hedeleg: CSR.hedeleg.read(),
+            hideleg: CSR.hideleg.read(),
+            htinst: CSR.htinst.read(),
+            htval: CSR.htval.read(),
+            hvip: CSR.hvip.read(),
+            hgeip: CSR.hgeip.read(),
+            hie: CSR.hie.read(),
+            hgatp: CSR.hgatp.read(),
             // VS-mode
-            vsstatus: existing.vsstatus,
-            vsie: existing.vsie,
-            vstvec: existing.vstvec,
-            vsscratch: existing.vsscratch,
-            vsepc: existing.vsepc,
-            vscause: existing.vscause,
-            vstval: existing.vstval,
-            vsatp: existing.vsatp,
+            vsstatus: CSR.vsstatus.read(),
+            vsie: CSR.vsie.read(),
+            vsip: CSR.vsip.read(),
+            vstvec: CSR.vstvec.read(),
+            vsscratch: CSR.vsscratch.read(),
+            vsepc: CSR.vsepc.read(),
+            vscause: CSR.vscause.read(),
+            vstval: CSR.vstval.read(),
+            vsatp: CSR.vsatp.read(),
             // timer-related
-            vstimecmp: existing.vstimecmp,
-            htimedelta: existing.htimedelta,
+            vstimecmp: CSR.vstimecmp.read(),
+            htimedelta: CSR.htimedelta.read(),
             // F-extension
             fprs: existing.fprs.clone(),
-            fcsr: existing.fcsr,
+            fcsr: CSR.fcsr.read(),
         }
     }
 
@@ -123,6 +131,7 @@ impl HartArchitecturalState {
             scounteren: 0,
             vsstatus: 0,
             vsie: 0,
+            vsip: 0,
             vstvec: 0,
             vsscratch: 0,
             vsepc: 0,
@@ -131,6 +140,8 @@ impl HartArchitecturalState {
             vstimecmp: usize::MAX - 1,
             htimedelta: 0,
             hvip: 0,
+            hgeip: 0,
+            hie: 0,
             vsatp: 0,
             hgatp: 0,
             fprs: FpRegisters::empty(),
@@ -150,6 +161,7 @@ impl HartArchitecturalState {
             mtinst: 0,
             mtval: 0,
             mtval2: 0,
+            mtvec: 0,
         }
     }
 }
@@ -186,56 +198,5 @@ impl HartArchitecturalState {
         // TODO: what should be the sstatus on reset?
         // self.sstatus = 0;
         self.vsstatus = 0;
-    }
-
-    pub fn trap_reason(&self) -> TrapReason {
-        TrapReason::from_hart_state(self)
-    }
-}
-
-impl core::fmt::Debug for HartArchitecturalState {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "hart_id: {}, ", self.id)?;
-        GpRegisters::iter().try_for_each(|x| -> core::fmt::Result {
-            write!(f, "x{:02}={:08x}, ", x, self.gprs.0[x])?;
-            if x % 8 == 7 {
-                write!(f, "\n")?;
-            }
-            Ok(())
-        })?;
-        FpRegisters::iter().try_for_each(|x| -> core::fmt::Result {
-            write!(f, "f{:02}={:08x}, ", x, self.fprs.0[x])?;
-            if x % 8 == 7 {
-                write!(f, "\n")?;
-            }
-            Ok(())
-        })?;
-        write!(f, "sstatus: {:08x}, ", self.sstatus)?;
-        write!(f, "hstatus: {:08x}, ", self.hstatus)?;
-        write!(f, "sepc: {:08x}, ", self.sepc)?;
-        write!(f, "scounteren: {:08x}, ", self.scounteren)?;
-        write!(f, "\n")?;
-        write!(f, "hgatp: {:08x}, ", self.hgatp)?;
-        write!(f, "sip: {:08x}, ", self.sip)?;
-        write!(f, "sie: {:08x}, ", self.sie)?;
-        write!(f, "scause: {:08x}, ", self.scause)?;
-        write!(f, "\n")?;
-        write!(f, "vsstatus: {:08x}, ", self.vsstatus)?;
-        write!(f, "vsie: {:08x}, ", self.vsie)?;
-        write!(f, "vstvec: {:08x}, ", self.vstvec)?;
-        write!(f, "vsscratch: {:08x}, ", self.vsscratch)?;
-        write!(f, "\n")?;
-        write!(f, "vsepc: {:08x}, ", self.vsepc)?;
-        write!(f, "vscause: {:08x}, ", self.vscause)?;
-        write!(f, "vstval: {:08x}, ", self.vstval)?;
-        write!(f, "hvip: {:08x}, ", self.hvip)?;
-        write!(f, "\n")?;
-        write!(f, "vsatp: {:08x}, ", self.vsatp)?;
-        write!(f, "fcsr: {:08x}, ", self.fcsr)?;
-        write!(f, "mideleg: {:08x}, ", self.mideleg)?;
-        write!(f, "medeleg: {:08x}, ", self.medeleg)?;
-        write!(f, "mie: {:08x}, ", self.mie)?;
-        write!(f, "mip: {:08x}, ", self.mip)?;
-        Ok(())
     }
 }

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartArchitecturalState};
 
 #[derive(Debug)]
 pub enum SbiExtension {
@@ -16,8 +15,8 @@ pub enum SbiExtension {
 }
 
 impl SbiExtension {
-    pub fn decode(hart_state: &HartArchitecturalState) -> Self {
-        match (hart_state.gpr(GpRegister::a7), hart_state.gpr(GpRegister::a6)) {
+    pub fn decode(a7: usize, a6: usize) -> Self {
+        match (a7, a6) {
             (AceExtension::EXTID, function_id) => Self::Ace(AceExtension::from_function_id(function_id)),
             (BaseExtension::EXTID, function_id) => Self::Base(BaseExtension::from_function_id(function_id)),
             (TimerExtension::EXTID, function_id) => Self::Timer(TimerExtension::from_function_id(function_id)),

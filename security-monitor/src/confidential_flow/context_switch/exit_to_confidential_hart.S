@@ -12,84 +12,32 @@
 .set MSTATUS_MPIE_SHIFT, 7
 .set MSTATUS_SUPERVISOR, 0b01
 
-# Restore the confidential VM virtual HART state and return the confidential VM execution. 
-# We do not store the security monitor's state because the security monitor is stateless.
-# A0 = pointer to VirtualCPU.
+
+# Restores the remaining confidential's hart state and eventually resumes the confidential VM execution.
+# We do not store the security monitor's state because the security monitor's execution is stateless. 
+# 
+# Safety
+#
+# The caller must ensure that:
+#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+#   * `sscratch` stores the address of the dump hart area of the confidential hart scheduled on this hardware hart.
 .globl exit_to_confidential_hart_asm
+# The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
 .align 4
 exit_to_confidential_hart_asm:
     # Should we maintain the mstatus when entering the confidential VM?
-	li		    t0, (0b01 << MSTATUS_MPP_SHIFT) | (0b1 << MSTATUS_MPV_SHIFT) | (1 << MSTATUS_MPIE_SHIFT)
+	li		    t0, (0b01 << MSTATUS_MPP_SHIFT) | (0b1 << MSTATUS_MPV_SHIFT) | (1 << MSTATUS_MPIE_SHIFT) | (1 << 5)
+    ld          t1, ({HART_MSTATUS_OFFSET})(a0)
+    or          t0, t0, t1
 	csrw	    mstatus, t0
-	# mie (machine interrupt-enable):
-    ld	        t0, ({HART_MIE_OFFSET})(a0)
-    csrw        mie, t0
-    # mip (machine interrupt pending), TODO: expose interrupts
-    li          t0, 0
-    csrw        mip, t0
 
-    # exception delegation: M->HS (medeleg), HS->VS (hedeleg)
-    ld	        t0, ({HART_MEDELEG_OFFSET})(a0)
-    csrw        medeleg, t0
-    ld	        t0, ({HART_HEDELEG_OFFSET})(a0)
-    csrw        hedeleg, t0
-
-    # interrupt delegation: M->HS (mideleg), HS->VS (hideleg)
-    ld	        t0, ({HART_MIDELEG_OFFSET})(a0)
-    csrw        mideleg, t0
-    ld	        t0, ({HART_HIDELEG_OFFSET})(a0)
-    csrw        hideleg, t0
-
-    # set the trap vector, so any interrupt invokes the security monitor
-    la		    t0, enter_from_confidential_hart_asm
-	csrw	    mtvec, t0    
-    
-	# mepc stores the address of code that will start executing after mret
-    ld	        t0, ({HART_MEPC_OFFSET})(a0)
+    ld          t0, ({HART_MEPC_OFFSET})(a0)
     csrw        mepc, t0
+    la		    t0, enter_from_confidential_hart_asm
+	csrw	    mtvec, t0
 
-    # restore VS-mode specific CSRs
-    ld	        t0, ({HART_VSSTATUS_OFFSET})(a0)
-    csrw        vsstatus, t0
-    ld	        t0, ({HART_VSIE_OFFSET})(a0)
-    csrw        vsie, t0
-    ld	        t0, ({HART_VSTVEC_OFFSET})(a0)
-    csrw        vstvec, t0
-    ld	        t0, ({HART_VSSCRATCH_OFFSET})(a0)
-    csrw        vsscratch, t0
-    ld	        t0, ({HART_VSEPC_OFFSET})(a0)
-    csrw        vsepc, t0
-    ld	        t0, ({HART_VSCAUSE_OFFSET})(a0)
-    csrw        vscause, t0
-    ld	        t0, ({HART_VSTVAL_OFFSET})(a0)
-    csrw        vstval, t0
-    ld	        t0, ({HART_VSATP_OFFSET})(a0)
-    csrw        vsatp, t0
-
-    # timer-related registers
-    # vstimecmp is introduces as part of the Zstc extension
-    ld	        t0, ({HART_VSTIMECMP_OFFSET})(a0)
-    csrw        vstimecmp, t0
-    ld	        t0, ({HART_HTIMEDELTA_OFFSET})(a0)
-    csrw        htimedelta, t0
-
-    # restore S-mode specific CSRs
-    ld	        t0, ({HART_SSTATUS_OFFSET})(a0)
-    csrw        sstatus, t0
-    ld	        t0, ({HART_SEPC_OFFSET})(a0)
-    csrw        sepc, t0
-    # ld	        t0, ({HART_SCOUNTEREN_OFFSET})(a0)
-    # csrw        scounteren, t0
-    # ld	        t0, ({HART_HVIP_OFFSET})(a0)
-    # inject interrupts via hvip
-    ld	        t0, ({HART_HVIP_OFFSET})(a0)
-    csrw        hvip, t0
-    ld	        t0, ({HART_HSTATUS_OFFSET})(a0)
-    csrw        hstatus, t0
-
-
-    # check if the fp extension is available before restoring
-    # bit 13 and 14 of the sstatus encode this information
+    # check if the fp extension is available before restoring.
+    # Bits 13 and 14 of the sstatus encode this information.
     sd          t0, ({HART_SSTATUS_OFFSET})(a0)
     sra         t0, t0, 13
     add         t0, t0, 0b11
@@ -131,7 +79,7 @@ exit_to_confidential_hart_asm:
     fld	        f31, ({HART_F31_OFFSET})(a0)
     
 1:
-    # restore from memory the processor state
+    # restore the confidential hart's state from memory
     ld	        ra, ({HART_RA_OFFSET})(a0)
     ld	        sp, ({HART_SP_OFFSET})(a0)
     ld	        gp, ({HART_GP_OFFSET})(a0)
@@ -170,7 +118,7 @@ exit_to_confidential_hart_asm:
     # finally restore from memory the a0 register
     ld	        a0, ({HART_A0_OFFSET})(a0)
 
-    # the above code must guarantee that:
-    # - the mscratch points to the SM's per HART's virtual HART
-    # - the sscratch points to the confidential VM's virtual HART
+    # Make sure that: 
+    #   * `mscratch` points to the dump area of this hardware hart
+    #   * `sscratch` points to the dump area of the confidential hart assigned to this hardware hart
     mret    

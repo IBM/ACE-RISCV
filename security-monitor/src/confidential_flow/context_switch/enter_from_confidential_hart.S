@@ -5,13 +5,21 @@
 .option norvc
 .section .text.init,"ax",@progbits
 
-# This is the trap vector that gets executed on any interrupt or confidential VM-driven exception.
-# The trap vector address must be 4B aligned according to the spec.
+# Traps on exceptions or interrupts occurring during the confidential hart's execution. This is an entry point to the security monitor.
+#
+# Safety: 
+#
+# The caller must ensure that:
+#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+#   * `sscratch` stores the address of the dump hart area of the confidential hart scheduled on this hardware hart.
 .globl enter_from_confidential_hart_asm
+# The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
 .align 4
 enter_from_confidential_hart_asm:
+    # Temporary store a0 in sscratch, and set the address of the memory dump area in the a0 register.
     csrrw	    a0,	sscratch, a0
-    # store current processor state (except for a0) in memory
+
+    # Store current processor state (except for a0) in the dump hart area of the confidential hart.
     sd	        ra, ({HART_RA_OFFSET})(a0)
     sd	        sp, ({HART_SP_OFFSET})(a0)
     sd	        gp, ({HART_GP_OFFSET})(a0)
@@ -44,13 +52,12 @@ enter_from_confidential_hart_asm:
     sd	        t5, ({HART_T5_OFFSET})(a0)
     sd	        t6, ({HART_T6_OFFSET})(a0)
 
-    # check if the fp extension is available before restoring
-    # bit 13 and 14 of the sstatus encode this information
+    # Check if the fp extension is available before restoring. Bits 13 and 14 of the sstatus encode this information.
     sd          t0, ({HART_SSTATUS_OFFSET})(a0)
     sra         t0, t0, 13
     add         t0, t0, 0b11
     beqz	    t0, 1f
-    # store the float pointing registers
+    # Store the float pointing registers
     fsd	        f0, ({HART_F0_OFFSET})(a0)
     fsd	        f1, ({HART_F1_OFFSET})(a0)
     fsd	        f2, ({HART_F2_OFFSET})(a0)
@@ -87,68 +94,21 @@ enter_from_confidential_hart_asm:
     sd          t0, ({HART_FCSR_OFFSET})(a0)
 
 1:
-    # store VS-mode related CSRs
-    csrr        t0, vsstatus
-    sd	        t0, ({HART_VSSTATUS_OFFSET})(a0)
-    csrr        t0, vsie
-    sd	        t0, ({HART_VSIE_OFFSET})(a0)
-    csrr        t0, vstvec
-    sd	        t0, ({HART_VSTVEC_OFFSET})(a0)
-    csrr        t0, vsscratch
-    sd	        t0, ({HART_VSSCRATCH_OFFSET})(a0)
-    csrr        t0, vsepc
-    sd	        t0, ({HART_VSEPC_OFFSET})(a0)
-    csrr        t0, vscause
-    sd	        t0, ({HART_VSCAUSE_OFFSET})(a0)
-    csrr        t0, vstval
-    sd	        t0, ({HART_VSTVAL_OFFSET})(a0)
-    csrr        t0, vsatp
-    sd	        t0, ({HART_VSATP_OFFSET})(a0)
-
-    # timer-related registers
-    # vstimecmp is introduces as part of the Zstc extension
-    csrr        t0, vstimecmp
-    sd	        t0, ({HART_VSTIMECMP_OFFSET})(a0)
-    csrr        t0, htimedelta
-    sd	        t0, ({HART_HTIMEDELTA_OFFSET})(a0)
-
-    # virtualization-related CSRs
-    csrr        t0, hvip
-    sd	        t0, ({HART_HVIP_OFFSET})(a0)
-    csrr        t0, hstatus
-    sd	        t0, ({HART_HSTATUS_OFFSET})(a0)
-
-    # S-mode related CSRs
-    csrr        t0, sstatus
-    sd	        t0, ({HART_SSTATUS_OFFSET})(a0)
-    csrr        t0, scounteren
-    sd	        t0, ({HART_SCOUNTEREN_OFFSET})(a0)
-    csrr        t0, sepc    # not needed?
-    sd	        t0, ({HART_SEPC_OFFSET})(a0)
-
-    # store the address of the instruction at which trap occured
+    # store control status registers
     csrr        t0, mepc
     sd	        t0, ({HART_MEPC_OFFSET})(a0)
-    csrr        t0, mtinst
-    sd	        t0, ({HART_MTINST_OFFSET})(a0)    
-    csrr        t0, mtval
-    sd	        t0, ({HART_MTVAL_OFFSET})(a0)    
-    csrr        t0, mtval2
-    sd	        t0, ({HART_MTVAL2_OFFSET})(a0)    
+    csrr        t0, mstatus
+    sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
 
-    # now we can store the original a0
+    # Store the original `a0`
     csrr        t0, sscratch
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
-    # recover the stack pointer for this HART
-    # the mscratch stores the address of the data 
-    # structure storing dumped HART state
+    # Recover the stack pointer for this hart by storing in the mscratch the address of the memory dump area of the hart
     csrr        a0, mscratch
     ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
 
-    # mscratch must point to the per HART data structure
-    # sscratch must point to the confidential VM's vHART data structure
-    # first argument (a0) must point to the dumped hart memory area
-    # TODO: Prove that we don't violate C calling conventions and parameters 
-    # are correctly passed.
+    # Make sure that: 
+    #   * `mscratch` points to the dump area of this hardware hart
+    #   * `sscratch` points to the dump area of the confidential hart assigned to this hardware hart
     j        enter_from_confidential_hart

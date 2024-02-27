@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::{CAUSE_SUPERVISOR_ECALL, CAUSE_VIRTUAL_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
@@ -198,8 +199,8 @@ extern "C" fn ace_setup_this_hart() {
         unsafe { core::arch::asm!("fence w,o") };
     }
 
-    let hart_id = riscv::register::mhartid::read();
-    debug!("Setting up physical HART [hart_id={}]", hart_id);
+    let hart_id = CSR.mhartid.read();
+    debug!("Setting up hardware hart id={}", hart_id);
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
@@ -213,8 +214,8 @@ extern "C" fn ace_setup_this_hart() {
     // `opensbi_mscratch` region of this hart before calling the security monitor's initialization
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
     hart.swap_mscratch();
-    riscv::register::mscratch::write(hart.address());
-    debug!("Physical HART [hart_id={}] state area region {:x}", hart_id, hart.address());
+    CSR.mscratch.set(hart.address());
+    debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart.address());
 
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
@@ -225,16 +226,12 @@ extern "C" fn ace_setup_this_hart() {
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
-    unsafe {
-        riscv::register::medeleg::clear_supervisor_env_call();
-        riscv::register::medeleg::clear_virtual_supervisor_env_call();
-    }
+    CSR.medeleg.read_and_clear_bits(1 << CAUSE_SUPERVISOR_ECALL);
+    CSR.medeleg.read_and_clear_bits(1 << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
+    debug!("medeleg={:b}", CSR.medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    if let Ok(trap_vector_address) = (enter_from_hypervisor_or_vm_asm as usize).try_into() {
-        debug!("Physical HART [hart_id={}] trap handler address: {:x}", hart_id, trap_vector_address);
-        unsafe {
-            riscv::register::mtvec::write(trap_vector_address, riscv::register::mtvec::TrapMode::Direct);
-        }
-    }
+    let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
+    debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
+    CSR.mtvec.set((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }

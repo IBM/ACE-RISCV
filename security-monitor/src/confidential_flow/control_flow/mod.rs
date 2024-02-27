@@ -31,7 +31,6 @@ impl<'a> ConfidentialFlow<'a> {
     /// Safety:
     /// * A confidential hart must be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
-        // TODO: make this constructor private, only accessible to this module and the assembly entry point.
         assert!(!hardware_hart.confidential_hart().is_dummy());
         Self { hardware_hart }
     }

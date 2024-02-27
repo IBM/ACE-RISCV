@@ -42,8 +42,6 @@ impl HypervisorMemoryProtector {
     /// `non-confidential flow` and eventually to the hypervisor code.
     pub unsafe fn enable(&self, hgatp: usize) {
         pmp::close_access_to_confidential_memory();
-        // TODO: do we really need to set up the hgatp again? KVM probably used a hgatp corresponding to a
-        // non-confidential VM, so we do not really care.
         mmu::enable_address_translation(hgatp);
         super::tlb::tlb_shutdown();
     }

@@ -57,7 +57,7 @@ pub enum ExposeToHypervisor {
     SbiVmRequest(SbiVmRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
-    InterruptRequest(InterruptRequest),
+    InterruptRequest(),
 }
 
 /// Declassifiers that expose part of the hypervisor's state to a confidential VM's hart.

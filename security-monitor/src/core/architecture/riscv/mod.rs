@@ -10,9 +10,11 @@ pub use sbi::{AceExtension, BaseExtension, HsmExtension, IpiExtension, RfenceExt
 pub use trap_reason::TrapReason;
 
 mod compressed_instructions;
+pub mod csr;
 mod fp_registers;
 mod gp_registers;
 mod hart_architectural_state;
 mod hart_lifecycle_state;
 mod sbi;
+pub mod spec;
 mod trap_reason;
