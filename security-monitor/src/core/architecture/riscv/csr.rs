@@ -31,6 +31,7 @@ pub struct ControlStatusRegister {
     pub stvec: ReadWriteRiscvCsr<CSR_STVEC>,
     pub stval: ReadWriteRiscvCsr<CSR_STVAL>,
     pub sscratch: ReadWriteRiscvCsr<CSR_SSCRATCH>,
+    pub stimecmp: ReadWriteRiscvCsr<CSR_STIMECMP>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -40,6 +41,7 @@ pub struct ControlStatusRegister {
     pub hvip: ReadWriteRiscvCsr<CSR_HVIP>,
     pub hgeip: ReadWriteRiscvCsr<CSR_HGEIP>,
     pub hie: ReadWriteRiscvCsr<CSR_HIE>,
+    pub hip: ReadWriteRiscvCsr<CSR_HIP>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     // VS-mode
     pub vsstatus: ReadWriteRiscvCsr<CSR_VSSTATUS>,
@@ -86,6 +88,7 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     stvec: ReadWriteRiscvCsr::new(),
     stval: ReadWriteRiscvCsr::new(),
     sscratch: ReadWriteRiscvCsr::new(),
+    stimecmp: ReadWriteRiscvCsr::new(),
     // HS-mode
     hstatus: ReadWriteRiscvCsr::new(),
     hedeleg: ReadWriteRiscvCsr::new(),
@@ -95,6 +98,7 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     hvip: ReadWriteRiscvCsr::new(),
     hgeip: ReadWriteRiscvCsr::new(),
     hie: ReadWriteRiscvCsr::new(),
+    hip: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     // VS-mode
     vsstatus: ReadWriteRiscvCsr::new(),
@@ -194,7 +198,6 @@ impl Hgatp {
     const HGATP64_VMID_SHIFT: usize = 44;
     const PAGE_SHIFT: usize = 12;
     const HGATP_PPN_MASK: usize = 0x0000FFFFFFFFFFF;
-    const VMID_MASK: usize = 0x3fff;
 
     pub fn from(bits: usize) -> Self {
         Self { bits }
@@ -204,11 +207,6 @@ impl Hgatp {
     #[inline]
     pub fn bits(&self) -> usize {
         self.bits
-    }
-
-    #[inline]
-    pub fn vmid(&self) -> usize {
-        (self.bits >> Self::HGATP64_VMID_SHIFT) & Self::VMID_MASK
     }
 
     pub fn address(&self) -> usize {

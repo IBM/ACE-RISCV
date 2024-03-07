@@ -21,12 +21,12 @@ exit_to_hypervisor_asm:
     ld	        sp, ({HART_SP_OFFSET})(a0)
     ld	        gp, ({HART_GP_OFFSET})(a0)
     ld	        tp, ({HART_TP_OFFSET})(a0)
-    # ld	        t0, ({HART_T0_OFFSET})(a0)
+  # ld	        t0, ({HART_T0_OFFSET})(a0)
     ld	        t1, ({HART_T1_OFFSET})(a0)
     ld	        t2, ({HART_T2_OFFSET})(a0)
     ld	        s0, ({HART_S0_OFFSET})(a0)
     ld	        s1, ({HART_S1_OFFSET})(a0)
-    # ld	        a0, ({HART_A0_OFFSET})(a0)
+  # ld	        a0, ({HART_A0_OFFSET})(a0)
     ld	        a1, ({HART_A1_OFFSET})(a0)
     ld	        a2, ({HART_A2_OFFSET})(a0)
     ld	        a3, ({HART_A3_OFFSET})(a0)
@@ -49,16 +49,17 @@ exit_to_hypervisor_asm:
     ld	        t5, ({HART_T5_OFFSET})(a0)
     ld	        t6, ({HART_T6_OFFSET})(a0)
 
-    # After mret the processor will set the program counter (PC) to the `mepc` value.
+    # After mret the processor will set the hart's program counter to the `mepc` value.
     ld          t0, ({HART_MEPC_OFFSET})(a0)
     csrw        mepc, t0
     ld          t0, ({HART_MSTATUS_OFFSET})(a0)
     csrw        mstatus, t0
-    # We do not have to set the `mtvec` because it was set during the initialization and it is then always set during context switches of security domains.
+    # We do not have to set the `mtvec` because it was set during the initialization and it is then always set during context 
+    # switches of security domains.
 
-    # Restore from memory the t0 and a0 registers
+    # Restore from memory the `t0` and `a0` registers
     ld	        t0, ({HART_T0_OFFSET})(a0)
     ld	        a0, ({HART_A0_OFFSET})(a0)
 
-    # Before going back to the hypervisor, make sure that the mscratch contains the address of the dump hart area of the currently executing hardware hart.
+    # Hey developer, check if you satisfy the safety conditions before going back to the hypervisor!
     mret    

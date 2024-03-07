@@ -44,7 +44,6 @@ fn clear_caches() {
     // PMP translations can be cached and address translation can be done speculatively. Thus, it is adviced to flush caching structures.
     unsafe {
         core::arch::asm!("sfence.vma");
-        // TODO: flush caches of the guest mode
-        // hfence_gvma_all();
+        core::arch::asm!("hfence.gvma");
     }
 }

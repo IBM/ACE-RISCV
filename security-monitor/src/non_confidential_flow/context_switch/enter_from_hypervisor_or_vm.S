@@ -14,57 +14,51 @@
 .globl enter_from_hypervisor_or_vm_asm
 .align 4
 enter_from_hypervisor_or_vm_asm:
-    csrrw	    sp,	mscratch, sp
+    csrrw	    a0,	mscratch, a0
 
-    # store current processor state (except for sp) in memory
-    sd	        ra, ({HART_RA_OFFSET})(sp)
-    # sd	        sp, ({HART_SP_OFFSET})(sp)
-    sd	        gp, ({HART_GP_OFFSET})(sp)
-    sd	        tp, ({HART_TP_OFFSET})(sp)
-    sd	        t0, ({HART_T0_OFFSET})(sp)
-    sd	        t1, ({HART_T1_OFFSET})(sp)
-    sd	        t2, ({HART_T2_OFFSET})(sp)
-    sd	        s0, ({HART_S0_OFFSET})(sp)
-    sd	        s1, ({HART_S1_OFFSET})(sp)
-    sd	        a0, ({HART_A0_OFFSET})(sp)
-    sd	        a1, ({HART_A1_OFFSET})(sp)
-    sd	        a2, ({HART_A2_OFFSET})(sp)
-    sd	        a3, ({HART_A3_OFFSET})(sp)
-    sd	        a4, ({HART_A4_OFFSET})(sp)
-    sd	        a5, ({HART_A5_OFFSET})(sp)
-    sd	        a6, ({HART_A6_OFFSET})(sp)
-    sd	        a7, ({HART_A7_OFFSET})(sp)
-    sd	        s2, ({HART_S2_OFFSET})(sp)
-    sd	        s3, ({HART_S3_OFFSET})(sp)
-    sd	        s4, ({HART_S4_OFFSET})(sp)
-    sd	        s5, ({HART_S5_OFFSET})(sp)
-    sd	        s6, ({HART_S6_OFFSET})(sp)
-    sd	        s7, ({HART_S7_OFFSET})(sp)
-    sd	        s8, ({HART_S8_OFFSET})(sp)
-    sd	        s9, ({HART_S9_OFFSET})(sp)
-    sd	        s10, ({HART_S10_OFFSET})(sp)
-    sd	        s11, ({HART_S11_OFFSET})(sp)
-    sd	        t3, ({HART_T3_OFFSET})(sp)
-    sd	        t4, ({HART_T4_OFFSET})(sp)
-    sd	        t5, ({HART_T5_OFFSET})(sp)
-    sd	        t6, ({HART_T6_OFFSET})(sp)
+    # Store current processor state (except for `a0`) in memory
+    sd	        ra, ({HART_RA_OFFSET})(a0)
+    sd	        sp, ({HART_SP_OFFSET})(a0)
+    sd	        gp, ({HART_GP_OFFSET})(a0)
+    sd	        tp, ({HART_TP_OFFSET})(a0)
+    sd	        t0, ({HART_T0_OFFSET})(a0)
+    sd	        t1, ({HART_T1_OFFSET})(a0)
+    sd	        t2, ({HART_T2_OFFSET})(a0)
+    sd	        s0, ({HART_S0_OFFSET})(a0)
+    sd	        s1, ({HART_S1_OFFSET})(a0)
+  # sd	        a0, ({HART_A0_OFFSET})(a0)
+    sd	        a1, ({HART_A1_OFFSET})(a0)
+    sd	        a2, ({HART_A2_OFFSET})(a0)
+    sd	        a3, ({HART_A3_OFFSET})(a0)
+    sd	        a4, ({HART_A4_OFFSET})(a0)
+    sd	        a5, ({HART_A5_OFFSET})(a0)
+    sd	        a6, ({HART_A6_OFFSET})(a0)
+    sd	        a7, ({HART_A7_OFFSET})(a0)
+    sd	        s2, ({HART_S2_OFFSET})(a0)
+    sd	        s3, ({HART_S3_OFFSET})(a0)
+    sd	        s4, ({HART_S4_OFFSET})(a0)
+    sd	        s5, ({HART_S5_OFFSET})(a0)
+    sd	        s6, ({HART_S6_OFFSET})(a0)
+    sd	        s7, ({HART_S7_OFFSET})(a0)
+    sd	        s8, ({HART_S8_OFFSET})(a0)
+    sd	        s9, ({HART_S9_OFFSET})(a0)
+    sd	        s10, ({HART_S10_OFFSET})(a0)
+    sd	        s11, ({HART_S11_OFFSET})(a0)
+    sd	        t3, ({HART_T3_OFFSET})(a0)
+    sd	        t4, ({HART_T4_OFFSET})(a0)
+    sd	        t5, ({HART_T5_OFFSET})(a0)
+    sd	        t6, ({HART_T6_OFFSET})(a0)
 
     csrr        t0, mepc
-    sd	        t0, ({HART_MEPC_OFFSET})(sp)
+    sd	        t0, ({HART_MEPC_OFFSET})(a0)
     csrr        t0, mstatus
-    sd	        t0, ({HART_MSTATUS_OFFSET})(sp) 
+    sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
 
-    # Store the original value of `sp`
-    csrr	    t0,	mscratch
-    sd	        t0, ({HART_SP_OFFSET})(sp)
-
-    # Restore original mscratch so that it points to the per HART vCPU
-    csrw        mscratch, sp
-
-    # The security monitor's entry point expects the address of the dumped state of the hardware hart in `a0`
-    add         a0, sp, 0
+    # Store the original value of `a0` in the main memory and set `mscratch` to its original value
+    csrrw	    t0, mscratch, a0
+    sd	        t0, ({HART_A0_OFFSET})(a0)
 
     # Set the stack for this hardware hart
     ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
 
-    j        enter_from_hypervisor_or_vm
+    j           enter_from_hypervisor_or_vm

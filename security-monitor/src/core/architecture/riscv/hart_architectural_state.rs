@@ -32,6 +32,7 @@ pub struct HartArchitecturalState {
     pub hvip: usize,
     pub hgeip: usize,
     pub hie: usize,
+    pub hip: usize,
     pub hgatp: usize,
     pub hedeleg: usize,
     pub hideleg: usize,
@@ -97,6 +98,7 @@ impl HartArchitecturalState {
             hvip: CSR.hvip.read(),
             hgeip: CSR.hgeip.read(),
             hie: CSR.hie.read(),
+            hip: CSR.hip.read(),
             hgatp: CSR.hgatp.read(),
             // VS-mode
             vsstatus: CSR.vsstatus.read(),
@@ -142,6 +144,7 @@ impl HartArchitecturalState {
             hvip: 0,
             hgeip: 0,
             hie: 0,
+            hip: 0,
             vsatp: 0,
             hgatp: 0,
             fprs: FpRegisters::empty(),
@@ -163,6 +166,103 @@ impl HartArchitecturalState {
             mtval2: 0,
             mtvec: 0,
         }
+    }
+
+    pub fn store_processor_state_in_main_memory(&mut self) {
+        // we not not store GPRs because assembly code does it
+        self.mepc = CSR.mepc.read();
+        self.mstatus = CSR.mstatus.read();
+        self.mideleg = CSR.mideleg.read();
+        self.medeleg = CSR.medeleg.read();
+        self.mtvec = CSR.mtvec.read();
+        self.mie = CSR.mie.read();
+        // S-mode
+        self.sstatus = CSR.sstatus.read();
+        self.sepc = CSR.sepc.read();
+        self.scounteren = CSR.scounteren.read();
+        self.sip = CSR.sip.read();
+        self.sie = CSR.sie.read();
+        self.scause = CSR.scause.read();
+        self.stvec = CSR.stvec.read();
+        self.stval = CSR.stval.read();
+        self.sscratch = CSR.sscratch.read();
+        // HS-mode
+        self.hstatus = CSR.hstatus.read();
+        self.hedeleg = CSR.hedeleg.read();
+        self.hideleg = CSR.hideleg.read();
+        self.htinst = CSR.htinst.read();
+        self.htval = CSR.htval.read();
+        self.hvip = CSR.hvip.read();
+        self.hgeip = CSR.hgeip.read();
+        self.hie = CSR.hie.read();
+        self.hip = CSR.hip.read();
+        self.hgatp = CSR.hgatp.read();
+        // VS-mode
+        self.vsstatus = CSR.vsstatus.read();
+        self.vsie = CSR.vsie.read();
+        self.vsip = CSR.vsip.read();
+        self.vstvec = CSR.vstvec.read();
+        self.vsscratch = CSR.vsscratch.read();
+        self.vsepc = CSR.vsepc.read();
+        self.vscause = CSR.vscause.read();
+        self.vstval = CSR.vstval.read();
+        self.vsatp = CSR.vsatp.read();
+        // timer-related
+        self.vstimecmp = CSR.vstimecmp.read();
+        self.htimedelta = CSR.htimedelta.read();
+        // F-extension
+        // self.fprs = existing.fprs.clone();
+        self.fcsr = CSR.fcsr.read();
+    }
+
+    pub fn load_processor_state_from_main_memory(&self) {
+        // resume from where the other domain was interrupted - not needed since we reload mepc with assembly?
+        CSR.mepc.set(self.mepc);
+        CSR.mstatus.set(self.mstatus);
+        CSR.mideleg.set(self.mideleg);
+        CSR.medeleg.set(self.medeleg);
+        // set the new trap vector so the code always trap in the security monitor in the correct handler
+        CSR.mtvec.set(self.mtvec);
+        // recover interrupt configuration from the hypervisor execution. delegations (`mideleg`) must be already recovered!
+        CSR.mie.set(self.mie);
+        // S-mode
+        CSR.sstatus.set(self.sstatus);
+        CSR.sepc.set(self.sepc);
+        CSR.scounteren.set(self.scounteren);
+        CSR.sip.set(self.sip);
+        CSR.sie.set(self.sie);
+        CSR.scause.set(self.scause);
+        CSR.stvec.set(self.stvec);
+        CSR.stval.set(self.stval);
+        CSR.sscratch.set(self.sscratch);
+        // HS-mode
+        CSR.hstatus.set(self.hstatus);
+        CSR.hedeleg.set(self.hedeleg);
+        CSR.hideleg.set(self.hideleg);
+        CSR.htinst.set(self.htinst);
+        CSR.htval.set(self.htval);
+        // recover interrupt configuration from the hypervisor execution. delegations (`hideleg`) must be already recovered!
+        // CSR.hvip.set(to.hvip);
+        // CSR.hgeip.set(self.hgeip);
+        CSR.hie.set(self.hie);
+        // CSR.hip.set(self.hip);
+        CSR.hgatp.set(self.hgatp);
+        // VS-mode
+        CSR.vsstatus.set(self.vsstatus);
+        CSR.vsie.set(self.vsie);
+        CSR.vsip.set(self.vsip);
+        CSR.vstvec.set(self.vstvec);
+        CSR.vsscratch.set(self.vsscratch);
+        CSR.vsepc.set(self.vsepc);
+        CSR.vscause.set(self.vscause);
+        CSR.vstval.set(self.vstval);
+        CSR.vsatp.set(self.vsatp);
+        // timer-related
+        CSR.vstimecmp.set(self.vstimecmp);
+        CSR.htimedelta.set(self.htimedelta);
+        // F-extension
+        // self.fprs = existing.fprs.clone();
+        CSR.fcsr.set(self.fcsr);
     }
 }
 

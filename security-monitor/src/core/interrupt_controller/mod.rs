@@ -30,8 +30,8 @@ impl<'a> InterruptController {
     }
 
     unsafe fn new() -> Result<Self, Error> {
-        // In future, this code should parse the flatten device tree, detect type of the hardware interrupt controller
-        // and take control over it.
+        // In future when we do not rely on OpenSBI, this function should parse the flatten device tree, detect type of the hardware
+        // interrupt controller and take control over it.
         Ok(Self {})
     }
 

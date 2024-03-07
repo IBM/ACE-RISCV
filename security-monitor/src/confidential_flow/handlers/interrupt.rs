@@ -2,8 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::{CSR, MIE_SSIP_MASK};
-use crate::core::transformations::ExposeToHypervisor;
+use crate::core::architecture::{CSR, MIE_MTIP_MASK, MIE_SSIP_MASK, MIE_STIP, MIE_STIP_MASK};
+use crate::core::transformations::{ExposeToHypervisor, InterruptRequest, SbiResult};
 
 /// Handles interrupts of a confidential hart.
 ///
@@ -12,6 +12,7 @@ use crate::core::transformations::ExposeToHypervisor;
 /// - to the confidential hart in case of software interrupts
 pub fn handle(mut confidential_flow: ConfidentialFlow) -> ! {
     let mip = CSR.mip.read();
+
     if mip & MIE_SSIP_MASK > 0 {
         // One of the reasons why the confidential hart was interrupted with SSIP is that it got an `InterHartRequest` from
         // another confidential hart. If this is the case, we must process all queued requests before resuming confidential
@@ -28,6 +29,16 @@ pub fn handle(mut confidential_flow: ConfidentialFlow) -> ! {
         }
     }
 
-    let transformation = ExposeToHypervisor::InterruptRequest();
-    confidential_flow.into_non_confidential_flow().exit_to_hypervisor(transformation)
+    // the only interrupts that we can see here are:
+    // * M-mode timer that the security monitor set to preemt execution of a confidential VM
+    // * M-mode software or external interrupt
+    if mip & (MIE_MTIP_MASK | MIE_STIP_MASK) > 0 {
+        // inject timer interrupt to the hypervisor
+        let transformation = ExposeToHypervisor::InterruptRequest(InterruptRequest::new(MIE_STIP));
+        confidential_flow.into_non_confidential_flow().exit_to_hypervisor(transformation)
+    } else {
+        // resume the hypervisor, it will trap again in the security monitor to process these interrupts
+        let transformation = ExposeToHypervisor::SbiResult(SbiResult::success(0));
+        confidential_flow.into_non_confidential_flow().exit_to_hypervisor(transformation)
+    }
 }

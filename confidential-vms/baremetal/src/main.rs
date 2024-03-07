@@ -34,7 +34,7 @@ extern "C" fn eh_personality() {}
 
 #[global_allocator]
 static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
-static mut DMA_PADDR: Option<AtomicUsize> = None;
+static mut DMA_PADDR: AtomicUsize = AtomicUsize::new(0);
 static mut SCRATCH_PAGE: Option<crate::hal::ScratchPage> = None;
 const UART_BASE_ADDRESS: usize = 0x1000_0000;
 pub static mut TRAP_FRAME: [[trap::TrapFrame; 8]; 4] = [[trap::TrapFrame::zero(); 8]; 4];
@@ -73,7 +73,7 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
         }
     };
 
-    match test_virtio(fdt_paddr) {
+    match test_virtio(&mut uart, fdt_paddr) {
         Ok(_) => uart.println("Virtio blk test: success"),
         Err(error) => {
             uart.println(&format!("Error: {:?}", error));
@@ -139,9 +139,11 @@ fn test_base_sbi(uart: &mut Uart) -> Result<(), usize> {
     Ok(())
 }
 
-fn test_virtio(fdt_paddr: usize) -> Result<(), Error> {
+fn test_virtio(uart: &mut Uart, fdt_paddr: usize) -> Result<(), Error> {
+    uart.println(&format!("test_virtio: fdt {:x}", fdt_paddr));
     let mut blk = virtio::get_block_device(fdt_paddr).expect("failed geting blk device");
 
+    uart.println(&format!("test_virtio: shared memory"));
     let (input_paddr, output_paddr) = prepare_shared_memory()?;
     let input: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(input_paddr as *mut u8, 512) };
     let mut output: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(output_paddr as *mut u8, 512) };
@@ -173,7 +175,7 @@ fn init_memory(uart: &mut Uart) {
         uart.println(&format!("DMA   0x{:x}-0x{:x}", _dma_start as usize, _dma_end as usize));
         uart.println(&format!("Heap  0x{:x}-0x{:x}", _heap_start as usize, _heap_start as usize + _heap_size as usize));
         let dma_start = (_dma_start as usize + 4096 - 1) & !(4096 - 1);
-        crate::DMA_PADDR = Some(AtomicUsize::new(dma_start));
+        crate::DMA_PADDR = AtomicUsize::new(dma_start);
     }
     crate::calls::ace::load_all_pages().expect("Load all pages call failed");
 }
@@ -188,11 +190,7 @@ fn init_trap(hart_id: usize) {
 fn prepare_shared_memory() -> Result<(usize, usize), Error> {
     let pages_to_allocate = 3;
     let paddr = unsafe {
-        if let Some(v) = &crate::DMA_PADDR {
-            v.fetch_add(virtio_drivers::PAGE_SIZE * pages_to_allocate, core::sync::atomic::Ordering::SeqCst)
-        } else {
-            return Err(Error::DmaNotInitialized());
-        }
+        crate::DMA_PADDR.fetch_add(virtio_drivers::PAGE_SIZE * pages_to_allocate, core::sync::atomic::Ordering::SeqCst)
     };
     for i in 0..pages_to_allocate {
         crate::calls::sm::share_page(paddr + i * 4096, 1)?;

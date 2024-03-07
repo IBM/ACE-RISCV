@@ -44,5 +44,6 @@ impl HypervisorMemoryProtector {
         pmp::close_access_to_confidential_memory();
         mmu::enable_address_translation(hgatp);
         super::tlb::tlb_shutdown();
+        core::arch::asm!("hfence.gvma");
     }
 }

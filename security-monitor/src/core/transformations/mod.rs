@@ -6,7 +6,7 @@ pub use guest_load_page_fault_request::GuestLoadPageFaultRequest;
 pub use guest_load_page_fault_result::GuestLoadPageFaultResult;
 pub use guest_store_page_fault_request::GuestStorePageFaultRequest;
 pub use guest_store_page_fault_result::GuestStorePageFaultResult;
-pub use interrupt_request::InterruptRequest;
+pub use interrupt_request::{EnabledInterrupts, InjectedInterrupts, InterruptRequest};
 pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
@@ -57,7 +57,8 @@ pub enum ExposeToHypervisor {
     SbiVmRequest(SbiVmRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
-    InterruptRequest(),
+    InterruptRequest(InterruptRequest),
+    EnabledInterrupts(EnabledInterrupts),
 }
 
 /// Declassifiers that expose part of the hypervisor's state to a confidential VM's hart.

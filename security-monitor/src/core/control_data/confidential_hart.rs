@@ -6,10 +6,10 @@ use crate::core::architecture::{
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
-    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest, GuestStorePageFaultResult,
-    InterHartRequest, InterruptRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus,
-    SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
-    UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
+    EnabledInterrupts, ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
+    GuestStorePageFaultResult, InjectedInterrupts, InterHartRequest, InterruptRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest,
+    SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest,
+    SbiResult, SharePageRequest, UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
 };
 use crate::error::Error;
 
@@ -30,7 +30,7 @@ pub struct ConfidentialHart {
     confidential_vm_id: Option<ConfidentialVmId>,
     // Safety: Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element
     // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.
-    pub confidential_hart_state: HartArchitecturalState,
+    confidential_hart_state: HartArchitecturalState,
     /// The confidential hart's lifecycle follow the finite state machine (FSM) of a hart defined in SBI HSM extension.
     lifecycle_state: HartLifecycleState,
     /// A pending request indicates that the confidential hart sent a request to the hypervisor and is waiting for its
@@ -72,26 +72,25 @@ impl ConfidentialHart {
     }
 
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
+        use crate::core::architecture::{MIE_STIP_MASK, MIE_VSEIP_MASK, MIE_VSSIP_MASK, MIE_VSTIP_MASK};
         let confidential_vm_id = None;
         let pending_request = None;
         // delegate VS-level interrupts directly to the confidential VM. All other
         // interrupts will trap in the security monitor.
-        confidential_hart_state.mideleg = 0b1_0100_0100_0100;
-        confidential_hart_state.hideleg = 0b1_0100_0100_0100;
-        confidential_hart_state.hie = 0b0_1110_1110_1110;
-        confidential_hart_state.mie = 0b0_1110_1110_1110;
+        confidential_hart_state.mideleg = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
+        confidential_hart_state.hideleg = confidential_hart_state.mideleg;
+        // vsie reflects hie, we allow only VS interrupts
+        confidential_hart_state.hie = confidential_hart_state.mideleg;
+        // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
+        confidential_hart_state.mie = MIE_STIP_MASK;
 
         // delegate exceptions that can be handled directly in the confidential VM
-        confidential_hart_state.medeleg = 0b1011000111111111;
+        confidential_hart_state.medeleg = 0b000000001011000111111111;
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
 
         confidential_hart_state.mtvec = enter_from_confidential_hart_asm as usize;
 
         Self { confidential_vm_id, confidential_hart_state, lifecycle_state, pending_request }
-    }
-
-    pub fn address(&self) -> usize {
-        core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
     pub fn set_confidential_vm_id(&mut self, confidential_vm_id: ConfidentialVmId) {
@@ -127,6 +126,16 @@ impl ConfidentialHart {
         assure!(self.pending_request.is_none(), Error::PendingRequest())?;
         self.pending_request = Some(request);
         Ok(())
+    }
+
+    pub fn store_confidential_hart_state_in_main_memory(&mut self) -> EnabledInterrupts {
+        self.confidential_hart_state.store_processor_state_in_main_memory();
+        self.enabled_interrupts()
+    }
+
+    pub fn load_confidential_hart_state_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
+        self.confidential_hart_state.load_processor_state_from_main_memory();
+        self.apply_injected_interrupts(interrupts_to_inject);
     }
 }
 
@@ -219,6 +228,10 @@ impl ConfidentialHart {
         core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
+    fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
+        CSR.hvip.set(result.hvip | self.confidential_hart_state.vsip);
+    }
+
     fn apply_interrupt(&mut self, result: InterruptRequest) {
         // Interrupts are exposed to the virtual machine via the HVIP register
         // We assume here that the input code reflects the correct interrupt code intended for the virtual machine.
@@ -226,10 +239,10 @@ impl ConfidentialHart {
     }
 
     fn apply_sbi_ipi(&mut self, _result: SbiIpi) {
+        use crate::core::architecture::MIE_VSSIP;
         // IPI exposes itself as supervisor-level software interrupt this is the 2nd bit of the vsip controlled by the
         // hvip register. Check the RISC-V privileged specification for more information.
-        const VSSIP: usize = 2; // virtual supervisor software interrupt pending bit in the hvip register
-        self.apply_interrupt(InterruptRequest::new(VSSIP))
+        self.apply_interrupt(InterruptRequest::new(MIE_VSSIP))
     }
 
     fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
@@ -377,17 +390,24 @@ impl ConfidentialHart {
         InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(hart_mask, hart_mask_base, start_address, size, asid))
     }
 
+    pub fn enabled_interrupts(&self) -> EnabledInterrupts {
+        EnabledInterrupts::new()
+    }
+
     fn read_instruction(&self) -> (usize, usize) {
         // mepc stores the virtual address of the instruction that caused trap. Setting
         // mstatus.MPRV bit allows reading the faulting instruction in memory using the
         // virtual address.
         let fault_instruction_virtual_address = self.confidential_hart_state.mepc as *const usize;
+        let is_mprv_set = CSR.mstatus.read() & (1 << CSR_MSTATUS_MPRV) > 0;
+        CSR.mstatus.read_and_set_bits(1 << CSR_MSTATUS_MPRV);
         let instruction = unsafe {
-            CSR.mstatus.read_and_set_bits(1 << CSR_MSTATUS_MPRV);
             let instruction = fault_instruction_virtual_address.read_volatile();
-            CSR.mstatus.read_and_clear_bits(1 << CSR_MSTATUS_MPRV);
             instruction
         };
+        if !is_mprv_set {
+            CSR.mstatus.read_and_clear_bits(1 << CSR_MSTATUS_MPRV);
+        }
 
         // We only expose the faulting instruction, which can be of different length.
         // Therefore, we must trim the read memory to this size by disabling unwanted

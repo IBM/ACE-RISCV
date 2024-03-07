@@ -55,6 +55,7 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::HsmExtension::*;
         use crate::core::architecture::IpiExtension::*;
         use crate::core::architecture::RfenceExtension::*;
+        use crate::core::architecture::SbiExtension;
         use crate::core::architecture::SrstExtension::*;
         use crate::core::architecture::TrapReason::*;
 
@@ -84,7 +85,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), self),
             VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), self),
             VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
-            VsEcall(_) => invalid_call::handle(self),
+            VsEcall(SbiExtension::Unknown(_, _)) => invalid_call::handle(self),
             GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
             VirtualInstruction => virtual_instruction_request::handle(confidential_hart.virtual_instruction_request(), self),
             GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self),
@@ -95,17 +96,17 @@ impl<'a> ConfidentialFlow<'a> {
     /// Resumes execution of the confidential hart after the confidential hart was not running on any physical hart.
     /// This is an entry point to the confidential flow from the non-confidential flow.
     pub fn resume_confidential_hart_execution(hardware_hart: &'a mut HardwareHart) -> ! {
+        use crate::confidential_flow::handlers::*;
+        use crate::core::transformations::PendingRequest::*;
+
         let mut confidential_flow = Self::create(hardware_hart);
 
         // During the time when this confidential hart was not running, other confidential harts could have sent it
         // InterHartRequests. We must process them before resuming confidential hart's execution.
         confidential_flow.process_inter_hart_requests();
 
-        // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a
-        // hypercall) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's
-        // execution.
-        use crate::confidential_flow::handlers::*;
-        use crate::core::transformations::PendingRequest::*;
+        // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
+        // load) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's execution.
         match confidential_flow.hardware_hart.confidential_hart_mut().take_request() {
             Some(SbiRequest()) => hypercall_result::handle(confidential_flow.hardware_hart.hypercall_result(), confidential_flow),
             Some(GuestLoadPageFault(request)) => guest_load_page_fault_result::handle(

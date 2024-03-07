@@ -6,7 +6,6 @@ use crate::core::transformations::SbiRequest;
 
 pub struct SbiVmRequest {
     sbi_request: SbiRequest,
-    sepc: usize,
 }
 
 impl SbiVmRequest {
@@ -21,15 +20,10 @@ impl SbiVmRequest {
             hart_state.gpr(GpRegister::a4),
             hart_state.gpr(GpRegister::a5),
         );
-        let sepc = hart_state.mepc;
-        Self { sbi_request, sepc }
+        Self { sbi_request }
     }
 
     pub fn sbi_request(&self) -> &SbiRequest {
         &self.sbi_request
-    }
-
-    pub fn sepc(&self) -> usize {
-        self.sepc
     }
 }

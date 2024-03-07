@@ -61,5 +61,6 @@ impl ConfidentialVmMemoryProtector {
         pmp::open_access_to_confidential_memory();
         mmu::enable_address_translation(self.hgatp);
         super::tlb::tlb_shutdown();
+        core::arch::asm!("hfence.gvma");
     }
 }

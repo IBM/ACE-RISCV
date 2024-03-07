@@ -17,31 +17,12 @@ impl TrapFrame {
 }
 
 #[no_mangle]
-extern "C" fn trap_handler(sepc: usize, stval: usize, scause: usize) -> usize {
+extern "C" fn trap_handler(sepc: usize, _stval: usize, scause: usize) -> usize {
     let is_async = (scause >> 63 & 1) == 1;
-    let cause_num = scause & 0xfff;
+    // let cause_num = scause & 0xfff;
     let mut return_pc = sepc;
     if is_async {
-        // println!("Supervisor software interrupt!");
-        // match cause_num {
-        // _ => panic!("Unhandled interrupt -> {}\n", cause_num),
-        // }
     } else {
-        // match cause_num {
-        //     2 => {
-        //         // println!("Illegal instruction at 0x{:08x}: 0x{:08x}", epc, tval);
-        //         return_pc += 4;
-        //     }
-        //     5 => {
-        //         // println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
-        //         return_pc += 4;
-        //     }
-        //     7 => {
-        //         // println!("Illegal memory access from 0x{:08x}: 0x{:08x}", epc, tval);
-        //         return_pc += 4;
-        //     }
-        //     _ => panic!("Unhandled trap -> {}\n", cause_num),
-        // }
         return_pc += 4;
     };
     return_pc

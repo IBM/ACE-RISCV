@@ -353,6 +353,7 @@ pub const CSR_HSTATUS_GVA: usize = 6;
 
 pub const CSR_MSTATUS_SIE: usize = 1;
 pub const CSR_MSTATUS_MIE: usize = 3;
+pub const CSR_MSTATUS_SPIE: usize = 5;
 pub const CSR_MSTATUS_MPIE: usize = 7;
 pub const CSR_MSTATUS_SPP: usize = 8;
 pub const CSR_MSTATUS_MPP: usize = 11;
@@ -360,18 +361,30 @@ pub const CSR_MSTATUS_GVA: usize = 38;
 pub const CSR_MSTATUS_MPV: usize = 39;
 pub const CSR_MSTATUS_MPRV: usize = 17;
 
-pub const MIE_MSIP: usize = 3;
-pub const MIE_MSIP_MASK: usize = 1 << MIE_MSIP;
-pub const MIE_MTIP: usize = 7;
-pub const MIE_MTIP_MASK: usize = 1 << MIE_MTIP;
-pub const MIE_MEIP: usize = 11;
-pub const MIE_MEIP_MASK: usize = 1 << MIE_MEIP;
+pub const CSR_HSTATUS_SPVP: usize = 8;
+pub const CSR_SSTATUS_SPP: usize = 8;
+
+pub const CSR_VSSTATUS_SIE: usize = 1;
+pub const SCAUSE_INTERRUPT_MASK: usize = 1 << 63;
+
 pub const MIE_SSIP: usize = 1;
 pub const MIE_SSIP_MASK: usize = 1 << MIE_SSIP;
+pub const MIE_VSSIP: usize = 2;
+pub const MIE_VSSIP_MASK: usize = 2 << MIE_VSSIP;
+pub const MIE_MSIP: usize = 3;
+pub const MIE_MSIP_MASK: usize = 1 << MIE_MSIP;
 pub const MIE_STIP: usize = 5;
 pub const MIE_STIP_MASK: usize = 1 << MIE_STIP;
+pub const MIE_VSTIP: usize = 6;
+pub const MIE_VSTIP_MASK: usize = 1 << MIE_VSTIP;
+pub const MIE_MTIP: usize = 7;
+pub const MIE_MTIP_MASK: usize = 1 << MIE_MTIP;
 pub const MIE_SEIP: usize = 9;
 pub const MIE_SEIP_MASK: usize = 1 << MIE_SEIP;
+pub const MIE_VSEIP: usize = 10;
+pub const MIE_VSEIP_MASK: usize = 1 << MIE_VSEIP;
+pub const MIE_MEIP: usize = 11;
+pub const MIE_MEIP_MASK: usize = 1 << MIE_MEIP;
 
 pub const PMP_OFF_MASK: usize = 0b0;
 pub const PMP_TOR_MASK: usize = 0b01000;

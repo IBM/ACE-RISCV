@@ -11,10 +11,6 @@ use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard};
 
-extern "C" {
-    fn switch_security_domains_asm(previous_hart_address: usize, next_hart_address: usize);
-}
-
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
     measurements: [ConfidentialVmMeasurement; 4],
@@ -71,19 +67,21 @@ impl ConfidentialVm {
         assure_not!(confidential_hart.is_dummy(), Error::HartAlreadyRunning())?;
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         assure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
+
+        // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
+        // of the confidential VM to the processor registers
+        let interrupts_to_inject = hardware_hart.store_hypervisor_hart_state_in_main_memory();
+        self.confidential_harts[confidential_hart_id].load_confidential_hart_state_from_main_memory(interrupts_to_inject);
+
         // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
         // error.
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+
         // It is safe to invoke below unsafe code because at this point we are in the confidential flow part of the
-        // finite state machine and the virtual hart is assigned to the hardware hart.
-        unsafe {
-            // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
-            // of the confidential VM to the processor registers
-            switch_security_domains_asm(hardware_hart.address(), hardware_hart.confidential_hart().address());
-            // We must reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only
-            // to the memory regions it owns.
-            self.memory_protector.enable();
-        }
+        // finite state machine and the virtual hart is assigned to the hardware hart. We must reconfigure the hardware memory isolation
+        // mechanism to enforce that the confidential virtual machine has access only to the memory regions it owns.
+        unsafe { self.memory_protector.enable() };
+
         Ok(())
     }
 
@@ -96,19 +94,20 @@ impl ConfidentialVm {
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart.confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
+
+        // Return the confidential hart to the confidential machine.
+        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+
+        // Switch context between security domains.
+        let enabled_interrupts = self.confidential_harts[confidential_hart_id].store_confidential_hart_state_in_main_memory();
+        hardware_hart.load_hypervisor_hart_state_from_main_memory(enabled_interrupts);
+
+        // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
+        // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
+        // associated with a dummy virtual hart.
         // It is safe to invoke below unsafe code because at this point we are transitioning from the confidential flow part of the
         // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
-        unsafe {
-            // Context switch: store content of processor registers in the confidential hart's memory and load the processor registers
-            // values of hypervisor to the processor registers
-            switch_security_domains_asm(hardware_hart.confidential_hart().address(), hardware_hart.address());
-            // It is safe to reconfigure the memory access control configuration to enable access to memory regions owned
-            // by the hypervisor because we are now transitioning into the non-confidential flow part of the finite state
-            // machine where the hardware hart is associated with a dummy virtual hart.
-            hardware_hart.enable_hypervisor_memory_protector();
-        };
-        // return the confidential hart to the confidential machine
-        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+        unsafe { hardware_hart.enable_hypervisor_memory_protector() };
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {
