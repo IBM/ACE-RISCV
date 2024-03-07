@@ -117,15 +117,16 @@ You should see the output from the boot process and a promt to login to the hype
 # login: root, password: passwd
 ```
 
-To run the sample `baremetal` confidential VM execute:
+To run the sample Linux OS as a confidential VM execute:
+```
+./run_linux_vm.sh
+```
+
+To run the sample `baremetal` as a confidential VM execute:
 ```
 ./run_baremetal.sh
 ```
 
-To run the sample Linux kernel confidential VM execute:
-```
-./run_linux_vm.sh
-```
 
 # License
 This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).

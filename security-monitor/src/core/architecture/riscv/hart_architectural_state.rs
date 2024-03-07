@@ -9,47 +9,9 @@ pub struct HartArchitecturalState {
     // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
     // address in the memory. This address is used by the assembly code.
     pub gprs: GeneralPurposeRegisters,
-    // floating-point related
-    pub fprs: FloatingPointRegisters,
-    pub fcsr: usize,
     // other data used by the security monitor
     pub id: usize,
-    // VS-mode
-    pub vsstatus: usize,
-    pub vsie: usize,
-    pub vsip: usize,
-    pub vstvec: usize,
-    pub vsscratch: usize,
-    pub vsepc: usize,
-    pub vscause: usize,
-    pub vstval: usize,
-    pub vsatp: usize,
-    // timer-related
-    // vstimecmp is provided by the Sstc (supervisor arch extensions for timecmp)
-    pub vstimecmp: usize,
-    pub htimedelta: usize,
-    // virtualization-related
-    pub hvip: usize,
-    pub hgeip: usize,
-    pub hie: usize,
-    pub hip: usize,
-    pub hgatp: usize,
-    pub hedeleg: usize,
-    pub hideleg: usize,
-    pub htinst: usize,
-    pub htval: usize,
-    // S-mode
-    pub sstatus: usize,
-    // hstatus needed to control the virtualization bit
-    pub hstatus: usize,
-    pub sepc: usize,
-    pub scounteren: usize, // not needed?
-    pub sip: usize,
-    pub sie: usize,
-    pub scause: usize,
-    pub stvec: usize,
-    pub stval: usize,
-    pub sscratch: usize,
+
     // M-mode related
     pub mepc: usize,
     pub mstatus: usize,
@@ -61,6 +23,43 @@ pub struct HartArchitecturalState {
     pub mtval: usize,
     pub mtval2: usize,
     pub mtvec: usize,
+    // S-mode
+    pub sstatus: usize,
+    pub hstatus: usize,
+    pub sepc: usize,
+    pub scounteren: usize,
+    pub sip: usize,
+    pub sie: usize,
+    pub scause: usize,
+    pub stvec: usize,
+    pub stval: usize,
+    pub sscratch: usize,
+    // virtualization-related
+    pub hvip: usize,
+    pub hgeip: usize,
+    pub hie: usize,
+    pub hip: usize,
+    pub hgatp: usize,
+    pub hedeleg: usize,
+    pub hideleg: usize,
+    pub htinst: usize,
+    pub htval: usize,
+    // vstimecmp is provided by the Sstc (supervisor arch extensions for timecmp)
+    pub vstimecmp: usize,
+    pub htimedelta: usize,
+    // VS-mode
+    pub vsstatus: usize,
+    pub vsie: usize,
+    pub vsip: usize,
+    pub vstvec: usize,
+    pub vsscratch: usize,
+    pub vsepc: usize,
+    pub vscause: usize,
+    pub vstval: usize,
+    pub vsatp: usize,
+    // floating-point related
+    pub fprs: FloatingPointRegisters,
+    pub fcsr: usize,
 }
 
 impl HartArchitecturalState {

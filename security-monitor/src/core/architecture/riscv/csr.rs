@@ -4,7 +4,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // This implementation is based on the code from Rivos. We just use a subset of functionalities and CSRs because we do not need all of them.
 // https://github.com/rivosinc/salus/blob/fd06d5959fd81c02b8763c1922f36cc0ebe7d301/riscv-regs/src/csrs/csr_access.rs#L47
-pub use super::spec::*;
+#![allow(unused)]
+pub use super::specification::*;
 use core::arch::asm;
 
 pub struct ControlStatusRegister {

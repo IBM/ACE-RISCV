@@ -17,8 +17,9 @@ mod general_purpose_registers;
 mod hart_architectural_state;
 mod hart_lifecycle_state;
 mod sbi;
-pub mod spec;
+pub mod specification;
 mod trap_reason;
+mod vector_registers;
 
 pub fn put_hart_to_sleep() {
     unsafe {

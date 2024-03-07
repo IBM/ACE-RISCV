@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::spec::{CAUSE_VIRTUAL_SUPERVISOR_ECALL, *};
+use crate::core::architecture::specification::*;
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, TrapReason, CSR};
 use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
@@ -16,7 +16,7 @@ use crate::core::transformations::{
 pub struct HardwareHart {
     // Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
     // on this we automatically calculate offsets of registers' and CSRs' for the asm code.
-    pub non_confidential_hart_state: HartArchitecturalState,
+    pub(super) non_confidential_hart_state: HartArchitecturalState,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
     // to the memory region owned by the hypervisor.
     hypervisor_memory_protector: HypervisorMemoryProtector,
@@ -33,7 +33,7 @@ pub struct HardwareHart {
     // in case there is any confidential VM's virtual hart associated to it, or 2) an confidential VM's virtual hart.
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
-    pub confidential_hart: ConfidentialHart,
+    pub(super) confidential_hart: ConfidentialHart,
 }
 
 impl HardwareHart {
@@ -153,7 +153,6 @@ impl HardwareHart {
         // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
         // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
         CSR.vsscratch.set(request.instruction());
-
         self.apply_trap(true);
     }
 
@@ -196,7 +195,6 @@ impl HardwareHart {
         CSR.hstatus.read_and_set_bits(1 << CSR_HSTATUS_SPVP);
         // According to the spec, hstatus:SPVP and sstatus.SPP have the same value when transitioning from VS to HS mode.
         CSR.sstatus.read_and_set_bits(1 << CSR_SSTATUS_SPP);
-        // CSR.hstatus.read_and_set_bits(1 << 21); // VTW
 
         if encoded_guest_virtual_address {
             CSR.hstatus.read_and_set_bits(1 << CSR_HSTATUS_GVA);

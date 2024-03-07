@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+#![allow(unused)]
 
 /// Hart lifecycle states are partially based on the SBI specification of the HSM extension. We do not support all of
 /// the SBI's HSM states because there is no need for that, i.e., the security monitor can directly stop or suspend a

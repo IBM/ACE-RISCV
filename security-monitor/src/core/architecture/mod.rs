@@ -4,7 +4,7 @@
 pub use riscv::csr::*;
 pub use riscv::fence::*;
 pub use riscv::{
-    decode_result_register, put_hart_to_sleep, spec, AceExtension, BaseExtension, FloatingPointRegisters, GeneralPurposeRegister,
+    decode_result_register, put_hart_to_sleep, specification, AceExtension, BaseExtension, FloatingPointRegisters, GeneralPurposeRegister,
     GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState, HsmExtension, IpiExtension, RfenceExtension, SbiExtension,
     SrstExtension, TrapReason,
 };
