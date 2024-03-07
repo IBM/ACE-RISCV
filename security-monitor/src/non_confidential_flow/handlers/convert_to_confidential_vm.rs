@@ -9,6 +9,8 @@ use crate::non_confidential_flow::NonConfidentialFlow;
 
 const BOOT_HART_ID: usize = 0;
 
+/// Security requirement: In case of a Linux kernel confidential VM, kernel must make this call before it uses parameters from the Linux
+/// command line and before it changes the content of the VM's memory.
 pub fn handle(convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow) -> ! {
     debug!("Converting a VM into a confidential VM");
     let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
@@ -20,6 +22,7 @@ pub fn handle(convert_to_confidential_vm_request: ConvertToConfidentialVm, non_c
 
 fn create_confidential_vm(convert_to_confidential_vm_request: ConvertToConfidentialVm) -> Result<ConfidentialVmId, Error> {
     let hart_state = convert_to_confidential_vm_request.into();
+
     let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
     // TODO: read number of harts from fdt
     let confidential_harts_count = 2;
@@ -30,7 +33,6 @@ fn create_confidential_vm(convert_to_confidential_vm_request: ConvertToConfident
         })
         .collect();
     // TODO: measure the confidential VM
-
     // TODO: perform local attestation (optional)
     let measurements = [ConfidentialVmMeasurement::empty(); 4];
 

@@ -4,8 +4,6 @@
 
 pub fn tlb_shutdown() {
     // TODO: implement TLB shutdown for a processor composed of multiple HARTs
-    unsafe {
-        core::arch::asm!("hfence.gvma");
-        core::arch::asm!("hfence.vvma");
-    };
+    crate::core::architecture::hfence_gvma();
+    crate::core::architecture::hfence_vvma();
 }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::CSR;
 use crate::error::Error;
 use spin::{Once, RwLock, RwLockReadGuard};
 
@@ -29,13 +30,13 @@ impl<'a> InterruptController {
     }
 
     unsafe fn new() -> Result<Self, Error> {
-        // In future, this code should parse the flatten device tree, detect type of the hardware interrupt controller
-        // and take control over it.
+        // In future when we do not rely on OpenSBI, this function should parse the flatten device tree, detect type of the hardware
+        // interrupt controller and take control over it.
         Ok(Self {})
     }
 
     pub fn send_ipi(&self, target_hart_id: usize) -> Result<(), Error> {
-        let current_hart_id = riscv::register::mhartid::read();
+        let current_hart_id = CSR.mhartid.read();
         debug!("Sending an IPI from physical hart {} to {}", current_hart_id, target_hart_id);
 
         let hart_mask = 1;

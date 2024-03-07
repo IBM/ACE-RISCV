@@ -54,10 +54,9 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -machine virt -cpu rv64 -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
     -global virtio-mmio.force-legacy=false \
-    -append "console=ttyS0 ro root=/dev/vda swiotlb=force" \
+    -append "console=ttyS0 ro root=/dev/vda swiotlb=mmnn,force nosplash debug" \
+    -device virtio-net-pci,netdev=net0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22 \
-    -device virtio-net-pci,netdev=net0 \
-    -device virtio-rng-pci \
+    -device virtio-blk-pci,drive=hd0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -drive if=none,format=raw,file=${DRIVE},id=hd0 \
-    -device virtio-blk-pci,drive=hd0 \
     -nographic 

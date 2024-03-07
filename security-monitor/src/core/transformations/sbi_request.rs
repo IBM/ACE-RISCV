@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartArchitecturalState};
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
 use crate::core::control_data::ConfidentialVmId;
 
 pub struct SbiRequest {
@@ -52,14 +52,14 @@ impl SbiRequest {
     // HartArchitecturalState storing confidential information
     pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
         Self::new(
-            hart_state.gpr(GpRegister::a7),
-            hart_state.gpr(GpRegister::a6),
-            hart_state.gpr(GpRegister::a0),
-            hart_state.gpr(GpRegister::a1),
-            hart_state.gpr(GpRegister::a2),
-            hart_state.gpr(GpRegister::a3),
-            hart_state.gpr(GpRegister::a4),
-            hart_state.gpr(GpRegister::a5),
+            hart_state.gpr(GeneralPurposeRegister::a7),
+            hart_state.gpr(GeneralPurposeRegister::a6),
+            hart_state.gpr(GeneralPurposeRegister::a0),
+            hart_state.gpr(GeneralPurposeRegister::a1),
+            hart_state.gpr(GeneralPurposeRegister::a2),
+            hart_state.gpr(GeneralPurposeRegister::a3),
+            hart_state.gpr(GeneralPurposeRegister::a4),
+            hart_state.gpr(GeneralPurposeRegister::a5),
         )
     }
 

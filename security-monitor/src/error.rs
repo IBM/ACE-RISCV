@@ -56,8 +56,6 @@ pub enum Error {
     HartNotExecutable(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
-    #[error("Not supported interrupt")]
-    NotSupportedInterrupt(),
     #[error("Invalid call cause: {0}")]
     InvalidCall(usize),
     #[error("Internal error")]

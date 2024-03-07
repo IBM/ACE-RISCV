@@ -11,8 +11,6 @@ pub enum Error {
     EsmError(),
     #[error("Share page error")]
     SharePageError(),
-    #[error("DMA not initialized")]
-    DmaNotInitialized(),
     #[error("Load all pages failed")]
     LoadAllPagesFailed(),
 }

@@ -6,10 +6,6 @@ description = "Assured Confidential Execution (ACE): security monitor implementa
 edition = "2021"
 
 [dependencies]
-# This crate simplifies access to RISC-V registers we do not use the upstream version because it still 
-# lacks support for the hypervisor extension
-riscv = {path = "rust-crates/riscv"}
-
 # This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
 riscv-decode = "0.2" 
 

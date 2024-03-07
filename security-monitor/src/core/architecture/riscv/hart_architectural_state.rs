@@ -1,51 +1,17 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, TrapReason};
+use crate::core::architecture::{FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, CSR};
 
 /// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
 pub struct HartArchitecturalState {
     // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
     // address in the memory. This address is used by the assembly code.
-    pub gprs: GpRegisters,
-    // floating-point related
-    pub fprs: FpRegisters,
-    pub fcsr: usize,
+    pub gprs: GeneralPurposeRegisters,
     // other data used by the security monitor
     pub id: usize,
-    // VS-mode
-    pub vsstatus: usize,
-    pub vsie: usize,
-    pub vstvec: usize,
-    pub vsscratch: usize,
-    pub vsepc: usize,
-    pub vscause: usize,
-    pub vstval: usize,
-    pub vsatp: usize,
-    // timer-related
-    // vstimecmp is provided by the Sstc (supervisor arch extensions for timecmp)
-    pub vstimecmp: usize,
-    pub htimedelta: usize,
-    // virtualization-related
-    pub hvip: usize,
-    pub hgatp: usize,
-    pub hedeleg: usize,
-    pub hideleg: usize,
-    pub htinst: usize,
-    pub htval: usize,
-    // S-mode
-    pub sstatus: usize,
-    // hstatus needed to control the virtualization bit
-    pub hstatus: usize,
-    pub sepc: usize,
-    pub scounteren: usize, // not needed?
-    pub sip: usize,
-    pub sie: usize,
-    pub scause: usize,
-    pub stvec: usize,
-    pub stval: usize,
-    pub sscratch: usize,
+
     // M-mode related
     pub mepc: usize,
     pub mstatus: usize,
@@ -56,6 +22,44 @@ pub struct HartArchitecturalState {
     pub mtinst: usize,
     pub mtval: usize,
     pub mtval2: usize,
+    pub mtvec: usize,
+    // S-mode
+    pub sstatus: usize,
+    pub hstatus: usize,
+    pub sepc: usize,
+    pub scounteren: usize,
+    pub sip: usize,
+    pub sie: usize,
+    pub scause: usize,
+    pub stvec: usize,
+    pub stval: usize,
+    pub sscratch: usize,
+    // virtualization-related
+    pub hvip: usize,
+    pub hgeip: usize,
+    pub hie: usize,
+    pub hip: usize,
+    pub hgatp: usize,
+    pub hedeleg: usize,
+    pub hideleg: usize,
+    pub htinst: usize,
+    pub htval: usize,
+    // vstimecmp is provided by the Sstc (supervisor arch extensions for timecmp)
+    pub vstimecmp: usize,
+    pub htimedelta: usize,
+    // VS-mode
+    pub vsstatus: usize,
+    pub vsie: usize,
+    pub vsip: usize,
+    pub vstvec: usize,
+    pub vsscratch: usize,
+    pub vsepc: usize,
+    pub vscause: usize,
+    pub vstval: usize,
+    pub vsatp: usize,
+    // floating-point related
+    pub fprs: FloatingPointRegisters,
+    pub fcsr: usize,
 }
 
 impl HartArchitecturalState {
@@ -64,55 +68,60 @@ impl HartArchitecturalState {
             id,
             gprs: existing.gprs.clone(),
             // M-mode
-            mepc: existing.mepc,
-            medeleg: existing.medeleg,
-            mideleg: existing.mideleg,
-            mie: existing.mie,
-            mip: existing.mip,
-            mstatus: existing.mstatus,
-            mtinst: existing.mtinst,
-            mtval: existing.mtval,
-            mtval2: existing.mtval2,
+            mepc: CSR.mepc.read(),
+            medeleg: CSR.medeleg.read(),
+            mideleg: CSR.mideleg.read(),
+            mie: CSR.mie.read(),
+            mip: CSR.mip.read(),
+            mstatus: CSR.mstatus.read(),
+            mtinst: CSR.mtinst.read(),
+            mtval: CSR.mtval.read(),
+            mtval2: CSR.mtval2.read(),
+            mtvec: CSR.mtvec.read(),
             // S-mode
-            sstatus: existing.sstatus,
-            sepc: existing.sepc,
-            scounteren: existing.scounteren,
-            sip: existing.sip,
-            sie: existing.sie,
-            scause: existing.scause,
-            stvec: existing.stvec,
-            stval: existing.stval,
-            sscratch: existing.sscratch,
+            sstatus: CSR.sstatus.read(),
+            sepc: CSR.sepc.read(),
+            scounteren: CSR.scounteren.read(),
+            sip: CSR.sip.read(),
+            sie: CSR.sie.read(),
+            scause: CSR.scause.read(),
+            stvec: CSR.stvec.read(),
+            stval: CSR.stval.read(),
+            sscratch: CSR.sscratch.read(),
             // HS-mode
-            hstatus: existing.hstatus,
-            hedeleg: existing.hedeleg,
-            hideleg: existing.hideleg,
-            htinst: existing.htinst,
-            htval: existing.htval,
-            hvip: existing.hvip,
-            hgatp: existing.hgatp,
+            hstatus: CSR.hstatus.read(),
+            hedeleg: CSR.hedeleg.read(),
+            hideleg: CSR.hideleg.read(),
+            htinst: CSR.htinst.read(),
+            htval: CSR.htval.read(),
+            hvip: CSR.hvip.read(),
+            hgeip: CSR.hgeip.read(),
+            hie: CSR.hie.read(),
+            hip: CSR.hip.read(),
+            hgatp: CSR.hgatp.read(),
             // VS-mode
-            vsstatus: existing.vsstatus,
-            vsie: existing.vsie,
-            vstvec: existing.vstvec,
-            vsscratch: existing.vsscratch,
-            vsepc: existing.vsepc,
-            vscause: existing.vscause,
-            vstval: existing.vstval,
-            vsatp: existing.vsatp,
+            vsstatus: CSR.vsstatus.read(),
+            vsie: CSR.vsie.read(),
+            vsip: CSR.vsip.read(),
+            vstvec: CSR.vstvec.read(),
+            vsscratch: CSR.vsscratch.read(),
+            vsepc: CSR.vsepc.read(),
+            vscause: CSR.vscause.read(),
+            vstval: CSR.vstval.read(),
+            vsatp: CSR.vsatp.read(),
             // timer-related
-            vstimecmp: existing.vstimecmp,
-            htimedelta: existing.htimedelta,
+            vstimecmp: CSR.vstimecmp.read(),
+            htimedelta: CSR.htimedelta.read(),
             // F-extension
             fprs: existing.fprs.clone(),
-            fcsr: existing.fcsr,
+            fcsr: CSR.fcsr.read(),
         }
     }
 
     pub fn empty(id: usize) -> HartArchitecturalState {
         HartArchitecturalState {
             id,
-            gprs: GpRegisters::empty(),
+            gprs: GeneralPurposeRegisters::empty(),
             sstatus: 0,
             hstatus: 0,
             hedeleg: 0,
@@ -123,6 +132,7 @@ impl HartArchitecturalState {
             scounteren: 0,
             vsstatus: 0,
             vsie: 0,
+            vsip: 0,
             vstvec: 0,
             vsscratch: 0,
             vsepc: 0,
@@ -131,9 +141,12 @@ impl HartArchitecturalState {
             vstimecmp: usize::MAX - 1,
             htimedelta: 0,
             hvip: 0,
+            hgeip: 0,
+            hie: 0,
+            hip: 0,
             vsatp: 0,
             hgatp: 0,
-            fprs: FpRegisters::empty(),
+            fprs: FloatingPointRegisters::empty(),
             fcsr: 0,
             sip: 0,
             sie: 0,
@@ -150,22 +163,120 @@ impl HartArchitecturalState {
             mtinst: 0,
             mtval: 0,
             mtval2: 0,
+            mtvec: 0,
         }
+    }
+
+    pub fn store_processor_state_in_main_memory(&mut self) {
+        // we not not store GPRs because assembly code does it
+        self.mepc = CSR.mepc.read();
+        self.mstatus = CSR.mstatus.read();
+        self.mideleg = CSR.mideleg.read();
+        self.medeleg = CSR.medeleg.read();
+        self.mtvec = CSR.mtvec.read();
+        self.mie = CSR.mie.read();
+        // S-mode
+        self.sstatus = CSR.sstatus.read();
+        self.sepc = CSR.sepc.read();
+        self.scounteren = CSR.scounteren.read();
+        self.sip = CSR.sip.read();
+        self.sie = CSR.sie.read();
+        self.scause = CSR.scause.read();
+        self.stvec = CSR.stvec.read();
+        self.stval = CSR.stval.read();
+        self.sscratch = CSR.sscratch.read();
+        // HS-mode
+        self.hstatus = CSR.hstatus.read();
+        self.hedeleg = CSR.hedeleg.read();
+        self.hideleg = CSR.hideleg.read();
+        self.htinst = CSR.htinst.read();
+        self.htval = CSR.htval.read();
+        self.hvip = CSR.hvip.read();
+        self.hgeip = CSR.hgeip.read();
+        self.hie = CSR.hie.read();
+        self.hip = CSR.hip.read();
+        self.hgatp = CSR.hgatp.read();
+        // VS-mode
+        self.vsstatus = CSR.vsstatus.read();
+        self.vsie = CSR.vsie.read();
+        self.vsip = CSR.vsip.read();
+        self.vstvec = CSR.vstvec.read();
+        self.vsscratch = CSR.vsscratch.read();
+        self.vsepc = CSR.vsepc.read();
+        self.vscause = CSR.vscause.read();
+        self.vstval = CSR.vstval.read();
+        self.vsatp = CSR.vsatp.read();
+        // timer-related
+        self.vstimecmp = CSR.vstimecmp.read();
+        self.htimedelta = CSR.htimedelta.read();
+        // F-extension
+        // self.fprs = existing.fprs.clone();
+        self.fcsr = CSR.fcsr.read();
+    }
+
+    pub fn load_processor_state_from_main_memory(&self) {
+        // resume from where the other domain was interrupted - not needed since we reload mepc with assembly?
+        CSR.mepc.set(self.mepc);
+        CSR.mstatus.set(self.mstatus);
+        CSR.mideleg.set(self.mideleg);
+        CSR.medeleg.set(self.medeleg);
+        // set the new trap vector so the code always trap in the security monitor in the correct handler
+        CSR.mtvec.set(self.mtvec);
+        // recover interrupt configuration from the hypervisor execution. delegations (`mideleg`) must be already recovered!
+        CSR.mie.set(self.mie);
+        // S-mode
+        CSR.sstatus.set(self.sstatus);
+        CSR.sepc.set(self.sepc);
+        CSR.scounteren.set(self.scounteren);
+        CSR.sip.set(self.sip);
+        CSR.sie.set(self.sie);
+        CSR.scause.set(self.scause);
+        CSR.stvec.set(self.stvec);
+        CSR.stval.set(self.stval);
+        CSR.sscratch.set(self.sscratch);
+        // HS-mode
+        CSR.hstatus.set(self.hstatus);
+        CSR.hedeleg.set(self.hedeleg);
+        CSR.hideleg.set(self.hideleg);
+        CSR.htinst.set(self.htinst);
+        CSR.htval.set(self.htval);
+        // recover interrupt configuration from the hypervisor execution. delegations (`hideleg`) must be already recovered!
+        // CSR.hvip.set(to.hvip);
+        // CSR.hgeip.set(self.hgeip);
+        CSR.hie.set(self.hie);
+        // CSR.hip.set(self.hip);
+        CSR.hgatp.set(self.hgatp);
+        // VS-mode
+        CSR.vsstatus.set(self.vsstatus);
+        CSR.vsie.set(self.vsie);
+        CSR.vsip.set(self.vsip);
+        CSR.vstvec.set(self.vstvec);
+        CSR.vsscratch.set(self.vsscratch);
+        CSR.vsepc.set(self.vsepc);
+        CSR.vscause.set(self.vscause);
+        CSR.vstval.set(self.vstval);
+        CSR.vsatp.set(self.vsatp);
+        // timer-related
+        CSR.vstimecmp.set(self.vstimecmp);
+        CSR.htimedelta.set(self.htimedelta);
+        // F-extension
+        // self.fprs = existing.fprs.clone();
+        CSR.fcsr.set(self.fcsr);
     }
 }
 
 impl HartArchitecturalState {
-    pub fn gpr(&self, register: GpRegister) -> usize {
+    pub fn gpr(&self, register: GeneralPurposeRegister) -> usize {
         self.gprs.get(register)
     }
 
-    pub fn set_gpr(&mut self, register: GpRegister, value: usize) {
+    pub fn set_gpr(&mut self, register: GeneralPurposeRegister, value: usize) {
         self.gprs.set(register, value)
     }
 
     pub fn reset(&mut self) {
-        self.gprs = GpRegisters::empty();
-        self.fprs = FpRegisters::empty();
+        self.gprs = GeneralPurposeRegisters::empty();
+        self.fprs = FloatingPointRegisters::empty();
         self.fcsr = 0;
         self.htinst = 0;
         self.htval = 0;
@@ -186,56 +297,5 @@ impl HartArchitecturalState {
         // TODO: what should be the sstatus on reset?
         // self.sstatus = 0;
         self.vsstatus = 0;
-    }
-
-    pub fn trap_reason(&self) -> TrapReason {
-        TrapReason::from_hart_state(self)
-    }
-}
-
-impl core::fmt::Debug for HartArchitecturalState {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        write!(f, "hart_id: {}, ", self.id)?;
-        GpRegisters::iter().try_for_each(|x| -> core::fmt::Result {
-            write!(f, "x{:02}={:08x}, ", x, self.gprs.0[x])?;
-            if x % 8 == 7 {
-                write!(f, "\n")?;
-            }
-            Ok(())
-        })?;
-        FpRegisters::iter().try_for_each(|x| -> core::fmt::Result {
-            write!(f, "f{:02}={:08x}, ", x, self.fprs.0[x])?;
-            if x % 8 == 7 {
-                write!(f, "\n")?;
-            }
-            Ok(())
-        })?;
-        write!(f, "sstatus: {:08x}, ", self.sstatus)?;
-        write!(f, "hstatus: {:08x}, ", self.hstatus)?;
-        write!(f, "sepc: {:08x}, ", self.sepc)?;
-        write!(f, "scounteren: {:08x}, ", self.scounteren)?;
-        write!(f, "\n")?;
-        write!(f, "hgatp: {:08x}, ", self.hgatp)?;
-        write!(f, "sip: {:08x}, ", self.sip)?;
-        write!(f, "sie: {:08x}, ", self.sie)?;
-        write!(f, "scause: {:08x}, ", self.scause)?;
-        write!(f, "\n")?;
-        write!(f, "vsstatus: {:08x}, ", self.vsstatus)?;
-        write!(f, "vsie: {:08x}, ", self.vsie)?;
-        write!(f, "vstvec: {:08x}, ", self.vstvec)?;
-        write!(f, "vsscratch: {:08x}, ", self.vsscratch)?;
-        write!(f, "\n")?;
-        write!(f, "vsepc: {:08x}, ", self.vsepc)?;
-        write!(f, "vscause: {:08x}, ", self.vscause)?;
-        write!(f, "vstval: {:08x}, ", self.vstval)?;
-        write!(f, "hvip: {:08x}, ", self.hvip)?;
-        write!(f, "\n")?;
-        write!(f, "vsatp: {:08x}, ", self.vsatp)?;
-        write!(f, "fcsr: {:08x}, ", self.fcsr)?;
-        write!(f, "mideleg: {:08x}, ", self.mideleg)?;
-        write!(f, "medeleg: {:08x}, ", self.medeleg)?;
-        write!(f, "mie: {:08x}, ", self.mie)?;
-        write!(f, "mip: {:08x}, ", self.mip)?;
-        Ok(())
     }
 }

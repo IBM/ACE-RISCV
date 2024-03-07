@@ -1,14 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::HartArchitecturalState;
+use crate::core::architecture::{HartArchitecturalState, Hgatp};
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::ConfidentialVmVirtualAddress;
 use crate::core::memory_protector::mmu::RootPageTable;
 use crate::core::memory_protector::{mmu, pmp};
 use crate::core::page_allocator::SharedPage;
 use crate::error::Error;
-use riscv::register::hgatp::Hgatp;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
 /// it protects accesses to the memory which the ConfidentialVM does not own.

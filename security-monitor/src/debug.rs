@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![allow(unused)]
+use crate::core::architecture::CSR;
 use core::convert::TryInto;
 use core::fmt::{Error, Write};
 
@@ -32,16 +33,16 @@ pub fn __printout_metadata(svm_id: usize) {}
 
 #[cfg(feature = "verbose")]
 pub fn __print_pmp_configuration() {
-    use opensbi_sys::PMP_SHIFT;
-    let pmpcfg0 = riscv::register::pmpcfg0::read();
-    let pmp0 = riscv::register::pmpaddr0::read();
-    let pmp0cfg = pmpcfg0.into_config(0);
-    debug!("pmp0 value: {:x}, shifted {:x}", pmp0, pmp0 << PMP_SHIFT);
+    use crate::core::architecture::PMP_ADDRESS_SHIFT;
+    let pmpcfg0 = CSR.pmpcfg0.read();
+    let pmp0 = CSR.pmpaddr0.read();
+    let pmp0cfg = pmpcfg0 & 0b11111111;
+    debug!("pmp0 value: {:x}, shifted {:x}", pmp0, pmp0 << PMP_ADDRESS_SHIFT);
     debug!("pmp0 cfg: {:?}", pmp0cfg);
 
-    let pmp1 = riscv::register::pmpaddr1::read();
-    let pmp1cfg = pmpcfg0.into_config(1);
-    debug!("pmp1 value: {:x}, shifted {:x}", pmp1, pmp1 << PMP_SHIFT);
+    let pmp1 = CSR.pmpaddr1.read();
+    let pmp1cfg = pmpcfg0 & 0b1111111100000000;
+    debug!("pmp1 value: {:x}, shifted {:x}", pmp1, pmp1 << PMP_ADDRESS_SHIFT);
     debug!("pmp1 cfg: {:?}", pmp1cfg);
 }
 

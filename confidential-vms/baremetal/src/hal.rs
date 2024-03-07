@@ -22,13 +22,7 @@ pub struct HalSvmImpl {}
 
 unsafe impl Hal for HalSvmImpl {
     fn dma_alloc(pages: usize, _direction: BufferDirection) -> (PhysAddr, NonNull<u8>) {
-        let paddr = unsafe {
-            if let Some(v) = &crate::DMA_PADDR {
-                v.fetch_add(PAGE_SIZE * pages, Ordering::SeqCst)
-            } else {
-                panic!("DMA_PADDR not initialized");
-            }
-        };
+        let paddr = unsafe { crate::DMA_PADDR.fetch_add(PAGE_SIZE * pages, Ordering::SeqCst) };
         for i in 0..pages {
             crate::calls::sm::share_page(paddr + i * 4096, 1).expect("DMA alloc failed");
         }

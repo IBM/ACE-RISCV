@@ -1,15 +1,23 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, HartArchitecturalState, HartLifecycleState, TrapReason};
+use crate::core::architecture::{
+    FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState, TrapReason, CSR,
+    CSR_MSTATUS_MPRV, CSR_STATUS_SIE,
+};
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
-    ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest, GuestStorePageFaultResult,
-    InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi,
-    SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest, UnsharePageRequest,
-    VirtualInstructionRequest, VirtualInstructionResult,
+    EnabledInterrupts, ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
+    GuestStorePageFaultResult, InjectedInterrupts, InterHartRequest, InterruptRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest,
+    SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest,
+    SbiResult, SharePageRequest, UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
 };
 use crate::error::Error;
+
+extern "C" {
+    // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
+    fn enter_from_confidential_hart_asm();
+}
 
 /// ConfidentialHart represents the dump state of the confidential VM's hart (aka vcpu). The only publicly exposed way
 /// to modify the confidential hart architectural state (registers/CSRs) is by calling the constructor or applying a
@@ -43,10 +51,10 @@ impl ConfidentialHart {
     /// Constructs a confidential hart with the state after a reset.
     pub fn from_vm_hart_reset(id: usize, from: &HartArchitecturalState) -> Self {
         let mut confidential_hart_state = HartArchitecturalState::from_existing(id, from);
-        GpRegisters::iter().for_each(|x| {
+        GeneralPurposeRegisters::iter().for_each(|x| {
             confidential_hart_state.gprs.0[x] = 0;
         });
-        FpRegisters::iter().for_each(|x| {
+        FloatingPointRegisters::iter().for_each(|x| {
             confidential_hart_state.fprs.0[x] = 0;
         });
         // TODO: reset PC and other state-related csrs
@@ -65,16 +73,23 @@ impl ConfidentialHart {
     }
 
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
+        use crate::core::architecture::{MIE_STIP_MASK, MIE_VSEIP_MASK, MIE_VSSIP_MASK, MIE_VSTIP_MASK};
         let confidential_vm_id = None;
         let pending_request = None;
         // delegate VS-level interrupts directly to the confidential VM. All other
         // interrupts will trap in the security monitor.
-        confidential_hart_state.mideleg = 0b010001001110;
+        confidential_hart_state.mideleg = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
         confidential_hart_state.hideleg = confidential_hart_state.mideleg;
+        // vsie reflects hie, we allow only VS interrupts
+        confidential_hart_state.hie = confidential_hart_state.mideleg;
+        // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
+        confidential_hart_state.mie = MIE_STIP_MASK;
 
         // delegate exceptions that can be handled directly in the confidential VM
-        confidential_hart_state.medeleg = 0b1011001111111111;
+        confidential_hart_state.medeleg = 0b000000001011000111111111;
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
+
+        confidential_hart_state.mtvec = enter_from_confidential_hart_asm as usize;
 
         Self { confidential_vm_id, confidential_hart_state, lifecycle_state, pending_request }
     }
@@ -113,6 +128,16 @@ impl ConfidentialHart {
         self.pending_request = Some(request);
         Ok(())
     }
+
+    pub fn store_confidential_hart_state_in_main_memory(&mut self) -> EnabledInterrupts {
+        self.confidential_hart_state.store_processor_state_in_main_memory();
+        self.enabled_interrupts()
+    }
+
+    pub fn load_confidential_hart_state_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
+        self.confidential_hart_state.load_processor_state_from_main_memory();
+        self.apply_injected_interrupts(interrupts_to_inject);
+    }
 }
 
 // Methods related to lifecycle state transitions of the confidential hart. These methods manipulate the internal hart
@@ -138,14 +163,13 @@ impl ConfidentialHart {
         // Following the SBI documentation of the function `hart start` in the HSM extension, only satp, sstatus.SIE,
         // a0, a1 have defined values, all other registers are in an undefined state. The hart will start
         // executing in the supervisor mode.
-        const SIE: usize = 1 << 1;
         // We clear all VS-related state but leave the configuration of M/HS-mode related registers, for example, we
         // want the interrupt delegations configuration to remain untouched.
         self.confidential_hart_state.reset();
         self.confidential_hart_state.vsatp = 0;
-        self.confidential_hart_state.sstatus &= !(SIE);
-        self.confidential_hart_state.set_gpr(GpRegister::a1, self.confidential_hart_id());
-        self.confidential_hart_state.set_gpr(GpRegister::a2, request.opaque);
+        self.confidential_hart_state.sstatus &= !(1 << CSR_STATUS_SIE);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, self.confidential_hart_id());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.opaque);
         self.confidential_hart_state.mepc = request.start_address;
         Ok(())
     }
@@ -205,36 +229,46 @@ impl ConfidentialHart {
         core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
+    fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
+        CSR.hvip.set(result.hvip | self.confidential_hart_state.vsip);
+    }
+
+    fn apply_interrupt(&mut self, result: InterruptRequest) {
+        // Interrupts are exposed to the virtual machine via the HVIP register
+        // We assume here that the input code reflects the correct interrupt code intended for the virtual machine.
+        CSR.hvip.read_and_set_bits(result.mask());
+    }
+
     fn apply_sbi_ipi(&mut self, _result: SbiIpi) {
+        use crate::core::architecture::MIE_VSSIP;
         // IPI exposes itself as supervisor-level software interrupt this is the 2nd bit of the vsip controlled by the
         // hvip register. Check the RISC-V privileged specification for more information.
-        const VSSIP: usize = 1 << 2; // virtual supervisor software interrupt pending bit in the hvip register
-        self.confidential_hart_state.hvip |= VSSIP;
+        self.apply_interrupt(InterruptRequest::new(MIE_VSSIP))
     }
 
     fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
-        unsafe { core::arch::asm!("fence.i") };
+        crate::core::architecture::fence_i();
     }
 
     fn apply_sbi_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
-        unsafe { core::arch::asm!("sfence.vma") };
+        crate::core::architecture::sfence_vma();
     }
 
     fn apply_sbi_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
-        unsafe { core::arch::asm!("sfence.vma") };
+        crate::core::architecture::sfence_vma();
     }
 
     fn apply_sbi_result(&mut self, result: SbiResult) {
-        self.confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
-        self.confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
         self.confidential_hart_state.mepc += result.pc_offset();
     }
 
     fn apply_sbi_result_success(&mut self) {
-        self.confidential_hart_state.set_gpr(GpRegister::a0, 0);
-        self.confidential_hart_state.set_gpr(GpRegister::a1, 0);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, 0);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, 0);
         self.confidential_hart_state.mepc += 4;
     }
 
@@ -255,7 +289,10 @@ impl ConfidentialHart {
 // Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
     pub fn trap_reason(&self) -> TrapReason {
-        self.confidential_hart_state.trap_reason()
+        let mcause = CSR.mcause.read();
+        let a7 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a7);
+        let a6 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a6);
+        TrapReason::from(mcause, a7, a6)
     }
 
     pub fn hypercall_request(&self) -> SbiRequest {
@@ -268,11 +305,11 @@ impl ConfidentialHart {
     }
 
     pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
-        let mcause = riscv::register::mcause::read().code();
+        let mcause = CSR.mcause.read();
         let (instruction, instruction_length) = self.read_instruction();
         let gpr = crate::core::architecture::decode_result_register(instruction)?;
-        let mtval = self.confidential_hart_state.mtval;
-        let mtval2 = self.confidential_hart_state.mtval2;
+        let mtval = CSR.mtval.read();
+        let mtval2 = CSR.mtval2.read();
 
         let load_fault_request = GuestLoadPageFaultRequest::new(instruction_length, gpr);
         let mmio_load_request = MmioLoadRequest::new(mcause, mtval, mtval2, instruction);
@@ -281,12 +318,12 @@ impl ConfidentialHart {
     }
 
     pub fn guest_store_page_fault_request(&self) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
-        let mcause = riscv::register::mcause::read().code();
+        let mcause = CSR.mcause.read();
         let (instruction, instruction_length) = self.read_instruction();
         let gpr = crate::core::architecture::decode_result_register(instruction)?;
         let gpr_value = self.confidential_hart_state.gpr(gpr);
-        let mtval = self.confidential_hart_state.mtval;
-        let mtval2 = self.confidential_hart_state.mtval2;
+        let mtval = CSR.mtval.read();
+        let mtval2 = CSR.mtval2.read();
 
         let guest_store_page_fault_request = GuestStorePageFaultRequest::new(instruction_length);
         let mmio_store_request = MmioStoreRequest::new(mcause, mtval, mtval2, instruction, gpr, gpr_value);
@@ -295,63 +332,67 @@ impl ConfidentialHart {
     }
 
     pub fn share_page_request(&self) -> Result<(SharePageRequest, SbiRequest), Error> {
-        let shared_page_address = self.confidential_hart_state.gpr(GpRegister::a0);
+        let shared_page_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         let share_page_request = SharePageRequest::new(shared_page_address)?;
         let sbi_request = SbiRequest::kvm_ace_page_in(shared_page_address);
         Ok((share_page_request, sbi_request))
     }
 
     pub fn unshare_page_request(&self) -> Result<UnsharePageRequest, Error> {
-        let page_to_unshare_address = self.confidential_hart_state.gpr(GpRegister::a0);
+        let page_to_unshare_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         Ok(UnsharePageRequest::new(page_to_unshare_address)?)
     }
 
     pub fn sbi_ipi(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
         InterHartRequest::SbiIpi(SbiIpi::new(hart_mask, hart_mask_base))
     }
 
     pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
-        let boot_code_address = self.confidential_hart_state.gpr(GpRegister::a1);
-        let blob = self.confidential_hart_state.gpr(GpRegister::a2);
+        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let boot_code_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let blob = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
         SbiHsmHartStart::new(confidential_hart_id, boot_code_address, blob)
     }
 
     pub fn sbi_hsm_hart_suspend(&self) -> SbiHsmHartSuspend {
-        let suspend_type = self.confidential_hart_state.gpr(GpRegister::a0);
-        let resume_addr = self.confidential_hart_state.gpr(GpRegister::a1);
-        let opaque = self.confidential_hart_state.gpr(GpRegister::a2);
+        let suspend_type = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let resume_addr = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let opaque = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
         SbiHsmHartSuspend::new(suspend_type, resume_addr, opaque)
     }
 
     pub fn sbi_hsm_hart_status(&self) -> SbiHsmHartStatus {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
+        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         SbiHsmHartStatus::new(confidential_hart_id)
     }
 
     pub fn sbi_remote_fence_i(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
         InterHartRequest::SbiRemoteFenceI(SbiRemoteFenceI::new(hart_mask, hart_mask_base))
     }
 
     pub fn sbi_remote_sfence_vma(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
-        let size = self.confidential_hart_state.gpr(GpRegister::a3);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
+        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
         InterHartRequest::SbiRemoteSfenceVma(SbiRemoteSfenceVma::new(hart_mask, hart_mask_base, start_address, size))
     }
 
     pub fn sbi_remote_sfence_vma_asid(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
-        let size = self.confidential_hart_state.gpr(GpRegister::a3);
-        let asid = self.confidential_hart_state.gpr(GpRegister::a4);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
+        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
+        let asid = self.confidential_hart_state.gpr(GeneralPurposeRegister::a4);
         InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(hart_mask, hart_mask_base, start_address, size, asid))
+    }
+
+    pub fn enabled_interrupts(&self) -> EnabledInterrupts {
+        EnabledInterrupts::new()
     }
 
     fn read_instruction(&self) -> (usize, usize) {
@@ -359,12 +400,15 @@ impl ConfidentialHart {
         // mstatus.MPRV bit allows reading the faulting instruction in memory using the
         // virtual address.
         let fault_instruction_virtual_address = self.confidential_hart_state.mepc as *const usize;
+        let is_mprv_set = CSR.mstatus.read() & (1 << CSR_MSTATUS_MPRV) > 0;
+        CSR.mstatus.read_and_set_bits(1 << CSR_MSTATUS_MPRV);
         let instruction = unsafe {
-            riscv::register::mstatus::set_mprv();
             let instruction = fault_instruction_virtual_address.read_volatile();
-            riscv::register::mstatus::clear_mprv();
             instruction
         };
+        if !is_mprv_set {
+            CSR.mstatus.read_and_clear_bits(1 << CSR_MSTATUS_MPRV);
+        }
 
         // We only expose the faulting instruction, which can be of different length.
         // Therefore, we must trim the read memory to this size by disabling unwanted

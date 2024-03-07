@@ -8,7 +8,7 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 **This is an active research project, without warranties of any kind.** Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
 
 ## Hardware requirements
-We are currently building on RISC-V with integer, atomic and hypervisor extentions, physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), platform-level interrupt controller (PLIC), and supervisor timecmp extension (Sstc). We plan to adapt some of the RISC-V confidential computing extensions, such as [the CoVE extension](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/specification/riscv-cove.pdf) and [the Smmtt extension](https://github.com/riscv/riscv-smmtt).
+We are currently building on RISC-V 64-bit with integer, atomic and hypervisor extentions, physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), platform-level interrupt controller (PLIC), and supervisor timecmp extension (Sstc). We plan to adapt some of the RISC-V confidential computing extensions, such as [the CoVE extension](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/specification/riscv-cove.pdf) and [the Smmtt extension](https://github.com/riscv/riscv-smmtt).
 
 ## Quick Start
 Follow instructions to run one of the sample [confidential workloads](confidential-vms) under an [untrusted Linux KVM hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/).
@@ -117,15 +117,16 @@ You should see the output from the boot process and a promt to login to the hype
 # login: root, password: passwd
 ```
 
-To run the sample `baremetal` confidential VM execute:
+To run the sample Linux OS as a confidential VM execute:
+```
+./run_linux_vm.sh
+```
+
+To run the sample `baremetal` as a confidential VM execute:
 ```
 ./run_baremetal.sh
 ```
 
-To run the sample Linux kernel confidential VM execute:
-```
-./run_linux_vm.sh
-```
 
 # License
 This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).

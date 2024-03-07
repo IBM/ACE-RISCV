@@ -1,19 +1,19 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::GpRegister;
+use crate::core::architecture::GeneralPurposeRegister;
 
 pub struct MmioStoreRequest {
     code: usize,
     stval: usize,
     htval: usize,
     instruction: usize,
-    gpr: GpRegister,
+    gpr: GeneralPurposeRegister,
     gpr_value: usize,
 }
 
 impl MmioStoreRequest {
-    pub fn new(code: usize, stval: usize, htval: usize, instruction: usize, gpr: GpRegister, gpr_value: usize) -> Self {
+    pub fn new(code: usize, stval: usize, htval: usize, instruction: usize, gpr: GeneralPurposeRegister, gpr_value: usize) -> Self {
         Self { code, stval, htval, instruction, gpr, gpr_value: gpr_value }
     }
 
@@ -33,7 +33,7 @@ impl MmioStoreRequest {
         self.instruction
     }
 
-    pub fn gpr(&self) -> GpRegister {
+    pub fn gpr(&self) -> GeneralPurposeRegister {
         self.gpr
     }
 

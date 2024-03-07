@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::put_hart_to_sleep;
 use crate::core::memory_layout::MemoryLayout;
 
 /// This piece of code executes on a panic, which is a runtime error that indicates an implementation bug from which we
@@ -29,8 +30,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
     // sleep or loop forever since there is nothing else we can do
     loop {
-        unsafe {
-            core::arch::asm!("wfi");
-        }
+        put_hart_to_sleep();
     }
 }

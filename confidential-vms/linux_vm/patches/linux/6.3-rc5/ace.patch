@@ -13,6 +13,23 @@ index eb7f29a412f8..43ce18ffb720 100644
  config ARCH_FLATMEM_ENABLE
  	def_bool !NUMA
  
+diff --git a/arch/riscv/include/asm/mem_encrypt.h b/arch/riscv/include/asm/mem_encrypt.h
+new file mode 100644
+index 000000000000..221b2041ba09
+--- /dev/null
++++ b/arch/riscv/include/asm/mem_encrypt.h
+@@ -0,0 +1,11 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef RISCV_ACE_MEM_ENCRYPT_H__
++#define RISCV_ACE_MEM_ENCRYPT_H__
++
++static inline bool force_dma_unencrypted(struct device *dev) {
++	return true;
++}
++int set_memory_encrypted(unsigned long vaddr, int numpages);
++int set_memory_decrypted(unsigned long vaddr, int numpages);
++
++#endif	/* RISCV_ACE_MEM_ENCRYPT_H__ */
 diff --git a/arch/riscv/kernel/Makefile b/arch/riscv/kernel/Makefile
 index 4cf303a779ab..5d6b49fea52b 100644
 --- a/arch/riscv/kernel/Makefile
@@ -25,27 +42,9 @@ index 4cf303a779ab..5d6b49fea52b 100644
  obj-y	+= head.o
  obj-y	+= soc.o
  obj-$(CONFIG_RISCV_ALTERNATIVE) += alternative.o
-diff --git a/arch/riscv/include/asm/mem_encrypt.h b/arch/riscv/include/asm/mem_encrypt.h
-new file mode 100644
-index 000000000000..d0bc620d06cc
---- /dev/null
-+++ b/arch/riscv/include/asm/mem_encrypt.h
-@@ -0,0 +1,12 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+#ifndef RISCV_ACE_MEM_ENCRYPT_H__
-+#define RISCV_ACE_MEM_ENCRYPT_H__
-+
-+static inline bool force_dma_unencrypted(struct device *dev) {
-+    // return true/false depending if we are a confidential VM
-+	return true;
-+}
-+int set_memory_encrypted(unsigned long vaddr, int numpages);
-+int set_memory_decrypted(unsigned long vaddr, int numpages);
-+
-+#endif	/* RISCV_ACE_MEM_ENCRYPT_H__ */
 diff --git a/arch/riscv/kernel/ace.c b/arch/riscv/kernel/ace.c
 new file mode 100644
-index 000000000000..09c59b673c7e
+index 000000000000..1244d0fd59e4
 --- /dev/null
 +++ b/arch/riscv/kernel/ace.c
 @@ -0,0 +1,45 @@
@@ -96,7 +95,7 @@ index 000000000000..09c59b673c7e
 +#endif /* _ASM_RISCV_ACE_MEM_ENCRYPT_H */
 \ No newline at end of file
 diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
-index 376d2827e736..ca54a25c6f9e 100644
+index 376d2827e736..82cfa818d859 100644
 --- a/arch/riscv/kernel/setup.c
 +++ b/arch/riscv/kernel/setup.c
 @@ -20,7 +20,7 @@
@@ -108,7 +107,7 @@ index 376d2827e736..ca54a25c6f9e 100644
  #include <asm/alternative.h>
  #include <asm/cacheflush.h>
  #include <asm/cpu_ops.h>
-@@ -269,6 +270,14 @@ void __init setup_arch(char **cmdline_p)
+@@ -269,6 +269,14 @@ void __init setup_arch(char **cmdline_p)
  
  	*cmdline_p = boot_command_line;
  
@@ -124,7 +123,7 @@ index 376d2827e736..ca54a25c6f9e 100644
  	jump_label_init();
  	parse_early_param();
 diff --git a/arch/riscv/mm/init.c b/arch/riscv/mm/init.c
-index 478d6763a01a..b441d4c441ec 100644
+index 478d6763a01a..b18a918f617c 100644
 --- a/arch/riscv/mm/init.c
 +++ b/arch/riscv/mm/init.c
 @@ -6,6 +6,7 @@
@@ -151,31 +150,10 @@ index 478d6763a01a..b441d4c441ec 100644
 -	swiotlb_init(max_pfn > PFN_DOWN(dma32_phys_limit), SWIOTLB_VERBOSE);
 +	// ACE START
 +	virtio_set_mem_acc_cb(virtio_require_restricted_mem_acc);
-+   swiotlb_init(true, SWIOTLB_ANY | SWIOTLB_FORCE | SWIOTLB_VERBOSE);
-+   swiotlb_update_mem_attributes();
++	swiotlb_init(true, SWIOTLB_ANY | SWIOTLB_FORCE | SWIOTLB_VERBOSE);
++	swiotlb_update_mem_attributes();
 +	// ACE END
 +	// swiotlb_init(max_pfn > PFN_DOWN(dma32_phys_limit), SWIOTLB_VERBOSE);
  	memblock_free_all();
  
  	print_vm_layout();
-diff --git a/drivers/virtio/virtio.c b/drivers/virtio/virtio.c
-index 3893dc29eb26..93055cd3e62d 100644
---- a/drivers/virtio/virtio.c
-+++ b/drivers/virtio/virtio.c
-@@ -181,11 +181,11 @@ static int virtio_features_ok(struct virtio_device *dev)
- 			return -ENODEV;
- 		}
- 
--		if (!virtio_has_feature(dev, VIRTIO_F_ACCESS_PLATFORM)) {
--			dev_warn(&dev->dev,
--				 "device must provide VIRTIO_F_ACCESS_PLATFORM\n");
--			return -ENODEV;
--		}
-+		// if (!virtio_has_feature(dev, VIRTIO_F_ACCESS_PLATFORM)) {
-+		// 	dev_warn(&dev->dev,
-+		// 		 "device must provide VIRTIO_F_ACCESS_PLATFORM\n");
-+		// 	return -ENODEV;
-+		// }
- 	}
- 
- 	if (!virtio_has_feature(dev, VIRTIO_F_VERSION_1))
