@@ -113,8 +113,8 @@ impl HardwareHart {
     }
 
     fn apply_opensbi_result(&mut self, result: &OpensbiResult) {
-        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap_or(self.non_confidential_hart_state.mstatus);
-        self.non_confidential_hart_state.mepc = result.trap_regs.mepc.try_into().unwrap_or(self.non_confidential_hart_state.mepc);
+        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap();
+        self.non_confidential_hart_state.mepc = result.trap_regs.mepc.try_into().unwrap();
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.trap_regs.a0.try_into().unwrap());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.trap_regs.a1.try_into().unwrap());
     }

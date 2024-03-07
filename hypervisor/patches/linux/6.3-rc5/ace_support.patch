@@ -95,7 +95,7 @@ index 4ea101a73d8b..21c9e8d9e6cc 100644
  	case EXC_INST_ILLEGAL:
  		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV) {
 diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
-index f689337b78ff..55020666d971 100644
+index f689337b78ff..8b9b938ce2b8 100644
 --- a/arch/riscv/kvm/vcpu_insn.c
 +++ b/arch/riscv/kvm/vcpu_insn.c
 @@ -416,9 +416,16 @@ int kvm_riscv_vcpu_virtual_insn(struct kvm_vcpu *vcpu, struct kvm_run *run,
@@ -116,27 +116,41 @@ index f689337b78ff..55020666d971 100644
  			if (utrap.scause) {
  				utrap.sepc = ct->sepc;
  				kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
-@@ -472,8 +479,17 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -460,6 +467,7 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
+ 
+ 	/* Determine trapped instruction */
++	htinst = 0;
+ 	if (htinst & 0x1) {
+ 		/*
+ 		 * Bit[0] == 1 implies trapped instruction value is
+@@ -472,13 +480,18 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
  		 * Bit[0] == 0 implies trapped instruction value is
  		 * zero or special value.
  		 */
 -		insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc,
 -						  &utrap);
+-		if (utrap.scause) {
+-			/* Redirect trap if we failed to read instruction */
+-			utrap.sepc = ct->sepc;
+-			kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
+-			return 1;
 +		if (vcpu->arch.is_confidential_vm) {
 +			// this is a hack because we have difficulties setting up htinst
 +			// from the M-mode. A workaround is to store the instruction in the vsscratch
-+			insn = ct->t6;
 +			insn = csr_read(CSR_VSSCRATCH);
 +		} else {
-+			printk(KERN_INFO "KVM load reading: htinst=%lx sepc=%lx\n", htinst, ct->sepc);
 +			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc, &utrap);
-+			printk(KERN_INFO "KVM load reading: sepc=%lx insn=%lx\n", ct->sepc, insn);
-+		}
-+
- 		if (utrap.scause) {
- 			/* Redirect trap if we failed to read instruction */
- 			utrap.sepc = ct->sepc;
-@@ -506,20 +522,20 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
++			if (utrap.scause) {
++				/* Redirect trap if we failed to read instruction */
++				utrap.sepc = ct->sepc;
++				kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
++				return 1;
++			}			
+ 		}
+ 		insn_len = INSN_LEN(insn);
+ 	}
+@@ -506,20 +519,20 @@ int kvm_riscv_vcpu_mmio_load(struct kvm_vcpu *vcpu, struct kvm_run *run,
  	} else if ((insn & INSN_MASK_LHU) == INSN_MATCH_LHU) {
  		len = 2;
  #ifdef CONFIG_64BIT
@@ -161,7 +175,7 @@ index f689337b78ff..55020666d971 100644
  		   ((insn >> SH_RD) & 0x1f)) {
  		len = 4;
  		shift = 8 * (sizeof(ulong) - len);
-@@ -575,7 +591,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -575,7 +588,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
  			      unsigned long fault_addr,
  			      unsigned long htinst)
  {
@@ -170,7 +184,15 @@ index f689337b78ff..55020666d971 100644
  	u16 data16;
  	u32 data32;
  	u64 data64;
-@@ -598,13 +614,21 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -585,6 +598,7 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	struct kvm_cpu_trap utrap = { 0 };
+ 	struct kvm_cpu_context *ct = &vcpu->arch.guest_context;
+ 
++	htinst = 0;
+ 	/* Determine trapped instruction */
+ 	if (htinst & 0x1) {
+ 		/*
+@@ -598,13 +612,18 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
  		 * Bit[0] == 0 implies trapped instruction value is
  		 * zero or special value.
  		 */
@@ -186,11 +208,8 @@ index f689337b78ff..55020666d971 100644
 +			// from the M-mode. A workaround is to store the instruction in the vsscratch
 +			insn = csr_read(CSR_VSSCRATCH);
 +		} else {
-+			printk(KERN_INFO "KVM store reading: htinst=%lx sepc=%lx\n", htinst, ct->sepc);
 +			insn = kvm_riscv_vcpu_unpriv_read(vcpu, true, ct->sepc, &utrap);
-+			printk(KERN_INFO "KVM store reading: sepc=%lx insn=%lx\n", ct->sepc, insn);
 +			if (utrap.scause) {
-+				printk(KERN_INFO "KVM store: redirect trap!!!!@#@@$#$@\n");
 +				/* Redirect trap if we failed to read instruction */
 +				utrap.sepc = ct->sepc;
 +				kvm_riscv_vcpu_trap_redirect(vcpu, &utrap);
@@ -199,7 +218,7 @@ index f689337b78ff..55020666d971 100644
  		}
  		insn_len = INSN_LEN(insn);
  	}
-@@ -623,18 +647,18 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
+@@ -623,18 +642,18 @@ int kvm_riscv_vcpu_mmio_store(struct kvm_vcpu *vcpu, struct kvm_run *run,
  	} else if ((insn & INSN_MASK_SH) == INSN_MATCH_SH) {
  		len = 2;
  #ifdef CONFIG_64BIT
@@ -222,7 +241,7 @@ index f689337b78ff..55020666d971 100644
  		   ((insn >> SH_RD) & 0x1f)) {
  		len = 4;
  		data32 = GET_RS2C(insn, &vcpu->arch.guest_context);
-@@ -750,4 +774,4 @@ int kvm_riscv_vcpu_mmio_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
+@@ -750,4 +769,4 @@ int kvm_riscv_vcpu_mmio_return(struct kvm_vcpu *vcpu, struct kvm_run *run)
  	vcpu->arch.guest_context.sepc += vcpu->arch.mmio_decode.insn_len;
  
  	return 0;
