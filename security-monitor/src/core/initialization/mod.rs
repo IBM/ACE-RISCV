@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{CAUSE_SUPERVISOR_ECALL, CAUSE_VIRTUAL_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
+use crate::core::architecture::{fence_wo, CAUSE_SUPERVISOR_ECALL, CAUSE_VIRTUAL_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
@@ -186,7 +186,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
-    unsafe { core::arch::asm!("fence w,o") };
+    fence_wo();
     Ok(())
 }
 
@@ -196,7 +196,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
     while !HARTS_STATES.is_completed() {
-        unsafe { core::arch::asm!("fence w,o") };
+        fence_wo();
     }
 
     let hart_id = CSR.mhartid.read();

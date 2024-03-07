@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::GpRegister;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::error::Error;
 
 // TODO: remove below once riscv_decode supports compressed instructions
-pub fn decode_result_register(mtinst: usize) -> Result<GpRegister, Error> {
+pub fn decode_result_register(mtinst: usize) -> Result<GeneralPurposeRegister, Error> {
     use riscv_decode::Instruction::{Lb, Lbu, Ld, Lh, Lhu, Lw, Lwu, Sb, Sd, Sh, Sw};
     let register_index = match riscv_decode::decode(mtinst as u32) {
         Ok(Sb(i)) => Ok(i.rs2()),
@@ -85,5 +85,5 @@ pub fn decode_result_register(mtinst: usize) -> Result<GpRegister, Error> {
             }
         }
     }?;
-    Ok(GpRegister::from_index(register_index as usize).ok_or(Error::InvalidRiscvInstruction(mtinst))?)
+    Ok(GeneralPurposeRegister::from_index(register_index as usize).ok_or(Error::InvalidRiscvInstruction(mtinst))?)
 }

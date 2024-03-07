@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::spec::{CAUSE_VIRTUAL_SUPERVISOR_ECALL, *};
-use crate::core::architecture::{GpRegister, HartArchitecturalState, TrapReason, CSR};
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, TrapReason, CSR};
 use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
@@ -107,48 +107,41 @@ impl HardwareHart {
     }
 
     fn apply_sbi_result(&mut self, result: &SbiResult) {
-        self.non_confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
         self.non_confidential_hart_state.mepc += result.pc_offset();
     }
 
     fn apply_opensbi_result(&mut self, result: &OpensbiResult) {
-        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap();
-        let new_mepc = if CSR.vsepc.read() != result.vsepc {
-            result.vsepc
-        } else if CSR.sepc.read() != result.sepc {
-            result.sepc
-        } else {
-            result.trap_regs.mepc.try_into().unwrap()
-        };
-        self.non_confidential_hart_state.mepc = new_mepc;
-        self.non_confidential_hart_state.set_gpr(GpRegister::a0, result.trap_regs.a0.try_into().unwrap());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a1, result.trap_regs.a1.try_into().unwrap());
+        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap_or(self.non_confidential_hart_state.mstatus);
+        self.non_confidential_hart_state.mepc = result.trap_regs.mepc.try_into().unwrap_or(self.non_confidential_hart_state.mepc);
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.trap_regs.a0.try_into().unwrap());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.trap_regs.a1.try_into().unwrap());
     }
 
     fn apply_sbi_vm_request(&mut self, request: &SbiVmRequest) {
         CSR.scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a7, request.sbi_request().extension_id());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a6, request.sbi_request().function_id());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a0, request.sbi_request().a0());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a1, request.sbi_request().a1());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a2, request.sbi_request().a2());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a3, request.sbi_request().a3());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a4, request.sbi_request().a4());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a5, request.sbi_request().a5());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, request.sbi_request().extension_id());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, request.sbi_request().function_id());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, request.sbi_request().a0());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.sbi_request().a1());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.sbi_request().a2());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a3, request.sbi_request().a3());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a4, request.sbi_request().a4());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a5, request.sbi_request().a5());
         self.apply_trap(false);
     }
 
     fn apply_sbi_request(&mut self, request: &SbiRequest) {
         CSR.scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a7, request.extension_id());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a6, request.function_id());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a0, request.a0());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a1, request.a1());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a2, request.a2());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a3, request.a3());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a4, request.a4());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a5, request.a5());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, request.extension_id());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, request.function_id());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, request.a0());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.a1());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.a2());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a3, request.a3());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a4, request.a4());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a5, request.a5());
         self.apply_trap(false);
     }
 
@@ -217,8 +210,8 @@ impl HardwareHart {
     pub fn trap_reason(&mut self) -> TrapReason {
         use crate::core::architecture::SbiExtension;
         let mcause = CSR.mcause.read();
-        let a7 = self.non_confidential_hart_state.gpr(GpRegister::a7);
-        let a6 = self.non_confidential_hart_state.gpr(GpRegister::a6);
+        let a7 = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a7);
+        let a6 = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a6);
         let trap_reason = TrapReason::from(mcause, a7, a6);
 
         // Ecalls from the hypervisor carry additional information that must be restored
@@ -256,8 +249,8 @@ impl HardwareHart {
     }
 
     pub fn share_page_result(&self) -> SharePageResult {
-        let is_error = self.non_confidential_hart_state.gpr(GpRegister::a0);
-        let hypervisor_page_address = self.non_confidential_hart_state.gpr(GpRegister::a1);
+        let is_error = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hypervisor_page_address = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a1);
         SharePageResult::new(is_error, hypervisor_page_address)
     }
 
@@ -275,8 +268,8 @@ impl HardwareHart {
         // hypervisor and confidential VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V
         // NACL extension that solves these problems by using shared memory region in which the SBI- and MMIO-related
         // information is transfered. Below we restore the original `a7` and `a6`.
-        self.non_confidential_hart_state.set_gpr(GpRegister::a7, CSR.vstval.read());
-        self.non_confidential_hart_state.set_gpr(GpRegister::a6, CSR.vsepc.read());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, CSR.vstval.read());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, CSR.vsepc.read());
     }
 
     fn read_security_monitor_call_arguments(&self) -> (usize, usize) {

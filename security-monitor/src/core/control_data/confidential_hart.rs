@@ -2,7 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{
-    FpRegisters, GpRegister, GpRegisters, HartArchitecturalState, HartLifecycleState, TrapReason, CSR, CSR_MSTATUS_MPRV, CSR_STATUS_SIE,
+    FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState, TrapReason, CSR,
+    CSR_MSTATUS_MPRV, CSR_STATUS_SIE,
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
@@ -50,10 +51,10 @@ impl ConfidentialHart {
     /// Constructs a confidential hart with the state after a reset.
     pub fn from_vm_hart_reset(id: usize, from: &HartArchitecturalState) -> Self {
         let mut confidential_hart_state = HartArchitecturalState::from_existing(id, from);
-        GpRegisters::iter().for_each(|x| {
+        GeneralPurposeRegisters::iter().for_each(|x| {
             confidential_hart_state.gprs.0[x] = 0;
         });
-        FpRegisters::iter().for_each(|x| {
+        FloatingPointRegisters::iter().for_each(|x| {
             confidential_hart_state.fprs.0[x] = 0;
         });
         // TODO: reset PC and other state-related csrs
@@ -167,8 +168,8 @@ impl ConfidentialHart {
         self.confidential_hart_state.reset();
         self.confidential_hart_state.vsatp = 0;
         self.confidential_hart_state.sstatus &= !(1 << CSR_STATUS_SIE);
-        self.confidential_hart_state.set_gpr(GpRegister::a1, self.confidential_hart_id());
-        self.confidential_hart_state.set_gpr(GpRegister::a2, request.opaque);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, self.confidential_hart_id());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.opaque);
         self.confidential_hart_state.mepc = request.start_address;
         Ok(())
     }
@@ -246,28 +247,28 @@ impl ConfidentialHart {
     }
 
     fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
-        unsafe { core::arch::asm!("fence.i") };
+        crate::core::architecture::fence_i();
     }
 
     fn apply_sbi_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
-        unsafe { core::arch::asm!("sfence.vma") };
+        crate::core::architecture::sfence_vma();
     }
 
     fn apply_sbi_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
         // TODO: execute a more fine grained fence. Right now, we just do the full TLB flush
-        unsafe { core::arch::asm!("sfence.vma") };
+        crate::core::architecture::sfence_vma();
     }
 
     fn apply_sbi_result(&mut self, result: SbiResult) {
-        self.confidential_hart_state.set_gpr(GpRegister::a0, result.a0());
-        self.confidential_hart_state.set_gpr(GpRegister::a1, result.a1());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
         self.confidential_hart_state.mepc += result.pc_offset();
     }
 
     fn apply_sbi_result_success(&mut self) {
-        self.confidential_hart_state.set_gpr(GpRegister::a0, 0);
-        self.confidential_hart_state.set_gpr(GpRegister::a1, 0);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, 0);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, 0);
         self.confidential_hart_state.mepc += 4;
     }
 
@@ -289,8 +290,8 @@ impl ConfidentialHart {
 impl ConfidentialHart {
     pub fn trap_reason(&self) -> TrapReason {
         let mcause = CSR.mcause.read();
-        let a7 = self.confidential_hart_state.gpr(GpRegister::a7);
-        let a6 = self.confidential_hart_state.gpr(GpRegister::a6);
+        let a7 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a7);
+        let a6 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a6);
         TrapReason::from(mcause, a7, a6)
     }
 
@@ -331,62 +332,62 @@ impl ConfidentialHart {
     }
 
     pub fn share_page_request(&self) -> Result<(SharePageRequest, SbiRequest), Error> {
-        let shared_page_address = self.confidential_hart_state.gpr(GpRegister::a0);
+        let shared_page_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         let share_page_request = SharePageRequest::new(shared_page_address)?;
         let sbi_request = SbiRequest::kvm_ace_page_in(shared_page_address);
         Ok((share_page_request, sbi_request))
     }
 
     pub fn unshare_page_request(&self) -> Result<UnsharePageRequest, Error> {
-        let page_to_unshare_address = self.confidential_hart_state.gpr(GpRegister::a0);
+        let page_to_unshare_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         Ok(UnsharePageRequest::new(page_to_unshare_address)?)
     }
 
     pub fn sbi_ipi(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
         InterHartRequest::SbiIpi(SbiIpi::new(hart_mask, hart_mask_base))
     }
 
     pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
-        let boot_code_address = self.confidential_hart_state.gpr(GpRegister::a1);
-        let blob = self.confidential_hart_state.gpr(GpRegister::a2);
+        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let boot_code_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let blob = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
         SbiHsmHartStart::new(confidential_hart_id, boot_code_address, blob)
     }
 
     pub fn sbi_hsm_hart_suspend(&self) -> SbiHsmHartSuspend {
-        let suspend_type = self.confidential_hart_state.gpr(GpRegister::a0);
-        let resume_addr = self.confidential_hart_state.gpr(GpRegister::a1);
-        let opaque = self.confidential_hart_state.gpr(GpRegister::a2);
+        let suspend_type = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let resume_addr = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let opaque = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
         SbiHsmHartSuspend::new(suspend_type, resume_addr, opaque)
     }
 
     pub fn sbi_hsm_hart_status(&self) -> SbiHsmHartStatus {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GpRegister::a0);
+        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
         SbiHsmHartStatus::new(confidential_hart_id)
     }
 
     pub fn sbi_remote_fence_i(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
         InterHartRequest::SbiRemoteFenceI(SbiRemoteFenceI::new(hart_mask, hart_mask_base))
     }
 
     pub fn sbi_remote_sfence_vma(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
-        let size = self.confidential_hart_state.gpr(GpRegister::a3);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
+        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
         InterHartRequest::SbiRemoteSfenceVma(SbiRemoteSfenceVma::new(hart_mask, hart_mask_base, start_address, size))
     }
 
     pub fn sbi_remote_sfence_vma_asid(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GpRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GpRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GpRegister::a2);
-        let size = self.confidential_hart_state.gpr(GpRegister::a3);
-        let asid = self.confidential_hart_state.gpr(GpRegister::a4);
+        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
+        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
+        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
+        let asid = self.confidential_hart_state.gpr(GeneralPurposeRegister::a4);
         InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(hart_mask, hart_mask_base, start_address, size, asid))
     }
 

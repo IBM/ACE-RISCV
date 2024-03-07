@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GpRegister, HartArchitecturalState};
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
 use crate::core::transformations::GuestLoadPageFaultRequest;
 
 pub struct GuestLoadPageFaultResult {
     value: usize,
-    result_gpr: GpRegister,
+    result_gpr: GeneralPurposeRegister,
     instruction_length: usize,
 }
 
@@ -23,7 +23,7 @@ impl GuestLoadPageFaultResult {
         self.value
     }
 
-    pub fn result_gpr(&self) -> GpRegister {
+    pub fn result_gpr(&self) -> GeneralPurposeRegister {
         self.result_gpr
     }
 

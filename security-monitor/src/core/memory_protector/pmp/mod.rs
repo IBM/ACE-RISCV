@@ -42,8 +42,6 @@ pub fn close_access_to_confidential_memory() {
 fn clear_caches() {
     // See Section 3.7.2 of RISC-V privileged specification v1.12.
     // PMP translations can be cached and address translation can be done speculatively. Thus, it is adviced to flush caching structures.
-    unsafe {
-        core::arch::asm!("sfence.vma");
-        core::arch::asm!("hfence.gvma");
-    }
+    crate::core::architecture::sfence_vma();
+    crate::core::architecture::hfence_gvma();
 }

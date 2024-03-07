@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{FpRegisters, GpRegister, GpRegisters, CSR};
+use crate::core::architecture::{FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, CSR};
 
 /// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
 pub struct HartArchitecturalState {
     // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
     // address in the memory. This address is used by the assembly code.
-    pub gprs: GpRegisters,
+    pub gprs: GeneralPurposeRegisters,
     // floating-point related
-    pub fprs: FpRegisters,
+    pub fprs: FloatingPointRegisters,
     pub fcsr: usize,
     // other data used by the security monitor
     pub id: usize,
@@ -122,7 +122,7 @@ impl HartArchitecturalState {
     pub fn empty(id: usize) -> HartArchitecturalState {
         HartArchitecturalState {
             id,
-            gprs: GpRegisters::empty(),
+            gprs: GeneralPurposeRegisters::empty(),
             sstatus: 0,
             hstatus: 0,
             hedeleg: 0,
@@ -147,7 +147,7 @@ impl HartArchitecturalState {
             hip: 0,
             vsatp: 0,
             hgatp: 0,
-            fprs: FpRegisters::empty(),
+            fprs: FloatingPointRegisters::empty(),
             fcsr: 0,
             sip: 0,
             sie: 0,
@@ -267,17 +267,17 @@ impl HartArchitecturalState {
 }
 
 impl HartArchitecturalState {
-    pub fn gpr(&self, register: GpRegister) -> usize {
+    pub fn gpr(&self, register: GeneralPurposeRegister) -> usize {
         self.gprs.get(register)
     }
 
-    pub fn set_gpr(&mut self, register: GpRegister, value: usize) {
+    pub fn set_gpr(&mut self, register: GeneralPurposeRegister, value: usize) {
         self.gprs.set(register, value)
     }
 
     pub fn reset(&mut self) {
-        self.gprs = GpRegisters::empty();
-        self.fprs = FpRegisters::empty();
+        self.gprs = GeneralPurposeRegisters::empty();
+        self.fprs = FloatingPointRegisters::empty();
         self.fcsr = 0;
         self.htinst = 0;
         self.htval = 0;
