@@ -12,9 +12,11 @@ use crate::core::transformations::{
     SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
 };
 
+pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
+
 #[repr(C)]
 pub struct HardwareHart {
-    // Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
+    // Safety: HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
     // on this we automatically calculate offsets of registers' and CSRs' for the asm code.
     pub(super) non_confidential_hart_state: HartArchitecturalState,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses

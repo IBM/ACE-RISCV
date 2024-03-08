@@ -55,7 +55,7 @@ enter_from_hypervisor_or_vm_asm:
     sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
 
     # Store the original value of `a0` in the main memory and set `mscratch` to its original value
-    csrrw	    t0, mscratch, a0
+    csrrw	      t0, mscratch, a0
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
     # Set the stack for this hardware hart

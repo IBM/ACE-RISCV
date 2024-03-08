@@ -4,20 +4,21 @@
 pub use compressed_instructions::decode_result_register;
 pub use floating_point_registers::FloatingPointRegisters;
 pub use general_purpose_registers::{GeneralPurposeRegister, GeneralPurposeRegisters};
-pub use hart_architectural_state::HartArchitecturalState;
 pub use hart_lifecycle_state::HartLifecycleState;
-pub use sbi::{AceExtension, BaseExtension, HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension};
+pub use supervisor_binary_interface::{
+    AceExtension, BaseExtension, HsmExtension, IpiExtension, RfenceExtension, SbiExtension, SrstExtension,
+};
 pub use trap_reason::TrapReason;
 
 mod compressed_instructions;
-pub mod csr;
+pub mod control_status_registers;
 pub mod fence;
 mod floating_point_registers;
 mod general_purpose_registers;
-mod hart_architectural_state;
+pub mod hart_architectural_state;
 mod hart_lifecycle_state;
-mod sbi;
 pub mod specification;
+mod supervisor_binary_interface;
 mod trap_reason;
 mod vector_registers;
 

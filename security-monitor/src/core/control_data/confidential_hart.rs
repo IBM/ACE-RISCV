@@ -24,14 +24,14 @@ extern "C" {
 /// transformation.
 #[repr(C)]
 pub struct ConfidentialHart {
+    // Safety: HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element
+    // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.
+    confidential_hart_state: HartArchitecturalState,
     // If there is no confidential vm id assigned to this hart then it means that this confidential hart is a dummy
     // one. A dummy virtual hart means that the confidential_hart is not associated with any confidential VM but is
     // used to prevent some concurrency issues like attempts of assigning the same confidential hart to many physical
     // cores.
     confidential_vm_id: Option<ConfidentialVmId>,
-    // Safety: Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element
-    // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.
-    confidential_hart_state: HartArchitecturalState,
     /// The confidential hart's lifecycle follow the finite state machine (FSM) of a hart defined in SBI HSM extension.
     lifecycle_state: HartLifecycleState,
     /// A pending request indicates that the confidential hart sent a request to the hypervisor and is waiting for its

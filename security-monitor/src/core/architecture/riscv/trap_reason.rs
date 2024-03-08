@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::specification::*;
-use crate::core::architecture::riscv::sbi::SbiExtension;
+use super::supervisor_binary_interface::SbiExtension;
 
 #[derive(Debug)]
 pub enum TrapReason {
