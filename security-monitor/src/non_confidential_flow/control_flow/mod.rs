@@ -4,7 +4,7 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
-use crate::core::architecture::TrapReason::*;
+use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;

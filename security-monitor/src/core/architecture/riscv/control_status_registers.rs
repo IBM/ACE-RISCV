@@ -147,6 +147,11 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
     }
 
     #[inline]
+    pub fn read_and_set_bit(&self, bit: usize) -> usize {
+        self.read_and_set_bits(1 << bit)
+    }
+
+    #[inline]
     pub fn read_and_set_bits(&self, bitmask: usize) -> usize {
         let r: usize;
         unsafe {
@@ -156,6 +161,11 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
                  rs1 = in(reg) bitmask);
         }
         r
+    }
+
+    #[inline]
+    pub fn read_and_clear_bit(&self, bit: usize) -> usize {
+        self.read_and_clear_bits(1 << bit)
     }
 
     #[inline]

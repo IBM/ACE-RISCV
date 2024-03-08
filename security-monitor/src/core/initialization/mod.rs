@@ -226,8 +226,7 @@ extern "C" fn ace_setup_this_hart() {
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
-    CSR.medeleg.read_and_clear_bits(1 << CAUSE_SUPERVISOR_ECALL);
-    CSR.medeleg.read_and_clear_bits(1 << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
+    CSR.medeleg.read_and_clear_bits((CAUSE_SUPERVISOR_ECALL | CAUSE_VIRTUAL_SUPERVISOR_ECALL).into());
     debug!("medeleg={:b}", CSR.medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.

@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use super::specification::*;
 use super::supervisor_binary_interface::SbiExtension;
+use crate::core::architecture::is_bit_enabled;
 
 #[derive(Debug)]
-pub enum TrapReason {
+pub enum TrapCause {
     Interrupt,
     IllegalInstruction,
     LoadAddressMisaligned,
@@ -22,25 +23,25 @@ pub enum TrapReason {
     Unknown(u8),
 }
 
-impl TrapReason {
-    pub fn from(mcause: usize, a7: usize, a6: usize) -> Self {
-        if (mcause & 1usize << CAUSE_INTERRUPT_BIT) > 0 {
+impl TrapCause {
+    pub fn from(cause: usize, extension_id: usize, function_id: usize) -> Self {
+        if is_bit_enabled(cause, CAUSE_INTERRUPT_BIT) {
             Self::Interrupt
         } else {
-            match mcause as u8 {
+            match cause as u8 {
                 CAUSE_ILLEGAL_INSTRUCTION => Self::IllegalInstruction,
                 CAUSE_MISALIGNED_LOAD => Self::LoadAddressMisaligned,
                 CAUSE_LOAD_ACCESS => Self::LoadAccessFault,
                 CAUSE_MISALIGNED_STORE => Self::StoreAddressMisaligned,
                 CAUSE_STORE_ACCESS => Self::StoreAccessFault,
-                CAUSE_SUPERVISOR_ECALL => Self::HsEcall(SbiExtension::decode(a7, a6)),
-                CAUSE_VIRTUAL_SUPERVISOR_ECALL => Self::VsEcall(SbiExtension::decode(a7, a6)),
+                CAUSE_SUPERVISOR_ECALL => Self::HsEcall(SbiExtension::decode(extension_id, function_id)),
+                CAUSE_VIRTUAL_SUPERVISOR_ECALL => Self::VsEcall(SbiExtension::decode(extension_id, function_id)),
                 CAUSE_MACHINE_ECALL => Self::MachineEcall,
                 CAUSE_FETCH_GUEST_PAGE_FAULT => Self::GuestInstructionPageFault,
                 CAUSE_LOAD_GUEST_PAGE_FAULT => Self::GuestLoadPageFault,
                 CAUSE_VIRTUAL_INSTRUCTION => Self::VirtualInstruction,
                 CAUSE_STORE_GUEST_PAGE_FAULT => Self::GuestStorePageFault,
-                mcause => Self::Unknown(mcause),
+                cause => Self::Unknown(cause),
             }
         }
     }

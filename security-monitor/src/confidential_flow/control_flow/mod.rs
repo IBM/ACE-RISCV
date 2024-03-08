@@ -57,7 +57,7 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::RfenceExtension::*;
         use crate::core::architecture::SbiExtension;
         use crate::core::architecture::SrstExtension::*;
-        use crate::core::architecture::TrapReason::*;
+        use crate::core::architecture::TrapCause::*;
 
         let confidential_hart = self.hardware_hart.confidential_hart();
         match confidential_hart.trap_reason() {

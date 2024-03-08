@@ -2,8 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{
-    FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState, TrapReason, CSR,
-    CSR_MSTATUS_MPRV, CSR_STATUS_SIE,
+    disable_bit, is_bit_enabled, FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState,
+    HartLifecycleState, TrapCause, CSR, CSR_MSTATUS_MPRV, CSR_STATUS_SIE, ECALL_INSTRUCTION_LENGTH,
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
@@ -167,7 +167,7 @@ impl ConfidentialHart {
         // want the interrupt delegations configuration to remain untouched.
         self.confidential_hart_state.reset();
         self.confidential_hart_state.vsatp = 0;
-        self.confidential_hart_state.sstatus &= !(1 << CSR_STATUS_SIE);
+        disable_bit(&mut self.confidential_hart_state.sstatus, CSR_STATUS_SIE);
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, self.confidential_hart_id());
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.opaque);
         self.confidential_hart_state.mepc = request.start_address;
@@ -269,7 +269,7 @@ impl ConfidentialHart {
     fn apply_sbi_result_success(&mut self) {
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, 0);
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, 0);
-        self.confidential_hart_state.mepc += 4;
+        self.confidential_hart_state.mepc += ECALL_INSTRUCTION_LENGTH;
     }
 
     fn apply_guest_load_page_fault_result(&mut self, result: GuestLoadPageFaultResult) {
@@ -288,11 +288,11 @@ impl ConfidentialHart {
 
 // Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
-    pub fn trap_reason(&self) -> TrapReason {
-        let mcause = CSR.mcause.read();
-        let a7 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a7);
-        let a6 = self.confidential_hart_state.gpr(GeneralPurposeRegister::a6);
-        TrapReason::from(mcause, a7, a6)
+    pub fn trap_reason(&self) -> TrapCause {
+        let cause = CSR.mcause.read();
+        let extension_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a7);
+        let function_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a6);
+        TrapCause::from(cause, extension_id, function_id)
     }
 
     pub fn hypercall_request(&self) -> SbiRequest {
@@ -300,13 +300,13 @@ impl ConfidentialHart {
     }
 
     pub fn virtual_instruction_request(&self) -> VirtualInstructionRequest {
-        let (instruction, instruction_length) = self.read_instruction();
+        let (instruction, instruction_length) = self.read_faulted_instruction();
         VirtualInstructionRequest { instruction, instruction_length }
     }
 
     pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
         let mcause = CSR.mcause.read();
-        let (instruction, instruction_length) = self.read_instruction();
+        let (instruction, instruction_length) = self.read_faulted_instruction();
         let gpr = crate::core::architecture::decode_result_register(instruction)?;
         let mtval = CSR.mtval.read();
         let mtval2 = CSR.mtval2.read();
@@ -319,7 +319,7 @@ impl ConfidentialHart {
 
     pub fn guest_store_page_fault_request(&self) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
         let mcause = CSR.mcause.read();
-        let (instruction, instruction_length) = self.read_instruction();
+        let (instruction, instruction_length) = self.read_faulted_instruction();
         let gpr = crate::core::architecture::decode_result_register(instruction)?;
         let gpr_value = self.confidential_hart_state.gpr(gpr);
         let mtval = CSR.mtval.read();
@@ -395,19 +395,19 @@ impl ConfidentialHart {
         EnabledInterrupts::new()
     }
 
-    fn read_instruction(&self) -> (usize, usize) {
+    fn read_faulted_instruction(&self) -> (usize, usize) {
         // mepc stores the virtual address of the instruction that caused trap. Setting
         // mstatus.MPRV bit allows reading the faulting instruction in memory using the
         // virtual address.
         let fault_instruction_virtual_address = self.confidential_hart_state.mepc as *const usize;
-        let is_mprv_set = CSR.mstatus.read() & (1 << CSR_MSTATUS_MPRV) > 0;
-        CSR.mstatus.read_and_set_bits(1 << CSR_MSTATUS_MPRV);
+        let is_mprv_set = is_bit_enabled(CSR.mstatus.read(), CSR_MSTATUS_MPRV);
+        CSR.mstatus.read_and_set_bit(CSR_MSTATUS_MPRV);
         let instruction = unsafe {
             let instruction = fault_instruction_virtual_address.read_volatile();
             instruction
         };
         if !is_mprv_set {
-            CSR.mstatus.read_and_clear_bits(1 << CSR_MSTATUS_MPRV);
+            CSR.mstatus.read_and_clear_bit(CSR_MSTATUS_MPRV);
         }
 
         // We only expose the faulting instruction, which can be of different length.
