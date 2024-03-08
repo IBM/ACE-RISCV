@@ -177,7 +177,7 @@ fn initalize_security_monitor_state(
 }
 
 fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
-    // we need to allocate stack for the dumped state of each physical HART.
+    // We need to allocate stack for the dumped state of each physical hart.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use convert_to_confidential_vm_request::ConvertToConfidentialVm;
 pub use guest_load_page_fault_request::GuestLoadPageFaultRequest;
 pub use guest_load_page_fault_result::GuestLoadPageFaultResult;
 pub use guest_store_page_fault_request::GuestStorePageFaultRequest;
@@ -11,6 +10,7 @@ pub use mmio_load_request::MmioLoadRequest;
 pub use mmio_store_request::MmioStoreRequest;
 pub use opensbi_request::OpensbiRequest;
 pub use opensbi_result::OpensbiResult;
+pub use promote_to_confidential_vm_request::PromoteToConfidentialVm;
 pub use resume_request::ResumeRequest;
 pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
@@ -25,7 +25,6 @@ pub use terminate_request::TerminateRequest;
 pub use unshare_page_request::UnsharePageRequest;
 pub use virtual_instruction::{VirtualInstructionRequest, VirtualInstructionResult};
 
-mod convert_to_confidential_vm_request;
 mod guest_load_page_fault_request;
 mod guest_load_page_fault_result;
 mod guest_store_page_fault_request;
@@ -35,6 +34,7 @@ mod mmio_load_request;
 mod mmio_store_request;
 mod opensbi_request;
 mod opensbi_result;
+mod promote_to_confidential_vm_request;
 mod resume_request;
 mod sbi_hsm;
 mod sbi_ipi;

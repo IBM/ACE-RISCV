@@ -8,9 +8,12 @@
 # Restores the remaining hypervisor's hart state and eventually resumes the hypervisor execution.
 # We do not store the security monitor's state because the security monitor's execution is stateless. 
 # 
-# Safety
+# # Safety
 #
-# The caller must ensure that `a0` stores the address of the dump hart area of the currently executing hardware hart.
+# The caller must ensure that:
+#   * `a0` stores the address of the dump hart area of the currently executing hardware hart.
+# The function guarantees that on return:
+#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
 .globl exit_to_hypervisor_asm
 .align 4
 exit_to_hypervisor_asm:

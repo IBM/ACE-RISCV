@@ -9,9 +9,9 @@ use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    ConvertToConfidentialVm, EnabledInterrupts, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult,
-    InjectedInterrupts, InterruptRequest, MmioLoadRequest, MmioStoreRequest, OpensbiRequest, OpensbiResult, ResumeRequest, SbiRequest,
-    SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
+    EnabledInterrupts, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InjectedInterrupts, InterruptRequest,
+    MmioLoadRequest, MmioStoreRequest, OpensbiRequest, OpensbiResult, PromoteToConfidentialVm, ResumeRequest, SbiRequest, SbiResult,
+    SbiVmRequest, SharePageResult, TerminateRequest,
 };
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
@@ -224,8 +224,8 @@ impl HardwareHart {
         trap_reason
     }
 
-    pub fn convert_to_confidential_vm_request(&self) -> ConvertToConfidentialVm {
-        ConvertToConfidentialVm::new(&self.non_confidential_hart_state)
+    pub fn promote_to_confidential_vm_request(&self) -> PromoteToConfidentialVm {
+        PromoteToConfidentialVm::new(&self.non_confidential_hart_state)
     }
 
     pub fn hypercall_result(&self) -> SbiResult {

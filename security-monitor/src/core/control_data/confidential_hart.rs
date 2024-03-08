@@ -64,10 +64,6 @@ impl ConfidentialHart {
     pub fn from_vm_hart(id: usize, from: &HartArchitecturalState) -> Self {
         let hart_architectural_state = HartArchitecturalState::from_existing(id, from);
         let mut confidential_hart = Self::new(hart_architectural_state, HartLifecycleState::Started);
-        // We create a virtual hart as a result of the SBI request the ESM call traps in the security monitor, which
-        // creates the confidential VM but then the security monitor makes an SBI call to the hypervisor to let him know
-        // that this VM become an confidential VM. The hypervisor should then return to the confidential VM providing it
-        // with the result of this transformation.
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
     }

@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HartArchitecturalState;
 
-pub struct ConvertToConfidentialVm {
+pub struct PromoteToConfidentialVm {
     hart_state: HartArchitecturalState,
 }
 
-impl ConvertToConfidentialVm {
+impl PromoteToConfidentialVm {
     pub fn new(from_state: &HartArchitecturalState) -> Self {
         let hart_state = HartArchitecturalState::from_existing(0, from_state);
         Self { hart_state }

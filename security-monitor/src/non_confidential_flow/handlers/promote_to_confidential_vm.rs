@@ -3,25 +3,30 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData};
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
-use crate::core::transformations::{ConvertToConfidentialVm, ExposeToHypervisor, SbiRequest};
+use crate::core::transformations::{ExposeToHypervisor, PromoteToConfidentialVm, SbiRequest};
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 const BOOT_HART_ID: usize = 0;
 
-/// Security requirement: In case of a Linux kernel confidential VM, kernel must make this call before it uses parameters from the Linux
+/// Handles the `promote to confidential VM` call requested by the non-confidential VM via `ecall`. The call traps in the security monitor
+/// as an `environment call from VS-mode` (see `mcause` register specification). In a response to this call, the security monitor creates a
+/// confidential VM and informs the hypervisor that the VM became a confidential VM. The hypervisor should then record this information and
+/// use dedicated entry point (`resume confidential hart` call) to execute particular confidential hart.
+///
+/// Security constrain: In case of a Linux kernel confidential VM, Linux kernel must make this call before it uses parameters from the Linux
 /// command line and before it changes the content of the VM's memory.
-pub fn handle(convert_to_confidential_vm_request: ConvertToConfidentialVm, non_confidential_flow: NonConfidentialFlow) -> ! {
-    debug!("Converting a VM into a confidential VM");
-    let transformation = match create_confidential_vm(convert_to_confidential_vm_request) {
+pub fn handle(promote_to_confidential_vm_request: PromoteToConfidentialVm, non_confidential_flow: NonConfidentialFlow) -> ! {
+    debug!("Promoting a VM into a confidential VM");
+    let transformation = match create_confidential_vm(promote_to_confidential_vm_request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => error.into_non_confidential_transformation(),
     };
     non_confidential_flow.exit_to_hypervisor(transformation)
 }
 
-fn create_confidential_vm(convert_to_confidential_vm_request: ConvertToConfidentialVm) -> Result<ConfidentialVmId, Error> {
-    let hart_state = convert_to_confidential_vm_request.into();
+fn create_confidential_vm(promote_to_confidential_vm_request: PromoteToConfidentialVm) -> Result<ConfidentialVmId, Error> {
+    let hart_state = promote_to_confidential_vm_request.into();
 
     let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&hart_state)?;
     // TODO: read number of harts from fdt

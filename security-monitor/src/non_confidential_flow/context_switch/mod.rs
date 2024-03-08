@@ -4,8 +4,8 @@
 use crate::core::control_data::HardwareHart;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
-/// This function is private and only the assembly code can call it when making
-/// the context switch from the confidential VM to the security monitor.
+/// This function is private and only the assembly code can call it when making the context switch from the confidential VM to the security
+/// monitor.
 #[no_mangle]
 extern "C" fn enter_from_hypervisor_or_vm(hart_ptr: *mut HardwareHart) -> ! {
     let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
