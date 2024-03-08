@@ -8,10 +8,12 @@
 # Restores the remaining confidential's hart state and eventually resumes the confidential VM execution.
 # We do not store the security monitor's state because the security monitor's execution is stateless. 
 # 
-# Safety
+# # Safety
 #
 # The caller must ensure that:
-#   * `a0` contain the address of the dump hart area of thie confidential hart scheduled on this hardware hart.
+#   * `a0` contains the address of the dump hart area of thie confidential hart scheduled on this hardware hart.
+# The function guarantees that on return:
+#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
 .globl exit_to_confidential_hart_asm
 # The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
 .align 4

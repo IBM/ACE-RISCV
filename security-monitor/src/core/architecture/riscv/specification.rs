@@ -4,7 +4,11 @@
 
 // TODO: these constants should be generated from the spec
 #![allow(unused)]
+
+pub const ECALL_INSTRUCTION_LENGTH: usize = 4;
+
 pub const CAUSE_INTERRUPT_BIT: usize = 63;
+pub const STVEC_MODE_VECTORED: usize = 0b11;
 
 pub const CSR_FFLAGS: u16 = 0x1;
 pub const CSR_FRM: u16 = 0x2;

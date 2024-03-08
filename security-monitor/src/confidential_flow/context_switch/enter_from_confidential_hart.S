@@ -7,11 +7,11 @@
 
 # Traps on exceptions or interrupts occurring during the confidential hart's execution. This is an entry point to the security monitor.
 #
-# Safety: 
+# # Safety
 #
 # The caller must ensure that:
-#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
-#   * `sscratch` stores the address of the dump hart area of the confidential hart scheduled on this hardware hart.
+#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart. 
+#   * `sscratch` contains the address of the dump hart area of the confidential hart scheduled on this hardware hart.
 .globl enter_from_confidential_hart_asm
 # The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
 .align 4

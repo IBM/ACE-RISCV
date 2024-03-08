@@ -177,7 +177,7 @@ fn initalize_security_monitor_state(
 }
 
 fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
-    // we need to allocate stack for the dumped state of each physical HART.
+    // We need to allocate stack for the dumped state of each physical hart.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
@@ -226,8 +226,7 @@ extern "C" fn ace_setup_this_hart() {
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
-    CSR.medeleg.read_and_clear_bits(1 << CAUSE_SUPERVISOR_ECALL);
-    CSR.medeleg.read_and_clear_bits(1 << CAUSE_VIRTUAL_SUPERVISOR_ECALL);
+    CSR.medeleg.read_and_clear_bits((CAUSE_SUPERVISOR_ECALL | CAUSE_VIRTUAL_SUPERVISOR_ECALL).into());
     debug!("medeleg={:b}", CSR.medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.

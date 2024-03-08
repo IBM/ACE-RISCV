@@ -4,16 +4,16 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
-use crate::core::architecture::TrapReason::*;
+use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::*;
 
 extern "C" {
-    // TODO: To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
-    // never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
-    // KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
+    /// To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
+    /// never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
+    /// KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
 }
 
@@ -27,7 +27,7 @@ impl<'a> NonConfidentialFlow<'a> {
     /// owning a mutable reference to the HardwareHart. This can be only the piece of code invoked by assembly and the
     /// ConfidentialFlow.
     ///
-    /// Safety:
+    /// # Safety
     ///
     /// A confidential hart must be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
@@ -37,20 +37,20 @@ impl<'a> NonConfidentialFlow<'a> {
 
     pub fn route(self) -> ! {
         match self.hardware_hart.trap_reason() {
-            Interrupt => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            IllegalInstruction => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            LoadAddressMisaligned => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            LoadAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            StoreAddressMisaligned => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            StoreAccessFault => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            HsEcall(Ace(ResumeConfidentialHart)) => resume::handle(self.hardware_hart.resume_request(), self),
-            HsEcall(Ace(TerminateConfidentialVm)) => terminate::handle(self.hardware_hart.terminate_request(), self),
-            HsEcall(_) => opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            VsEcall(Ace(ConvertToConfidentialVm)) => {
-                convert_to_confidential_vm::handle(self.hardware_hart.convert_to_confidential_vm_request(), self)
+            Interrupt => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            IllegalInstruction => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            LoadAddressMisaligned => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            LoadAccessFault => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            StoreAddressMisaligned => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            StoreAccessFault => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            HsEcall(Ace(ResumeConfidentialHart)) => resume_confidential_hart::handle(self.hardware_hart.resume_request(), self),
+            HsEcall(Ace(TerminateConfidentialVm)) => terminate_confidential_vm::handle(self.hardware_hart.terminate_request(), self),
+            HsEcall(_) => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            VsEcall(Ace(PromoteToConfidentialVm)) => {
+                promote_to_confidential_vm::handle(self.hardware_hart.promote_to_confidential_vm_request(), self)
             }
-            VsEcall(_) => vm_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            MachineEcall => opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            VsEcall(_) => delegate_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
+            MachineEcall => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }

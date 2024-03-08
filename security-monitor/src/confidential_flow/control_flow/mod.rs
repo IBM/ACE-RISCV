@@ -18,9 +18,10 @@ extern "C" {
 /// encapsulates both HardwareHart and ConfidentialHart, so the only way to access their confidential state is through
 /// ConfidentialFlow's public functions.
 ///
-/// Guarantees:
-/// - A confidential hart is assigned to the hardware hart.
-/// - The confidential VM that logically owns the confidential hart exists in the control data.
+/// # Guarantees
+///
+/// * A confidential hart is assigned to the hardware hart.
+/// * The confidential VM that logically owns the confidential hart exists in the control data.
 pub struct ConfidentialFlow<'a> {
     hardware_hart: &'a mut HardwareHart,
 }
@@ -28,7 +29,8 @@ pub struct ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Creates an instance of the confidential flow.
     ///
-    /// Safety:
+    /// # Safety
+    ///
     /// * A confidential hart must be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
         assert!(!hardware_hart.confidential_hart().is_dummy());
@@ -57,7 +59,7 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::RfenceExtension::*;
         use crate::core::architecture::SbiExtension;
         use crate::core::architecture::SrstExtension::*;
-        use crate::core::architecture::TrapReason::*;
+        use crate::core::architecture::TrapCause::*;
 
         let confidential_hart = self.hardware_hart.confidential_hart();
         match confidential_hart.trap_reason() {

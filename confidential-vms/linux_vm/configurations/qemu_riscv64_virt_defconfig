@@ -1,3 +1,6 @@
+
+BR2_TARGET_GENERIC_HOSTNAME="cvm"
+BR2_TARGET_GENERIC_ISSUE="Welcome to Confidential VM!"
 # Architecture
 BR2_riscv=y
 BR2_RISCV_64=y

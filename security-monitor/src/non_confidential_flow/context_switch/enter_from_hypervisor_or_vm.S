@@ -7,9 +7,12 @@
 
 # Traps on exceptions or interrupts occurring during the hypervisor execution. This is an entry point to the security monitor
 #
-# Safety: 
+# # Safety
 #
-# The caller must ensure that `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+# # The caller must ensure that:
+#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+# The function guarantees that on return:
+#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
 .section .text.init
 .globl enter_from_hypervisor_or_vm_asm
 .align 4
@@ -55,7 +58,7 @@ enter_from_hypervisor_or_vm_asm:
     sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
 
     # Store the original value of `a0` in the main memory and set `mscratch` to its original value
-    csrrw	    t0, mscratch, a0
+    csrrw	      t0, mscratch, a0
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
     # Set the stack for this hardware hart

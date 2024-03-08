@@ -2,19 +2,23 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::specification::*;
-use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, TrapReason, CSR};
+use crate::core::architecture::{
+    are_bits_enabled, disable_bit, enable_bit, GeneralPurposeRegister, HartArchitecturalState, TrapCause, CSR,
+};
 use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    ConvertToConfidentialVm, EnabledInterrupts, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult,
-    InjectedInterrupts, InterruptRequest, MmioLoadRequest, MmioStoreRequest, OpensbiRequest, OpensbiResult, ResumeRequest, SbiRequest,
-    SbiResult, SbiVmRequest, SharePageResult, TerminateRequest,
+    EnabledInterrupts, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InjectedInterrupts, InterruptRequest,
+    MmioLoadRequest, MmioStoreRequest, OpensbiRequest, OpensbiResult, PromoteToConfidentialVm, ResumeRequest, SbiRequest, SbiResult,
+    SbiVmRequest, SharePageResult, TerminateRequest,
 };
+
+pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
 #[repr(C)]
 pub struct HardwareHart {
-    // Careful, HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
+    // Safety: HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
     // on this we automatically calculate offsets of registers' and CSRs' for the asm code.
     pub(super) non_confidential_hart_state: HartArchitecturalState,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
@@ -175,53 +179,53 @@ impl HardwareHart {
 
     #[inline]
     fn apply_trap(&mut self, encoded_guest_virtual_address: bool) {
-        if CSR.stvec.read() & 0b11 > 0 {
+        if are_bits_enabled(CSR.stvec.read(), STVEC_MODE_VECTORED) {
             panic!("Not supported functionality: vectored traps");
         }
 
         // Set next mode to HS (see Table 8.8 in Riscv privilege spec 20211203)
-        self.non_confidential_hart_state.mstatus &= !(1 << CSR_MSTATUS_MPV);
-        self.non_confidential_hart_state.mstatus |= 1 << CSR_MSTATUS_MPP;
-        self.non_confidential_hart_state.mstatus &= !(1 << CSR_MSTATUS_MPIE);
-        self.non_confidential_hart_state.mstatus &= !(1 << CSR_MSTATUS_SIE);
+        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPV);
+        enable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPP);
+        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPIE);
+        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_SIE);
 
         // Resume HS execution at its trap function
         CSR.sepc.set(self.non_confidential_hart_state.mepc);
         self.non_confidential_hart_state.mepc = CSR.stvec.read();
 
         // We trick the hypervisor to think that the trap comes directly from the VS-mode.
-        self.non_confidential_hart_state.mstatus |= 1 << CSR_MSTATUS_SPP;
-        CSR.hstatus.read_and_set_bits(1 << CSR_HSTATUS_SPV);
-        CSR.hstatus.read_and_set_bits(1 << CSR_HSTATUS_SPVP);
+        enable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_SPP);
+        CSR.hstatus.read_and_set_bit(CSR_HSTATUS_SPV);
+        CSR.hstatus.read_and_set_bit(CSR_HSTATUS_SPVP);
         // According to the spec, hstatus:SPVP and sstatus.SPP have the same value when transitioning from VS to HS mode.
-        CSR.sstatus.read_and_set_bits(1 << CSR_SSTATUS_SPP);
+        CSR.sstatus.read_and_set_bit(CSR_SSTATUS_SPP);
 
         if encoded_guest_virtual_address {
-            CSR.hstatus.read_and_set_bits(1 << CSR_HSTATUS_GVA);
+            CSR.hstatus.read_and_set_bit(CSR_HSTATUS_GVA);
         } else {
-            CSR.hstatus.read_and_clear_bits(1 << CSR_HSTATUS_GVA);
+            CSR.hstatus.read_and_clear_bit(CSR_HSTATUS_GVA);
         }
     }
 }
 
 impl HardwareHart {
-    pub fn trap_reason(&mut self) -> TrapReason {
+    pub fn trap_reason(&mut self) -> TrapCause {
         use crate::core::architecture::SbiExtension;
-        let mcause = CSR.mcause.read();
-        let a7 = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a7);
-        let a6 = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a6);
-        let trap_reason = TrapReason::from(mcause, a7, a6);
+        let cause = CSR.mcause.read();
+        let extension_id = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a7);
+        let function_id = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a6);
+        let trap_reason = TrapCause::from(cause, extension_id, function_id);
 
-        // Ecalls from the hypervisor carry additional information that must be restored
+        // `ecall` from the hypervisor carry additional information that must be restored.
         match trap_reason {
-            TrapReason::HsEcall(SbiExtension::Ace(_)) => self.restore_original_gprs(),
+            TrapCause::HsEcall(SbiExtension::Ace(_)) => self.restore_original_gprs(),
             _ => {}
         }
         trap_reason
     }
 
-    pub fn convert_to_confidential_vm_request(&self) -> ConvertToConfidentialVm {
-        ConvertToConfidentialVm::new(&self.non_confidential_hart_state)
+    pub fn promote_to_confidential_vm_request(&self) -> PromoteToConfidentialVm {
+        PromoteToConfidentialVm::new(&self.non_confidential_hart_state)
     }
 
     pub fn hypercall_result(&self) -> SbiResult {

@@ -25,7 +25,7 @@ pointers_utility = {path = "rust-crates/pointers_utility"}
 
 # Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by 
 # assembly code in the context switch implementation.
-memoffset = { version = "0.8", default-features = false, features = ["unstable_const"] }
+memoffset = { version = "0.9", default-features = false, features = ["unstable_const"] }
 
 # provides macros that help removing boilerplate code in the rust error handling
 thiserror-no-std = "2.0" 

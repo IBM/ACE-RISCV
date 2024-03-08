@@ -27,8 +27,9 @@ impl ConfidentialVm {
 
     /// Constructs a new confidential VM.
     ///
-    /// Safety:
-    /// * The id of the confidential VM must be unique.
+    /// # Safety
+    ///
+    /// The id of the confidential VM must be unique.
     pub fn new(
         id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: [ConfidentialVmMeasurement; 4],
         mut memory_protector: ConfidentialVmMemoryProtector,
@@ -55,9 +56,10 @@ impl ConfidentialVm {
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
-    /// Guarantees:
-    /// * If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
-    ///   the confidential VM.
+    /// # Guarantees
+    ///
+    /// If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
+    /// the confidential VM.
     pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
@@ -87,8 +89,9 @@ impl ConfidentialVm {
 
     /// Unassigns a confidential hart from the hardware hart.
     ///
-    /// Safety:
-    /// * A confidential hart belonging to this confidential VM is assigned to the hardware hart.
+    /// # Safety
+    ///
+    /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart.is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
