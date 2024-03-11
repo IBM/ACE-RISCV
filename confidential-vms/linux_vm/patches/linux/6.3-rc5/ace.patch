@@ -95,7 +95,7 @@ index 000000000000..1244d0fd59e4
 +#endif /* _ASM_RISCV_ACE_MEM_ENCRYPT_H */
 \ No newline at end of file
 diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
-index 376d2827e736..82cfa818d859 100644
+index 376d2827e736..df44b0c71ad6 100644
 --- a/arch/riscv/kernel/setup.c
 +++ b/arch/riscv/kernel/setup.c
 @@ -20,7 +20,7 @@
@@ -116,7 +116,7 @@ index 376d2827e736..82cfa818d859 100644
 +	// TODO: read the total memory size and expose it to the hypervisor with the call
 +	sbi_ecall(0x509999, 0, 0, 0, 0, 0, 0, 0);
 +	// Request the security monitor to promote the VM to a confidential VM
-+	sbi_ecall(0x510000, 1000, 0, 0, 0, 0, 0, 0);
++	sbi_ecall(0x510000, 1000, _dtb_early_pa, 0, 0, 0, 0, 0);
 +	// END ACE INIT
 +
  	early_ioremap_setup();
