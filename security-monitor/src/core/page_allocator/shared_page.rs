@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_layout::{ConfidentialVmVirtualAddress, MemoryLayout, NonConfidentialMemoryAddress};
+use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, MemoryLayout, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::PageSize;
 use crate::core::transformations::SharePageRequest;
 use crate::error::Error;
@@ -14,7 +14,7 @@ use crate::error::Error;
 /// hardware ensures synchronized access to these memory locations.
 pub struct SharedPage {
     hypervisor_address: NonConfidentialMemoryAddress,
-    confidential_vm_virtual_address: ConfidentialVmVirtualAddress,
+    confidential_vm_virtual_address: ConfidentialVmPhysicalAddress,
     page_size: PageSize,
 }
 
@@ -41,7 +41,7 @@ impl SharedPage {
         self.hypervisor_address.usize()
     }
 
-    pub fn confidential_vm_virtual_address(&self) -> ConfidentialVmVirtualAddress {
+    pub fn confidential_vm_virtual_address(&self) -> ConfidentialVmPhysicalAddress {
         self.confidential_vm_virtual_address
     }
 }

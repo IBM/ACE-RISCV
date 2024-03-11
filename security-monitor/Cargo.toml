@@ -6,26 +6,26 @@ description = "Assured Confidential Execution (ACE): security monitor implementa
 edition = "2021"
 
 [dependencies]
-# This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
-riscv-decode = "0.2" 
+# Below crate provides a parser of flattened device tree (FDT) data. It is used in the initialization procedure
+# and when promoting a VM to a confidential VM.
+flattened_device_tree = {path = "rust-crates/flattened_device_tree"}
 
-# The `fdt` crate provides a parser of flattened device tree (FDT) data. Used in the initialization procedure
-# and when converting a VM into a confidential VM.
-fdt = "0.1.5"
+# Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by 
+# assembly code in the context switch implementation.
+memoffset = { version = "0.9", default-features = false, features = ["unstable_const"] }
 
 # Rust bindings to OpenSBI C code.
 opensbi-sys = {path = "rust-crates/opensbi-sys"}
-
-# The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
-spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
 # This is our custom utility library to work with raw pointers. We might get rid of it in future, once there is
 # an equivalent for it in the standard Rust library
 pointers_utility = {path = "rust-crates/pointers_utility"}
 
-# Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by 
-# assembly code in the context switch implementation.
-memoffset = { version = "0.9", default-features = false, features = ["unstable_const"] }
+# This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
+riscv-decode = "0.2" 
+
+# The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
+spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
 # provides macros that help removing boilerplate code in the rust error handling
 thiserror-no-std = "2.0" 

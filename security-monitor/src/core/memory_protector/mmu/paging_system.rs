@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HgatpMode;
-use crate::core::memory_layout::ConfidentialVmVirtualAddress;
+use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;
 
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page
@@ -58,7 +58,7 @@ impl PagingSystem {
         }
     }
 
-    pub fn vpn(&self, virtual_address: ConfidentialVmVirtualAddress, level: PageTableLevel) -> usize {
+    pub fn vpn(&self, virtual_address: ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
         match self {
             PagingSystem::Sv57x4 => match level {
                 PageTableLevel::Level5 => (virtual_address.usize() >> 48) & 0x3ff,

@@ -1,0 +1,18 @@
+[package]
+name = "flattened_device_tree"
+version = "0.1.0"
+authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
+description = "Wrapper over existing FDT to narrow the interface for easier switching among FDT implementations"
+edition = "2021"
+
+[dependencies]
+# The `fdt` crate provides a parser of flattened device tree (FDT) data. Used in the initialization procedure
+# and when converting a VM into a confidential VM.
+fdt = { version = "0.1.5", default-features = false, features = [] }
+
+# we must got rid of the above `fdt` dependency because of its quality, although the API was much nicer. 
+# Instead let's rely for now on `fdt-rs` crate for parsing the flattened device tree (FDT).
+fdt-rs = { version = "0.4", default-features = false, features = [] }
+
+# provides macros that help removing boilerplate code in rust error handling
+thiserror-no-std = "2.0" 

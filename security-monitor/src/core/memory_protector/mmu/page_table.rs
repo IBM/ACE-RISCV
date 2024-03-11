@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::memory_layout::{ConfidentialVmVirtualAddress, NonConfidentialMemoryAddress};
+use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
@@ -27,8 +27,12 @@ impl RootPageTable {
         self.page_table.map_shared_page(self.paging_system, shared_page)
     }
 
-    pub fn unmap_shared_page(&mut self, address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         self.page_table.unmap_shared_page(self.paging_system, address)
+    }
+
+    pub fn translate(&self, address: ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+        self.page_table.translate(self.paging_system, address)
     }
 
     pub fn address(&self) -> usize {
@@ -98,7 +102,7 @@ impl PageTable {
     fn map_shared_page(&mut self, paging_system: PagingSystem, shared_page: SharedPage) -> Result<(), Error> {
         // walk from the root page table until the leaf node recreating the intermediary page tables if necessary.
         let virtual_page_number = paging_system.vpn(shared_page.confidential_vm_virtual_address(), self.level);
-        let entry = self.entry_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())?;
+        let entry = self.entries.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())?;
         match entry {
             PageTableEntry::Pointer(next_page_table, _) => {
                 next_page_table.map_shared_page(paging_system, shared_page)?;
@@ -147,16 +151,28 @@ impl PageTable {
         Ok(())
     }
 
-    pub fn unmap_shared_page(&mut self, _paging_system: PagingSystem, _address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, _paging_system: PagingSystem, _address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         panic!("Unimplemented");
+    }
+
+    /// Translates the guest physical address to host physical address by doing a page walk. Error is returns if there exists no mapping for
+    /// the requested guest physical address or the address translates to a shared page.
+    ///
+    /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
+    pub fn translate(
+        &self, paging_system: PagingSystem, address: ConfidentialVmPhysicalAddress,
+    ) -> Result<&ConfidentialMemoryAddress, Error> {
+        let virtual_page_number = paging_system.vpn(address, self.level);
+        let entry = self.entries.get(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())?;
+        match entry {
+            PageTableEntry::Pointer(next_page_table, _) => next_page_table.translate(paging_system, address),
+            PageTableEntry::Leaf(page, _configuration, _permission) => Ok(page.address()),
+            _ => Err(Error::AddressTranslationFailed()),
+        }
     }
 
     pub(super) fn address(&self) -> usize {
         self.page_table_memory.start_address()
-    }
-
-    fn entry_mut(&mut self, index: usize) -> Option<&mut PageTableEntry> {
-        self.entries.get_mut(index)
     }
 
     fn set_entry(&mut self, index: usize, entry: PageTableEntry) {

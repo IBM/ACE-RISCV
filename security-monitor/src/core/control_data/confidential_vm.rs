@@ -24,6 +24,7 @@ impl ConfidentialVm {
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
     /// A maximum number of inter hart requests that can be buffered.
     const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
+    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
 
     /// Constructs a new confidential VM.
     ///
