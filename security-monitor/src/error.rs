@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
 use core::num::TryFromIntError;
-use fdt::FdtError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
 
@@ -24,8 +23,6 @@ pub enum Error {
     Reinitialization(),
     #[error("Not supported hardware")]
     NotSupportedHardware(HardwareFeatures),
-    #[error("FDT read error")]
-    FdtFromPtr(#[from] FdtError),
     #[error("Error while searching FDT for a property")]
     FdtParsing(),
     #[error("Could not convert SBI argument to usize: {0}")]
