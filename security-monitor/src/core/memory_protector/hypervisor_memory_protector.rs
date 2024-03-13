@@ -19,7 +19,7 @@ impl HypervisorMemoryProtector {
     /// # Safety
     ///
     /// Caller must ensure that the `MemoryLayout` has been initialized.
-    pub unsafe fn setup(&self) -> Result<(), Error> {
+    pub unsafe fn setup() -> Result<(), Error> {
         // We use RISC-V PMP mechanism to define that the confidential memory region is not accessible.
         // We use RISC-V IOPMP mechanism to ensure that no IO devices can access confidential memory region.
         let (confidential_memory_start, confidential_memory_end) = MemoryLayout::read().confidential_memory_boundary();

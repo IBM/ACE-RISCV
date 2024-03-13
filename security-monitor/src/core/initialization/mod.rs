@@ -219,12 +219,12 @@ extern "C" fn ace_setup_this_hart() {
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
     hart.swap_mscratch();
     CSR.mscratch.set(hart.address());
-    debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart.address());
+    debug!("Hardware hart id={} has state area region at {:x}", hart_id, CSR.mscratch.read());
 
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
-    // the `MemoryLayout` is initialized on the boot hart and this happens before the hart setup.
-    if let Err(_error) = unsafe { hart.hypervisor_memory_protector().setup() } {
+    // the `MemoryLayout` has been already initialized by the boot hart.
+    if let Err(_error) = unsafe { HypervisorMemoryProtector::setup() } {
         return;
     }
 
