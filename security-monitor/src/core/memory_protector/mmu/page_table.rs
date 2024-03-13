@@ -155,7 +155,7 @@ impl PageTable {
         panic!("Unimplemented");
     }
 
-    /// Translates the guest physical address to host physical address by doing a page walk. Error is returns if there exists no mapping for
+    /// Translates the guest physical address to host physical address by doing a page walk. Error is returned if there exists no mapping for
     /// the requested guest physical address or the address translates to a shared page.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
