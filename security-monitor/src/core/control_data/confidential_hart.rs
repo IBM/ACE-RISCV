@@ -68,26 +68,35 @@ impl ConfidentialHart {
         confidential_hart
     }
 
+    /// Constructs a new confidential hart based on the given architectural state. It configures CSRs to a well-known initial state in which
+    /// a confidential hart will execute securely.
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
-        use crate::core::architecture::{MIE_STIP_MASK, MIE_VSEIP_MASK, MIE_VSSIP_MASK, MIE_VSTIP_MASK};
-        let confidential_vm_id = None;
-        let pending_request = None;
-        // delegate VS-level interrupts directly to the confidential VM. All other
-        // interrupts will trap in the security monitor.
+        use crate::core::architecture::*;
+        // Delegate VS-level interrupts directly to the confidential VM. All other interrupts will trap in the security monitor.
         confidential_hart_state.mideleg = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
         confidential_hart_state.hideleg = confidential_hart_state.mideleg;
-        // vsie reflects hie, we allow only VS interrupts
+        // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
         confidential_hart_state.hie = confidential_hart_state.mideleg;
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
         confidential_hart_state.mie = MIE_STIP_MASK;
-
-        // delegate exceptions that can be handled directly in the confidential VM
-        confidential_hart_state.medeleg = 0b000000001011000111111111;
+        // Delegate exceptions that can be handled directly in the confidential VM
+        confidential_hart_state.medeleg = (1 << CAUSE_MISALIGNED_FETCH)
+            | (1 << CAUSE_FETCH_ACCESS)
+            | (1 << CAUSE_ILLEGAL_INSTRUCTION)
+            | (1 << CAUSE_BREAKPOINT)
+            | (1 << CAUSE_MISALIGNED_LOAD)
+            | (1 << CAUSE_LOAD_ACCESS)
+            | (1 << CAUSE_MISALIGNED_STORE)
+            | (1 << CAUSE_STORE_ACCESS)
+            | (1 << CAUSE_USER_ECALL)
+            | (1 << CAUSE_FETCH_PAGE_FAULT)
+            | (1 << CAUSE_LOAD_PAGE_FAULT)
+            | (1 << CAUSE_STORE_PAGE_FAULT);
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
-
+        // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.mtvec = enter_from_confidential_hart_asm as usize;
 
-        Self { confidential_vm_id, confidential_hart_state, lifecycle_state, pending_request }
+        Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state, pending_request: None }
     }
 
     pub fn set_confidential_vm_id(&mut self, confidential_vm_id: ConfidentialVmId) {
@@ -125,13 +134,19 @@ impl ConfidentialHart {
         Ok(())
     }
 
+    /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
     pub fn store_confidential_hart_state_in_main_memory(&mut self) -> EnabledInterrupts {
         self.confidential_hart_state.store_processor_state_in_main_memory();
+        // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
+        // would also better reflect out current approach for information declassification.
         self.enabled_interrupts()
     }
 
+    /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
     pub fn load_confidential_hart_state_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
         self.confidential_hart_state.load_processor_state_from_main_memory();
+        // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
+        // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.apply_injected_interrupts(interrupts_to_inject);
     }
 }
@@ -296,33 +311,45 @@ impl ConfidentialHart {
     }
 
     pub fn virtual_instruction_request(&self) -> VirtualInstructionRequest {
-        let (instruction, instruction_length) = self.read_faulted_instruction();
+        // According to the RISC-V privilege spec, mtval should store virtual instruction
+        let instruction = CSR.mtval.read();
+        let instruction_length = riscv_decode::instruction_length(instruction as u16);
         VirtualInstructionRequest { instruction, instruction_length }
     }
 
     pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
         let mcause = CSR.mcause.read();
-        let (instruction, instruction_length) = self.read_faulted_instruction();
-        let gpr = crate::core::architecture::decode_result_register(instruction)?;
+        let mtinst = CSR.mtinst.read();
         let mtval = CSR.mtval.read();
         let mtval2 = CSR.mtval2.read();
 
+        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
+        assert!(mtinst & 0x1 > 0);
+        let instruction = mtinst | 0x3;
+        let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
+        let gpr = crate::core::architecture::decode_result_register(instruction)?;
+
         let load_fault_request = GuestLoadPageFaultRequest::new(instruction_length, gpr);
-        let mmio_load_request = MmioLoadRequest::new(mcause, mtval, mtval2, instruction);
+        let mmio_load_request = MmioLoadRequest::new(mcause, mtval, mtval2, mtinst);
 
         Ok((load_fault_request, mmio_load_request))
     }
 
     pub fn guest_store_page_fault_request(&self) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
         let mcause = CSR.mcause.read();
-        let (instruction, instruction_length) = self.read_faulted_instruction();
-        let gpr = crate::core::architecture::decode_result_register(instruction)?;
-        let gpr_value = self.confidential_hart_state.gpr(gpr);
+        let mtinst = CSR.mtinst.read();
         let mtval = CSR.mtval.read();
         let mtval2 = CSR.mtval2.read();
 
+        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
+        assert!(mtinst & 0x1 > 0);
+        let instruction = mtinst | 0x3;
+        let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
+        let gpr = crate::core::architecture::decode_result_register(instruction)?;
+        let gpr_value = self.confidential_hart_state.gpr(gpr);
+
         let guest_store_page_fault_request = GuestStorePageFaultRequest::new(instruction_length);
-        let mmio_store_request = MmioStoreRequest::new(mcause, mtval, mtval2, instruction, gpr, gpr_value);
+        let mmio_store_request = MmioStoreRequest::new(mcause, mtval, mtval2, mtinst, gpr, gpr_value);
 
         Ok((guest_store_page_fault_request, mmio_store_request))
     }
@@ -389,31 +416,5 @@ impl ConfidentialHart {
 
     pub fn enabled_interrupts(&self) -> EnabledInterrupts {
         EnabledInterrupts::new()
-    }
-
-    fn read_faulted_instruction(&self) -> (usize, usize) {
-        // mepc stores the virtual address of the instruction that caused trap. Setting
-        // mstatus.MPRV bit allows reading the faulting instruction in memory using the
-        // virtual address.
-        let fault_instruction_virtual_address = self.confidential_hart_state.mepc as *const usize;
-        let is_mprv_set = is_bit_enabled(CSR.mstatus.read(), CSR_MSTATUS_MPRV);
-        CSR.mstatus.read_and_set_bit(CSR_MSTATUS_MPRV);
-        let instruction = unsafe {
-            // TODO: use `minst` register if available
-            let instruction = fault_instruction_virtual_address.read_volatile();
-            instruction
-        };
-        if !is_mprv_set {
-            CSR.mstatus.read_and_clear_bit(CSR_MSTATUS_MPRV);
-        }
-
-        // We only expose the faulting instruction, which can be of different length.
-        // Therefore, we must trim the read memory to this size by disabling unwanted
-        // bits after learning what is the size of the fault instruction.
-        let instruction_length = riscv_decode::instruction_length(instruction as u16);
-        let mask = (1 << 8 * instruction_length) - 1;
-        let instruction = (instruction & mask) as usize;
-
-        (instruction, instruction_length)
     }
 }

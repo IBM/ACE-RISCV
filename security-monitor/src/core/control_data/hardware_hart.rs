@@ -19,7 +19,7 @@ pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart,
 #[repr(C)]
 pub struct HardwareHart {
     // Safety: HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
-    // on this we automatically calculate offsets of registers' and CSRs' for the asm code.
+    // on this we automatically calculate offsets of registers' and CSRs' for the context switch implemented in assembly.
     pub(super) non_confidential_hart_state: HartArchitecturalState,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
     // to the memory region owned by the hypervisor.
@@ -73,21 +73,23 @@ impl HardwareHart {
         &mut self.confidential_hart
     }
 
-    pub fn hypervisor_memory_protector(&self) -> &HypervisorMemoryProtector {
-        &self.hypervisor_memory_protector
-    }
-
     pub unsafe fn enable_hypervisor_memory_protector(&self) {
         self.hypervisor_memory_protector.enable(self.non_confidential_hart_state.hgatp)
     }
 
+    /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
     pub fn store_hypervisor_hart_state_in_main_memory(&mut self) -> InjectedInterrupts {
         self.non_confidential_hart_state.store_processor_state_in_main_memory();
+        // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
+        // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.interrupts_to_inject()
     }
 
+    /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
     pub fn load_hypervisor_hart_state_from_main_memory(&mut self, enabled_interrupts: EnabledInterrupts) {
         self.non_confidential_hart_state.load_processor_state_from_main_memory();
+        // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
+        // would also better reflect out current approach for information declassification.
         self.apply(&ExposeToHypervisor::EnabledInterrupts(enabled_interrupts));
     }
 }
