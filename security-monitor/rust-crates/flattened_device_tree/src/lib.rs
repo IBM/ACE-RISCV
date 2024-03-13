@@ -20,7 +20,7 @@ pub struct FlattenedDeviceTree<'a> {
 }
 
 impl<'a> FlattenedDeviceTree<'a> {
-    /// Creates an instance of a wrapper over the library that parses the flattened device tree (FDT). Returns error if address is not a 32-bytes aligned pointer to the valid flattened device tree (FDT).
+    /// Creates an instance of a wrapper over the library that parses the flattened device tree (FDT). Returns error if address is not a 4-bytes aligned pointer to the valid flattened device tree (FDT).
     ///
     /// # Safety
     ///
