@@ -399,6 +399,7 @@ impl ConfidentialHart {
         let is_mprv_set = is_bit_enabled(CSR.mstatus.read(), CSR_MSTATUS_MPRV);
         CSR.mstatus.read_and_set_bit(CSR_MSTATUS_MPRV);
         let instruction = unsafe {
+            // TODO: use `minst` register if available
             let instruction = fault_instruction_virtual_address.read_volatile();
             instruction
         };

@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
 use core::num::TryFromIntError;
-use fdt::FdtError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
 
@@ -24,8 +23,6 @@ pub enum Error {
     Reinitialization(),
     #[error("Not supported hardware")]
     NotSupportedHardware(HardwareFeatures),
-    #[error("FDT read error")]
-    FdtFromPtr(#[from] FdtError),
     #[error("Error while searching FDT for a property")]
     FdtParsing(),
     #[error("Could not convert SBI argument to usize: {0}")]
@@ -36,6 +33,8 @@ pub enum Error {
     OutOfPages(),
     #[error("Page table error")]
     PageTableConfiguration(),
+    #[error("Address translation failed")]
+    AddressTranslationFailed(),
     #[error("Page Table is corrupted")]
     PageTableCorrupted(),
     #[error("Reached a maximum number of confidential VMs")]
@@ -48,6 +47,8 @@ pub enum Error {
     PendingRequest(),
     #[error("Invalid Hart ID")]
     InvalidHartId(),
+    #[error("Exceeded the max number of harts per VM")]
+    ReachedMaxNumberOfHartsPerVm(),
     #[error("Invalid confidential VM ID")]
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
@@ -73,6 +74,8 @@ pub enum Error {
     CannotSuspedNotStartedHart(),
     #[error("Cannot start a confidential hart because it is not in the Suspended state.")]
     CannotStartNotSuspendedHart(),
+    #[error("Device Tree Error")]
+    DeviceTreeError(#[from] flattened_device_tree::FdtError),
 }
 
 impl Error {
@@ -89,8 +92,6 @@ impl Error {
 
 #[derive(Error, Debug)]
 pub enum InitType {
-    #[error("FDT's memory node not found")]
-    FdtMemory,
     #[error("Too little memory")]
     NotEnoughMemory,
     #[error("Invalid memory boundaries")]

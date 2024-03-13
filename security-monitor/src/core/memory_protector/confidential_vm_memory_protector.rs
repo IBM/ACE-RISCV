@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{HartArchitecturalState, Hgatp};
 use crate::core::control_data::ConfidentialVmId;
-use crate::core::memory_layout::ConfidentialVmVirtualAddress;
+use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress};
 use crate::core::memory_protector::mmu::RootPageTable;
 use crate::core::memory_protector::{mmu, pmp};
 use crate::core::page_allocator::SharedPage;
@@ -22,6 +22,10 @@ impl ConfidentialVmMemoryProtector {
     /// Constructs the memory protector of a confidential VM from the dumped state of a hart that was running a
     /// non-confidential VM at the time it requested to be converted in a confidential VM. This function copies the
     /// entire configuration of the underlying hardware memory isolation component into the confidential memory.
+    ///
+    /// Returns an error if:
+    ///   * the size of the VM is larger than the size of the available confidential memory,
+    ///   * the configuration of the memory isolation component (MMU) is invalid.
     pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
         let hgatp = Hgatp::from(hart_state.hgatp);
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
@@ -43,10 +47,14 @@ impl ConfidentialVmMemoryProtector {
 
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
     /// shared page is unmapped from the address space of the confidential VM.
-    pub fn unmap_shared_page(&mut self, address: ConfidentialVmVirtualAddress) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         self.root_page_table.unmap_shared_page(address)?;
         super::tlb::tlb_shutdown();
         Ok(())
+    }
+
+    pub fn translate(&self, address: ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+        self.root_page_table.translate(address)
     }
 
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the

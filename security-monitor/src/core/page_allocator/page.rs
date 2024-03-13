@@ -94,6 +94,10 @@ impl Page<Allocated> {
 }
 
 impl<T: PageState> Page<T> {
+    pub fn address(&self) -> &ConfidentialMemoryAddress {
+        &self.address
+    }
+
     pub fn start_address(&self) -> usize {
         self.address.as_usize()
     }

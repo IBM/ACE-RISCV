@@ -21,6 +21,10 @@ impl ConfidentialMemoryAddress {
         self.0
     }
 
+    pub unsafe fn to_ptr(&self) -> *const u8 {
+        self.0 as *const u8
+    }
+
     pub fn as_usize(&self) -> usize {
         self.0 as usize
     }

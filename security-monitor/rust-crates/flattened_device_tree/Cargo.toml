@@ -1,0 +1,12 @@
+[package]
+name = "flattened_device_tree"
+version = "0.1.0"
+authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
+description = "Wrapper over existing FDT to narrow the interface for easier switching among FDT implementations"
+edition = "2021"
+
+[dependencies]
+fdt-rs = { version = "0.4", default-features = false, features = [] }
+
+# provides macros that help removing boilerplate code in rust error handling
+thiserror-no-std = "2.0" 

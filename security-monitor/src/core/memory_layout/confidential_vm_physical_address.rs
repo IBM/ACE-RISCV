@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[derive(PartialEq, Clone, Copy)]
-pub struct ConfidentialVmVirtualAddress(usize);
+pub struct ConfidentialVmPhysicalAddress(usize);
 
-impl ConfidentialVmVirtualAddress {
-    pub fn new(address: usize) -> Self {
-        Self(address)
+impl ConfidentialVmPhysicalAddress {
+    pub fn new(confidential_vm_physical_address: usize) -> Self {
+        Self(confidential_vm_physical_address)
     }
 
     pub fn usize(&self) -> usize {
@@ -15,8 +15,8 @@ impl ConfidentialVmVirtualAddress {
     }
 }
 
-impl core::fmt::Debug for ConfidentialVmVirtualAddress {
+impl core::fmt::Debug for ConfidentialVmPhysicalAddress {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "confidential_vm_virtual_address={:x}", self.0)
+        write!(f, "Confidential VM physical address={:x}", self.0)
     }
 }

@@ -10,7 +10,7 @@ use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
 use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
 use alloc::vec::Vec;
 use core::mem::size_of;
-use fdt::Fdt;
+use flattened_device_tree::FlattenedDeviceTree;
 use pointers_utility::ptr_byte_add_mut;
 use spin::{Mutex, Once, RwLock};
 
@@ -46,11 +46,15 @@ extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_a
 
 /// Initializes the security monitor.
 ///
+/// # Security
+///
+/// The input address points to the flattened device tree, which content is trusted.
+///
 /// # Safety
 ///
-/// Caller must pass a valid pointer to the flattened device tree. The content of the flattened device tree is trusted.
+/// See `FlattenedDeviceTree::from_raw_pointer` for safety requirements.
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
-    let fdt = unsafe { Fdt::from_ptr(flattened_device_tree_address)? };
+    let fdt = unsafe { FlattenedDeviceTree::from_raw_pointer(flattened_device_tree_address)? };
 
     // TODO: make sure the system has enough physical memory
     let (confidential_memory_start, confidential_memory_end) = initialize_memory_layout(&fdt)?;
@@ -72,7 +76,7 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// Parses the flattened device tree (FDT) and reads the number of physical harts in the system. It verifies that these
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
-fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
+fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     const RISCV_ARCH: &str = "rv64";
     const ATOMIC_EXTENSION: char = 'a';
     const HYPERVISOR_EXTENSION: char = 'h';
@@ -81,15 +85,15 @@ fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
 
     // Assumption: all harts in the system can run the security monitor
     // and thus we expect that everyone hart implements all required features
-    for (cpu_id, cpu) in fdt.cpus().enumerate() {
+    for (hart_id, hart) in fdt.harts().enumerate() {
         // example riscv,isa value: rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
-        let isa = cpu.property(FDT_RISCV_ISA).ok_or(Error::FdtParsing())?.as_str().unwrap_or("");
+        let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
         let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
-        debug!("Hart #{}: {:?}", cpu_id, isa);
+        debug!("Hart #{}: {:?}", hart_id, isa);
 
-        // make sure the CPU has the required architecture
+        // make sure the hart has the required architecture
         assure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
-        // make sure the CPU supports all required ISA extensions
+        // make sure the hart supports all required ISA extensions
         required_extensions
             .into_iter()
             .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension(*ext))))?;
@@ -97,21 +101,21 @@ fn verify_harts(fdt: &Fdt) -> Result<usize, Error> {
 
     // TODO: make sure there are enough PMPs
 
-    Ok(fdt.cpus().count())
+    Ok(fdt.harts().count())
 }
 
-fn initialize_memory_layout(fdt: &Fdt) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
+fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
-    let fdt_memory_region = fdt.memory().regions().next().ok_or(Error::Init(InitType::FdtMemory))?;
+    let fdt_memory_region = fdt.memory()?;
     // Safety: We own all the memory because we are early in the boot process and have full rights
     // to split memory according to our needs. Thus, it is fine to cast `usize` to `*mut usize`
-    // Information read from FDT is trusted. So we trust that we read the correct start and size of the
-    // memory.
-    let memory_start = fdt_memory_region.starting_address as *mut usize;
+    // Information read from FDT is trusted assuming we are executing as part of a measured and secure boot. So we trust that we read the
+    // correct start and size of the memory.
+    let memory_start = fdt_memory_region.base as *mut usize;
     // In assembly that executed this initialization function splitted the memory into two regions where
     // the second region's size is equal or greater than the first ones.
-    let non_confidential_memory_size = fdt_memory_region.size.unwrap_or(0);
+    let non_confidential_memory_size = fdt_memory_region.size.try_into().map_err(|_| Error::Init(InitType::MemoryBoundary))?;
     let confidential_memory_size = non_confidential_memory_size;
     let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
@@ -182,7 +186,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
-        debug!("HART[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
+        debug!("Hart[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
@@ -226,7 +230,8 @@ extern "C" fn ace_setup_this_hart() {
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
-    CSR.medeleg.read_and_clear_bits((CAUSE_SUPERVISOR_ECALL | CAUSE_VIRTUAL_SUPERVISOR_ECALL).into());
+    CSR.medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
+    CSR.medeleg.read_and_clear_bit(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
     debug!("medeleg={:b}", CSR.medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
