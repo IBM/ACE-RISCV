@@ -7,7 +7,6 @@
 pub enum SbiExtension {
     Ace(AceExtension),
     Base(BaseExtension),
-    Timer(TimerExtension),
     Ipi(IpiExtension),
     Rfence(RfenceExtension),
     Hsm(HsmExtension),
@@ -20,7 +19,6 @@ impl SbiExtension {
         match (a7, a6) {
             (AceExtension::EXTID, function_id) => Self::Ace(AceExtension::from_function_id(function_id)),
             (BaseExtension::EXTID, function_id) => Self::Base(BaseExtension::from_function_id(function_id)),
-            (TimerExtension::EXTID, function_id) => Self::Timer(TimerExtension::from_function_id(function_id)),
             (IpiExtension::EXTID, function_id) => Self::Ipi(IpiExtension::from_function_id(function_id)),
             (RfenceExtension::EXTID, function_id) => Self::Rfence(RfenceExtension::from_function_id(function_id)),
             (HsmExtension::EXTID, function_id) => Self::Hsm(HsmExtension::from_function_id(function_id)),
@@ -82,23 +80,6 @@ impl BaseExtension {
             4 => Self::GetMvendorId,
             5 => Self::GetMarchid,
             6 => Self::GetMimpid,
-            _ => Self::Unknown(Self::EXTID, function_id),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum TimerExtension {
-    SetTimer,
-    Unknown(usize, usize),
-}
-
-impl TimerExtension {
-    pub const EXTID: usize = 0x54494D45;
-
-    pub fn from_function_id(function_id: usize) -> Self {
-        match function_id {
-            0 => Self::SetTimer,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

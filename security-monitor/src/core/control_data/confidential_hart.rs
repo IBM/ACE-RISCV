@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{
     disable_bit, is_bit_enabled, FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState,
-    HartLifecycleState, TrapCause, CSR, CSR_MSTATUS_MPRV, CSR_STATUS_SIE, ECALL_INSTRUCTION_LENGTH,
+    HartLifecycleState, TrapCause, CSR, CSR_STATUS_SIE, ECALL_INSTRUCTION_LENGTH,
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
