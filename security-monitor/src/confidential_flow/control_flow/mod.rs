@@ -8,7 +8,7 @@ use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 extern "C" {
-    fn exit_to_confidential_hart_asm(confidential_hart_address: usize) -> !;
+    fn exit_to_confidential_hart_asm() -> !;
 }
 
 /// Ensures control flow integrity within the `confidential flow` part of the finite state machine (FSM) of the security
@@ -50,7 +50,12 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception.
-    pub fn route(self) -> ! {
+    ///
+    /// Creates the mutable reference to HardwareHart by casting a raw pointer obtained from the context switch (assembly), see safety
+    /// requirements of the asembly context switch. This is a private function, not accessible from the outside of the ConfidentialFlow but
+    /// accessible to the assembly code performing the context switch.
+    #[no_mangle]
+    extern "C" fn route_confidential_flow(hardware_hart_pointer: *mut HardwareHart) -> ! {
         use crate::confidential_flow::handlers::*;
         use crate::core::architecture::AceExtension::*;
         use crate::core::architecture::BaseExtension::*;
@@ -61,35 +66,39 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::SrstExtension::*;
         use crate::core::architecture::TrapCause::*;
 
-        let confidential_hart = self.hardware_hart.confidential_hart();
+        let hardware_hart = unsafe { hardware_hart_pointer.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
+        hardware_hart.confidential_hart_mut().store_volatile_control_status_registers_in_main_memory();
+        let flow = Self::create(hardware_hart);
+        let confidential_hart = flow.hardware_hart.confidential_hart();
+
         match confidential_hart.trap_reason() {
-            Interrupt => interrupt::handle(self),
-            VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), self),
-            VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), self),
-            VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(ProbeExtension)) => sbi_probe_extension::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(GetMvendorId)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(GetMarchid)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Base(GetMimpid)) => hypercall::handle(confidential_hart.hypercall_request(), self),
-            VsEcall(Ipi(SendIpi)) => sbi_ipi::handle(confidential_hart.sbi_ipi(), self),
-            VsEcall(Rfence(RemoteFenceI)) => sbi_ipi::handle(confidential_hart.sbi_remote_fence_i(), self),
-            VsEcall(Rfence(RemoteSfenceVma)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma(), self),
-            VsEcall(Rfence(RemoteSfenceVmaAsid)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma_asid(), self),
-            VsEcall(Rfence(RemoteHfenceGvmaVmid)) => sbi_rfence_nop::handle(self),
-            VsEcall(Rfence(RemoteHfenceGvma)) => sbi_rfence_nop::handle(self),
-            VsEcall(Rfence(RemoteHfenceVvmaAsid)) => sbi_rfence_nop::handle(self),
-            VsEcall(Rfence(RemoteHfenceVvma)) => sbi_rfence_nop::handle(self),
-            VsEcall(Hsm(HartStart)) => sbi_hsm_hart_start::handle(confidential_hart.sbi_hsm_hart_start(), self),
-            VsEcall(Hsm(HartStop)) => sbi_hsm_hart_stop::handle(self),
-            VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), self),
-            VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), self),
-            VsEcall(Srst(SystemReset)) => sbi_srst::handle(self),
-            VsEcall(SbiExtension::Unknown(_, _)) => invalid_call::handle(self),
-            GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), self),
-            VirtualInstruction => virtual_instruction_request::handle(confidential_hart.virtual_instruction_request(), self),
-            GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), self),
+            Interrupt => interrupt::handle(flow),
+            VsEcall(Ace(SharePageWithHypervisor)) => share_page::handle(confidential_hart.share_page_request(), flow),
+            VsEcall(Ace(StopSharingPageWithHypervisor)) => unshare_page::handle(confidential_hart.unshare_page_request(), flow),
+            VsEcall(Base(GetSpecVersion)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(GetImplId)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(GetImplVersion)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(ProbeExtension)) => sbi_probe_extension::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(GetMvendorId)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(GetMarchid)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Base(GetMimpid)) => hypercall::handle(confidential_hart.hypercall_request(), flow),
+            VsEcall(Ipi(SendIpi)) => sbi_ipi::handle(confidential_hart.sbi_ipi(), flow),
+            VsEcall(Rfence(RemoteFenceI)) => sbi_ipi::handle(confidential_hart.sbi_remote_fence_i(), flow),
+            VsEcall(Rfence(RemoteSfenceVma)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma(), flow),
+            VsEcall(Rfence(RemoteSfenceVmaAsid)) => sbi_ipi::handle(confidential_hart.sbi_remote_sfence_vma_asid(), flow),
+            VsEcall(Rfence(RemoteHfenceGvmaVmid)) => sbi_rfence_nop::handle(flow),
+            VsEcall(Rfence(RemoteHfenceGvma)) => sbi_rfence_nop::handle(flow),
+            VsEcall(Rfence(RemoteHfenceVvmaAsid)) => sbi_rfence_nop::handle(flow),
+            VsEcall(Rfence(RemoteHfenceVvma)) => sbi_rfence_nop::handle(flow),
+            VsEcall(Hsm(HartStart)) => sbi_hsm_hart_start::handle(confidential_hart.sbi_hsm_hart_start(), flow),
+            VsEcall(Hsm(HartStop)) => sbi_hsm_hart_stop::handle(flow),
+            VsEcall(Hsm(HartSuspend)) => sbi_hsm_hart_suspend::handle(confidential_hart.sbi_hsm_hart_suspend(), flow),
+            VsEcall(Hsm(HartGetStatus)) => sbi_hsm_hart_status::handle(confidential_hart.sbi_hsm_hart_status(), flow),
+            VsEcall(Srst(SystemReset)) => sbi_srst::handle(flow),
+            VsEcall(SbiExtension::Unknown(_, _)) => invalid_call::handle(flow),
+            GuestLoadPageFault => guest_load_page_fault::handle(confidential_hart.guest_load_page_fault_request(), flow),
+            VirtualInstruction => virtual_instruction_request::handle(confidential_hart.virtual_instruction_request(), flow),
+            GuestStorePageFault => guest_store_page_fault::handle(confidential_hart.guest_store_page_fault_request(), flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
@@ -127,8 +136,9 @@ impl<'a> ConfidentialFlow<'a> {
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will
     /// execute the confidential hart on the hardware hart.
     pub fn exit_to_confidential_hart(self, transformation: ExposeToConfidentialVm) -> ! {
-        let confidential_hart_address = self.hardware_hart.confidential_hart_mut().apply(transformation);
-        unsafe { exit_to_confidential_hart_asm(confidential_hart_address) }
+        self.hardware_hart.confidential_hart_mut().apply(transformation);
+        self.hardware_hart.confidential_hart().load_volatile_control_status_registers_from_main_memory();
+        unsafe { exit_to_confidential_hart_asm() }
     }
 }
 

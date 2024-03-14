@@ -73,8 +73,8 @@ impl ConfidentialVm {
 
         // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
         // of the confidential VM to the processor registers
-        let interrupts_to_inject = hardware_hart.store_hypervisor_hart_state_in_main_memory();
-        self.confidential_harts[confidential_hart_id].load_confidential_hart_state_from_main_memory(interrupts_to_inject);
+        let interrupts_to_inject = hardware_hart.store_control_status_registers_in_main_memory();
+        self.confidential_harts[confidential_hart_id].load_control_status_registers_from_main_memory(interrupts_to_inject);
 
         // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
         // error.
@@ -103,8 +103,8 @@ impl ConfidentialVm {
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
         // Switch context between security domains.
-        let enabled_interrupts = self.confidential_harts[confidential_hart_id].store_confidential_hart_state_in_main_memory();
-        hardware_hart.load_hypervisor_hart_state_from_main_memory(enabled_interrupts);
+        let enabled_interrupts = self.confidential_harts[confidential_hart_id].store_control_status_registers_in_main_memory();
+        hardware_hart.load_control_status_registers_from_main_memory(enabled_interrupts);
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is

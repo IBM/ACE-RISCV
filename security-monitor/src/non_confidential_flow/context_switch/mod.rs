@@ -1,21 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::HardwareHart;
-use crate::non_confidential_flow::NonConfidentialFlow;
-
-/// This function is private and only the assembly code can call it when making the context switch from the confidential VM to the security
-/// monitor.
-#[no_mangle]
-extern "C" fn enter_from_hypervisor_or_vm(hart_ptr: *mut HardwareHart) -> ! {
-    let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-    NonConfidentialFlow::create(hardware_hart).route()
-}
-
 core::arch::global_asm!(
     include_str!("enter_from_hypervisor_or_vm.S"),
     include_str!("exit_to_hypervisor.S"),
-
     HART_RA_OFFSET = const crate::core::architecture::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::architecture::HART_SP_OFFSET,
     HART_GP_OFFSET = const crate::core::architecture::HART_GP_OFFSET,
@@ -47,9 +35,5 @@ core::arch::global_asm!(
     HART_T4_OFFSET = const crate::core::architecture::HART_T4_OFFSET,
     HART_T5_OFFSET = const crate::core::architecture::HART_T5_OFFSET,
     HART_T6_OFFSET = const crate::core::architecture::HART_T6_OFFSET,
-
-    HART_MEPC_OFFSET = const crate::core::architecture::HART_MEPC_OFFSET,
-    HART_MSTATUS_OFFSET = const crate::core::architecture::HART_MSTATUS_OFFSET,
-
     HART_STACK_ADDRESS_OFFSET = const crate::core::control_data::HART_STACK_ADDRESS_OFFSET,
 );

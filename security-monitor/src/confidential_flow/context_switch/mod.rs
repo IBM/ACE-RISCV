@@ -1,24 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::ConfidentialFlow;
-use crate::core::control_data::HardwareHart;
-
-/// Creates the mutable reference to HardwareHart by casting a raw pointer obtained from the context switch (assembly)
-/// and then jumps to the `router`.
-///
-/// This is a private function, not accessible to safe Rust but accessible to the assembly code performing the context
-/// switch.
-#[no_mangle]
-extern "C" fn enter_from_confidential_hart(hart_ptr: *mut HardwareHart) -> ! {
-    let hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-    ConfidentialFlow::create(hart).route();
-}
 
 core::arch::global_asm!(
     include_str!("enter_from_confidential_hart.S"),
     include_str!("exit_to_confidential_hart.S"),
-
     HART_RA_OFFSET = const crate::core::architecture::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::architecture::HART_SP_OFFSET,
     HART_GP_OFFSET = const crate::core::architecture::HART_GP_OFFSET,
@@ -50,9 +36,5 @@ core::arch::global_asm!(
     HART_T4_OFFSET = const crate::core::architecture::HART_T4_OFFSET,
     HART_T5_OFFSET = const crate::core::architecture::HART_T5_OFFSET,
     HART_T6_OFFSET = const crate::core::architecture::HART_T6_OFFSET,
-
-    HART_MEPC_OFFSET = const crate::core::architecture::HART_MEPC_OFFSET,
-    HART_MSTATUS_OFFSET = const crate::core::architecture::HART_MSTATUS_OFFSET,
-
     HART_STACK_ADDRESS_OFFSET = const crate::core::control_data::HART_STACK_ADDRESS_OFFSET,
 );

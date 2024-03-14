@@ -17,8 +17,7 @@
 .globl enter_from_hypervisor_or_vm_asm
 .align 4
 enter_from_hypervisor_or_vm_asm:
-    csrrw	    a0,	mscratch, a0
-
+    csrrw	      a0,	mscratch, a0
     # Store current processor state (except for `a0`) in memory
     sd	        ra, ({HART_RA_OFFSET})(a0)
     sd	        sp, ({HART_SP_OFFSET})(a0)
@@ -52,16 +51,11 @@ enter_from_hypervisor_or_vm_asm:
     sd	        t5, ({HART_T5_OFFSET})(a0)
     sd	        t6, ({HART_T6_OFFSET})(a0)
 
-    csrr        t0, mepc
-    sd	        t0, ({HART_MEPC_OFFSET})(a0)
-    csrr        t0, mstatus
-    sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
-
     # Store the original value of `a0` in the main memory and set `mscratch` to its original value
     csrrw	      t0, mscratch, a0
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
-    # Set the stack for this hardware hart
+    # Set the stack for the security monitor execution on this physical hart
     ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
 
-    j           enter_from_hypervisor_or_vm
+    j           route_non_confidential_flow

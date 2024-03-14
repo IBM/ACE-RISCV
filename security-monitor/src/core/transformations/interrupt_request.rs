@@ -15,10 +15,6 @@ impl InterruptRequest {
     pub fn code(&self) -> usize {
         self.code
     }
-
-    pub fn mask(&self) -> usize {
-        1 << self.code
-    }
 }
 
 pub struct EnabledInterrupts {
