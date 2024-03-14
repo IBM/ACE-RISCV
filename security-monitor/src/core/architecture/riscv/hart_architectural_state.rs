@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, CSR};
+use crate::core::architecture::*;
 
 /// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
 #[repr(C)]
@@ -167,8 +167,7 @@ impl HartArchitecturalState {
         }
     }
 
-    pub fn store_processor_state_in_main_memory(&mut self) {
-        // we not not store GPRs because assembly code does it
+    pub fn store_control_status_registers_in_main_memory(&mut self) {
         self.mepc = CSR.mepc.read();
         self.mstatus = CSR.mstatus.read();
         self.mideleg = CSR.mideleg.read();
@@ -214,15 +213,12 @@ impl HartArchitecturalState {
         self.fcsr = CSR.fcsr.read();
     }
 
-    pub fn load_processor_state_from_main_memory(&self) {
-        // resume from where the other domain was interrupted - not needed since we reload mepc with assembly?
+    pub fn load_control_status_registers_from_main_memory(&self) {
         CSR.mepc.set(self.mepc);
         CSR.mstatus.set(self.mstatus);
         CSR.mideleg.set(self.mideleg);
         CSR.medeleg.set(self.medeleg);
-        // set the new trap vector so the code always trap in the security monitor in the correct handler
         CSR.mtvec.set(self.mtvec);
-        // recover interrupt configuration from the hypervisor execution. delegations (`mideleg`) must be already recovered!
         CSR.mie.set(self.mie);
         // S-mode
         CSR.sstatus.set(self.sstatus);
@@ -240,7 +236,6 @@ impl HartArchitecturalState {
         CSR.hideleg.set(self.hideleg);
         CSR.htinst.set(self.htinst);
         CSR.htval.set(self.htval);
-        // recover interrupt configuration from the hypervisor execution. delegations (`hideleg`) must be already recovered!
         // CSR.hvip.set(to.hvip);
         // CSR.hgeip.set(self.hgeip);
         CSR.hie.set(self.hie);
@@ -272,31 +267,6 @@ impl HartArchitecturalState {
 
     pub fn set_gpr(&mut self, register: GeneralPurposeRegister, value: usize) {
         self.gprs.set(register, value)
-    }
-
-    pub fn reset(&mut self) {
-        self.gprs = GeneralPurposeRegisters::empty();
-        self.fprs = FloatingPointRegisters::empty();
-        self.fcsr = 0;
-        self.htinst = 0;
-        self.htval = 0;
-        self.sepc = 0;
-        self.scounteren = 0;
-        self.vsie = 0;
-        self.vstvec = 0;
-        self.vsscratch = 0;
-        self.vsepc = 0;
-        self.vscause = 0;
-        self.vstval = 0;
-        self.hvip = 0;
-        self.vsatp = 0;
-        // set the timer interrupt to happen in 'infinity'
-        self.vstimecmp = usize::MAX - 1;
-        // TODO: set to the timer value observed during the confidential VM start?
-        self.htimedelta = 0;
-        // TODO: what should be the sstatus on reset?
-        // self.sstatus = 0;
-        self.vsstatus = 0;
     }
 }
 

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::CSR;
 use crate::error::Error;
 use spin::{Once, RwLock, RwLockReadGuard};
 
@@ -36,9 +35,6 @@ impl<'a> InterruptController {
     }
 
     pub fn send_ipi(&self, target_hart_id: usize) -> Result<(), Error> {
-        let current_hart_id = CSR.mhartid.read();
-        debug!("Sending an IPI from physical hart {} to {}", current_hart_id, target_hart_id);
-
         let hart_mask = 1;
         let hart_mask_base = target_hart_id;
         // for now we rely on the underlying OpenSBI to send IPIs to hardware harts

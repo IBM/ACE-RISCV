@@ -366,7 +366,13 @@ pub const CSR_MSTATUS_MPV: usize = 39;
 pub const CSR_MSTATUS_MPRV: usize = 17;
 
 pub const CSR_HSTATUS_SPVP: usize = 8;
+pub const CSR_HSTATUS_VTW: usize = 21;
+pub const CSR_HSTATUS_UXL: usize = 33;
+
 pub const CSR_SSTATUS_SPP: usize = 8;
+pub const CSR_SSTATUS_SPIE: usize = 5;
+pub const CSR_SSTATUS_UXL: usize = 33;
+pub const CSR_SSTATUS_FS: usize = 13;
 
 pub const CSR_VSSTATUS_SIE: usize = 1;
 pub const SCAUSE_INTERRUPT_MASK: usize = 1 << 63;
@@ -374,7 +380,7 @@ pub const SCAUSE_INTERRUPT_MASK: usize = 1 << 63;
 pub const MIE_SSIP: usize = 1;
 pub const MIE_SSIP_MASK: usize = 1 << MIE_SSIP;
 pub const MIE_VSSIP: usize = 2;
-pub const MIE_VSSIP_MASK: usize = 2 << MIE_VSSIP;
+pub const MIE_VSSIP_MASK: usize = 1 << MIE_VSSIP;
 pub const MIE_MSIP: usize = 3;
 pub const MIE_MSIP_MASK: usize = 1 << MIE_MSIP;
 pub const MIE_STIP: usize = 5;

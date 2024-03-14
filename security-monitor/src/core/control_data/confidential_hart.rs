@@ -2,15 +2,14 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{
-    disable_bit, is_bit_enabled, FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState,
-    HartLifecycleState, TrapCause, CSR, CSR_STATUS_SIE, ECALL_INSTRUCTION_LENGTH,
+    is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, TrapCause, CSR, ECALL_INSTRUCTION_LENGTH, *,
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
     EnabledInterrupts, ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
-    GuestStorePageFaultResult, InjectedInterrupts, InterHartRequest, InterruptRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest,
-    SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest,
-    SbiResult, SharePageRequest, UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
+    GuestStorePageFaultResult, InjectedInterrupts, InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart,
+    SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult,
+    SharePageRequest, UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
 };
 use crate::error::Error;
 
@@ -49,20 +48,20 @@ impl ConfidentialHart {
     }
 
     /// Constructs a confidential hart with the state after a reset.
-    pub fn from_vm_hart_reset(id: usize, from: &HartArchitecturalState) -> Self {
-        let mut confidential_hart_state = HartArchitecturalState::from_existing(id, from);
-        GeneralPurposeRegisters::iter().for_each(|x| {
-            confidential_hart_state.gprs.0[x] = 0;
-        });
-        FloatingPointRegisters::iter().for_each(|x| {
-            confidential_hart_state.fprs.0[x] = 0;
-        });
-        // TODO: reset PC and other state-related csrs
+    pub fn from_vm_hart_reset(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
+        let mut confidential_hart_state = HartArchitecturalState::empty(id);
+        confidential_hart_state.mstatus = non_confidential_hart_state.mstatus;
+        // set timer counter to infinity
+        confidential_hart_state.vstimecmp = usize::MAX - 1;
+        // assume the same starting clock for all confidential harts within the same confidential VM
+        confidential_hart_state.htimedelta = non_confidential_hart_state.htimedelta;
+        confidential_hart_state.scounteren = non_confidential_hart_state.scounteren;
         Self::new(confidential_hart_state, HartLifecycleState::Stopped)
     }
 
-    pub fn from_vm_hart(id: usize, from: &HartArchitecturalState) -> Self {
-        let hart_architectural_state = HartArchitecturalState::from_existing(id, from);
+    /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
+    pub fn from_vm_hart(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
+        let hart_architectural_state = HartArchitecturalState::from_existing(id, non_confidential_hart_state);
         let mut confidential_hart = Self::new(hart_architectural_state, HartLifecycleState::Started);
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -71,7 +70,8 @@ impl ConfidentialHart {
     /// Constructs a new confidential hart based on the given architectural state. It configures CSRs to a well-known initial state in which
     /// a confidential hart will execute securely.
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
-        use crate::core::architecture::*;
+        confidential_hart_state.sstatus = (1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL) | (0b10 << CSR_SSTATUS_FS);
+        confidential_hart_state.hstatus = (1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL);
         // Delegate VS-level interrupts directly to the confidential VM. All other interrupts will trap in the security monitor.
         confidential_hart_state.mideleg = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
         confidential_hart_state.hideleg = confidential_hart_state.mideleg;
@@ -95,6 +95,8 @@ impl ConfidentialHart {
         confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.mtvec = enter_from_confidential_hart_asm as usize;
+
+        // TODO: clear CSRs that are not relevant for the confidential VM execution
 
         Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state, pending_request: None }
     }
@@ -135,19 +137,33 @@ impl ConfidentialHart {
     }
 
     /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
-    pub fn store_confidential_hart_state_in_main_memory(&mut self) -> EnabledInterrupts {
-        self.confidential_hart_state.store_processor_state_in_main_memory();
+    pub fn store_control_status_registers_in_main_memory(&mut self) -> EnabledInterrupts {
+        self.confidential_hart_state.store_control_status_registers_in_main_memory();
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
         self.enabled_interrupts()
     }
 
+    pub fn store_volatile_control_status_registers_in_main_memory(&mut self) {
+        self.confidential_hart_state.mepc = CSR.mepc.read();
+        self.confidential_hart_state.mstatus = CSR.mstatus.read();
+    }
+
     /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
-    pub fn load_confidential_hart_state_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
-        self.confidential_hart_state.load_processor_state_from_main_memory();
+    pub fn load_control_status_registers_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
+        self.confidential_hart_state.load_control_status_registers_from_main_memory();
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.apply_injected_interrupts(interrupts_to_inject);
+    }
+
+    /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function should be
+    /// called just before exiting to the assembly context switch, so when we are sure that these CSRs have their final values.
+    pub fn load_volatile_control_status_registers_from_main_memory(&self) {
+        CSR.hvip.set(self.confidential_hart_state.hvip | self.confidential_hart_state.vsip);
+        CSR.mstatus.set(self.confidential_hart_state.mstatus);
+        CSR.mepc.set(self.confidential_hart_state.mepc);
+        CSR.sscratch.set(core::ptr::addr_of!(self.confidential_hart_state) as usize);
     }
 }
 
@@ -166,21 +182,21 @@ impl ConfidentialHart {
     pub fn transition_from_stopped_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
         // A hypervisor might try to schedule a stopped confidential hart. This is forbidden.
         assure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
-        // if this is a dummy hart, then the confidential hart is already running, i.e., it is in the `started` state.
+        // if this is a dummy hart, then the confidential hart is already running on some other physical hart.
         assure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
         // let's set up the confidential hart so that it can be run
         self.lifecycle_state = HartLifecycleState::StartPending;
         self.pending_request = Some(PendingRequest::SbiHsmHartStartPending());
-        // Following the SBI documentation of the function `hart start` in the HSM extension, only satp, sstatus.SIE,
+        // Following the SBI documentation of the function `hart start` in the HSM extension, only vsatp, vsstatus.SIE,
         // a0, a1 have defined values, all other registers are in an undefined state. The hart will start
-        // executing in the supervisor mode.
-        // We clear all VS-related state but leave the configuration of M/HS-mode related registers, for example, we
-        // want the interrupt delegations configuration to remain untouched.
-        self.confidential_hart_state.reset();
+        // executing in the supervisor mode with disabled MMU (vsatp=0).
         self.confidential_hart_state.vsatp = 0;
-        disable_bit(&mut self.confidential_hart_state.sstatus, CSR_STATUS_SIE);
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, self.confidential_hart_id());
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a2, request.opaque);
+        // start the new confidential hart with interrupts disabled
+        disable_bit(&mut self.confidential_hart_state.mstatus, CSR_MSTATUS_SPIE);
+        disable_bit(&mut self.confidential_hart_state.mstatus, CSR_MSTATUS_MPIE);
+        disable_bit(&mut self.confidential_hart_state.vsstatus, CSR_STATUS_SIE);
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, self.confidential_hart_id());
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.opaque);
         self.confidential_hart_state.mepc = request.start_address;
         Ok(())
     }
@@ -222,7 +238,7 @@ impl ConfidentialHart {
 
 // Methods that declassify information from the hypervisor and expose them to the confidential hart.
 impl ConfidentialHart {
-    pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
+    pub fn apply(&mut self, transformation: ExposeToConfidentialVm) {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
             ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
@@ -237,24 +253,15 @@ impl ConfidentialHart {
             ExposeToConfidentialVm::SbiSrstSystemReset() => self.transition_to_shutdown(),
             ExposeToConfidentialVm::Resume() => {}
         }
-        core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
     fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
-        CSR.hvip.set(result.hvip | self.confidential_hart_state.vsip);
-    }
-
-    fn apply_interrupt(&mut self, result: InterruptRequest) {
-        // Interrupts are exposed to the virtual machine via the HVIP register
-        // We assume here that the input code reflects the correct interrupt code intended for the virtual machine.
-        CSR.hvip.read_and_set_bits(result.mask());
+        self.confidential_hart_state.hvip = result.hvip;
     }
 
     fn apply_sbi_ipi(&mut self, _result: SbiIpi) {
-        use crate::core::architecture::MIE_VSSIP;
-        // IPI exposes itself as supervisor-level software interrupt this is the 2nd bit of the vsip controlled by the
-        // hvip register. Check the RISC-V privileged specification for more information.
-        self.apply_interrupt(InterruptRequest::new(MIE_VSSIP))
+        // IPI exposes itself as supervisor-level software interrupt.
+        self.confidential_hart_state.vsip |= crate::core::architecture::MIE_VSSIP_MASK;
     }
 
     fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
@@ -374,9 +381,9 @@ impl ConfidentialHart {
 
     pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {
         let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let boot_code_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        let blob = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
-        SbiHsmHartStart::new(confidential_hart_id, boot_code_address, blob)
+        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
+        let opaque = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
+        SbiHsmHartStart::new(confidential_hart_id, start_address, opaque)
     }
 
     pub fn sbi_hsm_hart_suspend(&self) -> SbiHsmHartSuspend {

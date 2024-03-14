@@ -35,22 +35,31 @@ impl<'a> NonConfidentialFlow<'a> {
         Self { hardware_hart }
     }
 
-    pub fn route(self) -> ! {
-        match self.hardware_hart.trap_reason() {
-            Interrupt => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            IllegalInstruction => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            LoadAddressMisaligned => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            LoadAccessFault => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            StoreAddressMisaligned => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            StoreAccessFault => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            HsEcall(Ace(ResumeConfidentialHart)) => resume_confidential_hart::handle(self.hardware_hart.resume_request(), self),
-            HsEcall(Ace(TerminateConfidentialVm)) => terminate_confidential_vm::handle(self.hardware_hart.terminate_request(), self),
-            HsEcall(_) => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
-            VsEcall(Ace(PromoteToConfidentialVm)) => {
-                promote_to_confidential_vm::handle(self.hardware_hart.promote_to_confidential_vm_request(), self)
+    #[no_mangle]
+    extern "C" fn route_non_confidential_flow(hart_ptr: *mut HardwareHart) -> ! {
+        let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
+        hardware_hart.store_volatile_control_status_registers_in_main_memory();
+        let control_flow = Self::create(hardware_hart);
+
+        match control_flow.hardware_hart.trap_reason() {
+            Interrupt => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            IllegalInstruction => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            LoadAddressMisaligned => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            LoadAccessFault => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            StoreAddressMisaligned => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            StoreAccessFault => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            HsEcall(Ace(ResumeConfidentialHart)) => {
+                resume_confidential_hart::handle(control_flow.hardware_hart.resume_request(), control_flow)
             }
-            VsEcall(_) => delegate_hypercall::handle(self.hardware_hart.sbi_vm_request(), self),
-            MachineEcall => delegate_to_opensbi::handle(self.hardware_hart.opensbi_request(), self),
+            HsEcall(Ace(TerminateConfidentialVm)) => {
+                terminate_confidential_vm::handle(control_flow.hardware_hart.terminate_request(), control_flow)
+            }
+            HsEcall(_) => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            VsEcall(Ace(PromoteToConfidentialVm)) => {
+                promote_to_confidential_vm::handle(control_flow.hardware_hart.promote_to_confidential_vm_request(), control_flow)
+            }
+            VsEcall(_) => delegate_hypercall::handle(control_flow.hardware_hart.sbi_vm_request(), control_flow),
+            MachineEcall => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
@@ -66,6 +75,7 @@ impl<'a> NonConfidentialFlow<'a> {
 
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {
         self.hardware_hart.apply(&transformation);
+        self.hardware_hart.load_volatile_control_status_registers_from_main_memory();
         unsafe { exit_to_hypervisor_asm() }
     }
 
