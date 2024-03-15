@@ -2,7 +2,7 @@
 Our formal proof efforts focus on the security monitor implementation. The security monitor is implemented in Rust. There are minor parts that require assembly, e.g., context switches. Read more about our approach in the [paper](https://arxiv.org/abs/2308.10249).
 
 ## Implementation
-<img src="../.github/fsm.png" align="center" width="100%"> 
+<img src="../.github/fsm.png" align="center" width="60%"> 
 
 Above Figure presents the finite state machine (FSM) implemented by the security monitor. [Non-confidential Flow](src/non_confidential_flow) implements the non-confidential part of the FSM (orange) and [Confidential Flow](src/confidential_flow) implements the confidential part of the FSM (blue). Heavy context switch occures during ["stealing"](https://github.com/IBM/ACE-RISCV/blob/bfd1e84d44075c45b7bd094f9750b3fdecbad4a5/security-monitor/src/core/control_data/confidential_vm.rs#L64) and ["returning"](https://github.com/IBM/ACE-RISCV/blob/bfd1e84d44075c45b7bd094f9750b3fdecbad4a5/security-monitor/src/core/control_data/confidential_vm.rs#L96) a confidential hart from/to a confidential VM.
 
