@@ -37,6 +37,8 @@ pub enum Error {
     AddressTranslationFailed(),
     #[error("Page Table is corrupted")]
     PageTableCorrupted(),
+    #[error("Invalid argument")]
+    InvalidArgument(),
     #[error("Reached a maximum number of confidential VMs")]
     TooManyConfidentialVms(),
     #[error("Unsupported paging mode")]
@@ -102,8 +104,8 @@ pub enum InitType {
 pub enum HardwareFeatures {
     #[error("ACE requires 64-bit processor")]
     InvalidCpuArch,
-    #[error("CPU does not support the required ISA extension: {0}")]
-    NoCpuExtension(char),
+    #[error("CPU does not support the required ISA extension")]
+    NoCpuExtension,
     #[error("Not enough PMPs")]
     NotEnoughPmps,
 }

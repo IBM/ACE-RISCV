@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use confidential_vm_memory_protector::ConfidentialVmMemoryProtector;
 pub use hypervisor_memory_protector::HypervisorMemoryProtector;
-pub use mmu::PageSize;
+pub use mmu::{PageSize, SharedPage};
 
 mod confidential_vm_memory_protector;
 mod hypervisor_memory_protector;

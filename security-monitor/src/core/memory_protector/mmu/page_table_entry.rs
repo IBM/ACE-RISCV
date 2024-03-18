@@ -2,28 +2,29 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_protector::mmu::page_table::PageTable;
-use crate::core::page_allocator::{Allocated, Page, SharedPage};
+use crate::core::memory_protector::SharedPage;
+use crate::core::page_allocator::{Allocated, Page};
 use alloc::boxed::Box;
 
 pub(super) enum PageTableEntry {
-    Pointer(Box<PageTable>, PageTableConfiguration),
-    Leaf(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
-    Shared(SharedPage, PageTableConfiguration, PageTablePermission),
+    PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
+    PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
+    PageSharedWithHypervisor(SharedPage, PageTableConfiguration, PageTablePermission),
     NotValid,
 }
 
 impl PageTableEntry {
     pub fn encode(&self) -> usize {
         match self {
-            PageTableEntry::Pointer(page_table, configuration) => {
+            PageTableEntry::PointerToNextPageTable(page_table, configuration) => {
                 PageTableBits::Valid.mask() | PageTableAddress::encode(page_table.address()) | configuration.encode()
             }
-            PageTableEntry::Leaf(page, configuration, permissions) => {
+            PageTableEntry::PageWithConfidentialVmData(page, configuration, permissions) => {
                 PageTableBits::Valid.mask() | PageTableAddress::encode(page.start_address()) | configuration.encode() | permissions.encode()
             }
-            PageTableEntry::Shared(shared_page, configuration, permissions) => {
+            PageTableEntry::PageSharedWithHypervisor(shared_page, configuration, permissions) => {
                 PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(shared_page.non_confidential_address())
+                    | PageTableAddress::encode(shared_page.hypervisor_address.usize())
                     | configuration.encode()
                     | permissions.encode()
             }

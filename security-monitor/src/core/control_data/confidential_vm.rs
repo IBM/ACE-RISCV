@@ -4,8 +4,9 @@
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
-use crate::core::memory_protector::ConfidentialVmMemoryProtector;
-use crate::core::transformations::{InterHartRequest, SbiHsmHartStart};
+use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
+use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
+use crate::core::transformations::{InterHartRequest, SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -20,11 +21,11 @@ pub struct ConfidentialVm {
 }
 
 impl ConfidentialVm {
+    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
     /// An average number of inter hart requests that are buffered before being processed.
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
     /// A maximum number of inter hart requests that can be buffered.
     const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
-    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
 
     /// Constructs a new confidential VM.
     ///
@@ -49,8 +50,23 @@ impl ConfidentialVm {
         self.id
     }
 
-    pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
-        &mut self.memory_protector
+    pub fn map_shared_page(
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
+        confidential_vm_address: ConfidentialVmPhysicalAddress,
+    ) -> Result<(), Error> {
+        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
+        let tlb_shutdown_request =
+            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
+        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
+        Ok(())
+    }
+
+    pub fn unmap_shared_page(&mut self, confidential_vm_address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
+        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
+        let tlb_shutdown_request =
+            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
+        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
+        Ok(())
     }
 
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
@@ -73,8 +89,8 @@ impl ConfidentialVm {
 
         // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
         // of the confidential VM to the processor registers
-        let interrupts_to_inject = hardware_hart.store_control_status_registers_in_main_memory();
-        self.confidential_harts[confidential_hart_id].load_control_status_registers_from_main_memory(interrupts_to_inject);
+        let interrupts_to_inject = hardware_hart.save_control_status_registers_in_main_memory();
+        self.confidential_harts[confidential_hart_id].restore_control_status_registers_from_main_memory(interrupts_to_inject);
 
         // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
         // error.
@@ -103,8 +119,8 @@ impl ConfidentialVm {
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
         // Switch context between security domains.
-        let enabled_interrupts = self.confidential_harts[confidential_hart_id].store_control_status_registers_in_main_memory();
-        hardware_hart.load_control_status_registers_from_main_memory(enabled_interrupts);
+        let enabled_interrupts = self.confidential_harts[confidential_hart_id].save_control_status_registers_in_main_memory();
+        hardware_hart.restore_control_status_registers_from_main_memory(enabled_interrupts);
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
@@ -154,8 +170,6 @@ impl ConfidentialVm {
                             Error::ReachedMaxNumberOfRemoteHartRequests()
                         )?;
                         inter_hart_requests.push(inter_hart_request.clone());
-                        // TODO: should we also inject IPI so that the interrupted confidential hart is aware of the
-                        // inter hart request?
                         Ok(())
                     })?;
                     let confidential_hart = &self.confidential_harts[confidential_hart_id];

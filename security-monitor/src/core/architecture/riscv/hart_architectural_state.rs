@@ -167,7 +167,7 @@ impl HartArchitecturalState {
         }
     }
 
-    pub fn store_control_status_registers_in_main_memory(&mut self) {
+    pub fn save_control_status_registers_in_main_memory(&mut self) {
         self.mepc = CSR.mepc.read();
         self.mstatus = CSR.mstatus.read();
         self.mideleg = CSR.mideleg.read();
@@ -213,7 +213,7 @@ impl HartArchitecturalState {
         self.fcsr = CSR.fcsr.read();
     }
 
-    pub fn load_control_status_registers_from_main_memory(&self) {
+    pub fn restore_control_status_registers_from_main_memory(&self) {
         CSR.mepc.set(self.mepc);
         CSR.mstatus.set(self.mstatus);
         CSR.mideleg.set(self.mideleg);

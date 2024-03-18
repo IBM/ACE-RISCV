@@ -5,6 +5,13 @@
 // TODO: these constants should be generated from the spec
 #![allow(unused)]
 
+pub const RISCV_ARCH: &str = "rv64";
+pub const ATOMIC_EXTENSION: &str = "a";
+pub const HYPERVISOR_EXTENSION: &str = "h";
+pub const SSTC_EXTENSION: &str = "sstc";
+pub const IFENCEI_EXTENSION: &str = "zifencei";
+pub const FDT_RISCV_ISA: &str = "riscv,isa";
+
 pub const ECALL_INSTRUCTION_LENGTH: usize = 4;
 
 pub const CAUSE_INTERRUPT_BIT: usize = 63;

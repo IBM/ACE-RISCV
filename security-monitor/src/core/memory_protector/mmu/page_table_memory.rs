@@ -69,9 +69,9 @@ impl PageTableMemory {
     }
 
     pub(super) fn set_entry(&mut self, index: usize, entry: &PageTableEntry) {
-        // skip unnecessary write to the memory. Pages in the confidential memory
-        // are guaranteed to be zeroed when allocated and a not valid entry is just 0
         let value = entry.encode();
+        // Skip unnecessary write to the memory. Pages in the confidential memory are guaranteed to be zeroed when allocated and a not valid
+        // entry is just 0.
         if value == 0 {
             return;
         }

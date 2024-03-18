@@ -38,7 +38,7 @@ impl<'a> NonConfidentialFlow<'a> {
     #[no_mangle]
     extern "C" fn route_non_confidential_flow(hart_ptr: *mut HardwareHart) -> ! {
         let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-        hardware_hart.store_volatile_control_status_registers_in_main_memory();
+        hardware_hart.save_volatile_control_status_registers_in_main_memory();
         let control_flow = Self::create(hardware_hart);
 
         match control_flow.hardware_hart.trap_reason() {
@@ -75,7 +75,7 @@ impl<'a> NonConfidentialFlow<'a> {
 
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {
         self.hardware_hart.apply(&transformation);
-        self.hardware_hart.load_volatile_control_status_registers_from_main_memory();
+        self.hardware_hart.restore_volatile_control_status_registers_from_main_memory();
         unsafe { exit_to_hypervisor_asm() }
     }
 

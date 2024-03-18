@@ -4,15 +4,18 @@
 use crate::core::architecture::{Hgatp, CSR};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
+
 pub use page_size::PageSize;
 pub use page_table::RootPageTable;
 pub use paging_system::PagingSystem;
+pub use shared_page::SharedPage;
 
 mod page_size;
 mod page_table;
 mod page_table_entry;
 mod page_table_memory;
 mod paging_system;
+mod shared_page;
 
 pub fn copy_mmu_configuration_from_non_confidential_memory(hgatp: Hgatp) -> Result<RootPageTable, Error> {
     let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
