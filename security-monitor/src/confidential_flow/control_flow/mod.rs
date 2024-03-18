@@ -67,7 +67,7 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::architecture::TrapCause::*;
 
         let hardware_hart = unsafe { hardware_hart_pointer.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-        hardware_hart.confidential_hart_mut().store_volatile_control_status_registers_in_main_memory();
+        hardware_hart.confidential_hart_mut().save_volatile_control_status_registers_in_main_memory();
         let flow = Self::create(hardware_hart);
         let confidential_hart = flow.hardware_hart.confidential_hart();
 
@@ -137,7 +137,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// execute the confidential hart on the hardware hart.
     pub fn exit_to_confidential_hart(self, transformation: ExposeToConfidentialVm) -> ! {
         self.hardware_hart.confidential_hart_mut().apply(transformation);
-        self.hardware_hart.confidential_hart().load_volatile_control_status_registers_from_main_memory();
+        self.hardware_hart.confidential_hart().restore_volatile_control_status_registers_from_main_memory();
         unsafe { exit_to_confidential_hart_asm() }
     }
 }

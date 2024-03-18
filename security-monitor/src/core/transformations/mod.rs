@@ -16,7 +16,7 @@ pub use sbi_hsm::{SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend};
 pub use sbi_ipi::SbiIpi;
 pub use sbi_request::SbiRequest;
 pub use sbi_result::SbiResult;
-pub use sbi_rfence::{SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid};
+pub use sbi_rfence::{SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid};
 pub use sbi_srst::SbiSrstSystemReset;
 pub use sbi_vm_request::SbiVmRequest;
 pub use share_page_request::SharePageRequest;
@@ -68,10 +68,11 @@ pub enum ExposeToConfidentialVm {
     VirtualInstructionResult(VirtualInstructionResult),
     GuestStorePageFaultResult(GuestStorePageFaultResult),
     Resume(),
-    SbiIpi(SbiIpi),
+    SbiIpi(),
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
+    SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
     SbiHsmHartStart(),
     SbiHsmHartStartPending(),
     SbiSrstSystemReset(),
@@ -96,16 +97,18 @@ pub enum InterHartRequest {
     SbiRemoteFenceI(SbiRemoteFenceI),
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
+    SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
     SbiSrstSystemReset(SbiSrstSystemReset),
 }
 
 impl InterHartRequest {
     pub fn into_expose_to_confidential_vm(self) -> ExposeToConfidentialVm {
         match self {
-            Self::SbiIpi(v) => ExposeToConfidentialVm::SbiIpi(v),
+            Self::SbiIpi(_) => ExposeToConfidentialVm::SbiIpi(),
             Self::SbiRemoteFenceI(v) => ExposeToConfidentialVm::SbiRemoteFenceI(v),
             Self::SbiRemoteSfenceVma(v) => ExposeToConfidentialVm::SbiRemoteSfenceVma(v),
             Self::SbiRemoteSfenceVmaAsid(v) => ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v),
+            Self::SbiRemoteHfenceGvmaVmid(v) => ExposeToConfidentialVm::SbiRemoteHfenceGvmaVmid(v),
             Self::SbiSrstSystemReset(_) => ExposeToConfidentialVm::SbiSrstSystemReset(),
         }
     }
@@ -116,6 +119,7 @@ impl InterHartRequest {
             Self::SbiRemoteFenceI(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
             Self::SbiRemoteSfenceVma(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
             Self::SbiRemoteSfenceVmaAsid(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
+            Self::SbiRemoteHfenceGvmaVmid(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
             Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id != hart_id,
         }
     }

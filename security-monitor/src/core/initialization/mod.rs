@@ -69,7 +69,8 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 
     // TODO: lock access to attestation keys/seed/credentials.
 
-    // if we reached this line, then the security monitor control data has been correctly initialized.
+    // If we reached this line, then the security monitor control data has been correctly initialized, attestation keys have been created,
+    // access to attestation seed has been restricted.
     Ok(())
 }
 
@@ -77,12 +78,9 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    const RISCV_ARCH: &str = "rv64";
-    const ATOMIC_EXTENSION: char = 'a';
-    const HYPERVISOR_EXTENSION: char = 'h';
-    const FDT_RISCV_ISA: &str = "riscv,isa";
+    // TODO: echk for SSTC_EXTENSION, IFENCEI_EXTENSION
+    use crate::core::architecture::*;
     let required_extensions = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
-
     // Assumption: all harts in the system can run the security monitor
     // and thus we expect that everyone hart implements all required features
     for (hart_id, hart) in fdt.harts().enumerate() {
@@ -90,13 +88,10 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
         let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
         let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
         debug!("Hart #{}: {:?}", hart_id, isa);
-
-        // make sure the hart has the required architecture
         assure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
-        // make sure the hart supports all required ISA extensions
         required_extensions
             .into_iter()
-            .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension(*ext))))?;
+            .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
     }
 
     // TODO: make sure there are enough PMPs
@@ -107,11 +102,12 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
 fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
-    let fdt_memory_region = fdt.memory()?;
-    // Safety: We own all the memory because we are early in the boot process and have full rights
-    // to split memory according to our needs. Thus, it is fine to cast `usize` to `*mut usize`
+    //
     // Information read from FDT is trusted assuming we are executing as part of a measured and secure boot. So we trust that we read the
-    // correct start and size of the memory.
+    // correct base and size of the memory.
+    let fdt_memory_region = fdt.memory()?;
+    // Safety: We own all the memory because we are early in the boot process and have full rights to split memory according to our needs.
+    // Thus, it is fine to cast `usize` to `*mut usize`.
     let memory_start = fdt_memory_region.base as *mut usize;
     // In assembly that executed this initialization function splitted the memory into two regions where
     // the second region's size is equal or greater than the first ones.
@@ -232,7 +228,7 @@ extern "C" fn ace_setup_this_hart() {
     // in the security monitor entry point of a non-confidential flow.
     CSR.medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
     CSR.medeleg.read_and_clear_bit(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-    debug!("medeleg={:b}", CSR.medeleg.read());
+    debug!("Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}", CSR.medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;

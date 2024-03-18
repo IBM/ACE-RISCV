@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use page::{Allocated, Page, UnAllocated};
 pub use page_allocator::PageAllocator;
-pub use shared_page::SharedPage;
 
 mod page;
 mod page_allocator;
-mod shared_page;

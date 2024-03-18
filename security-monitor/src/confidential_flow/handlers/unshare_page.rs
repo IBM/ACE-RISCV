@@ -10,7 +10,7 @@ use crate::error::Error;
 pub fn handle(request: Result<UnsharePageRequest, Error>, confidential_flow: ConfidentialFlow) -> ! {
     let transformation = match request {
         Ok(unshare_page_request) => ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_vm.memory_protector_mut().unmap_shared_page(unshare_page_request.confidential_vm_virtual_address())
+            confidential_vm.unmap_shared_page(unshare_page_request.address)
         })
         .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
         .unwrap_or_else(|error| error.into_confidential_transformation()),

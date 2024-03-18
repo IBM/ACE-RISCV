@@ -78,21 +78,21 @@ impl HardwareHart {
     }
 
     /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
-    pub fn store_control_status_registers_in_main_memory(&mut self) -> InjectedInterrupts {
-        self.non_confidential_hart_state.store_control_status_registers_in_main_memory();
+    pub fn save_control_status_registers_in_main_memory(&mut self) -> InjectedInterrupts {
+        self.non_confidential_hart_state.save_control_status_registers_in_main_memory();
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.interrupts_to_inject()
     }
 
-    pub fn store_volatile_control_status_registers_in_main_memory(&mut self) {
+    pub fn save_volatile_control_status_registers_in_main_memory(&mut self) {
         self.non_confidential_hart_state.mepc = CSR.mepc.read();
         self.non_confidential_hart_state.mstatus = CSR.mstatus.read();
     }
 
     /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
-    pub fn load_control_status_registers_from_main_memory(&mut self, enabled_interrupts: EnabledInterrupts) {
-        self.non_confidential_hart_state.load_control_status_registers_from_main_memory();
+    pub fn restore_control_status_registers_from_main_memory(&mut self, enabled_interrupts: EnabledInterrupts) {
+        self.non_confidential_hart_state.restore_control_status_registers_from_main_memory();
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
         self.apply(&ExposeToHypervisor::EnabledInterrupts(enabled_interrupts));
@@ -100,7 +100,7 @@ impl HardwareHart {
 
     /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function should be
     /// called just before exiting to the assembly context switch, so when we are sure that these CSRs have their final values.
-    pub fn load_volatile_control_status_registers_from_main_memory(&self) {
+    pub fn restore_volatile_control_status_registers_from_main_memory(&self) {
         CSR.mepc.set(self.non_confidential_hart_state.mepc);
         CSR.mstatus.set(self.non_confidential_hart_state.mstatus);
     }

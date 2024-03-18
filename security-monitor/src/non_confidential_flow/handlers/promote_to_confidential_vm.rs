@@ -50,7 +50,7 @@ fn create_confidential_vm(promote_to_confidential_vm_request: PromoteToConfident
 
     // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the not-yet-created
     // confidential VM's and (2) there is only one physical hart executing this code.
-    let fdt_address_in_confidential_memory = unsafe { memory_protector.translate(fdt_address)?.to_ptr() };
+    let fdt_address_in_confidential_memory = unsafe { memory_protector.translate_address(fdt_address)?.to_ptr() };
     // We parse untrusted FDT using an external library. A vulnerability in this library might blow up the security!
     // Below unsafe is ok because it is the start of the entire page which is at least 4KiB in size (see safety requirements of
     // `FlattenedDeviceTree::from_raw_pointer`).
