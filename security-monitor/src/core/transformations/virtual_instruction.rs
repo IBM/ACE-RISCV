@@ -4,8 +4,22 @@
 
 #[derive(PartialEq)]
 pub struct VirtualInstructionRequest {
-    pub instruction: usize,
-    pub instruction_length: usize,
+    instruction: usize,
+    instruction_length: usize,
+}
+
+impl VirtualInstructionRequest {
+    pub fn new(instruction: usize, instruction_length: usize) -> Self {
+        Self { instruction, instruction_length }
+    }
+
+    pub fn instruction(&self) -> usize {
+        self.instruction
+    }
+
+    pub fn instruction_length(&self) -> usize {
+        self.instruction_length
+    }
 }
 
 #[derive(PartialEq)]

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, ECALL_INSTRUCTION_LENGTH};
 
 /// Sbi is a result of the SBI call from the Hypervisor to the SBI
 /// firmware or a result of the SBI call to the security monitor.
@@ -13,18 +13,16 @@ pub struct SbiResult {
 }
 
 impl SbiResult {
-    const ECALL_INSTRUCTION_LENGTH: usize = 4;
-
     pub fn ecall(hart_state: &HartArchitecturalState) -> Self {
-        Self::new(hart_state.gpr(GeneralPurposeRegister::a0), hart_state.gpr(GeneralPurposeRegister::a1), Self::ECALL_INSTRUCTION_LENGTH)
+        Self::new(hart_state.gpr(GeneralPurposeRegister::a0), hart_state.gpr(GeneralPurposeRegister::a1), ECALL_INSTRUCTION_LENGTH)
     }
 
     pub fn success(code: usize) -> Self {
-        Self::new(0, code, Self::ECALL_INSTRUCTION_LENGTH)
+        Self::new(0, code, ECALL_INSTRUCTION_LENGTH)
     }
 
     pub fn failure(code: usize) -> Self {
-        Self::new(code, 0, Self::ECALL_INSTRUCTION_LENGTH)
+        Self::new(code, 0, ECALL_INSTRUCTION_LENGTH)
     }
 
     fn new(a0: usize, a1: usize, pc_offset: usize) -> Self {

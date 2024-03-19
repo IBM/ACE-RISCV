@@ -6,11 +6,15 @@ use crate::error::Error;
 
 #[derive(PartialEq)]
 pub struct UnsharePageRequest {
-    pub address: ConfidentialVmPhysicalAddress,
+    address: ConfidentialVmPhysicalAddress,
 }
 
 impl UnsharePageRequest {
     pub fn new(address: usize) -> Result<Self, Error> {
         Ok(Self { address: ConfidentialVmPhysicalAddress::new(address) })
+    }
+
+    pub fn address(&self) -> &ConfidentialVmPhysicalAddress {
+        &self.address
     }
 }

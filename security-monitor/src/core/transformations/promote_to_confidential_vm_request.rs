@@ -10,8 +10,7 @@ pub struct PromoteToConfidentialVm {
 
 impl PromoteToConfidentialVm {
     pub fn new(from_state: &HartArchitecturalState) -> Self {
-        let hart_state = HartArchitecturalState::from_existing(0, from_state);
-        Self { hart_state }
+        Self { hart_state: HartArchitecturalState::from_existing(0, from_state) }
     }
 
     /// Returns the address of the device tree provided as the first argument of the call.

@@ -58,7 +58,7 @@ impl PagingSystem {
         }
     }
 
-    pub fn vpn(&self, virtual_address: ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
+    pub fn vpn(&self, virtual_address: &ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
         match self {
             PagingSystem::Sv57x4 => match level {
                 PageTableLevel::Level5 => (virtual_address.usize() >> 48) & 0x3ff,

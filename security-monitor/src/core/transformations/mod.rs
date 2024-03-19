@@ -115,12 +115,12 @@ impl InterHartRequest {
 
     pub fn is_hart_selected(&self, hart_id: usize) -> bool {
         match self {
-            Self::SbiIpi(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteFenceI(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteSfenceVma(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteSfenceVmaAsid(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiRemoteHfenceGvmaVmid(v) => Self::_is_hart_selected(hart_id, v.hart_mask, v.hart_mask_base),
-            Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id != hart_id,
+            Self::SbiIpi(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiRemoteFenceI(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiRemoteSfenceVma(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiRemoteSfenceVmaAsid(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiRemoteHfenceGvmaVmid(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id() != hart_id,
         }
     }
 

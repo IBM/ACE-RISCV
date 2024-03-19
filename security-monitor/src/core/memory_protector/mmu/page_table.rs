@@ -31,11 +31,11 @@ impl RootPageTable {
         self.page_table.map_shared_page(self.paging_system, hypervisor_address, page_size, confidential_vm_physical_address)
     }
 
-    pub fn unmap_shared_page(&mut self, address: ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
+    pub fn unmap_shared_page(&mut self, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
         self.page_table.unmap_shared_page(self.paging_system, address)
     }
 
-    pub fn translate(&self, address: ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+    pub fn translate(&self, address: &ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
         self.page_table.translate(self.paging_system, address)
     }
 
@@ -132,7 +132,7 @@ impl PageTable {
     ) -> Result<(), Error> {
         let page_size_at_current_level = paging_system.page_size(self.level);
         assure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
-        let virtual_page_number = paging_system.vpn(confidential_vm_physical_address, self.level);
+        let virtual_page_number = paging_system.vpn(&confidential_vm_physical_address, self.level);
 
         if page_size_at_current_level > page_size {
             // We are at the intermediary page table. We will recursively go to the next page table, creating it in case it does not exist.
@@ -173,12 +173,12 @@ impl PageTable {
     /// address. Returns the size of the unmapped shared page on succeess.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
-    fn unmap_shared_page(&mut self, paging_system: PagingSystem, address: ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
+    fn unmap_shared_page(&mut self, paging_system: PagingSystem, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
         let virtual_page_number = paging_system.vpn(address, self.level);
         match self.entries.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(paging_system, address),
             PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
-                assure!(existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
+                assure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
                 self.set_entry(virtual_page_number, PageTableEntry::NotValid);
                 Ok(paging_system.page_size(self.level))
             }
@@ -191,7 +191,7 @@ impl PageTable {
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
     pub fn translate(
-        &self, paging_system: PagingSystem, address: ConfidentialVmPhysicalAddress,
+        &self, paging_system: PagingSystem, address: &ConfidentialVmPhysicalAddress,
     ) -> Result<&ConfidentialMemoryAddress, Error> {
         let virtual_page_number = paging_system.vpn(address, self.level);
         match self.entries.get(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {

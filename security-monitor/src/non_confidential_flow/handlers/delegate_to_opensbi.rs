@@ -15,9 +15,9 @@ pub fn handle(mut opensbi_request: OpensbiRequest, mut non_confidential_flow: No
     // up having incorrect address in mscratch and the context switches to/from the security monitor will not work
     // anymore.
     non_confidential_flow.swap_mscratch();
-    unsafe { sbi_trap_handler(&mut opensbi_request.regs as *mut _) };
+    unsafe { sbi_trap_handler(opensbi_request.regs() as *mut _) };
     non_confidential_flow.swap_mscratch();
 
-    let transformation = ExposeToHypervisor::OpensbiResult(OpensbiResult::from_opensbi_handler(opensbi_request.regs));
+    let transformation = ExposeToHypervisor::OpensbiResult(OpensbiResult::from_opensbi_handler(opensbi_request.into_regs()));
     non_confidential_flow.exit_to_hypervisor(transformation)
 }

@@ -13,7 +13,7 @@ use crate::core::transformations::{ExposeToHypervisor, PendingRequest, SbiHsmHar
 /// runnable. Once the hypervisor schedules such a confidential hart for execution, the confidential hart will change
 /// the state to `Started`.
 pub fn handle(request: SbiHsmHartStart, confidential_flow: ConfidentialFlow) -> ! {
-    let confidential_hart_id = request.confidential_hart_id;
+    let confidential_hart_id = request.confidential_hart_id();
     // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to start
     // this confidential hart.
     match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {

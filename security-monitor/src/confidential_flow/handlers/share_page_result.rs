@@ -24,7 +24,7 @@ pub fn handle(share_page_result: SharePageResult, confidential_flow: Confidentia
     };
 
     let transformation = ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-        confidential_vm.map_shared_page(hypervisor_address, request.page_size(), request.confidential_vm_physical_address())
+        confidential_vm.map_shared_page(hypervisor_address, request.page_size(), *request.confidential_vm_physical_address())
     })
     .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
     .unwrap_or_else(|error| error.into_confidential_transformation());

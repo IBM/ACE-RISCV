@@ -198,8 +198,8 @@ impl ConfidentialHart {
         disable_bit(&mut self.confidential_hart_state.mstatus, CSR_MSTATUS_MPIE);
         disable_bit(&mut self.confidential_hart_state.vsstatus, CSR_STATUS_SIE);
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, self.confidential_hart_id());
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.opaque);
-        self.confidential_hart_state.mepc = request.start_address;
+        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.opaque());
+        self.confidential_hart_state.mepc = request.start_address();
 
         Ok(())
     }
@@ -260,7 +260,7 @@ impl ConfidentialHart {
     }
 
     fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
-        self.confidential_hart_state.hvip = result.hvip;
+        self.confidential_hart_state.hvip = result.hvip();
     }
 
     fn apply_sbi_ipi(&mut self) {
@@ -333,7 +333,7 @@ impl ConfidentialHart {
         // According to the RISC-V privilege spec, mtval should store virtual instruction
         let instruction = CSR.mtval.read();
         let instruction_length = riscv_decode::instruction_length(instruction as u16);
-        VirtualInstructionRequest { instruction, instruction_length }
+        VirtualInstructionRequest::new(instruction, instruction_length)
     }
 
     pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
@@ -346,9 +346,9 @@ impl ConfidentialHart {
         assert!(mtinst & 0x1 > 0);
         let instruction = mtinst | 0x3;
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
-        let gpr = crate::core::architecture::decode_result_register(instruction)?;
+        let result_gpr = crate::core::architecture::decode_result_register(instruction)?;
 
-        let load_fault_request = GuestLoadPageFaultRequest::new(instruction_length, gpr);
+        let load_fault_request = GuestLoadPageFaultRequest::new(instruction_length, result_gpr);
         let mmio_load_request = MmioLoadRequest::new(mcause, mtval, mtval2, mtinst);
 
         Ok((load_fault_request, mmio_load_request))
@@ -434,6 +434,6 @@ impl ConfidentialHart {
     }
 
     pub fn enabled_interrupts(&self) -> EnabledInterrupts {
-        EnabledInterrupts::new()
+        EnabledInterrupts::new(CSR.vsie.read())
     }
 }

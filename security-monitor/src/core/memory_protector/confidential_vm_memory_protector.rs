@@ -55,13 +55,13 @@ impl ConfidentialVmMemoryProtector {
     ///
     /// To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on all confidential harts, so
     /// that all confidential harts do not use the unmaped shared page.
-    pub fn unmap_shared_page(&mut self, address: ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
+    pub fn unmap_shared_page(&mut self, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
         self.root_page_table.unmap_shared_page(address)
     }
 
     /// Translates guest physical address into a real physical address in the confidential memory. Returns error if the guest physical
     /// address is not mapped into the real physical address, i.e., page table walk fails.
-    pub fn translate_address(&self, address: ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+    pub fn translate_address(&self, address: &ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
         self.root_page_table.translate(address)
     }
 

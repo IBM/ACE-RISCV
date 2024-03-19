@@ -16,8 +16,8 @@ impl SharePageRequest {
         Ok(Self { address: ConfidentialVmPhysicalAddress::new(address), page_size: PageSize::Size4KiB })
     }
 
-    pub fn confidential_vm_physical_address(&self) -> ConfidentialVmPhysicalAddress {
-        self.address
+    pub fn confidential_vm_physical_address(&self) -> &ConfidentialVmPhysicalAddress {
+        &self.address
     }
 
     pub fn page_size(&self) -> PageSize {

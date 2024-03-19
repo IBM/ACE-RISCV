@@ -11,8 +11,7 @@ pub struct ResumeRequest {
 
 impl ResumeRequest {
     pub fn new(confidential_vm_id: usize, confidential_hart_id: usize) -> Self {
-        let confidential_vm_id = ConfidentialVmId::new(confidential_vm_id);
-        Self { confidential_vm_id, confidential_hart_id }
+        Self { confidential_vm_id: ConfidentialVmId::new(confidential_vm_id), confidential_hart_id }
     }
 
     pub fn confidential_vm_id(&self) -> ConfidentialVmId {

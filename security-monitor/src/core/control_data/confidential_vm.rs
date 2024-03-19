@@ -56,12 +56,12 @@ impl ConfidentialVm {
     ) -> Result<(), Error> {
         self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
         let tlb_shutdown_request =
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
+            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id));
         self.broadcast_inter_hart_request(tlb_shutdown_request)?;
         Ok(())
     }
 
-    pub fn unmap_shared_page(&mut self, confidential_vm_address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
+    pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
         let tlb_shutdown_request =
             InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
@@ -137,7 +137,7 @@ impl ConfidentialVm {
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
     /// not in the `Stopped` state or a confidential hart with the requested id does not exist.
     pub fn transit_confidential_hart_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
-        let hart = self.confidential_harts.get_mut(request.confidential_hart_id).ok_or(Error::InvalidHartId())?;
+        let hart = self.confidential_harts.get_mut(request.confidential_hart_id()).ok_or(Error::InvalidHartId())?;
         hart.transition_from_stopped_to_start_pending(request)?;
         Ok(())
     }

@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::CSR;
-
 pub struct InterruptRequest {
     code: usize,
 }
@@ -18,21 +16,29 @@ impl InterruptRequest {
 }
 
 pub struct EnabledInterrupts {
-    pub vsie: usize,
+    vsie: usize,
 }
 
 impl EnabledInterrupts {
-    pub fn new() -> Self {
-        Self { vsie: CSR.vsie.read() }
+    pub fn new(vsie: usize) -> Self {
+        Self { vsie }
+    }
+
+    pub fn vsie(&self) -> usize {
+        self.vsie
     }
 }
 
 pub struct InjectedInterrupts {
-    pub hvip: usize,
+    hvip: usize,
 }
 
 impl InjectedInterrupts {
-    pub fn new() -> Self {
-        Self { hvip: CSR.hvip.read() }
+    pub fn new(hvip: usize) -> Self {
+        Self { hvip }
+    }
+
+    pub fn hvip(&self) -> usize {
+        self.hvip
     }
 }

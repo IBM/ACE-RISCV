@@ -5,7 +5,7 @@ use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
 
 #[derive(Debug)]
 pub struct OpensbiRequest {
-    pub regs: opensbi_sys::sbi_trap_regs,
+    regs: opensbi_sys::sbi_trap_regs,
 }
 
 impl OpensbiRequest {
@@ -50,5 +50,13 @@ impl OpensbiRequest {
                 mstatusH: 0,
             },
         }
+    }
+
+    pub fn regs(&mut self) -> &mut opensbi_sys::sbi_trap_regs {
+        &mut self.regs
+    }
+
+    pub fn into_regs(self) -> opensbi_sys::sbi_trap_regs {
+        self.regs
     }
 }

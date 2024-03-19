@@ -121,7 +121,7 @@ impl HardwareHart {
     }
 
     fn apply_enabled_interrupts(&mut self, result: &EnabledInterrupts) {
-        CSR.vsie.set(result.vsie);
+        CSR.vsie.set(result.vsie());
     }
 
     fn apply_sbi_result(&mut self, result: &SbiResult) {
@@ -131,10 +131,10 @@ impl HardwareHart {
     }
 
     fn apply_opensbi_result(&mut self, result: &OpensbiResult) {
-        self.non_confidential_hart_state.mstatus = result.trap_regs.mstatus.try_into().unwrap();
-        self.non_confidential_hart_state.mepc = result.trap_regs.mepc.try_into().unwrap();
-        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.trap_regs.a0.try_into().unwrap());
-        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.trap_regs.a1.try_into().unwrap());
+        self.non_confidential_hart_state.mstatus = result.mstatus();
+        self.non_confidential_hart_state.mepc = result.mepc();
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
     }
 
     fn apply_sbi_vm_request(&mut self, request: &SbiVmRequest) {
@@ -275,7 +275,7 @@ impl HardwareHart {
     }
 
     pub fn interrupts_to_inject(&self) -> InjectedInterrupts {
-        InjectedInterrupts::new()
+        InjectedInterrupts::new(CSR.hvip.read())
     }
 
     pub fn restore_original_gprs(&mut self) {
