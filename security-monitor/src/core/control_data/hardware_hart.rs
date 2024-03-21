@@ -3,15 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::specification::*;
 use crate::core::architecture::{
-    are_bits_enabled, disable_bit, enable_bit, GeneralPurposeRegister, HartArchitecturalState, TrapCause, CSR,
+    are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, TrapCause,
 };
 use crate::core::control_data::ConfidentialHart;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    EnabledInterrupts, ExposeToHypervisor, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, InjectedInterrupts, InterruptRequest,
-    MmioLoadRequest, MmioStoreRequest, OpensbiRequest, OpensbiResult, PromoteToConfidentialVm, ResumeRequest, SbiRequest, SbiResult,
-    SbiVmRequest, SharePageResult, TerminateRequest,
+    EnabledInterrupts, ExposeToHypervisor, InjectedInterrupts, InterruptRequest, MmioLoadPending, MmioLoadRequest, MmioLoadResult,
+    MmioStoreRequest, OpensbiRequest, OpensbiResult, PromoteToConfidentialVm, ResumeRequest, SbiRequest, SbiResult, SbiVmRequest,
+    SharePageResult, TerminateRequest,
 };
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
@@ -60,8 +60,8 @@ impl HardwareHart {
     /// we replaced during the system initialization. We store the original mscratch value expected by the OpenSBI in
     /// the previous_mscratch field.
     pub fn swap_mscratch(&mut self) {
-        let current_mscratch = CSR.mscratch.read();
-        CSR.mscratch.set(self.previous_mscratch);
+        let current_mscratch = self.csrs().mscratch.read();
+        self.csrs().mscratch.set(self.previous_mscratch);
         self.previous_mscratch = current_mscratch;
     }
 
@@ -74,25 +74,25 @@ impl HardwareHart {
     }
 
     pub unsafe fn enable_hypervisor_memory_protector(&self) {
-        self.hypervisor_memory_protector.enable(self.non_confidential_hart_state.hgatp)
+        self.hypervisor_memory_protector.enable(self.non_confidential_hart_state.csrs.hgatp.read_value())
     }
 
     /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
     pub fn save_control_status_registers_in_main_memory(&mut self) -> InjectedInterrupts {
-        self.non_confidential_hart_state.save_control_status_registers_in_main_memory();
+        self.non_confidential_hart_state.csrs.save_in_main_memory();
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.interrupts_to_inject()
     }
 
     pub fn save_volatile_control_status_registers_in_main_memory(&mut self) {
-        self.non_confidential_hart_state.mepc = CSR.mepc.read();
-        self.non_confidential_hart_state.mstatus = CSR.mstatus.read();
+        self.non_confidential_hart_state.csrs.mepc.save_value(self.csrs().mepc.read());
+        self.non_confidential_hart_state.csrs.mstatus.save_value(self.csrs().mstatus.read());
     }
 
     /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
     pub fn restore_control_status_registers_from_main_memory(&mut self, enabled_interrupts: EnabledInterrupts) {
-        self.non_confidential_hart_state.restore_control_status_registers_from_main_memory();
+        self.non_confidential_hart_state.csrs.restore_from_main_memory();
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
         self.apply(&ExposeToHypervisor::EnabledInterrupts(enabled_interrupts));
@@ -101,8 +101,8 @@ impl HardwareHart {
     /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function should be
     /// called just before exiting to the assembly context switch, so when we are sure that these CSRs have their final values.
     pub fn restore_volatile_control_status_registers_from_main_memory(&self) {
-        CSR.mepc.set(self.non_confidential_hart_state.mepc);
-        CSR.mstatus.set(self.non_confidential_hart_state.mstatus);
+        self.csrs().mepc.set(self.non_confidential_hart_state.csrs.mepc.read_value());
+        self.csrs().mstatus.set(self.non_confidential_hart_state.csrs.mstatus.read_value());
     }
 }
 
@@ -121,24 +121,24 @@ impl HardwareHart {
     }
 
     fn apply_enabled_interrupts(&mut self, result: &EnabledInterrupts) {
-        CSR.vsie.set(result.vsie());
+        self.csrs().vsie.set(result.vsie());
     }
 
     fn apply_sbi_result(&mut self, result: &SbiResult) {
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
-        self.non_confidential_hart_state.mepc += result.pc_offset();
+        self.non_confidential_hart_state.csrs.mepc.save_value(self.non_confidential_hart_state.csrs.mepc.read_value() + result.pc_offset());
     }
 
     fn apply_opensbi_result(&mut self, result: &OpensbiResult) {
-        self.non_confidential_hart_state.mstatus = result.mstatus();
-        self.non_confidential_hart_state.mepc = result.mepc();
+        self.non_confidential_hart_state.csrs.mstatus.save_value(result.mstatus());
+        self.non_confidential_hart_state.csrs.mepc.save_value(result.mepc());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
     }
 
     fn apply_sbi_vm_request(&mut self, request: &SbiVmRequest) {
-        CSR.scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+        self.csrs().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, request.sbi_request().extension_id());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, request.sbi_request().function_id());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, request.sbi_request().a0());
@@ -151,7 +151,7 @@ impl HardwareHart {
     }
 
     fn apply_sbi_request(&mut self, request: &SbiRequest) {
-        CSR.scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+        self.csrs().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, request.extension_id());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, request.function_id());
         self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, request.a0());
@@ -164,71 +164,79 @@ impl HardwareHart {
     }
 
     fn apply_mmio_load_request(&mut self, request: &MmioLoadRequest) {
-        CSR.scause.set(request.code());
+        self.csrs().scause.set(request.code());
         // KVM uses htval and stval to recreate the fault address
-        CSR.stval.set(request.stval());
-        CSR.htval.set(request.htval());
+        self.csrs().stval.set(request.stval());
+        self.csrs().htval.set(request.htval());
         // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
         // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
-        CSR.vsscratch.set(request.instruction());
+        self.csrs().vsscratch.set(request.instruction());
         self.apply_trap(true);
     }
 
     fn apply_mmio_store_request(&mut self, request: &MmioStoreRequest) {
-        CSR.scause.set(request.code());
+        self.csrs().scause.set(request.code());
         // KVM uses htval and stval to recreate the fault address
-        CSR.stval.set(request.stval());
-        CSR.htval.set(request.htval());
+        self.csrs().stval.set(request.stval());
+        self.csrs().htval.set(request.htval());
         self.non_confidential_hart_state.set_gpr(request.gpr(), request.gpr_value());
         // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
         // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
-        CSR.vsscratch.set(request.instruction());
+        self.csrs().vsscratch.set(request.instruction());
         self.apply_trap(true);
     }
 
     fn apply_interrupt_request(&mut self, request: &InterruptRequest) {
-        CSR.scause.set(request.code() | SCAUSE_INTERRUPT_MASK);
+        self.csrs().scause.set(request.code() | SCAUSE_INTERRUPT_MASK);
         self.apply_trap(false);
     }
 
     #[inline]
     fn apply_trap(&mut self, encoded_guest_virtual_address: bool) {
-        if are_bits_enabled(CSR.stvec.read(), STVEC_MODE_VECTORED) {
+        if are_bits_enabled(self.csrs().stvec.read(), STVEC_MODE_VECTORED) {
             panic!("Not supported functionality: vectored traps");
         }
 
         // Set next mode to HS (see Table 8.8 in Riscv privilege spec 20211203)
-        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPV);
-        enable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPP);
-        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_MPIE);
-        disable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_SIE);
+        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPV);
+        self.non_confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
+        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
+        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_SIE);
 
         // Resume HS execution at its trap function
-        CSR.sepc.set(self.non_confidential_hart_state.mepc);
-        self.non_confidential_hart_state.mepc = CSR.stvec.read();
+        self.csrs().sepc.set(self.non_confidential_hart_state.csrs.mepc.read_value());
+        self.non_confidential_hart_state.csrs.mepc.save_value(self.csrs().stvec.read());
 
         // We trick the hypervisor to think that the trap comes directly from the VS-mode.
-        enable_bit(&mut self.non_confidential_hart_state.mstatus, CSR_MSTATUS_SPP);
-        CSR.hstatus.read_and_set_bit(CSR_HSTATUS_SPV);
-        CSR.hstatus.read_and_set_bit(CSR_HSTATUS_SPVP);
+        self.non_confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SPP);
+        self.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPV);
+        self.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPVP);
         // According to the spec, hstatus:SPVP and sstatus.SPP have the same value when transitioning from VS to HS mode.
-        CSR.sstatus.read_and_set_bit(CSR_SSTATUS_SPP);
+        self.csrs().sstatus.read_and_set_bit(CSR_SSTATUS_SPP);
 
         if encoded_guest_virtual_address {
-            CSR.hstatus.read_and_set_bit(CSR_HSTATUS_GVA);
+            self.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_GVA);
         } else {
-            CSR.hstatus.read_and_clear_bit(CSR_HSTATUS_GVA);
+            self.csrs().hstatus.read_and_clear_bit(CSR_HSTATUS_GVA);
         }
     }
 }
 
 impl HardwareHart {
+    pub fn gprs(&self) -> &GeneralPurposeRegisters {
+        &self.non_confidential_hart_state.gprs
+    }
+
+    pub fn csrs(&self) -> &ControlStatusRegisters {
+        &self.non_confidential_hart_state.csrs
+    }
+
     pub fn trap_reason(&mut self) -> TrapCause {
         use crate::core::architecture::SbiExtension;
-        let cause = CSR.mcause.read();
+        let mcause = self.csrs().mcause.read();
         let extension_id = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a7);
         let function_id = self.non_confidential_hart_state.gpr(GeneralPurposeRegister::a6);
-        let trap_reason = TrapCause::from(cause, extension_id, function_id);
+        let trap_reason = TrapCause::from(mcause, extension_id, function_id);
 
         // `ecall` from the hypervisor carry additional information that must be restored.
         match trap_reason {
@@ -238,16 +246,12 @@ impl HardwareHart {
         trap_reason
     }
 
-    pub fn promote_to_confidential_vm_request(&self) -> PromoteToConfidentialVm {
-        PromoteToConfidentialVm::new(&self.non_confidential_hart_state)
-    }
-
     pub fn hypercall_result(&self) -> SbiResult {
         SbiResult::ecall(&self.non_confidential_hart_state)
     }
 
-    pub fn guest_load_page_fault_result(&self, request: GuestLoadPageFaultRequest) -> GuestLoadPageFaultResult {
-        GuestLoadPageFaultResult::new(&self.non_confidential_hart_state, request)
+    pub fn guest_load_page_fault_result(&self, request: MmioLoadPending) -> MmioLoadResult {
+        MmioLoadResult::new(&self.non_confidential_hart_state, request)
     }
 
     pub fn sbi_vm_request(&self) -> SbiVmRequest {
@@ -275,7 +279,7 @@ impl HardwareHart {
     }
 
     pub fn interrupts_to_inject(&self) -> InjectedInterrupts {
-        InjectedInterrupts::new(CSR.hvip.read())
+        InjectedInterrupts::new(self.csrs().hvip.read())
     }
 
     pub fn restore_original_gprs(&mut self) {
@@ -284,8 +288,8 @@ impl HardwareHart {
         // hypervisor and confidential VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V
         // NACL extension that solves these problems by using shared memory region in which the SBI- and MMIO-related
         // information is transfered. Below we restore the original `a7` and `a6`.
-        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, CSR.vstval.read());
-        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, CSR.vsepc.read());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a7, self.csrs().vstval.read());
+        self.non_confidential_hart_state.set_gpr(GeneralPurposeRegister::a6, self.csrs().vsepc.read());
     }
 
     fn read_security_monitor_call_arguments(&self) -> (usize, usize) {
@@ -293,6 +297,6 @@ impl HardwareHart {
         // might carry SBI- or MMIO-related reponses, so using GRPs would destroy the communication between the hypervisor and confidential
         // VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V NACL extension that solves these problems by
         // using shared memory region in which the SBI- and MMIO-related information is transfered.
-        (CSR.vstvec.read(), CSR.vsscratch.read())
+        (self.csrs().vstvec.read(), self.csrs().vsscratch.read())
     }
 }

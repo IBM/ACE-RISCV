@@ -26,7 +26,7 @@ impl ConfidentialVmMemoryProtector {
     ///   * the size of the VM is larger than the size of the available confidential memory,
     ///   * the configuration of the memory isolation component (MMU) is invalid.
     pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
-        let hgatp = Hgatp::from(hart_state.hgatp);
+        let hgatp = Hgatp::from(hart_state.csrs.hgatp.read_value());
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
         Ok(Self { root_page_table, hgatp: 0 })
     }

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData, HardwareHart};
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::transformations::{ExposeToHypervisor, PromoteToConfidentialVm, SbiRequest};
 use crate::error::Error;
@@ -24,9 +24,11 @@ const BOOT_HART_ID: usize = 0;
 /// # Safety
 ///
 /// The virtual machine must make this call on a boot hart before other harts come out of reset.
-pub fn handle(promote_to_confidential_vm_request: PromoteToConfidentialVm, non_confidential_flow: NonConfidentialFlow) -> ! {
+pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
+    let request = PromoteToConfidentialVm::from_vm_hart(non_confidential_flow.hardware_hart());
+
     debug!("Promoting a VM into a confidential VM");
-    let transformation = match create_confidential_vm(promote_to_confidential_vm_request) {
+    let transformation = match create_confidential_vm(request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => {
             debug!("Promotion to confidential VM failed: {:?}", error);

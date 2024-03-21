@@ -55,9 +55,7 @@ impl<'a> NonConfidentialFlow<'a> {
                 terminate_confidential_vm::handle(control_flow.hardware_hart.terminate_request(), control_flow)
             }
             HsEcall(_) => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            VsEcall(Ace(PromoteToConfidentialVm)) => {
-                promote_to_confidential_vm::handle(control_flow.hardware_hart.promote_to_confidential_vm_request(), control_flow)
-            }
+            VsEcall(Ace(PromoteToConfidentialVm)) => promote_to_confidential_vm::handle(control_flow),
             VsEcall(_) => delegate_hypercall::handle(control_flow.hardware_hart.sbi_vm_request(), control_flow),
             MachineEcall => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
@@ -83,5 +81,9 @@ impl<'a> NonConfidentialFlow<'a> {
     /// called before executing any OpenSBI function. We can remove this once we get rid of the OpenSBI firmware.
     pub fn swap_mscratch(&mut self) {
         self.hardware_hart.swap_mscratch()
+    }
+
+    pub fn hardware_hart(&self) -> &HardwareHart {
+        &self.hardware_hart
     }
 }

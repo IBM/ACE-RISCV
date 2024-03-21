@@ -44,8 +44,8 @@ impl OpensbiRequest {
                 t4: hart_state.gpr(GeneralPurposeRegister::t4).try_into().unwrap_or(0),
                 t5: hart_state.gpr(GeneralPurposeRegister::t5).try_into().unwrap_or(0),
                 t6: hart_state.gpr(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
-                mepc: hart_state.mepc.try_into().unwrap_or(0),
-                mstatus: hart_state.mstatus.try_into().unwrap_or(0),
+                mepc: hart_state.csrs.mepc.read_value().try_into().unwrap_or(0),
+                mstatus: hart_state.csrs.mstatus.read_value().try_into().unwrap_or(0),
                 // TODO: mstatusH exists only in rv32. Adjust this to support rv32
                 mstatusH: 0,
             },
@@ -58,5 +58,32 @@ impl OpensbiRequest {
 
     pub fn into_regs(self) -> opensbi_sys::sbi_trap_regs {
         self.regs
+    }
+}
+
+#[derive(Debug)]
+pub struct OpensbiResult {
+    trap_regs: opensbi_sys::sbi_trap_regs,
+}
+
+impl OpensbiResult {
+    pub fn from_opensbi_handler(trap_regs: opensbi_sys::sbi_trap_regs) -> Self {
+        Self { trap_regs }
+    }
+
+    pub fn mstatus(&self) -> usize {
+        self.trap_regs.mstatus.try_into().unwrap()
+    }
+
+    pub fn mepc(&self) -> usize {
+        self.trap_regs.mepc.try_into().unwrap()
+    }
+
+    pub fn a0(&self) -> usize {
+        self.trap_regs.a0.try_into().unwrap()
+    }
+
+    pub fn a1(&self) -> usize {
+        self.trap_regs.a1.try_into().unwrap()
     }
 }

@@ -2,14 +2,14 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{
-    is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, TrapCause, CSR, ECALL_INSTRUCTION_LENGTH, *,
+    is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, TrapCause, ECALL_INSTRUCTION_LENGTH, *,
 };
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::transformations::{
-    EnabledInterrupts, ExposeToConfidentialVm, GuestLoadPageFaultRequest, GuestLoadPageFaultResult, GuestStorePageFaultRequest,
-    GuestStorePageFaultResult, InjectedInterrupts, InterHartRequest, MmioLoadRequest, MmioStoreRequest, PendingRequest, SbiHsmHartStart,
-    SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
-    SbiRequest, SbiResult, SharePageRequest, UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
+    EnabledInterrupts, ExposeToConfidentialVm, InjectedInterrupts, InterHartRequest, MmioLoadPending, MmioLoadRequest, MmioLoadResult,
+    MmioStorePending, MmioStoreRequest, MmioStoreResult, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi,
+    SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
+    UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
 };
 use crate::error::Error;
 
@@ -52,18 +52,19 @@ impl ConfidentialHart {
     /// Constructs a confidential hart with the state after a reset.
     pub fn from_vm_hart_reset(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
         let mut confidential_hart_state = HartArchitecturalState::empty(id);
-        confidential_hart_state.mstatus = non_confidential_hart_state.mstatus;
+        confidential_hart_state.csrs.mstatus.save_value(non_confidential_hart_state.csrs.mstatus.read_value());
         // set timer counter to infinity
-        confidential_hart_state.vstimecmp = usize::MAX - 1;
+        confidential_hart_state.csrs.vstimecmp.save_value(usize::MAX - 1);
         // assume the same starting clock for all confidential harts within the same confidential VM
-        confidential_hart_state.htimedelta = non_confidential_hart_state.htimedelta;
-        confidential_hart_state.scounteren = non_confidential_hart_state.scounteren;
+        confidential_hart_state.csrs.htimedelta.save_value(non_confidential_hart_state.csrs.htimedelta.read_value());
+        confidential_hart_state.csrs.scounteren.save_value(non_confidential_hart_state.csrs.scounteren.read_value());
         Self::new(confidential_hart_state, HartLifecycleState::Stopped)
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
     pub fn from_vm_hart(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
-        let hart_architectural_state = HartArchitecturalState::from_existing(id, non_confidential_hart_state);
+        let hart_architectural_state =
+            HartArchitecturalState::from_existing(id, &non_confidential_hart_state.gprs, &non_confidential_hart_state.csrs);
         let mut confidential_hart = Self::new(hart_architectural_state, HartLifecycleState::Started);
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -72,31 +73,33 @@ impl ConfidentialHart {
     /// Constructs a new confidential hart based on the given architectural state. It configures CSRs to a well-known initial state in which
     /// a confidential hart will execute securely.
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
-        confidential_hart_state.sstatus = (1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL) | (0b10 << CSR_SSTATUS_FS);
-        confidential_hart_state.hstatus = (1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL);
+        confidential_hart_state.csrs.sstatus.save_value((1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL) | (0b10 << CSR_SSTATUS_FS));
+        confidential_hart_state.csrs.hstatus.save_value((1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL));
         // Delegate VS-level interrupts directly to the confidential VM. All other interrupts will trap in the security monitor.
-        confidential_hart_state.mideleg = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
-        confidential_hart_state.hideleg = confidential_hart_state.mideleg;
+        confidential_hart_state.csrs.mideleg.save_value(MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK);
+        confidential_hart_state.csrs.hideleg.save_value(confidential_hart_state.csrs.mideleg.read_value());
         // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
-        confidential_hart_state.hie = confidential_hart_state.mideleg;
+        confidential_hart_state.csrs.hie.save_value(confidential_hart_state.csrs.mideleg.read_value());
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
-        confidential_hart_state.mie = MIE_STIP_MASK;
+        confidential_hart_state.csrs.mie.save_value(MIE_STIP_MASK);
         // Delegate exceptions that can be handled directly in the confidential VM
-        confidential_hart_state.medeleg = (1 << CAUSE_MISALIGNED_FETCH)
-            | (1 << CAUSE_FETCH_ACCESS)
-            | (1 << CAUSE_ILLEGAL_INSTRUCTION)
-            | (1 << CAUSE_BREAKPOINT)
-            | (1 << CAUSE_MISALIGNED_LOAD)
-            | (1 << CAUSE_LOAD_ACCESS)
-            | (1 << CAUSE_MISALIGNED_STORE)
-            | (1 << CAUSE_STORE_ACCESS)
-            | (1 << CAUSE_USER_ECALL)
-            | (1 << CAUSE_FETCH_PAGE_FAULT)
-            | (1 << CAUSE_LOAD_PAGE_FAULT)
-            | (1 << CAUSE_STORE_PAGE_FAULT);
-        confidential_hart_state.hedeleg = confidential_hart_state.medeleg;
+        confidential_hart_state.csrs.medeleg.save_value(
+            (1 << CAUSE_MISALIGNED_FETCH)
+                | (1 << CAUSE_FETCH_ACCESS)
+                | (1 << CAUSE_ILLEGAL_INSTRUCTION)
+                | (1 << CAUSE_BREAKPOINT)
+                | (1 << CAUSE_MISALIGNED_LOAD)
+                | (1 << CAUSE_LOAD_ACCESS)
+                | (1 << CAUSE_MISALIGNED_STORE)
+                | (1 << CAUSE_STORE_ACCESS)
+                | (1 << CAUSE_USER_ECALL)
+                | (1 << CAUSE_FETCH_PAGE_FAULT)
+                | (1 << CAUSE_LOAD_PAGE_FAULT)
+                | (1 << CAUSE_STORE_PAGE_FAULT),
+        );
+        confidential_hart_state.csrs.hedeleg.save_value(confidential_hart_state.csrs.medeleg.read_value());
         // Setup the M-mode trap handler to the security monitor's entry point
-        confidential_hart_state.mtvec = enter_from_confidential_hart_asm as usize;
+        confidential_hart_state.csrs.mtvec.save_value(enter_from_confidential_hart_asm as usize);
 
         // TODO: clear CSRs that are not relevant for the confidential VM execution
 
@@ -140,20 +143,20 @@ impl ConfidentialHart {
 
     /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
     pub fn save_control_status_registers_in_main_memory(&mut self) -> EnabledInterrupts {
-        self.confidential_hart_state.save_control_status_registers_in_main_memory();
+        self.confidential_hart_state.csrs.save_in_main_memory();
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
-        self.enabled_interrupts()
+        EnabledInterrupts::from_confidential_hart(self)
     }
 
     pub fn save_volatile_control_status_registers_in_main_memory(&mut self) {
-        self.confidential_hart_state.mepc = CSR.mepc.read();
-        self.confidential_hart_state.mstatus = CSR.mstatus.read();
+        self.confidential_hart_state.csrs.mepc.save_value(self.csrs().mepc.read());
+        self.confidential_hart_state.csrs.mstatus.save_value(self.csrs().mstatus.read());
     }
 
     /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
     pub fn restore_control_status_registers_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
-        self.confidential_hart_state.restore_control_status_registers_from_main_memory();
+        self.confidential_hart_state.csrs.restore_from_main_memory();
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
         self.apply_injected_interrupts(interrupts_to_inject);
@@ -162,10 +165,10 @@ impl ConfidentialHart {
     /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function should be
     /// called just before exiting to the assembly context switch, so when we are sure that these CSRs have their final values.
     pub fn restore_volatile_control_status_registers_from_main_memory(&self) {
-        CSR.hvip.set(self.confidential_hart_state.hvip | self.confidential_hart_state.vsip);
-        CSR.mstatus.set(self.confidential_hart_state.mstatus);
-        CSR.mepc.set(self.confidential_hart_state.mepc);
-        CSR.sscratch.set(core::ptr::addr_of!(self.confidential_hart_state) as usize);
+        self.csrs().hvip.set(self.confidential_hart_state.csrs.hvip.read_value() | self.csrs().vsip.read_value());
+        self.csrs().mstatus.set(self.confidential_hart_state.csrs.mstatus.read_value());
+        self.csrs().mepc.set(self.confidential_hart_state.csrs.mepc.read_value());
+        self.csrs().sscratch.set(core::ptr::addr_of!(self.confidential_hart_state) as usize);
     }
 }
 
@@ -192,14 +195,15 @@ impl ConfidentialHart {
         // Following the SBI documentation of the function `hart start` in the HSM extension, only vsatp, vsstatus.SIE,
         // a0, a1 have defined values, all other registers are in an undefined state. The hart will start
         // executing in the supervisor mode with disabled MMU (vsatp=0).
-        self.confidential_hart_state.vsatp = 0;
+        self.confidential_hart_state.csrs.vsatp.save_value(0);
         // start the new confidential hart with interrupts disabled
-        disable_bit(&mut self.confidential_hart_state.mstatus, CSR_MSTATUS_SPIE);
-        disable_bit(&mut self.confidential_hart_state.mstatus, CSR_MSTATUS_MPIE);
-        disable_bit(&mut self.confidential_hart_state.vsstatus, CSR_STATUS_SIE);
+        self.confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_SPIE);
+        self.confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
+
+        self.confidential_hart_state.csrs.vsstatus.disable_bit_on_saved_value(CSR_STATUS_SIE);
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, self.confidential_hart_id());
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.opaque());
-        self.confidential_hart_state.mepc = request.start_address();
+        self.confidential_hart_state.csrs.mepc.save_value(request.start_address());
 
         Ok(())
     }
@@ -244,9 +248,9 @@ impl ConfidentialHart {
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
-            ExposeToConfidentialVm::GuestLoadPageFaultResult(v) => self.apply_guest_load_page_fault_result(v),
+            ExposeToConfidentialVm::MmioLoadResult(v) => self.apply_guest_load_page_fault_result(v),
             ExposeToConfidentialVm::VirtualInstructionResult(v) => self.apply_virtual_instruction_result(v),
-            ExposeToConfidentialVm::GuestStorePageFaultResult(v) => self.apply_guest_store_page_fault_result(v),
+            ExposeToConfidentialVm::MmioStoreResult(v) => self.apply_guest_store_page_fault_result(v),
             ExposeToConfidentialVm::SbiIpi() => self.apply_sbi_ipi(),
             ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_sbi_remote_fence_i(v),
             ExposeToConfidentialVm::SbiRemoteSfenceVma(v) => self.apply_sbi_remote_sfence_vma(v),
@@ -260,12 +264,12 @@ impl ConfidentialHart {
     }
 
     fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
-        self.confidential_hart_state.hvip = result.hvip();
+        self.confidential_hart_state.csrs.hvip.save_value(result.hvip());
     }
 
     fn apply_sbi_ipi(&mut self) {
         // IPI exposes itself as supervisor-level software interrupt.
-        enable_bit(&mut self.confidential_hart_state.vsip, crate::core::architecture::MIE_VSSIP);
+        self.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::MIE_VSSIP);
     }
 
     fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
@@ -293,147 +297,60 @@ impl ConfidentialHart {
     fn apply_sbi_result(&mut self, result: SbiResult) {
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
-        self.confidential_hart_state.mepc += result.pc_offset();
+        self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.pc_offset());
     }
 
     fn apply_sbi_result_success(&mut self) {
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, 0);
         self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, 0);
-        self.confidential_hart_state.mepc += ECALL_INSTRUCTION_LENGTH;
+        self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + ECALL_INSTRUCTION_LENGTH);
     }
 
-    fn apply_guest_load_page_fault_result(&mut self, result: GuestLoadPageFaultResult) {
+    fn apply_guest_load_page_fault_result(&mut self, result: MmioLoadResult) {
         self.confidential_hart_state.set_gpr(result.result_gpr(), result.value());
-        self.confidential_hart_state.mepc += result.instruction_length();
+        self.confidential_hart_state
+            .csrs
+            .mepc
+            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
     }
 
-    fn apply_guest_store_page_fault_result(&mut self, result: GuestStorePageFaultResult) {
-        self.confidential_hart_state.mepc += result.instruction_length();
+    fn apply_guest_store_page_fault_result(&mut self, result: MmioStoreResult) {
+        self.confidential_hart_state
+            .csrs
+            .mepc
+            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
     }
 
     fn apply_virtual_instruction_result(&mut self, result: VirtualInstructionResult) {
-        self.confidential_hart_state.mepc += result.instruction_length();
+        self.confidential_hart_state
+            .csrs
+            .mepc
+            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
     }
 }
 
 // Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
+    pub fn gpr(&self, gpr: GeneralPurposeRegister) -> usize {
+        self.confidential_hart_state.gpr(gpr)
+    }
+
+    pub fn gprs(&self) -> &GeneralPurposeRegisters {
+        &self.confidential_hart_state.gprs
+    }
+
+    pub fn csrs(&self) -> &ControlStatusRegisters {
+        &self.confidential_hart_state.csrs
+    }
+
+    pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
+        &mut self.confidential_hart_state.csrs
+    }
+
     pub fn trap_reason(&self) -> TrapCause {
-        let cause = CSR.mcause.read();
-        let extension_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a7);
-        let function_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a6);
-        TrapCause::from(cause, extension_id, function_id)
-    }
-
-    pub fn hypercall_request(&self) -> SbiRequest {
-        SbiRequest::from_hart_state(&self.confidential_hart_state)
-    }
-
-    pub fn virtual_instruction_request(&self) -> VirtualInstructionRequest {
-        // According to the RISC-V privilege spec, mtval should store virtual instruction
-        let instruction = CSR.mtval.read();
-        let instruction_length = riscv_decode::instruction_length(instruction as u16);
-        VirtualInstructionRequest::new(instruction, instruction_length)
-    }
-
-    pub fn guest_load_page_fault_request(&self) -> Result<(GuestLoadPageFaultRequest, MmioLoadRequest), Error> {
-        let mcause = CSR.mcause.read();
-        let mtinst = CSR.mtinst.read();
-        let mtval = CSR.mtval.read();
-        let mtval2 = CSR.mtval2.read();
-
-        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
-        assert!(mtinst & 0x1 > 0);
-        let instruction = mtinst | 0x3;
-        let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
-        let result_gpr = crate::core::architecture::decode_result_register(instruction)?;
-
-        let load_fault_request = GuestLoadPageFaultRequest::new(instruction_length, result_gpr);
-        let mmio_load_request = MmioLoadRequest::new(mcause, mtval, mtval2, mtinst);
-
-        Ok((load_fault_request, mmio_load_request))
-    }
-
-    pub fn guest_store_page_fault_request(&self) -> Result<(GuestStorePageFaultRequest, MmioStoreRequest), Error> {
-        let mcause = CSR.mcause.read();
-        let mtinst = CSR.mtinst.read();
-        let mtval = CSR.mtval.read();
-        let mtval2 = CSR.mtval2.read();
-
-        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
-        assert!(mtinst & 0x1 > 0);
-        let instruction = mtinst | 0x3;
-        let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
-        let gpr = crate::core::architecture::decode_result_register(instruction)?;
-        let gpr_value = self.confidential_hart_state.gpr(gpr);
-
-        let guest_store_page_fault_request = GuestStorePageFaultRequest::new(instruction_length);
-        let mmio_store_request = MmioStoreRequest::new(mcause, mtval, mtval2, mtinst, gpr, gpr_value);
-
-        Ok((guest_store_page_fault_request, mmio_store_request))
-    }
-
-    pub fn share_page_request(&self) -> Result<(SharePageRequest, SbiRequest), Error> {
-        let shared_page_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let share_page_request = SharePageRequest::new(shared_page_address)?;
-        let sbi_request = SbiRequest::kvm_ace_page_in(shared_page_address);
-        Ok((share_page_request, sbi_request))
-    }
-
-    pub fn unshare_page_request(&self) -> Result<UnsharePageRequest, Error> {
-        let page_to_unshare_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        Ok(UnsharePageRequest::new(page_to_unshare_address)?)
-    }
-
-    pub fn sbi_ipi(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        InterHartRequest::SbiIpi(SbiIpi::new(hart_mask, hart_mask_base))
-    }
-
-    pub fn sbi_hsm_hart_start(&self) -> SbiHsmHartStart {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        let opaque = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
-        SbiHsmHartStart::new(confidential_hart_id, start_address, opaque)
-    }
-
-    pub fn sbi_hsm_hart_suspend(&self) -> SbiHsmHartSuspend {
-        let suspend_type = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let resume_addr = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        let opaque = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
-        SbiHsmHartSuspend::new(suspend_type, resume_addr, opaque)
-    }
-
-    pub fn sbi_hsm_hart_status(&self) -> SbiHsmHartStatus {
-        let confidential_hart_id = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        SbiHsmHartStatus::new(confidential_hart_id)
-    }
-
-    pub fn sbi_remote_fence_i(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        InterHartRequest::SbiRemoteFenceI(SbiRemoteFenceI::new(hart_mask, hart_mask_base))
-    }
-
-    pub fn sbi_remote_sfence_vma(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
-        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
-        InterHartRequest::SbiRemoteSfenceVma(SbiRemoteSfenceVma::new(hart_mask, hart_mask_base, start_address, size))
-    }
-
-    pub fn sbi_remote_sfence_vma_asid(&self) -> InterHartRequest {
-        let hart_mask = self.confidential_hart_state.gpr(GeneralPurposeRegister::a0);
-        let hart_mask_base = self.confidential_hart_state.gpr(GeneralPurposeRegister::a1);
-        let start_address = self.confidential_hart_state.gpr(GeneralPurposeRegister::a2);
-        let size = self.confidential_hart_state.gpr(GeneralPurposeRegister::a3);
-        let asid = self.confidential_hart_state.gpr(GeneralPurposeRegister::a4);
-        InterHartRequest::SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid::new(hart_mask, hart_mask_base, start_address, size, asid))
-    }
-
-    pub fn enabled_interrupts(&self) -> EnabledInterrupts {
-        EnabledInterrupts::new(CSR.vsie.read())
+        let mcause = self.csrs().mcause.read();
+        let extension_id = self.gprs().get(GeneralPurposeRegister::a7);
+        let function_id = self.gprs().get(GeneralPurposeRegister::a6);
+        TrapCause::from(mcause, extension_id, function_id)
     }
 }

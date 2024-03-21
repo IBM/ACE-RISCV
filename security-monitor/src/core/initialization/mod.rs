@@ -214,8 +214,8 @@ extern "C" fn ace_setup_this_hart() {
     // `opensbi_mscratch` region of this hart before calling the security monitor's initialization
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
     hart.swap_mscratch();
-    CSR.mscratch.set(hart.address());
-    debug!("Hardware hart id={} has state area region at {:x}", hart_id, CSR.mscratch.read());
+    hart.csrs().mscratch.set(hart.address());
+    debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart.csrs().mscratch.read());
 
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
@@ -226,12 +226,12 @@ extern "C" fn ace_setup_this_hart() {
 
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
-    CSR.medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
-    CSR.medeleg.read_and_clear_bit(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-    debug!("Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}", CSR.medeleg.read());
+    hart.csrs().medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
+    hart.csrs().medeleg.read_and_clear_bit(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+    debug!("Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}", hart.csrs().medeleg.read());
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
     debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
-    CSR.mtvec.set((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
+    hart.csrs().mtvec.set((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }
