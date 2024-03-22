@@ -108,12 +108,19 @@ pub struct SbiResult {
 }
 
 impl SbiResult {
-    pub fn ecall(hardware_hart: &HardwareHart) -> Self {
+    pub fn from_hypervisor_hart(hardware_hart: &HardwareHart) -> Self {
         Self::new(
             hardware_hart.gprs().read(GeneralPurposeRegister::a0),
             hardware_hart.gprs().read(GeneralPurposeRegister::a1),
             ECALL_INSTRUCTION_LENGTH,
         )
+    }
+
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        confidential_hart.confidential_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
+        confidential_hart.confidential_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
+        let new_mepc = confidential_hart.confidential_hart_state().csrs().mepc.read_value() + self.pc_offset;
+        confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
     }
 
     pub fn success(code: usize) -> Self {

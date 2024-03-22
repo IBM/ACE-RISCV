@@ -13,7 +13,7 @@ use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartArchitecturalState, SbiExtension, TrapCause};
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart};
 use crate::core::transformations::PendingRequest::*;
-use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest};
+use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest, SbiResult};
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
@@ -99,7 +99,9 @@ impl<'a> ConfidentialFlow<'a> {
             Some(MmioLoad(request)) => mmio::handle_mmio_load_response(confidential_flow, request),
             Some(MmioStore(request)) => mmio::handle_mmio_store_response(confidential_flow, request),
             Some(SharePage(request)) => shared_page::share_page(confidential_flow, request),
-            Some(SbiHsmHartStart()) => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiHsmHartStart()),
+            Some(SbiHsmHartStart()) => {
+                confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiResult(SbiResult::success(0)))
+            }
             Some(SbiHsmHartStartPending()) => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiHsmHartStartPending()),
             None => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::Resume()),
         }
@@ -159,13 +161,11 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn process_inter_hart_requests(&mut self) {
         ControlData::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.try_inter_hart_requests(self.confidential_hart_id(), |ref mut inter_hart_requests| {
-                inter_hart_requests.drain(..).map(|inter_hart_request| inter_hart_request.into_expose_to_confidential_vm()).for_each(
-                    |transformation| {
-                        // The confidential flow has an ownership of the confidential hart because the confidential hart
-                        // is assigned to the hardware hart.
-                        self.hardware_hart.confidential_hart_mut().apply(transformation);
-                    },
-                );
+                inter_hart_requests.drain(..).for_each(|inter_hart_request| {
+                    // The confidential flow has an ownership of the confidential hart because the confidential hart
+                    // is assigned to the hardware hart.
+                    self.hardware_hart.confidential_hart_mut().execute(&inter_hart_request);
+                });
                 Ok(())
             })
         })

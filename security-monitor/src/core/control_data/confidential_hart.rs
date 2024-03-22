@@ -217,86 +217,25 @@ impl ConfidentialHart {
 impl ConfidentialHart {
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
-            ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
-            ExposeToConfidentialVm::MmioLoadResult(v) => self.apply_guest_load_page_fault_result(v),
-            ExposeToConfidentialVm::VirtualInstructionResult(v) => self.apply_virtual_instruction_result(v),
-            ExposeToConfidentialVm::MmioStoreResult(v) => self.apply_guest_store_page_fault_result(v),
-            ExposeToConfidentialVm::SbiIpi() => self.apply_sbi_ipi(),
-            ExposeToConfidentialVm::SbiRemoteFenceI(v) => self.apply_sbi_remote_fence_i(v),
-            ExposeToConfidentialVm::SbiRemoteSfenceVma(v) => self.apply_sbi_remote_sfence_vma(v),
-            ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v) => self.apply_sbi_remote_sfence_vma_asid(v),
-            ExposeToConfidentialVm::SbiRemoteHfenceGvmaVmid(v) => self.apply_sbi_remote_hfence_gvma_vmid(v),
+            ExposeToConfidentialVm::SbiResult(v) => v.declassify_to_confidential_hart(self),
+            ExposeToConfidentialVm::MmioLoadResult(v) => v.declassify_to_confidential_hart(self),
+            ExposeToConfidentialVm::VirtualInstructionResult(v) => v.declassify_to_confidential_hart(self),
+            ExposeToConfidentialVm::MmioStoreResult(v) => v.declassify_to_confidential_hart(self),
             ExposeToConfidentialVm::SbiHsmHartStartPending() => self.transition_from_start_pending_to_started(),
-            ExposeToConfidentialVm::SbiHsmHartStart() => self.apply_sbi_result_success(),
-            ExposeToConfidentialVm::SbiSrstSystemReset() => self.transition_to_shutdown(),
             ExposeToConfidentialVm::Resume() => {}
         }
         core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
-    pub fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
-        self.confidential_hart_state.csrs.hvip.save_value(result.hvip());
-    }
-
-    fn apply_sbi_ipi(&mut self) {
-        // IPI exposes itself as supervisor-level software interrupt.
-        self.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::MIE_VSSIP);
-    }
-
-    fn apply_sbi_remote_fence_i(&mut self, _result: SbiRemoteFenceI) {
-        crate::core::architecture::fence_i();
-        self.apply_sbi_ipi();
-    }
-
-    fn apply_sbi_remote_sfence_vma(&mut self, _result: SbiRemoteSfenceVma) {
-        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
-        crate::core::architecture::hfence_vvma();
-        self.apply_sbi_ipi();
-    }
-
-    fn apply_sbi_remote_sfence_vma_asid(&mut self, _result: SbiRemoteSfenceVmaAsid) {
-        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
-        crate::core::architecture::hfence_vvma();
-        self.apply_sbi_ipi();
-    }
-
-    fn apply_sbi_remote_hfence_gvma_vmid(&mut self, _result: SbiRemoteHfenceGvmaVmid) {
-        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
-        crate::core::architecture::hfence_gvma();
-    }
-
-    fn apply_sbi_result(&mut self, result: SbiResult) {
-        self.gprs_mut().write(GeneralPurposeRegister::a0, result.a0());
-        self.gprs_mut().write(GeneralPurposeRegister::a1, result.a1());
-        self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.pc_offset());
-    }
-
-    fn apply_sbi_result_success(&mut self) {
-        self.gprs_mut().write(GeneralPurposeRegister::a0, 0);
-        self.gprs_mut().write(GeneralPurposeRegister::a1, 0);
-        self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + ECALL_INSTRUCTION_LENGTH);
-    }
-
-    fn apply_guest_load_page_fault_result(&mut self, result: MmioLoadResult) {
-        self.gprs_mut().write(result.result_gpr(), result.value());
-        self.confidential_hart_state
-            .csrs
-            .mepc
-            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
-    }
-
-    fn apply_guest_store_page_fault_result(&mut self, result: MmioStoreResult) {
-        self.confidential_hart_state
-            .csrs
-            .mepc
-            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
-    }
-
-    fn apply_virtual_instruction_result(&mut self, result: VirtualInstructionResult) {
-        self.confidential_hart_state
-            .csrs
-            .mepc
-            .save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.instruction_length());
+    pub fn execute(&mut self, request: &InterHartRequest) {
+        match request {
+            InterHartRequest::SbiIpi(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiRemoteFenceI(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiRemoteSfenceVma(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiSrstSystemReset(_) => self.transition_to_shutdown(),
+        }
     }
 }
 

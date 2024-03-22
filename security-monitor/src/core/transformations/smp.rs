@@ -85,85 +85,82 @@ pub struct SbiIpi {
 }
 
 impl SbiIpi {
+    pub fn new(hart_mask: usize, hart_mask_base: usize) -> Self {
+        Self { hart_mask, hart_mask_base }
+    }
+
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let hart_mask = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
         let hart_mask_base = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
         Self { hart_mask, hart_mask_base }
     }
 
-    pub fn hart_mask(&self) -> usize {
-        self.hart_mask
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        // IPI exposes itself as supervisor-level software interrupt.
+        confidential_hart.confidential_hart_state_mut().csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::MIE_VSSIP);
     }
 
-    pub fn hart_mask_base(&self) -> usize {
-        self.hart_mask_base
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        // according to SBI documentation all harts are selected when the mask_base is of its maximum value
+        match self.hart_mask_base == usize::MAX {
+            true => true,
+            false => hart_id
+                .checked_sub(self.hart_mask_base)
+                .filter(|id| *id < usize::BITS as usize)
+                .is_some_and(|id| self.hart_mask & (1 << id) != 0),
+        }
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SbiRemoteFenceI {
-    hart_mask: usize,
-    hart_mask_base: usize,
+    ipi: SbiIpi,
 }
 
 impl SbiRemoteFenceI {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let hart_mask = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let hart_mask_base = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
-        Self { hart_mask, hart_mask_base }
+        Self { ipi: SbiIpi::from_confidential_hart(confidential_hart) }
     }
 
-    pub fn new(hart_mask: usize, hart_mask_base: usize) -> Self {
-        Self { hart_mask, hart_mask_base }
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        crate::core::architecture::fence_i();
+        self.ipi.declassify_to_confidential_hart(confidential_hart);
     }
 
-    pub fn hart_mask(&self) -> usize {
-        self.hart_mask
-    }
-
-    pub fn hart_mask_base(&self) -> usize {
-        self.hart_mask_base
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        self.ipi.is_hart_selected(hart_id)
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SbiRemoteSfenceVma {
-    hart_mask: usize,
-    hart_mask_base: usize,
+    ipi: SbiIpi,
     start_address: usize,
     size: usize,
 }
 
 impl SbiRemoteSfenceVma {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let hart_mask = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let hart_mask_base = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        let ipi = SbiIpi::from_confidential_hart(confidential_hart);
         let start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
         let size = confidential_hart.gprs().read(GeneralPurposeRegister::a3);
-        Self { hart_mask, hart_mask_base, start_address, size }
+        Self { ipi, start_address, size }
     }
 
-    pub fn hart_mask(&self) -> usize {
-        self.hart_mask
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
+        crate::core::architecture::hfence_vvma();
+        self.ipi.declassify_to_confidential_hart(confidential_hart);
     }
 
-    pub fn hart_mask_base(&self) -> usize {
-        self.hart_mask_base
-    }
-
-    pub fn start_address(&self) -> usize {
-        self.start_address
-    }
-
-    pub fn size(&self) -> usize {
-        self.size
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        self.ipi.is_hart_selected(hart_id)
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SbiRemoteSfenceVmaAsid {
-    hart_mask: usize,
-    hart_mask_base: usize,
+    ipi: SbiIpi,
     start_address: usize,
     size: usize,
     asid: usize,
@@ -171,72 +168,49 @@ pub struct SbiRemoteSfenceVmaAsid {
 
 impl SbiRemoteSfenceVmaAsid {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let hart_mask = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let hart_mask_base = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        let ipi = SbiIpi::from_confidential_hart(confidential_hart);
         let start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
         let size = confidential_hart.gprs().read(GeneralPurposeRegister::a3);
         let asid = confidential_hart.gprs().read(GeneralPurposeRegister::a4);
-        Self { hart_mask, hart_mask_base, start_address, size, asid }
+        Self { ipi, start_address, size, asid }
     }
 
-    pub fn hart_mask(&self) -> usize {
-        self.hart_mask
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
+        crate::core::architecture::hfence_vvma();
+        self.ipi.declassify_to_confidential_hart(confidential_hart);
     }
 
-    pub fn hart_mask_base(&self) -> usize {
-        self.hart_mask_base
-    }
-
-    pub fn start_address(&self) -> usize {
-        self.start_address
-    }
-
-    pub fn size(&self) -> usize {
-        self.size
-    }
-
-    pub fn asid(&self) -> usize {
-        self.asid
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        self.ipi.is_hart_selected(hart_id)
     }
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SbiRemoteHfenceGvmaVmid {
-    hart_mask: usize,
-    hart_mask_base: usize,
+    ipi: SbiIpi,
     start_address: usize,
-    size: usize,
-    vmid: usize,
+    size: PageSize,
+    vmid: ConfidentialVmId,
 }
 
 impl SbiRemoteHfenceGvmaVmid {
     pub fn new(
         hart_mask: usize, hart_mask_base: usize, start_address: &ConfidentialVmPhysicalAddress, size: PageSize, vmid: ConfidentialVmId,
     ) -> Self {
-        Self { hart_mask, hart_mask_base, start_address: start_address.usize(), size: size.in_bytes(), vmid: vmid.usize() }
+        Self { ipi: SbiIpi::new(hart_mask, hart_mask_base), start_address: start_address.usize(), size, vmid }
     }
 
     pub fn all_harts(start_address: &ConfidentialVmPhysicalAddress, size: PageSize, vmid: ConfidentialVmId) -> Self {
         Self::new(usize::MAX, usize::MAX, start_address, size, vmid)
     }
 
-    pub fn hart_mask(&self) -> usize {
-        self.hart_mask
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
+        crate::core::architecture::hfence_gvma();
     }
 
-    pub fn hart_mask_base(&self) -> usize {
-        self.hart_mask_base
-    }
-
-    pub fn start_address(&self) -> usize {
-        self.start_address
-    }
-
-    pub fn size(&self) -> usize {
-        self.size
-    }
-
-    pub fn vmid(&self) -> usize {
-        self.vmid
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        self.ipi.is_hart_selected(hart_id)
     }
 }

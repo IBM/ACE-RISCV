@@ -51,14 +51,7 @@ pub enum ExposeToConfidentialVm {
     VirtualInstructionResult(VirtualInstructionResult),
     MmioStoreResult(MmioStoreResult),
     Resume(),
-    SbiIpi(),
-    SbiRemoteFenceI(SbiRemoteFenceI),
-    SbiRemoteSfenceVma(SbiRemoteSfenceVma),
-    SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
-    SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
-    SbiHsmHartStart(),
     SbiHsmHartStartPending(),
-    SbiSrstSystemReset(),
 }
 
 /// An intermediate confidential hart state that requested certain operation from the hypervisor and is waiting for the
@@ -85,35 +78,14 @@ pub enum InterHartRequest {
 }
 
 impl InterHartRequest {
-    pub fn into_expose_to_confidential_vm(self) -> ExposeToConfidentialVm {
-        match self {
-            Self::SbiIpi(_) => ExposeToConfidentialVm::SbiIpi(),
-            Self::SbiRemoteFenceI(v) => ExposeToConfidentialVm::SbiRemoteFenceI(v),
-            Self::SbiRemoteSfenceVma(v) => ExposeToConfidentialVm::SbiRemoteSfenceVma(v),
-            Self::SbiRemoteSfenceVmaAsid(v) => ExposeToConfidentialVm::SbiRemoteSfenceVmaAsid(v),
-            Self::SbiRemoteHfenceGvmaVmid(v) => ExposeToConfidentialVm::SbiRemoteHfenceGvmaVmid(v),
-            Self::SbiSrstSystemReset(_) => ExposeToConfidentialVm::SbiSrstSystemReset(),
-        }
-    }
-
     pub fn is_hart_selected(&self, hart_id: usize) -> bool {
         match self {
-            Self::SbiIpi(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
-            Self::SbiRemoteFenceI(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
-            Self::SbiRemoteSfenceVma(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
-            Self::SbiRemoteSfenceVmaAsid(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
-            Self::SbiRemoteHfenceGvmaVmid(v) => Self::_is_hart_selected(hart_id, v.hart_mask(), v.hart_mask_base()),
+            Self::SbiIpi(v) => v.is_hart_selected(hart_id),
+            Self::SbiRemoteFenceI(v) => v.is_hart_selected(hart_id),
+            Self::SbiRemoteSfenceVma(v) => v.is_hart_selected(hart_id),
+            Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(hart_id),
+            Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(hart_id),
             Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id() != hart_id,
-        }
-    }
-
-    fn _is_hart_selected(hart_id: usize, hart_mask: usize, hart_mask_base: usize) -> bool {
-        // according to SBI documentation all harts are selected when the mask_base is of its maximum value
-        match hart_mask_base == usize::MAX {
-            true => true,
-            false => {
-                hart_id.checked_sub(hart_mask_base).filter(|id| *id < usize::BITS as usize).is_some_and(|id| hart_mask & (1 << id) != 0)
-            }
         }
     }
 }

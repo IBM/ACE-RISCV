@@ -45,6 +45,10 @@ impl InjectedInterrupts {
         Self { hvip: hardware_hart.csrs().hvip.read() }
     }
 
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        confidential_hart.confidential_hart_state_mut().csrs_mut().hvip.save_value(self.hvip());
+    }
+
     pub fn hvip(&self) -> usize {
         self.hvip
     }

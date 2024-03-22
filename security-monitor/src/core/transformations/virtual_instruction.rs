@@ -17,6 +17,11 @@ impl VirtualInstructionRequest {
         Self { instruction, instruction_length }
     }
 
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        let new_mepc = confidential_hart.confidential_hart_state().csrs().mepc.read_value() + self.instruction_length;
+        confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
+    }
+
     pub fn instruction(&self) -> usize {
         self.instruction
     }
@@ -28,7 +33,7 @@ impl VirtualInstructionRequest {
 
 #[derive(PartialEq)]
 pub struct VirtualInstructionResult {
-    pub instruction_length: usize,
+    instruction_length: usize,
 }
 
 impl VirtualInstructionResult {
@@ -36,7 +41,8 @@ impl VirtualInstructionResult {
         Self { instruction_length }
     }
 
-    pub fn instruction_length(&self) -> usize {
-        self.instruction_length
+    pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        let new_mepc = confidential_hart.confidential_hart_state().csrs().mepc.read_value() + self.instruction_length;
+        confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
     }
 }

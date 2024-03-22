@@ -87,7 +87,7 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         assure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
-        // Context switch:
+        // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
         hardware_hart.non_confidential_hart_state.csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
@@ -95,15 +95,15 @@ impl ConfidentialVm {
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
-        let interrupts_to_inject = InjectedInterrupts::from_hardware_hart(hardware_hart);
-        self.confidential_harts[confidential_hart_id].apply_injected_interrupts(interrupts_to_inject);
+        InjectedInterrupts::from_hardware_hart(hardware_hart)
+            .declassify_to_confidential_hart(&mut self.confidential_harts[confidential_hart_id]);
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
-        // It is safe to invoke below unsafe code because at this point we are in the confidential flow part of the
-        // finite state machine and the virtual hart is assigned to the hardware hart. We must reconfigure the hardware memory isolation
-        // mechanism to enforce that the confidential virtual machine has access only to the memory regions it owns.
+        // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
+        // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
+        // machine and the virtual hart is assigned to the hardware hart.
         unsafe { self.memory_protector.enable() };
 
         Ok(())
@@ -123,7 +123,7 @@ impl ConfidentialVm {
         // Return the confidential hart to the confidential machine.
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
-        // Switch context between security domains.
+        // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
         self.confidential_harts[confidential_hart_id].confidential_hart_state_mut().csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
@@ -167,9 +167,8 @@ impl ConfidentialVm {
                 let is_assigned_to_hardware_hart = { self.confidential_harts[confidential_hart_id].is_dummy() };
                 if !is_assigned_to_hardware_hart {
                     // The confidential hart that should receive an InterHartRequest is not running on any hardware
-                    // hart. Thus, we can apply the InterHartRequest directly.
-                    let transition = inter_hart_request.clone().into_expose_to_confidential_vm();
-                    self.confidential_harts[confidential_hart_id].apply(transition);
+                    // hart. Thus, we can excute the InterHartRequest directly.
+                    self.confidential_harts[confidential_hart_id].execute(&inter_hart_request);
                 } else {
                     // The confidential hart that should receive an InterHartRequest is currently running on a hardware
                     // hart. We add the InterHartRequest to a per confidential hart queue and then interrupt that
