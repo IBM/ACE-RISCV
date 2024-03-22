@@ -17,21 +17,16 @@ pub struct HartArchitecturalState {
 }
 
 impl HartArchitecturalState {
-    pub fn from_existing(id: usize, gprs: &GeneralPurposeRegisters, csrs: &ControlStatusRegisters) -> HartArchitecturalState {
-        let new_gprs = gprs.clone();
-        let mut new_csrs = csrs.copy();
+    pub fn from_existing(id: usize, existing: &HartArchitecturalState) -> Self {
+        let new_gprs = existing.gprs.clone();
+        let mut new_csrs = existing.csrs.copy();
         new_csrs.save_in_main_memory();
 
-        HartArchitecturalState { gprs: new_gprs, csrs: new_csrs, fprs: FloatingPointRegisters::empty(), id }
+        Self { gprs: new_gprs, csrs: new_csrs, fprs: FloatingPointRegisters::empty(), id }
     }
 
-    pub fn empty(id: usize) -> HartArchitecturalState {
-        HartArchitecturalState {
-            gprs: GeneralPurposeRegisters::empty(),
-            csrs: ControlStatusRegisters::empty(),
-            fprs: FloatingPointRegisters::empty(),
-            id,
-        }
+    pub fn empty(id: usize) -> Self {
+        Self { gprs: GeneralPurposeRegisters::empty(), csrs: ControlStatusRegisters::empty(), fprs: FloatingPointRegisters::empty(), id }
     }
 
     pub fn gprs(&self) -> &GeneralPurposeRegisters {

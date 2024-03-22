@@ -12,7 +12,7 @@ pub struct VirtualInstructionRequest {
 impl VirtualInstructionRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         // According to the RISC-V privilege spec, mtval should store virtual instruction
-        let instruction = confidential_hart.csrs().mtval.read();
+        let instruction = confidential_hart.confidential_hart_state().csrs().mtval.read();
         let instruction_length = riscv_decode::instruction_length(instruction as u16);
         Self { instruction, instruction_length }
     }

@@ -15,7 +15,7 @@ use crate::error::Error;
 /// - to the hypervisor when an interrupt comes from a hardware device.
 /// - to the confidential hart in case of software interrupts
 pub fn handle_interrupt(mut confidential_flow: ConfidentialFlow) -> ! {
-    let mip = confidential_flow.confidential_hart().csrs().mip.read();
+    let mip = confidential_flow.confidential_hart().confidential_hart_state().csrs().mip.read();
 
     if mip & MIE_SSIP_MASK > 0 {
         // One of the reasons why the confidential hart was interrupted with SSIP is that it got an `InterHartRequest` from
@@ -68,7 +68,7 @@ pub fn probe_sbi_extensions(confidential_flow: ConfidentialFlow) -> ! {
 /// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
 /// not support such exception. For example, a confidential hart could trap after making a not supported SBI call.
 pub fn invalid_call(confidential_flow: ConfidentialFlow) -> ! {
-    let mcause = confidential_flow.confidential_hart().csrs().mcause.read();
+    let mcause = confidential_flow.confidential_hart().confidential_hart_state().csrs().mcause.read();
     let transformation = Error::InvalidCall(mcause).into_confidential_transformation();
     confidential_flow.exit_to_confidential_hart(transformation)
 }

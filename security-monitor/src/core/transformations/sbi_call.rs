@@ -50,14 +50,14 @@ impl SbiRequest {
 
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self::new(
-            confidential_hart.gprs().read(GeneralPurposeRegister::a7),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a6),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a0),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a1),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a2),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a3),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a4),
-            confidential_hart.gprs().read(GeneralPurposeRegister::a5),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a7),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a6),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a1),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a2),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a3),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a4),
+            confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a5),
         )
     }
 
@@ -123,6 +123,13 @@ impl SbiResult {
         confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
     }
 
+    pub fn apply_to_hardware_hart(&self, hardware_hart: &mut HardwareHart) {
+        let new_mepc = hardware_hart.hypervisor_hart_state().csrs().mepc.read_value() + self.pc_offset;
+        hardware_hart.hypervisor_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
+        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
+        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
+    }
+
     pub fn success(code: usize) -> Self {
         Self::new(0, code, ECALL_INSTRUCTION_LENGTH)
     }
@@ -133,17 +140,5 @@ impl SbiResult {
 
     fn new(a0: usize, a1: usize, pc_offset: usize) -> Self {
         Self { a0, a1, pc_offset }
-    }
-
-    pub fn a0(&self) -> usize {
-        self.a0
-    }
-
-    pub fn a1(&self) -> usize {
-        self.a1
-    }
-
-    pub fn pc_offset(&self) -> usize {
-        self.pc_offset
     }
 }

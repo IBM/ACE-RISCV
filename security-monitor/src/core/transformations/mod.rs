@@ -34,14 +34,19 @@ mod virtual_instruction;
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum ExposeToHypervisor {
-    SbiRequest(SbiRequest),
     SbiResult(SbiResult),
     OpensbiResult(OpensbiResult),
     SbiVmRequest(SbiVmRequest),
+    InterruptRequest(InterruptRequest),
+    SbiRequest(SbiRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
-    InterruptRequest(InterruptRequest),
-    EnabledInterrupts(EnabledInterrupts),
+}
+
+pub enum DeclassifyToHypervisor {
+    SbiRequest(SbiRequest),
+    MmioLoadRequest(MmioLoadRequest),
+    MmioStoreRequest(MmioStoreRequest),
 }
 
 /// Declassifiers that expose part of the hypervisor's state to a confidential VM's hart.

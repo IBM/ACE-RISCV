@@ -2,12 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::transformations::{
     ExposeToConfidentialVm, ExposeToHypervisor, MmioLoadPending, MmioLoadRequest, MmioLoadResult, MmioStorePending, MmioStoreRequest,
     MmioStoreResult, PendingRequest,
 };
-use crate::error::Error;
 
 pub fn request_mmio_load(confidential_flow: ConfidentialFlow) -> ! {
     match MmioLoadRequest::from_confidential_hart(confidential_flow.confidential_hart()) {

@@ -131,8 +131,8 @@ impl ConfidentialVm {
         // 3) Expose enabled interrupts
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
-        let enabled_interrupts = EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id]);
-        hardware_hart.apply_enabled_interrupts(&enabled_interrupts);
+        EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
+            .declassify_to_hardware_hart(hardware_hart);
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is

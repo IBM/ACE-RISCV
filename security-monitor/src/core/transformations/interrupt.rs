@@ -23,16 +23,11 @@ pub struct EnabledInterrupts {
 
 impl EnabledInterrupts {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let vsie = confidential_hart.csrs().vsie.read();
-        Self { vsie }
+        Self { vsie: confidential_hart.confidential_hart_state().csrs().vsie.read() }
     }
 
-    pub fn new(vsie: usize) -> Self {
-        Self { vsie }
-    }
-
-    pub fn vsie(&self) -> usize {
-        self.vsie
+    pub fn declassify_to_hardware_hart(&self, hardware_hart: &mut HardwareHart) {
+        hardware_hart.hypervisor_hart_state_mut().csrs_mut().vsie.set(self.vsie);
     }
 }
 
@@ -42,7 +37,7 @@ pub struct InjectedInterrupts {
 
 impl InjectedInterrupts {
     pub fn from_hardware_hart(hardware_hart: &HardwareHart) -> Self {
-        Self { hvip: hardware_hart.csrs().hvip.read() }
+        Self { hvip: hardware_hart.hypervisor_hart_state().csrs().hvip.read() }
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {

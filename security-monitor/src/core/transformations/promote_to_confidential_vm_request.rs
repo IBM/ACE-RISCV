@@ -10,8 +10,8 @@ pub struct PromoteToConfidentialVm {
 }
 
 impl PromoteToConfidentialVm {
-    pub fn from_vm_hart(vm_hart: &HardwareHart) -> Self {
-        Self { hart_state: HartArchitecturalState::from_existing(0, vm_hart.gprs(), vm_hart.csrs()) }
+    pub fn from_vm_hart(hardware_hart: &HardwareHart) -> Self {
+        Self { hart_state: HartArchitecturalState::from_existing(0, hardware_hart.hypervisor_hart_state()) }
     }
 
     /// Returns the address of the device tree provided as the first argument of the call.

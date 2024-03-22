@@ -15,8 +15,8 @@ impl ResumeRequest {
         // might carry SBI- or MMIO-related reponses, so using GRPs would destroy the communication between the hypervisor and confidential
         // VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V NACL extension that solves these problems by
         // using shared memory region in which the SBI- and MMIO-related information is transfered.
-        let confidential_vm_id = hardware_hart.csrs().vstvec.read();
-        let confidential_hart_id = hardware_hart.csrs().vsscratch.read();
+        let confidential_vm_id = hardware_hart.hypervisor_hart_state().csrs().vstvec.read();
+        let confidential_hart_id = hardware_hart.hypervisor_hart_state().csrs().vsscratch.read();
 
         Self { confidential_vm_id: ConfidentialVmId::new(confidential_vm_id), confidential_hart_id }
     }

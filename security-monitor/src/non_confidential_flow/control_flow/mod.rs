@@ -77,9 +77,9 @@ impl<'a> NonConfidentialFlow<'a> {
 
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {
         self.hardware_hart.apply(&transformation);
-        /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function
-        /// should be called just before exiting to the assembly context switch, so when we are sure that these CSRs have their
-        /// final values.
+        // Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function
+        // should be called just before exiting to the assembly context switch, so when we are sure that these CSRs have their
+        // final values.
         self.hypervisor_hart_state().csrs().mepc.restore();
         self.hypervisor_hart_state().csrs().mstatus.restore();
         unsafe { exit_to_hypervisor_asm() }

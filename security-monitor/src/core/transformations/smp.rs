@@ -15,9 +15,9 @@ pub struct SbiHsmHartStart {
 
 impl SbiHsmHartStart {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let confidential_hart_id = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
-        let opaque = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
+        let confidential_hart_id = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
+        let start_address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a1);
+        let opaque = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a2);
         Self { confidential_hart_id, start_address, opaque }
     }
 
@@ -43,22 +43,10 @@ pub struct SbiHsmHartSuspend {
 
 impl SbiHsmHartSuspend {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let suspend_type = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let resume_address = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
-        let opaque = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
+        let suspend_type = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
+        let resume_address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a1);
+        let opaque = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a2);
         Self { suspend_type, resume_address, opaque }
-    }
-
-    pub fn suspend_type(&self) -> usize {
-        self.suspend_type
-    }
-
-    pub fn resume_address(&self) -> usize {
-        self.resume_address
-    }
-
-    pub fn opaque(&self) -> usize {
-        self.opaque
     }
 }
 
@@ -69,7 +57,7 @@ pub struct SbiHsmHartStatus {
 
 impl SbiHsmHartStatus {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let confidential_hart_id = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
+        let confidential_hart_id = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
         Self { confidential_hart_id }
     }
 
@@ -90,8 +78,8 @@ impl SbiIpi {
     }
 
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let hart_mask = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let hart_mask_base = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        let hart_mask = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
+        let hart_mask_base = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a1);
         Self { hart_mask, hart_mask_base }
     }
 
@@ -142,8 +130,8 @@ pub struct SbiRemoteSfenceVma {
 impl SbiRemoteSfenceVma {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let ipi = SbiIpi::from_confidential_hart(confidential_hart);
-        let start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
-        let size = confidential_hart.gprs().read(GeneralPurposeRegister::a3);
+        let start_address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a2);
+        let size = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a3);
         Self { ipi, start_address, size }
     }
 
@@ -169,9 +157,9 @@ pub struct SbiRemoteSfenceVmaAsid {
 impl SbiRemoteSfenceVmaAsid {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let ipi = SbiIpi::from_confidential_hart(confidential_hart);
-        let start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
-        let size = confidential_hart.gprs().read(GeneralPurposeRegister::a3);
-        let asid = confidential_hart.gprs().read(GeneralPurposeRegister::a4);
+        let start_address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a2);
+        let size = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a3);
+        let asid = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a4);
         Self { ipi, start_address, size, asid }
     }
 

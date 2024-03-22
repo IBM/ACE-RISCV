@@ -25,18 +25,6 @@ impl MmioLoadResult {
         let new_mepc = confidential_hart.confidential_hart_state().csrs().mepc.read_value() + self.instruction_length;
         confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
     }
-
-    pub fn value(&self) -> usize {
-        self.value
-    }
-
-    pub fn result_gpr(&self) -> GeneralPurposeRegister {
-        self.result_gpr
-    }
-
-    pub fn instruction_length(&self) -> usize {
-        self.instruction_length
-    }
 }
 
 #[derive(PartialEq)]
@@ -52,9 +40,5 @@ impl MmioStoreResult {
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         let new_mepc = confidential_hart.confidential_hart_state().csrs().mepc.read_value() + self.instruction_length;
         confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
-    }
-
-    pub fn instruction_length(&self) -> usize {
-        self.instruction_length
     }
 }

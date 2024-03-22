@@ -15,7 +15,7 @@ pub struct SharePageRequest {
 
 impl SharePageRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
+        let address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
         Self { address: ConfidentialVmPhysicalAddress::new(address), page_size: PageSize::Size4KiB }
     }
 
@@ -61,7 +61,7 @@ pub struct UnsharePageRequest {
 
 impl UnsharePageRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
+        let address = confidential_hart.confidential_hart_state().gprs().read(GeneralPurposeRegister::a0);
         Self { address: ConfidentialVmPhysicalAddress::new(address) }
     }
 

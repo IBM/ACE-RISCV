@@ -1,16 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{
-    is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, TrapCause, ECALL_INSTRUCTION_LENGTH, *,
-};
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
 use crate::core::control_data::ConfidentialVmId;
-use crate::core::transformations::{
-    EnabledInterrupts, ExposeToConfidentialVm, InjectedInterrupts, InterHartRequest, MmioLoadPending, MmioLoadRequest, MmioLoadResult,
-    MmioStorePending, MmioStoreRequest, MmioStoreResult, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi,
-    SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid, SbiRequest, SbiResult, SharePageRequest,
-    UnsharePageRequest, VirtualInstructionRequest, VirtualInstructionResult,
-};
+use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartSuspend};
 use crate::error::Error;
 
 extern "C" {
@@ -63,8 +56,7 @@ impl ConfidentialHart {
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
     pub fn from_vm_hart(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
-        let hart_architectural_state =
-            HartArchitecturalState::from_existing(id, &non_confidential_hart_state.gprs, &non_confidential_hart_state.csrs);
+        let hart_architectural_state = HartArchitecturalState::from_existing(id, &non_confidential_hart_state);
         let mut confidential_hart = Self::new(hart_architectural_state, HartLifecycleState::Started);
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -116,6 +108,14 @@ impl ConfidentialHart {
 
     pub fn confidential_hart_id(&self) -> usize {
         self.confidential_hart_state.id
+    }
+
+    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
+        &self.confidential_hart_state
+    }
+
+    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
+        &mut self.confidential_hart_state
     }
 
     pub fn take_request(&mut self) -> Option<PendingRequest> {
@@ -213,7 +213,6 @@ impl ConfidentialHart {
     }
 }
 
-// Methods that declassify information from the hypervisor and expose them to the confidential hart.
 impl ConfidentialHart {
     pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
@@ -236,32 +235,5 @@ impl ConfidentialHart {
             InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.declassify_to_confidential_hart(self),
             InterHartRequest::SbiSrstSystemReset(_) => self.transition_to_shutdown(),
         }
-    }
-}
-
-// Methods to declassify portions of confidential hart state.
-impl ConfidentialHart {
-    pub fn gprs(&self) -> &GeneralPurposeRegisters {
-        &self.confidential_hart_state.gprs
-    }
-
-    pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
-        &mut self.confidential_hart_state.gprs
-    }
-
-    pub fn csrs(&self) -> &ControlStatusRegisters {
-        &self.confidential_hart_state.csrs
-    }
-
-    pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
-        &mut self.confidential_hart_state.csrs
-    }
-
-    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
-        &self.confidential_hart_state
-    }
-
-    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
-        &mut self.confidential_hart_state
     }
 }

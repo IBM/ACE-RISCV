@@ -45,8 +45,8 @@ impl OpensbiRequest {
                 t4: hardware_hart.gprs().read(GeneralPurposeRegister::t4).try_into().unwrap_or(0),
                 t5: hardware_hart.gprs().read(GeneralPurposeRegister::t5).try_into().unwrap_or(0),
                 t6: hardware_hart.gprs().read(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
-                mepc: hardware_hart.csrs().mepc.read_value().try_into().unwrap_or(0),
-                mstatus: hardware_hart.csrs().mstatus.read_value().try_into().unwrap_or(0),
+                mepc: hardware_hart.hypervisor_hart_state().csrs().mepc.read_value().try_into().unwrap_or(0),
+                mstatus: hardware_hart.hypervisor_hart_state().csrs().mstatus.read_value().try_into().unwrap_or(0),
                 // TODO: mstatusH exists only in rv32. Adjust this to support rv32
                 mstatusH: 0,
             },
@@ -72,19 +72,14 @@ impl OpensbiResult {
         Self { trap_regs }
     }
 
-    pub fn mstatus(&self) -> usize {
-        self.trap_regs.mstatus.try_into().unwrap()
-    }
-
-    pub fn mepc(&self) -> usize {
-        self.trap_regs.mepc.try_into().unwrap()
-    }
-
-    pub fn a0(&self) -> usize {
-        self.trap_regs.a0.try_into().unwrap()
-    }
-
-    pub fn a1(&self) -> usize {
-        self.trap_regs.a1.try_into().unwrap()
+    pub fn apply_to_hardware_hart(&self, hardware_hart: &mut HardwareHart) {
+        let a0 = self.trap_regs.a0.try_into().unwrap();
+        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a0, a0);
+        let a1 = self.trap_regs.a1.try_into().unwrap();
+        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a1, a1);
+        let mstatus = self.trap_regs.mstatus.try_into().unwrap();
+        hardware_hart.hypervisor_hart_state_mut().csrs_mut().mstatus.save_value(mstatus);
+        let mepc = self.trap_regs.mepc.try_into().unwrap();
+        hardware_hart.hypervisor_hart_state_mut().csrs_mut().mepc.save_value(mepc);
     }
 }
