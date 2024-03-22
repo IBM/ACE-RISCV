@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, HardwareHart};
 
 pub struct InterruptRequest {
     code: usize,
@@ -41,8 +41,8 @@ pub struct InjectedInterrupts {
 }
 
 impl InjectedInterrupts {
-    pub fn new(hvip: usize) -> Self {
-        Self { hvip }
+    pub fn from_hardware_hart(hardware_hart: &HardwareHart) -> Self {
+        Self { hvip: hardware_hart.csrs().hvip.read() }
     }
 
     pub fn hvip(&self) -> usize {

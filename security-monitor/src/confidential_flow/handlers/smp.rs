@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
+use crate::core::architecture::TrapCause;
 use crate::core::control_data::ControlData;
 use crate::core::transformations::{
     ExposeToConfidentialVm, ExposeToHypervisor, InterHartRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend,
@@ -89,7 +90,7 @@ pub fn send_inter_hart_request(mut confidential_flow: ConfidentialFlow) -> ! {
     use crate::core::transformations::{SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid};
 
     let confidential_hart = confidential_flow.confidential_hart();
-    let request = match confidential_hart.trap_reason() {
+    let request = match TrapCause::from_hart_architectural_state(confidential_flow.confidential_hart_state()) {
         VsEcall(Ipi(SendIpi)) => InterHartRequest::SbiIpi(SbiIpi::from_confidential_hart(confidential_hart)),
         VsEcall(Rfence(RemoteFenceI)) => InterHartRequest::SbiRemoteFenceI(SbiRemoteFenceI::from_confidential_hart(confidential_hart)),
         VsEcall(Rfence(RemoteSfenceVma)) => {

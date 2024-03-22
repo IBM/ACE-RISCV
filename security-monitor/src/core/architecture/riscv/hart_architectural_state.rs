@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::*;
 
-/// HartArchitecturalState is the dump state of the processor's core, called in RISC-V a hardware thread (HART).
+/// HartArchitecturalState is the dump state of the processor's core, called in RISC-V hardware thread (HART).
+/// It might represent the state of of software executing on real hardware hart, for example, architectural state of the hypervisor's thread
+/// or confidential VM's thread.
 #[repr(C)]
 pub struct HartArchitecturalState {
     // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
@@ -31,15 +33,21 @@ impl HartArchitecturalState {
             id,
         }
     }
-}
 
-impl HartArchitecturalState {
-    pub fn gpr(&self, register: GeneralPurposeRegister) -> usize {
-        self.gprs.get(register)
+    pub fn gprs(&self) -> &GeneralPurposeRegisters {
+        &self.gprs
     }
 
-    pub fn set_gpr(&mut self, register: GeneralPurposeRegister, value: usize) {
-        self.gprs.set(register, value)
+    pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
+        &mut self.gprs
+    }
+
+    pub fn csrs(&self) -> &ControlStatusRegisters {
+        &self.csrs
+    }
+
+    pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
+        &mut self.csrs
     }
 }
 

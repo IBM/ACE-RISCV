@@ -4,6 +4,7 @@
 use crate::core::transformations::{ExposeToHypervisor, SbiVmRequest};
 use crate::non_confidential_flow::NonConfidentialFlow;
 
-pub fn handle(sbi_request_from_vm: SbiVmRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
-    non_confidential_flow.exit_to_hypervisor(ExposeToHypervisor::SbiVmRequest(sbi_request_from_vm))
+pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
+    let request = SbiVmRequest::from_hardware_hart(non_confidential_flow.hardware_hart());
+    non_confidential_flow.exit_to_hypervisor(ExposeToHypervisor::SbiVmRequest(request))
 }

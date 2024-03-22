@@ -76,7 +76,7 @@ impl MmioStoreRequest {
         let instruction = mtinst | 0x3;
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
         let gpr = crate::core::architecture::decode_result_register(instruction)?;
-        let gpr_value = confidential_hart.gprs().get(gpr);
+        let gpr_value = confidential_hart.gprs().read(gpr);
 
         Ok(Self { code: mcause, stval: mtval, htval: mtval2, instruction: mtinst, instruction_length, gpr, gpr_value })
     }

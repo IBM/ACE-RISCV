@@ -7,10 +7,10 @@ use crate::core::architecture::BaseExtension::*;
 use crate::core::architecture::HsmExtension::*;
 use crate::core::architecture::IpiExtension::*;
 use crate::core::architecture::RfenceExtension::*;
-use crate::core::architecture::SbiExtension;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
+use crate::core::architecture::{HartArchitecturalState, SbiExtension, TrapCause};
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart};
 use crate::core::transformations::PendingRequest::*;
 use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest};
@@ -46,10 +46,11 @@ impl<'a> ConfidentialFlow<'a> {
     extern "C" fn route_confidential_flow(hardware_hart_pointer: *mut HardwareHart) -> ! {
         let hardware_hart = unsafe { hardware_hart_pointer.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
         assert!(!hardware_hart.confidential_hart().is_dummy());
-        hardware_hart.confidential_hart_mut().save_volatile_control_status_registers_in_main_memory();
-        let flow = Self { hardware_hart };
+        let mut flow = Self { hardware_hart };
+        flow.confidential_hart_state_mut().csrs_mut().mepc.save();
+        flow.confidential_hart_state_mut().csrs_mut().mstatus.save();
 
-        match flow.hardware_hart.confidential_hart().trap_reason() {
+        match TrapCause::from_hart_architectural_state(flow.confidential_hart_state()) {
             Interrupt => required::handle_interrupt(flow),
             VsEcall(Ace(SharePageWithHypervisor)) => shared_page::request_shared_page(flow),
             VsEcall(Ace(StopSharingPageWithHypervisor)) => shared_page::unshare_page(flow),
@@ -94,14 +95,10 @@ impl<'a> ConfidentialFlow<'a> {
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
         // load) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's execution.
         match confidential_flow.hardware_hart.confidential_hart_mut().take_request() {
-            Some(SbiRequest()) => hypercall::process_sbi_response(confidential_flow.hardware_hart.hypercall_result(), confidential_flow),
-            Some(MmioLoad(request)) => {
-                mmio::handle_mmio_load_response(confidential_flow.hardware_hart.guest_load_page_fault_result(request), confidential_flow)
-            }
+            Some(SbiRequest()) => hypercall::process_sbi_response(confidential_flow),
+            Some(MmioLoad(request)) => mmio::handle_mmio_load_response(confidential_flow, request),
             Some(MmioStore(request)) => mmio::handle_mmio_store_response(confidential_flow, request),
-            Some(SharePage(request)) => {
-                shared_page::share_page(confidential_flow.hardware_hart.share_page_result(), confidential_flow, request)
-            }
+            Some(SharePage(request)) => shared_page::share_page(confidential_flow, request),
             Some(SbiHsmHartStart()) => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiHsmHartStart()),
             Some(SbiHsmHartStartPending()) => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiHsmHartStartPending()),
             None => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::Resume()),
@@ -111,8 +108,15 @@ impl<'a> ConfidentialFlow<'a> {
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will
     /// execute the confidential hart on the hardware hart.
     pub fn exit_to_confidential_hart(self, transformation: ExposeToConfidentialVm) -> ! {
-        self.hardware_hart.confidential_hart_mut().apply(transformation);
-        self.hardware_hart.confidential_hart().restore_volatile_control_status_registers_from_main_memory();
+        let address = self.hardware_hart.confidential_hart_mut().apply(transformation);
+        // We must restore some control and status registers (CSRs) that might have changed during execution of the security monitor.
+        // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
+        // final values.
+        let interrupts = self.confidential_hart_state().csrs().hvip.read_value() | self.confidential_hart_state().csrs().vsip.read_value();
+        self.confidential_hart_state().csrs().hvip.set(interrupts);
+        self.confidential_hart_state().csrs().sscratch.set(address);
+        self.confidential_hart_state().csrs().mstatus.restore();
+        self.confidential_hart_state().csrs().mepc.restore();
         unsafe { exit_to_confidential_hart_asm() }
     }
 
@@ -210,6 +214,17 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn confidential_hart(&'a self) -> &ConfidentialHart {
         self.hardware_hart.confidential_hart()
+    }
+
+    pub fn hardware_hart(&'a self) -> &HardwareHart {
+        &self.hardware_hart
+    }
+
+    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
+        self.hardware_hart.confidential_hart().confidential_hart_state()
+    }
+    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
+        self.hardware_hart.confidential_hart_mut().confidential_hart_state_mut()
     }
 
     pub fn is_confidential_hart_shutdown(&self) -> bool {

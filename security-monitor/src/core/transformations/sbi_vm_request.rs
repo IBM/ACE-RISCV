@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
+use crate::core::control_data::HardwareHart;
 use crate::core::transformations::SbiRequest;
 
 pub struct SbiVmRequest {
@@ -9,18 +10,19 @@ pub struct SbiVmRequest {
 }
 
 impl SbiVmRequest {
-    pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
-        let sbi_request = SbiRequest::new(
-            hart_state.gpr(GeneralPurposeRegister::a7),
-            hart_state.gpr(GeneralPurposeRegister::a6),
-            hart_state.gpr(GeneralPurposeRegister::a0),
-            hart_state.gpr(GeneralPurposeRegister::a1),
-            hart_state.gpr(GeneralPurposeRegister::a2),
-            hart_state.gpr(GeneralPurposeRegister::a3),
-            hart_state.gpr(GeneralPurposeRegister::a4),
-            hart_state.gpr(GeneralPurposeRegister::a5),
-        );
-        Self { sbi_request }
+    pub fn from_hardware_hart(hardware_hart: &HardwareHart) -> Self {
+        Self {
+            sbi_request: SbiRequest::new(
+                hardware_hart.gprs().read(GeneralPurposeRegister::a7),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a6),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a0),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a1),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a2),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a3),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a4),
+                hardware_hart.gprs().read(GeneralPurposeRegister::a5),
+            ),
+        }
     }
 
     pub fn sbi_request(&self) -> &SbiRequest {

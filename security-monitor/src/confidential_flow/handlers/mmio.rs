@@ -29,7 +29,8 @@ pub fn request_mmio_store(confidential_flow: ConfidentialFlow) -> ! {
     }
 }
 
-pub fn handle_mmio_load_response(result: MmioLoadResult, confidential_flow: ConfidentialFlow) -> ! {
+pub fn handle_mmio_load_response(confidential_flow: ConfidentialFlow, result: MmioLoadPending) -> ! {
+    let result = MmioLoadResult::from_hardware_hart(confidential_flow.hardware_hart(), result);
     confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::MmioLoadResult(result))
 }
 

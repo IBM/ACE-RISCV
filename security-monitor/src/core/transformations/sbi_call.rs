@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, ECALL_INSTRUCTION_LENGTH};
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HardwareHart};
 
 pub struct SbiRequest {
     extension_id: usize,
@@ -50,29 +50,14 @@ impl SbiRequest {
 
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self::new(
-            confidential_hart.gprs().get(GeneralPurposeRegister::a7),
-            confidential_hart.gpr(GeneralPurposeRegister::a6),
-            confidential_hart.gpr(GeneralPurposeRegister::a0),
-            confidential_hart.gpr(GeneralPurposeRegister::a1),
-            confidential_hart.gpr(GeneralPurposeRegister::a2),
-            confidential_hart.gpr(GeneralPurposeRegister::a3),
-            confidential_hart.gpr(GeneralPurposeRegister::a4),
-            confidential_hart.gpr(GeneralPurposeRegister::a5),
-        )
-    }
-
-    // only ConfidentialHart or HardwareHart can invoke this function because only they have access to the
-    // HartArchitecturalState storing confidential information
-    pub fn from_hart_state(hart_state: &HartArchitecturalState) -> Self {
-        Self::new(
-            hart_state.gpr(GeneralPurposeRegister::a7),
-            hart_state.gpr(GeneralPurposeRegister::a6),
-            hart_state.gpr(GeneralPurposeRegister::a0),
-            hart_state.gpr(GeneralPurposeRegister::a1),
-            hart_state.gpr(GeneralPurposeRegister::a2),
-            hart_state.gpr(GeneralPurposeRegister::a3),
-            hart_state.gpr(GeneralPurposeRegister::a4),
-            hart_state.gpr(GeneralPurposeRegister::a5),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a7),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a6),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a0),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a1),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a2),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a3),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a4),
+            confidential_hart.gprs().read(GeneralPurposeRegister::a5),
         )
     }
 
@@ -123,8 +108,12 @@ pub struct SbiResult {
 }
 
 impl SbiResult {
-    pub fn ecall(hart_state: &HartArchitecturalState) -> Self {
-        Self::new(hart_state.gpr(GeneralPurposeRegister::a0), hart_state.gpr(GeneralPurposeRegister::a1), ECALL_INSTRUCTION_LENGTH)
+    pub fn ecall(hardware_hart: &HardwareHart) -> Self {
+        Self::new(
+            hardware_hart.gprs().read(GeneralPurposeRegister::a0),
+            hardware_hart.gprs().read(GeneralPurposeRegister::a1),
+            ECALL_INSTRUCTION_LENGTH,
+        )
     }
 
     pub fn success(code: usize) -> Self {

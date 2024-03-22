@@ -16,7 +16,7 @@ impl PromoteToConfidentialVm {
 
     /// Returns the address of the device tree provided as the first argument of the call.
     pub fn fdt_address(&self) -> ConfidentialVmPhysicalAddress {
-        ConfidentialVmPhysicalAddress::new(self.hart_state.gpr(GeneralPurposeRegister::a0))
+        ConfidentialVmPhysicalAddress::new(self.hart_state.gprs.read(GeneralPurposeRegister::a0))
     }
 
     pub fn into(self) -> (ConfidentialVmPhysicalAddress, HartArchitecturalState) {

@@ -5,6 +5,7 @@ use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::TrapCause::*;
+use crate::core::architecture::{HartArchitecturalState, TrapCause};
 use crate::core::control_data::{ControlData, HardwareHart};
 use crate::core::transformations::{ExposeToHypervisor, ResumeRequest};
 use crate::error::Error;
@@ -38,26 +39,29 @@ impl<'a> NonConfidentialFlow<'a> {
     #[no_mangle]
     extern "C" fn route_non_confidential_flow(hart_ptr: *mut HardwareHart) -> ! {
         let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-        hardware_hart.save_volatile_control_status_registers_in_main_memory();
-        let control_flow = Self::create(hardware_hart);
+        let mut control_flow = Self::create(hardware_hart);
+        control_flow.hypervisor_hart_state_mut().csrs_mut().mepc.save();
+        control_flow.hypervisor_hart_state_mut().csrs_mut().mstatus.save();
 
-        match control_flow.hardware_hart.trap_reason() {
-            Interrupt => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            IllegalInstruction => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            LoadAddressMisaligned => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            LoadAccessFault => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            StoreAddressMisaligned => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
-            StoreAccessFault => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+        match TrapCause::from_hart_architectural_state(control_flow.hypervisor_hart_state()) {
+            Interrupt => delegate_to_opensbi::handle(control_flow),
+            IllegalInstruction => delegate_to_opensbi::handle(control_flow),
+            LoadAddressMisaligned => delegate_to_opensbi::handle(control_flow),
+            LoadAccessFault => delegate_to_opensbi::handle(control_flow),
+            StoreAddressMisaligned => delegate_to_opensbi::handle(control_flow),
+            StoreAccessFault => delegate_to_opensbi::handle(control_flow),
             HsEcall(Ace(ResumeConfidentialHart)) => {
-                resume_confidential_hart::handle(control_flow.hardware_hart.resume_request(), control_flow)
+                control_flow.restore_original_gprs();
+                resume_confidential_hart::handle(control_flow)
             }
             HsEcall(Ace(TerminateConfidentialVm)) => {
-                terminate_confidential_vm::handle(control_flow.hardware_hart.terminate_request(), control_flow)
+                control_flow.restore_original_gprs();
+                terminate_confidential_vm::handle(control_flow)
             }
-            HsEcall(_) => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            HsEcall(_) => delegate_to_opensbi::handle(control_flow),
             VsEcall(Ace(PromoteToConfidentialVm)) => promote_to_confidential_vm::handle(control_flow),
-            VsEcall(_) => delegate_hypercall::handle(control_flow.hardware_hart.sbi_vm_request(), control_flow),
-            MachineEcall => delegate_to_opensbi::handle(control_flow.hardware_hart.opensbi_request(), control_flow),
+            VsEcall(_) => delegate_hypercall::handle(control_flow),
+            MachineEcall => delegate_to_opensbi::handle(control_flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
@@ -73,7 +77,11 @@ impl<'a> NonConfidentialFlow<'a> {
 
     pub fn exit_to_hypervisor(self, transformation: ExposeToHypervisor) -> ! {
         self.hardware_hart.apply(&transformation);
-        self.hardware_hart.restore_volatile_control_status_registers_from_main_memory();
+        /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function
+        /// should be called just before exiting to the assembly context switch, so when we are sure that these CSRs have their
+        /// final values.
+        self.hypervisor_hart_state().csrs().mepc.restore();
+        self.hypervisor_hart_state().csrs().mstatus.restore();
         unsafe { exit_to_hypervisor_asm() }
     }
 
@@ -83,7 +91,28 @@ impl<'a> NonConfidentialFlow<'a> {
         self.hardware_hart.swap_mscratch()
     }
 
+    pub fn hypervisor_hart_state(&self) -> &HartArchitecturalState {
+        &self.hardware_hart.hypervisor_hart_state()
+    }
+
+    pub fn hypervisor_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
+        self.hardware_hart.hypervisor_hart_state_mut()
+    }
+
     pub fn hardware_hart(&self) -> &HardwareHart {
         &self.hardware_hart
+    }
+
+    fn restore_original_gprs(&mut self) {
+        use crate::core::architecture::GeneralPurposeRegister;
+        // Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GRPs).
+        // GRPs might carry SBI- or MMIO-related reponses, so using GRPs would destroy the communication between the
+        // hypervisor and confidential VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V
+        // NACL extension that solves these problems by using shared memory region in which the SBI- and MMIO-related
+        // information is transfered. Below we restore the original `a7` and `a6`.
+        let original_a7 = self.hardware_hart.hypervisor_hart_state_mut().csrs_mut().vstval.read();
+        let original_a6 = self.hardware_hart.hypervisor_hart_state_mut().csrs_mut().vsepc.read();
+        self.hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a7, original_a7);
+        self.hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a6, original_a6);
     }
 }

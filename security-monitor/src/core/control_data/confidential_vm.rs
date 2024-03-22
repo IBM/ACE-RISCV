@@ -6,7 +6,7 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, Confidential
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
-use crate::core::transformations::{InterHartRequest, SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
+use crate::core::transformations::{EnabledInterrupts, InjectedInterrupts, InterHartRequest, SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -87,13 +87,18 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         assure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
-        // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
-        // of the confidential VM to the processor registers
-        let interrupts_to_inject = hardware_hart.save_control_status_registers_in_main_memory();
-        self.confidential_harts[confidential_hart_id].restore_control_status_registers_from_main_memory(interrupts_to_inject);
+        // Context switch:
+        // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
+        hardware_hart.non_confidential_hart_state.csrs_mut().save_in_main_memory();
+        // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
+        self.confidential_harts[confidential_hart_id].confidential_hart_state().csrs().restore_from_main_memory();
+        // 3) Inject interrupts
+        // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
+        // adapt the same strategy, which would also better reflect out current approach for information declassification.
+        let interrupts_to_inject = InjectedInterrupts::from_hardware_hart(hardware_hart);
+        self.confidential_harts[confidential_hart_id].apply_injected_interrupts(interrupts_to_inject);
 
-        // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
-        // error.
+        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
         // It is safe to invoke below unsafe code because at this point we are in the confidential flow part of the
@@ -119,8 +124,15 @@ impl ConfidentialVm {
         core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
 
         // Switch context between security domains.
-        let enabled_interrupts = self.confidential_harts[confidential_hart_id].save_control_status_registers_in_main_memory();
-        hardware_hart.restore_control_status_registers_from_main_memory(enabled_interrupts);
+        // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
+        self.confidential_harts[confidential_hart_id].confidential_hart_state_mut().csrs_mut().save_in_main_memory();
+        // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
+        hardware_hart.hypervisor_hart_state().csrs().restore_from_main_memory();
+        // 3) Expose enabled interrupts
+        // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
+        // would also better reflect out current approach for information declassification.
+        let enabled_interrupts = EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id]);
+        hardware_hart.apply_enabled_interrupts(&enabled_interrupts);
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is

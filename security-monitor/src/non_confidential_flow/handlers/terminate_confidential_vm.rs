@@ -6,10 +6,10 @@ use crate::core::transformations::{ExposeToHypervisor, SbiResult, TerminateReque
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 /// The hypervisor command to terminate the confidential VM and remove it from the memory.
-pub fn handle(terminate_request: TerminateRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
-    let transformation = ControlData::remove_confidential_vm(terminate_request.confidential_vm_id())
+pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
+    let request = TerminateRequest::from_hardware_hart(non_confidential_flow.hardware_hart());
+    let transformation = ControlData::remove_confidential_vm(request.confidential_vm_id())
         .and_then(|_| Ok(ExposeToHypervisor::SbiResult(SbiResult::success(0))))
         .unwrap_or_else(|error| error.into_non_confidential_transformation());
-
     non_confidential_flow.exit_to_hypervisor(transformation)
 }

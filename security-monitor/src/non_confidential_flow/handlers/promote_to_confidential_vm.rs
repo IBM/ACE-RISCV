@@ -25,9 +25,8 @@ const BOOT_HART_ID: usize = 0;
 ///
 /// The virtual machine must make this call on a boot hart before other harts come out of reset.
 pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
-    let request = PromoteToConfidentialVm::from_vm_hart(non_confidential_flow.hardware_hart());
-
     debug!("Promoting a VM into a confidential VM");
+    let request = PromoteToConfidentialVm::from_vm_hart(non_confidential_flow.hardware_hart());
     let transformation = match create_confidential_vm(request) {
         Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
         Err(error) => {

@@ -18,11 +18,11 @@ impl GeneralPurposeRegisters {
         Self(Self::iter().map(|x| self.0[x]).collect::<Vec<_>>().try_into().unwrap_or([0; Self::LEN]))
     }
 
-    pub fn set(&mut self, register: GeneralPurposeRegister, value: usize) {
+    pub fn write(&mut self, register: GeneralPurposeRegister, value: usize) {
         self.0[register.index()] = value;
     }
 
-    pub fn get(&self, register: GeneralPurposeRegister) -> usize {
+    pub fn read(&self, register: GeneralPurposeRegister) -> usize {
         self.0[register.index()]
     }
 

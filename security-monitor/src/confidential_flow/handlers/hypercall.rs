@@ -16,7 +16,9 @@ pub fn make_sbi_call(confidential_flow: ConfidentialFlow) -> ! {
 
 /// Handles a response to the hypercall. This response comes from the hypervisor and carries a result of a hypercall
 /// requested by the confidential hart.
-pub fn process_sbi_response(hypercall_result: SbiResult, confidential_flow: ConfidentialFlow) -> ! {
+pub fn process_sbi_response(confidential_flow: ConfidentialFlow) -> ! {
+    let hypercall_result = SbiResult::ecall(&confidential_flow.hardware_hart());
+
     let transformation = ExposeToConfidentialVm::SbiResult(hypercall_result);
     confidential_flow.exit_to_confidential_hart(transformation)
 }

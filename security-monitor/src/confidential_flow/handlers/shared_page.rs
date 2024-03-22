@@ -27,7 +27,8 @@ pub fn request_shared_page(confidential_flow: ConfidentialFlow) -> ! {
 /// Handles a response from the hypervisor about the creation of a shared page.
 ///
 /// Control always flows to the confidential VM.
-pub fn share_page(share_page_result: SharePageResult, confidential_flow: ConfidentialFlow, request: SharePageRequest) -> ! {
+pub fn share_page(confidential_flow: ConfidentialFlow, request: SharePageRequest) -> ! {
+    let share_page_result = SharePageResult::from_hardware_hart(confidential_flow.hardware_hart());
     if share_page_result.is_error() {
         // Hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
         // confidential VM.

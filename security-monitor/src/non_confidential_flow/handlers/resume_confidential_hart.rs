@@ -5,8 +5,9 @@ use crate::core::transformations::{ExposeToHypervisor, ResumeRequest, SbiRequest
 use crate::non_confidential_flow::NonConfidentialFlow;
 
 /// Resume handler is called by the hypervisor to resume the confidential VM execution.
-pub fn handle(resume_request: ResumeRequest, non_confidential_flow: NonConfidentialFlow) -> ! {
-    let (non_confidential_flow, _error) = non_confidential_flow.into_confidential_flow(resume_request);
+pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
+    let request = ResumeRequest::from_hardware_hart(non_confidential_flow.hardware_hart());
+    let (non_confidential_flow, _error) = non_confidential_flow.into_confidential_flow(request);
 
     // Properly implemented hypervisor should never let us enter this code. Entering this code means that the transition into confidential
     // flow failed. This might indicate an error in the hypervisor implementation because the hypervisor tried to schedule an invalid

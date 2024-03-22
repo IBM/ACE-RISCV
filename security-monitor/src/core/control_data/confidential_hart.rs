@@ -140,36 +140,6 @@ impl ConfidentialHart {
         self.pending_request = Some(request);
         Ok(())
     }
-
-    /// Dumps control and status registers (CSRs) of the physical hart executing this code to the main memory.
-    pub fn save_control_status_registers_in_main_memory(&mut self) -> EnabledInterrupts {
-        self.confidential_hart_state.csrs.save_in_main_memory();
-        // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
-        // would also better reflect out current approach for information declassification.
-        EnabledInterrupts::from_confidential_hart(self)
-    }
-
-    pub fn save_volatile_control_status_registers_in_main_memory(&mut self) {
-        self.confidential_hart_state.csrs.mepc.save_value(self.csrs().mepc.read());
-        self.confidential_hart_state.csrs.mstatus.save_value(self.csrs().mstatus.read());
-    }
-
-    /// Loads control and status registers (CSRs) from the main memory into the physical hart executing this code.
-    pub fn restore_control_status_registers_from_main_memory(&mut self, interrupts_to_inject: InjectedInterrupts) {
-        self.confidential_hart_state.csrs.restore_from_main_memory();
-        // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
-        // adapt the same strategy, which would also better reflect out current approach for information declassification.
-        self.apply_injected_interrupts(interrupts_to_inject);
-    }
-
-    /// Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function should be
-    /// called just before exiting to the assembly context switch, so when we are sure that these CSRs have their final values.
-    pub fn restore_volatile_control_status_registers_from_main_memory(&self) {
-        self.csrs().hvip.set(self.confidential_hart_state.csrs.hvip.read_value() | self.csrs().vsip.read_value());
-        self.csrs().mstatus.set(self.confidential_hart_state.csrs.mstatus.read_value());
-        self.csrs().mepc.set(self.confidential_hart_state.csrs.mepc.read_value());
-        self.csrs().sscratch.set(core::ptr::addr_of!(self.confidential_hart_state) as usize);
-    }
 }
 
 // Methods related to lifecycle state transitions of the confidential hart. These methods manipulate the internal hart
@@ -201,8 +171,8 @@ impl ConfidentialHart {
         self.confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
 
         self.confidential_hart_state.csrs.vsstatus.disable_bit_on_saved_value(CSR_STATUS_SIE);
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, self.confidential_hart_id());
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, request.opaque());
+        self.confidential_hart_state.gprs.write(GeneralPurposeRegister::a0, self.confidential_hart_id());
+        self.confidential_hart_state.gprs.write(GeneralPurposeRegister::a1, request.opaque());
         self.confidential_hart_state.csrs.mepc.save_value(request.start_address());
 
         Ok(())
@@ -245,7 +215,7 @@ impl ConfidentialHart {
 
 // Methods that declassify information from the hypervisor and expose them to the confidential hart.
 impl ConfidentialHart {
-    pub fn apply(&mut self, transformation: ExposeToConfidentialVm) {
+    pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
         match transformation {
             ExposeToConfidentialVm::SbiResult(v) => self.apply_sbi_result(v),
             ExposeToConfidentialVm::MmioLoadResult(v) => self.apply_guest_load_page_fault_result(v),
@@ -261,9 +231,10 @@ impl ConfidentialHart {
             ExposeToConfidentialVm::SbiSrstSystemReset() => self.transition_to_shutdown(),
             ExposeToConfidentialVm::Resume() => {}
         }
+        core::ptr::addr_of!(self.confidential_hart_state) as usize
     }
 
-    fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
+    pub fn apply_injected_interrupts(&mut self, result: InjectedInterrupts) {
         self.confidential_hart_state.csrs.hvip.save_value(result.hvip());
     }
 
@@ -295,19 +266,19 @@ impl ConfidentialHart {
     }
 
     fn apply_sbi_result(&mut self, result: SbiResult) {
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, result.a0());
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, result.a1());
+        self.gprs_mut().write(GeneralPurposeRegister::a0, result.a0());
+        self.gprs_mut().write(GeneralPurposeRegister::a1, result.a1());
         self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + result.pc_offset());
     }
 
     fn apply_sbi_result_success(&mut self) {
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a0, 0);
-        self.confidential_hart_state.set_gpr(GeneralPurposeRegister::a1, 0);
+        self.gprs_mut().write(GeneralPurposeRegister::a0, 0);
+        self.gprs_mut().write(GeneralPurposeRegister::a1, 0);
         self.confidential_hart_state.csrs.mepc.save_value(self.confidential_hart_state.csrs.mepc.read_value() + ECALL_INSTRUCTION_LENGTH);
     }
 
     fn apply_guest_load_page_fault_result(&mut self, result: MmioLoadResult) {
-        self.confidential_hart_state.set_gpr(result.result_gpr(), result.value());
+        self.gprs_mut().write(result.result_gpr(), result.value());
         self.confidential_hart_state
             .csrs
             .mepc
@@ -331,12 +302,12 @@ impl ConfidentialHart {
 
 // Methods to declassify portions of confidential hart state.
 impl ConfidentialHart {
-    pub fn gpr(&self, gpr: GeneralPurposeRegister) -> usize {
-        self.confidential_hart_state.gpr(gpr)
-    }
-
     pub fn gprs(&self) -> &GeneralPurposeRegisters {
         &self.confidential_hart_state.gprs
+    }
+
+    pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
+        &mut self.confidential_hart_state.gprs
     }
 
     pub fn csrs(&self) -> &ControlStatusRegisters {
@@ -347,10 +318,11 @@ impl ConfidentialHart {
         &mut self.confidential_hart_state.csrs
     }
 
-    pub fn trap_reason(&self) -> TrapCause {
-        let mcause = self.csrs().mcause.read();
-        let extension_id = self.gprs().get(GeneralPurposeRegister::a7);
-        let function_id = self.gprs().get(GeneralPurposeRegister::a6);
-        TrapCause::from(mcause, extension_id, function_id)
+    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
+        &self.confidential_hart_state
+    }
+
+    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
+        &mut self.confidential_hart_state
     }
 }

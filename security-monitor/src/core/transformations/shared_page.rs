@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, HardwareHart};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;
 use crate::error::Error;
@@ -15,7 +15,7 @@ pub struct SharePageRequest {
 
 impl SharePageRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let address = confidential_hart.gpr(GeneralPurposeRegister::a0);
+        let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
         Self { address: ConfidentialVmPhysicalAddress::new(address), page_size: PageSize::Size4KiB }
     }
 
@@ -35,7 +35,9 @@ pub struct SharePageResult {
 }
 
 impl SharePageResult {
-    pub fn new(response_code: usize, hypervisor_page_address: usize) -> Self {
+    pub fn from_hardware_hart(hardware_hart: &HardwareHart) -> Self {
+        let response_code = hardware_hart.gprs().read(GeneralPurposeRegister::a0);
+        let hypervisor_page_address = hardware_hart.gprs().read(GeneralPurposeRegister::a1);
         Self { response_code, hypervisor_page_address }
     }
 
@@ -59,7 +61,7 @@ pub struct UnsharePageRequest {
 
 impl UnsharePageRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let address = confidential_hart.gpr(GeneralPurposeRegister::a0);
+        let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
         Self { address: ConfidentialVmPhysicalAddress::new(address) }
     }
 

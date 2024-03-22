@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
+use crate::core::control_data::HardwareHart;
 
 #[derive(Debug)]
 pub struct OpensbiRequest {
@@ -9,43 +10,43 @@ pub struct OpensbiRequest {
 }
 
 impl OpensbiRequest {
-    pub fn new(hart_state: &HartArchitecturalState) -> Self {
+    pub fn from_hardware_hart(hardware_hart: &HardwareHart) -> Self {
         Self {
             regs: opensbi_sys::sbi_trap_regs {
                 zero: 0,
-                ra: hart_state.gpr(GeneralPurposeRegister::ra).try_into().unwrap_or(0),
-                sp: hart_state.gpr(GeneralPurposeRegister::sp).try_into().unwrap_or(0),
-                gp: hart_state.gpr(GeneralPurposeRegister::gp).try_into().unwrap_or(0),
-                tp: hart_state.gpr(GeneralPurposeRegister::tp).try_into().unwrap_or(0),
-                t0: hart_state.gpr(GeneralPurposeRegister::t0).try_into().unwrap_or(0),
-                t1: hart_state.gpr(GeneralPurposeRegister::t1).try_into().unwrap_or(0),
-                t2: hart_state.gpr(GeneralPurposeRegister::t2).try_into().unwrap_or(0),
-                s0: hart_state.gpr(GeneralPurposeRegister::s0).try_into().unwrap_or(0),
-                s1: hart_state.gpr(GeneralPurposeRegister::s1).try_into().unwrap_or(0),
-                a0: hart_state.gpr(GeneralPurposeRegister::a0).try_into().unwrap_or(0),
-                a1: hart_state.gpr(GeneralPurposeRegister::a1).try_into().unwrap_or(0),
-                a2: hart_state.gpr(GeneralPurposeRegister::a2).try_into().unwrap_or(0),
-                a3: hart_state.gpr(GeneralPurposeRegister::a3).try_into().unwrap_or(0),
-                a4: hart_state.gpr(GeneralPurposeRegister::a4).try_into().unwrap_or(0),
-                a5: hart_state.gpr(GeneralPurposeRegister::a5).try_into().unwrap_or(0),
-                a6: hart_state.gpr(GeneralPurposeRegister::a6).try_into().unwrap_or(0),
-                a7: hart_state.gpr(GeneralPurposeRegister::a7).try_into().unwrap_or(0),
-                s2: hart_state.gpr(GeneralPurposeRegister::s2).try_into().unwrap_or(0),
-                s3: hart_state.gpr(GeneralPurposeRegister::s3).try_into().unwrap_or(0),
-                s4: hart_state.gpr(GeneralPurposeRegister::s4).try_into().unwrap_or(0),
-                s5: hart_state.gpr(GeneralPurposeRegister::s5).try_into().unwrap_or(0),
-                s6: hart_state.gpr(GeneralPurposeRegister::s6).try_into().unwrap_or(0),
-                s7: hart_state.gpr(GeneralPurposeRegister::s7).try_into().unwrap_or(0),
-                s8: hart_state.gpr(GeneralPurposeRegister::s8).try_into().unwrap_or(0),
-                s9: hart_state.gpr(GeneralPurposeRegister::s9).try_into().unwrap_or(0),
-                s10: hart_state.gpr(GeneralPurposeRegister::s10).try_into().unwrap_or(0),
-                s11: hart_state.gpr(GeneralPurposeRegister::s11).try_into().unwrap_or(0),
-                t3: hart_state.gpr(GeneralPurposeRegister::t3).try_into().unwrap_or(0),
-                t4: hart_state.gpr(GeneralPurposeRegister::t4).try_into().unwrap_or(0),
-                t5: hart_state.gpr(GeneralPurposeRegister::t5).try_into().unwrap_or(0),
-                t6: hart_state.gpr(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
-                mepc: hart_state.csrs.mepc.read_value().try_into().unwrap_or(0),
-                mstatus: hart_state.csrs.mstatus.read_value().try_into().unwrap_or(0),
+                ra: hardware_hart.gprs().read(GeneralPurposeRegister::ra).try_into().unwrap_or(0),
+                sp: hardware_hart.gprs().read(GeneralPurposeRegister::sp).try_into().unwrap_or(0),
+                gp: hardware_hart.gprs().read(GeneralPurposeRegister::gp).try_into().unwrap_or(0),
+                tp: hardware_hart.gprs().read(GeneralPurposeRegister::tp).try_into().unwrap_or(0),
+                t0: hardware_hart.gprs().read(GeneralPurposeRegister::t0).try_into().unwrap_or(0),
+                t1: hardware_hart.gprs().read(GeneralPurposeRegister::t1).try_into().unwrap_or(0),
+                t2: hardware_hart.gprs().read(GeneralPurposeRegister::t2).try_into().unwrap_or(0),
+                s0: hardware_hart.gprs().read(GeneralPurposeRegister::s0).try_into().unwrap_or(0),
+                s1: hardware_hart.gprs().read(GeneralPurposeRegister::s1).try_into().unwrap_or(0),
+                a0: hardware_hart.gprs().read(GeneralPurposeRegister::a0).try_into().unwrap_or(0),
+                a1: hardware_hart.gprs().read(GeneralPurposeRegister::a1).try_into().unwrap_or(0),
+                a2: hardware_hart.gprs().read(GeneralPurposeRegister::a2).try_into().unwrap_or(0),
+                a3: hardware_hart.gprs().read(GeneralPurposeRegister::a3).try_into().unwrap_or(0),
+                a4: hardware_hart.gprs().read(GeneralPurposeRegister::a4).try_into().unwrap_or(0),
+                a5: hardware_hart.gprs().read(GeneralPurposeRegister::a5).try_into().unwrap_or(0),
+                a6: hardware_hart.gprs().read(GeneralPurposeRegister::a6).try_into().unwrap_or(0),
+                a7: hardware_hart.gprs().read(GeneralPurposeRegister::a7).try_into().unwrap_or(0),
+                s2: hardware_hart.gprs().read(GeneralPurposeRegister::s2).try_into().unwrap_or(0),
+                s3: hardware_hart.gprs().read(GeneralPurposeRegister::s3).try_into().unwrap_or(0),
+                s4: hardware_hart.gprs().read(GeneralPurposeRegister::s4).try_into().unwrap_or(0),
+                s5: hardware_hart.gprs().read(GeneralPurposeRegister::s5).try_into().unwrap_or(0),
+                s6: hardware_hart.gprs().read(GeneralPurposeRegister::s6).try_into().unwrap_or(0),
+                s7: hardware_hart.gprs().read(GeneralPurposeRegister::s7).try_into().unwrap_or(0),
+                s8: hardware_hart.gprs().read(GeneralPurposeRegister::s8).try_into().unwrap_or(0),
+                s9: hardware_hart.gprs().read(GeneralPurposeRegister::s9).try_into().unwrap_or(0),
+                s10: hardware_hart.gprs().read(GeneralPurposeRegister::s10).try_into().unwrap_or(0),
+                s11: hardware_hart.gprs().read(GeneralPurposeRegister::s11).try_into().unwrap_or(0),
+                t3: hardware_hart.gprs().read(GeneralPurposeRegister::t3).try_into().unwrap_or(0),
+                t4: hardware_hart.gprs().read(GeneralPurposeRegister::t4).try_into().unwrap_or(0),
+                t5: hardware_hart.gprs().read(GeneralPurposeRegister::t5).try_into().unwrap_or(0),
+                t6: hardware_hart.gprs().read(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
+                mepc: hardware_hart.csrs().mepc.read_value().try_into().unwrap_or(0),
+                mstatus: hardware_hart.csrs().mstatus.read_value().try_into().unwrap_or(0),
                 // TODO: mstatusH exists only in rv32. Adjust this to support rv32
                 mstatusH: 0,
             },
