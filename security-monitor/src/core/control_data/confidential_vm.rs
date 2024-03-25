@@ -89,17 +89,17 @@ impl ConfidentialVm {
 
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
-        hardware_hart.non_confidential_hart_state.csrs_mut().save_in_main_memory();
+        hardware_hart.hypervisor_hart_mut().csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
         self.confidential_harts[confidential_hart_id].confidential_hart_state().csrs().restore_from_main_memory();
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
-        InjectedInterrupts::from_hardware_hart(hardware_hart)
+        InjectedInterrupts::from_hypervisor_hart(hardware_hart.hypervisor_hart())
             .declassify_to_confidential_hart(&mut self.confidential_harts[confidential_hart_id]);
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
@@ -115,31 +115,31 @@ impl ConfidentialVm {
     ///
     /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
-        assert!(!hardware_hart.confidential_hart.is_dummy());
+        assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
-        let confidential_hart_id = hardware_hart.confidential_hart.confidential_hart_id();
+        let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
 
         // Return the confidential hart to the confidential machine.
-        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
         self.confidential_harts[confidential_hart_id].confidential_hart_state_mut().csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
-        hardware_hart.hypervisor_hart_state().csrs().restore_from_main_memory();
+        hardware_hart.hypervisor_hart().csrs().restore_from_main_memory();
         // 3) Expose enabled interrupts
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
         EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
-            .declassify_to_hardware_hart(hardware_hart);
+            .declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut());
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
         // associated with a dummy virtual hart.
         // It is safe to invoke below unsafe code because at this point we are transitioning from the confidential flow part of the
         // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
-        unsafe { hardware_hart.enable_hypervisor_memory_protector() };
+        unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {

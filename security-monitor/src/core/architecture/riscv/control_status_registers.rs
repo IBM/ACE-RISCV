@@ -275,6 +275,7 @@ impl ControlStatusRegisters {
 
 pub struct ControlStatusRegister {
     pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
+    pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
     pub pmpaddr0: ReadWriteRiscvCsr<CSR_PMPADDR0>,
@@ -283,6 +284,7 @@ pub struct ControlStatusRegister {
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     mhartid: ReadWriteRiscvCsr::new(),
+    mscratch: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     pmpcfg0: ReadWriteRiscvCsr::new(),
     pmpaddr0: ReadWriteRiscvCsr::new(),

@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, ECALL_INSTRUCTION_LENGTH};
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
 
 pub struct SbiRequest {
     extension_id: usize,
@@ -61,6 +61,20 @@ impl SbiRequest {
         )
     }
 
+    pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        use crate::core::architecture::CAUSE_VIRTUAL_SUPERVISOR_ECALL;
+        hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a7, self.extension_id);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a6, self.function_id);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a2, self.a2);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a3, self.a3);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a4, self.a4);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a5, self.a5);
+        hypervisor_hart.apply_trap(false);
+    }
+
     pub fn new(extension_id: usize, function_id: usize, a0: usize, a1: usize, a2: usize, a3: usize, a4: usize, a5: usize) -> Self {
         Self { extension_id, function_id, a0, a1, a2, a3, a4, a5 }
     }
@@ -108,10 +122,10 @@ pub struct SbiResult {
 }
 
 impl SbiResult {
-    pub fn from_hypervisor_hart(hardware_hart: &HardwareHart) -> Self {
+    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self::new(
-            hardware_hart.gprs().read(GeneralPurposeRegister::a0),
-            hardware_hart.gprs().read(GeneralPurposeRegister::a1),
+            hypervisor_hart.gprs().read(GeneralPurposeRegister::a0),
+            hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
             ECALL_INSTRUCTION_LENGTH,
         )
     }
@@ -123,11 +137,11 @@ impl SbiResult {
         confidential_hart.confidential_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
     }
 
-    pub fn apply_to_hardware_hart(&self, hardware_hart: &mut HardwareHart) {
-        let new_mepc = hardware_hart.hypervisor_hart_state().csrs().mepc.read_value() + self.pc_offset;
-        hardware_hart.hypervisor_hart_state_mut().csrs_mut().mepc.save_value(new_mepc);
-        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
-        hardware_hart.hypervisor_hart_state_mut().gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
+    pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        let new_mepc = hypervisor_hart.csrs().mepc.read_value() + self.pc_offset;
+        hypervisor_hart.csrs_mut().mepc.save_value(new_mepc);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
     }
 
     pub fn success(code: usize) -> Self {

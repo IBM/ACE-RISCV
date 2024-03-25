@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
-use crate::core::control_data::HardwareHart;
+use crate::core::control_data::HypervisorHart;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
 pub struct PromoteToConfidentialVm {
@@ -10,8 +10,8 @@ pub struct PromoteToConfidentialVm {
 }
 
 impl PromoteToConfidentialVm {
-    pub fn from_vm_hart(hardware_hart: &HardwareHart) -> Self {
-        Self { hart_state: HartArchitecturalState::from_existing(0, hardware_hart.hypervisor_hart_state()) }
+    pub fn from_vm_hart(hypervisor_hart: &HypervisorHart) -> Self {
+        Self { hart_state: HartArchitecturalState::from_existing(0, hypervisor_hart.hypervisor_hart_state()) }
     }
 
     /// Returns the address of the device tree provided as the first argument of the call.

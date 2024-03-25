@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
-use crate::core::control_data::{ConfidentialHart, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, HardwareHart, HypervisorHart};
 use crate::core::transformations::mmio_pending::{MmioLoadPending, MmioStorePending};
 
 pub struct MmioLoadResult {
@@ -12,10 +12,10 @@ pub struct MmioLoadResult {
 }
 
 impl MmioLoadResult {
-    pub fn from_hardware_hart(hardware_hart: &HardwareHart, request: MmioLoadPending) -> Self {
+    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart, request: MmioLoadPending) -> Self {
         Self {
             result_gpr: request.result_gpr(),
-            value: hardware_hart.gprs().read(request.result_gpr()),
+            value: hypervisor_hart.gprs().read(request.result_gpr()),
             instruction_length: request.instruction_length(),
         }
     }

@@ -1,49 +1,44 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
 use crate::core::architecture::specification::*;
 use crate::core::architecture::{
-    are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState,
+    are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, CSR,
 };
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use crate::core::transformations::{
-    EnabledInterrupts, ExposeToHypervisor, InterruptRequest, MmioLoadRequest, MmioStoreRequest, OpensbiResult, SbiRequest, SbiResult,
-    SbiVmRequest,
+    EnabledInterrupts, ExposeToHypervisor, InterruptRequest, OpensbiResult, SbiRequest, SbiResult, SbiVmRequest,
 };
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
 #[repr(C)]
 pub struct HardwareHart {
-    // Safety: HardwareHart and ConfidentialHart must both start with the HartArchitecturalState element because based
-    // on this we automatically calculate offsets of registers' and CSRs' for the context switch implemented in assembly.
-    pub(super) non_confidential_hart_state: HartArchitecturalState,
-    // Memory protector that configures the hardware memory isolation component to allow only memory accesses
-    // to the memory region owned by the hypervisor.
-    hypervisor_memory_protector: HypervisorMemoryProtector,
+    // We store a hypervisor hart that was executing on this physical hart when making a call to the security monitor.
+    hypervisor_hart: HypervisorHart,
     // A page containing the stack of the code executing within the given hart.
-    pub(super) stack: Page<Allocated>,
+    stack: Page<Allocated>,
     // The stack_address is redundant (we can learn the stack_address from the page assigned to the stack) but we need
     // it because this is the way to expose it to assembly
-    pub(super) stack_address: usize,
+    stack_address: usize,
     // We need to store the OpenSBI's mscratch value because OpenSBI uses mscratch to track some of its internal
     // data structures and our security monitor also uses mscratch to keep track of the address of the hart state
     // in memory.
     previous_mscratch: usize,
-    // We keep the virtual hart that is associated with this hardware hart. The virtual hart can be 1) a dummy hart
+    // We keep the confidential hart associated with this hardware hart. The virtual hart can be 1) a dummy hart
     // in case there is any confidential VM's virtual hart associated to it, or 2) an confidential VM's virtual hart.
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
-    pub(super) confidential_hart: ConfidentialHart,
+    confidential_hart: ConfidentialHart,
 }
 
 impl HardwareHart {
     pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
-            non_confidential_hart_state: HartArchitecturalState::empty(id),
-            hypervisor_memory_protector,
+            hypervisor_hart: HypervisorHart::new(id, hypervisor_memory_protector),
             stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
@@ -52,7 +47,8 @@ impl HardwareHart {
     }
 
     pub fn address(&self) -> usize {
-        core::ptr::addr_of!(self.non_confidential_hart_state) as usize
+        core::ptr::addr_of!(self.hypervisor_hart) as usize
+        // + memoffset::offset_of!(HardwareHart, stack_address)
     }
 
     /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
@@ -60,8 +56,8 @@ impl HardwareHart {
     /// the previous_mscratch field.
     pub fn swap_mscratch(&mut self) {
         let previous_mscratch = self.previous_mscratch;
-        let current_mscratch = self.hypervisor_hart_state().csrs().mscratch.read();
-        self.hypervisor_hart_state_mut().csrs_mut().mscratch.set(previous_mscratch);
+        let current_mscratch = CSR.mscratch.read();
+        CSR.mscratch.set(previous_mscratch);
         self.previous_mscratch = current_mscratch;
     }
 
@@ -73,123 +69,25 @@ impl HardwareHart {
         &mut self.confidential_hart
     }
 
-    pub unsafe fn enable_hypervisor_memory_protector(&self) {
-        self.hypervisor_memory_protector.enable(self.non_confidential_hart_state.csrs.hgatp.read_value())
+    pub fn hypervisor_hart(&self) -> &HypervisorHart {
+        &self.hypervisor_hart
+    }
+
+    pub fn hypervisor_hart_mut(&mut self) -> &mut HypervisorHart {
+        &mut self.hypervisor_hart
     }
 }
 
 impl HardwareHart {
     pub fn apply(&mut self, transformation: &ExposeToHypervisor) {
         match transformation {
-            ExposeToHypervisor::SbiRequest(v) => self.apply_sbi_request(v),
-            ExposeToHypervisor::SbiVmRequest(v) => self.apply_sbi_vm_request(v),
-            ExposeToHypervisor::SbiResult(v) => v.apply_to_hardware_hart(self),
-            ExposeToHypervisor::OpensbiResult(v) => v.apply_to_hardware_hart(self),
-            ExposeToHypervisor::MmioLoadRequest(v) => self.apply_mmio_load_request(v),
-            ExposeToHypervisor::MmioStoreRequest(v) => self.apply_mmio_store_request(v),
-            ExposeToHypervisor::InterruptRequest(v) => self.apply_interrupt_request(v),
+            ExposeToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::SbiVmRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::SbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::OpensbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ExposeToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
-    }
-
-    fn apply_sbi_vm_request(&mut self, request: &SbiVmRequest) {
-        self.hypervisor_hart_state().csrs().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-        self.gprs_mut().write(GeneralPurposeRegister::a7, request.sbi_request().extension_id());
-        self.gprs_mut().write(GeneralPurposeRegister::a6, request.sbi_request().function_id());
-        self.gprs_mut().write(GeneralPurposeRegister::a0, request.sbi_request().a0());
-        self.gprs_mut().write(GeneralPurposeRegister::a1, request.sbi_request().a1());
-        self.gprs_mut().write(GeneralPurposeRegister::a2, request.sbi_request().a2());
-        self.gprs_mut().write(GeneralPurposeRegister::a3, request.sbi_request().a3());
-        self.gprs_mut().write(GeneralPurposeRegister::a4, request.sbi_request().a4());
-        self.gprs_mut().write(GeneralPurposeRegister::a5, request.sbi_request().a5());
-        self.apply_trap(false);
-    }
-
-    fn apply_sbi_request(&mut self, request: &SbiRequest) {
-        self.hypervisor_hart_state().csrs().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
-        self.gprs_mut().write(GeneralPurposeRegister::a7, request.extension_id());
-        self.gprs_mut().write(GeneralPurposeRegister::a6, request.function_id());
-        self.gprs_mut().write(GeneralPurposeRegister::a0, request.a0());
-        self.gprs_mut().write(GeneralPurposeRegister::a1, request.a1());
-        self.gprs_mut().write(GeneralPurposeRegister::a2, request.a2());
-        self.gprs_mut().write(GeneralPurposeRegister::a3, request.a3());
-        self.gprs_mut().write(GeneralPurposeRegister::a4, request.a4());
-        self.gprs_mut().write(GeneralPurposeRegister::a5, request.a5());
-        self.apply_trap(false);
-    }
-
-    fn apply_mmio_load_request(&mut self, request: &MmioLoadRequest) {
-        self.hypervisor_hart_state().csrs().scause.set(request.code());
-        // KVM uses htval and stval to recreate the fault address
-        self.hypervisor_hart_state().csrs().stval.set(request.stval());
-        self.hypervisor_hart_state().csrs().htval.set(request.htval());
-        // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
-        // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
-        self.hypervisor_hart_state().csrs().vsscratch.set(request.instruction());
-        self.apply_trap(true);
-    }
-
-    fn apply_mmio_store_request(&mut self, request: &MmioStoreRequest) {
-        self.hypervisor_hart_state().csrs().scause.set(request.code());
-        // KVM uses htval and stval to recreate the fault address
-        self.hypervisor_hart_state().csrs().stval.set(request.stval());
-        self.hypervisor_hart_state().csrs().htval.set(request.htval());
-        self.gprs_mut().write(request.gpr(), request.gpr_value());
-        // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
-        // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
-        self.hypervisor_hart_state().csrs().vsscratch.set(request.instruction());
-        self.apply_trap(true);
-    }
-
-    fn apply_interrupt_request(&mut self, request: &InterruptRequest) {
-        self.hypervisor_hart_state().csrs().scause.set(request.code() | SCAUSE_INTERRUPT_MASK);
-        self.apply_trap(false);
-    }
-
-    #[inline]
-    fn apply_trap(&mut self, encoded_guest_virtual_address: bool) {
-        if are_bits_enabled(self.hypervisor_hart_state().csrs().stvec.read(), STVEC_MODE_VECTORED) {
-            panic!("Not supported functionality: vectored traps");
-        }
-
-        // Set next mode to HS (see Table 8.8 in Riscv privilege spec 20211203)
-        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPV);
-        self.non_confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
-        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
-        self.non_confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_SIE);
-
-        // Resume HS execution at its trap function
-        self.hypervisor_hart_state().csrs().sepc.set(self.non_confidential_hart_state.csrs.mepc.read_value());
-        self.non_confidential_hart_state.csrs.mepc.save_value(self.hypervisor_hart_state().csrs().stvec.read());
-
-        // We trick the hypervisor to think that the trap comes directly from the VS-mode.
-        self.non_confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SPP);
-        self.hypervisor_hart_state().csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPV);
-        self.hypervisor_hart_state().csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPVP);
-        // According to the spec, hstatus:SPVP and sstatus.SPP have the same value when transitioning from VS to HS mode.
-        self.hypervisor_hart_state().csrs().sstatus.read_and_set_bit(CSR_SSTATUS_SPP);
-
-        if encoded_guest_virtual_address {
-            self.hypervisor_hart_state().csrs().hstatus.read_and_set_bit(CSR_HSTATUS_GVA);
-        } else {
-            self.hypervisor_hart_state().csrs().hstatus.read_and_clear_bit(CSR_HSTATUS_GVA);
-        }
-    }
-}
-
-impl HardwareHart {
-    pub fn gprs(&self) -> &GeneralPurposeRegisters {
-        &self.non_confidential_hart_state.gprs
-    }
-
-    pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
-        &mut self.non_confidential_hart_state.gprs
-    }
-
-    pub fn hypervisor_hart_state(&self) -> &HartArchitecturalState {
-        &self.non_confidential_hart_state
-    }
-
-    pub fn hypervisor_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
-        &mut self.non_confidential_hart_state
     }
 }

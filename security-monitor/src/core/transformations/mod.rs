@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use interrupt::{EnabledInterrupts, InjectedInterrupts, InterruptRequest};
 pub use mmio_pending::{MmioLoadPending, MmioStorePending};
-pub use mmio_requests::{MmioLoadRequest, MmioStoreRequest};
 pub use mmio_responses::{MmioLoadResult, MmioStoreResult};
 pub use opensbi::{OpensbiRequest, OpensbiResult};
 pub use promote_to_confidential_vm_request::PromoteToConfidentialVm;
@@ -18,9 +17,10 @@ pub use smp::{
 };
 pub use virtual_instruction::{VirtualInstructionRequest, VirtualInstructionResult};
 
+use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
+
 mod interrupt;
 mod mmio_pending;
-mod mmio_requests;
 mod mmio_responses;
 mod opensbi;
 mod promote_to_confidential_vm_request;

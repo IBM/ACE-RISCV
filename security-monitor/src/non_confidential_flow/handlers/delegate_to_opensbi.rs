@@ -11,7 +11,7 @@ extern "C" {
 
 /// OpenSBI handler processes regular SBI calls sent by a hypervisor or VMs
 pub fn handle(mut non_confidential_flow: NonConfidentialFlow) -> ! {
-    let mut request = OpensbiRequest::from_hardware_hart(non_confidential_flow.hardware_hart());
+    let mut request = OpensbiRequest::from_hypervisor_hart(non_confidential_flow.hypervisor_hart());
     // We must ensure that the swap is called twice, before and after executing the OpenSBI handler. Otherwise, we end
     // up having incorrect address in mscratch and the context switches to/from the security monitor will not work
     // anymore.

@@ -11,7 +11,7 @@ use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartArchitecturalState, SbiExtension, TrapCause};
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart, HypervisorHart};
 use crate::core::transformations::PendingRequest::*;
 use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest, SbiResult};
 use crate::error::Error;
@@ -218,6 +218,10 @@ impl<'a> ConfidentialFlow<'a> {
 
     pub fn hardware_hart(&'a self) -> &HardwareHart {
         &self.hardware_hart
+    }
+
+    pub fn hypervisor_hart(&'a self) -> &HypervisorHart {
+        &self.hardware_hart.hypervisor_hart()
     }
 
     pub fn confidential_hart_state(&self) -> &HartArchitecturalState {

@@ -6,7 +6,7 @@ use crate::non_confidential_flow::NonConfidentialFlow;
 
 /// Resume handler is called by the hypervisor to resume the confidential VM execution.
 pub fn handle(non_confidential_flow: NonConfidentialFlow) -> ! {
-    let request = ResumeRequest::from_hardware_hart(non_confidential_flow.hardware_hart());
+    let request = ResumeRequest::from_hypervisor_hart(non_confidential_flow.hypervisor_hart());
     let (non_confidential_flow, _error) = non_confidential_flow.into_confidential_flow(request);
 
     // Properly implemented hypervisor should never let us enter this code. Entering this code means that the transition into confidential

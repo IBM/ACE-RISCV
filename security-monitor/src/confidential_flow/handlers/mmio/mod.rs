@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+pub use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::transformations::{
-    ExposeToConfidentialVm, ExposeToHypervisor, MmioLoadPending, MmioLoadRequest, MmioLoadResult, MmioStorePending, MmioStoreRequest,
-    MmioStoreResult, PendingRequest,
+    ExposeToConfidentialVm, ExposeToHypervisor, MmioLoadPending, MmioLoadResult, MmioStorePending, MmioStoreResult, PendingRequest,
 };
+
+pub mod requests;
 
 pub fn request_mmio_load(confidential_flow: ConfidentialFlow) -> ! {
     match MmioLoadRequest::from_confidential_hart(confidential_flow.confidential_hart()) {
@@ -28,7 +30,7 @@ pub fn request_mmio_store(confidential_flow: ConfidentialFlow) -> ! {
 }
 
 pub fn handle_mmio_load_response(confidential_flow: ConfidentialFlow, result: MmioLoadPending) -> ! {
-    let result = MmioLoadResult::from_hardware_hart(confidential_flow.hardware_hart(), result);
+    let result = MmioLoadResult::from_hypervisor_hart(confidential_flow.hypervisor_hart(), result);
     confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::MmioLoadResult(result))
 }
 

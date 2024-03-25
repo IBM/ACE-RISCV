@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, HardwareHart, HypervisorHart};
 use crate::error::Error;
 
 pub struct MmioLoadRequest {
@@ -29,20 +29,15 @@ impl MmioLoadRequest {
         Ok(Self { code: mcause, stval: mtval, htval: mtval2, instruction: mtinst, instruction_length, gpr })
     }
 
-    pub fn code(&self) -> usize {
-        self.code
-    }
-
-    pub fn stval(&self) -> usize {
-        self.stval
-    }
-
-    pub fn htval(&self) -> usize {
-        self.htval
-    }
-
-    pub fn instruction(&self) -> usize {
-        self.instruction
+    pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        hypervisor_hart.csrs_mut().scause.set(self.code);
+        // KVM uses htval and stval to recreate the fault address
+        hypervisor_hart.csrs_mut().stval.set(self.stval);
+        hypervisor_hart.csrs_mut().htval.set(self.htval);
+        // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
+        // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
+        hypervisor_hart.csrs_mut().vsscratch.set(self.instruction);
+        hypervisor_hart.apply_trap(true);
     }
 
     pub fn instruction_length(&self) -> usize {
@@ -81,31 +76,19 @@ impl MmioStoreRequest {
         Ok(Self { code: mcause, stval: mtval, htval: mtval2, instruction: mtinst, instruction_length, gpr, gpr_value })
     }
 
-    pub fn code(&self) -> usize {
-        self.code
-    }
-
-    pub fn stval(&self) -> usize {
-        self.stval
-    }
-
-    pub fn htval(&self) -> usize {
-        self.htval
-    }
-
-    pub fn instruction(&self) -> usize {
-        self.instruction
+    pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        hypervisor_hart.csrs_mut().scause.set(self.code);
+        // KVM uses htval and stval to recreate the fault address
+        hypervisor_hart.csrs_mut().stval.set(self.stval);
+        hypervisor_hart.csrs_mut().htval.set(self.htval);
+        hypervisor_hart.gprs_mut().write(self.gpr, self.gpr_value);
+        // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
+        // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
+        hypervisor_hart.csrs_mut().vsscratch.set(self.instruction);
+        hypervisor_hart.apply_trap(true);
     }
 
     pub fn instruction_length(&self) -> usize {
         self.instruction_length
-    }
-
-    pub fn gpr(&self) -> GeneralPurposeRegister {
-        self.gpr
-    }
-
-    pub fn gpr_value(&self) -> usize {
-        self.gpr_value
     }
 }
