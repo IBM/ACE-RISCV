@@ -1,7 +1,19 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::*;
+use crate::confidential_flow::handlers::interrupts::InterruptRequest;
+use crate::confidential_flow::handlers::invalid_call::InvalidCall;
+use crate::confidential_flow::handlers::mmio::load_request::MmioLoadRequest;
+use crate::confidential_flow::handlers::mmio::store_request::MmioStoreRequest;
+use crate::confidential_flow::handlers::mmio::{MmioLoadResult, MmioStoreResult};
+use crate::confidential_flow::handlers::sbi::{SbiExtensionProbe, SbiRequest, SbiResult};
+use crate::confidential_flow::handlers::shared_page::{SharePageRequest, SharePageResult, UnsharePageRequest};
+use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
+use crate::confidential_flow::handlers::smp::{
+    NoOperation, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma,
+    SbiRemoteSfenceVmaAsid,
+};
+use crate::confidential_flow::handlers::virtual_instructions::VirtualInstructionRequest;
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::BaseExtension::*;
 use crate::core::architecture::HsmExtension::*;
@@ -10,10 +22,10 @@ use crate::core::architecture::RfenceExtension::*;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{HartArchitecturalState, SbiExtension, TrapCause};
+use crate::core::architecture::{SbiExtension, TrapCause};
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart, HypervisorHart};
 use crate::core::transformations::PendingRequest::*;
-use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest, SbiResult};
+use crate::core::transformations::{DeclassifyToHypervisor, ExposeToConfidentialVm, InterHartRequest, PendingRequest};
 use crate::error::Error;
 use crate::non_confidential_flow::NonConfidentialFlow;
 
@@ -47,37 +59,39 @@ impl<'a> ConfidentialFlow<'a> {
         let hardware_hart = unsafe { hardware_hart_pointer.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
         assert!(!hardware_hart.confidential_hart().is_dummy());
         let mut flow = Self { hardware_hart };
-        flow.confidential_hart_state_mut().csrs_mut().mepc.save();
-        flow.confidential_hart_state_mut().csrs_mut().mstatus.save();
+        flow.confidential_hart_mut().csrs_mut().mepc.save();
+        flow.confidential_hart_mut().csrs_mut().mstatus.save();
 
-        match TrapCause::from_hart_architectural_state(flow.confidential_hart_state()) {
-            Interrupt => required::handle_interrupt(flow),
-            VsEcall(Ace(SharePageWithHypervisor)) => shared_page::request_shared_page(flow),
-            VsEcall(Ace(StopSharingPageWithHypervisor)) => shared_page::unshare_page(flow),
-            VsEcall(Base(GetSpecVersion)) => hypercall::make_sbi_call(flow),
-            VsEcall(Base(GetImplId)) => hypercall::make_sbi_call(flow),
-            VsEcall(Base(GetImplVersion)) => hypercall::make_sbi_call(flow),
-            VsEcall(Base(ProbeExtension)) => required::probe_sbi_extensions(flow),
-            VsEcall(Base(GetMvendorId)) => hypercall::make_sbi_call(flow),
-            VsEcall(Base(GetMarchid)) => hypercall::make_sbi_call(flow),
-            VsEcall(Base(GetMimpid)) => hypercall::make_sbi_call(flow),
-            VsEcall(Ipi(SendIpi)) => smp::send_inter_hart_request(flow),
-            VsEcall(Rfence(RemoteFenceI)) => smp::send_inter_hart_request(flow),
-            VsEcall(Rfence(RemoteSfenceVma)) => smp::send_inter_hart_request(flow),
-            VsEcall(Rfence(RemoteSfenceVmaAsid)) => smp::send_inter_hart_request(flow),
-            VsEcall(Rfence(RemoteHfenceGvmaVmid)) => smp::no_operation(flow),
-            VsEcall(Rfence(RemoteHfenceGvma)) => smp::no_operation(flow),
-            VsEcall(Rfence(RemoteHfenceVvmaAsid)) => smp::no_operation(flow),
-            VsEcall(Rfence(RemoteHfenceVvma)) => smp::no_operation(flow),
-            VsEcall(Hsm(HartStart)) => smp::start_remote_hart(flow),
-            VsEcall(Hsm(HartStop)) => smp::stop_hart(flow),
-            VsEcall(Hsm(HartSuspend)) => smp::suspend_hart(flow),
-            VsEcall(Hsm(HartGetStatus)) => smp::get_hart_status(flow),
-            VsEcall(Srst(SystemReset)) => shutdown::shutdown_confidential_vm(flow),
-            VsEcall(SbiExtension::Unknown(_, _)) => required::invalid_call(flow),
-            GuestLoadPageFault => mmio::request_mmio_load(flow),
-            VirtualInstruction => required::emulate_instruction(flow),
-            GuestStorePageFault => mmio::request_mmio_store(flow),
+        match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
+            Interrupt => InterruptRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Ace(SharePageWithHypervisor)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Ace(StopSharingPageWithHypervisor)) => {
+                UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
+            }
+            VsEcall(Base(GetSpecVersion)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetImplId)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetImplVersion)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(ProbeExtension)) => SbiExtensionProbe::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMvendorId)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMarchid)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMimpid)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Ipi(SendIpi)) => SbiIpi::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteFenceI)) => SbiRemoteFenceI::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteSfenceVma)) => SbiRemoteSfenceVma::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteSfenceVmaAsid)) => SbiRemoteSfenceVmaAsid::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteHfenceGvmaVmid)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteHfenceGvma)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteHfenceVvmaAsid)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteHfenceVvma)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Hsm(HartStart)) => SbiHsmHartStart::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Hsm(HartStop)) => SbiHsmHartStop::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Hsm(HartSuspend)) => SbiHsmHartSuspend::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Hsm(HartGetStatus)) => SbiHsmHartStatus::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Srst(SystemReset)) => ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(SbiExtension::Unknown(_, _)) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VirtualInstruction => VirtualInstructionRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
@@ -86,47 +100,52 @@ impl<'a> ConfidentialFlow<'a> {
     /// This is an entry point to the confidential flow from the non-confidential flow.
     pub fn resume_confidential_hart_execution(hardware_hart: &'a mut HardwareHart) -> ! {
         assert!(!hardware_hart.confidential_hart().is_dummy());
-        let mut confidential_flow = Self { hardware_hart };
+        let mut flow = Self { hardware_hart };
 
         // During the time when this confidential hart was not running, other confidential harts could have sent it
         // InterHartRequests. We must process them before resuming confidential hart's execution.
-        confidential_flow.process_inter_hart_requests();
+        flow.process_inter_hart_requests();
 
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
         // load) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's execution.
-        match confidential_flow.hardware_hart.confidential_hart_mut().take_request() {
-            Some(SbiRequest()) => hypercall::process_sbi_response(confidential_flow),
-            Some(MmioLoad(request)) => mmio::handle_mmio_load_response(confidential_flow, request),
-            Some(MmioStore(request)) => mmio::handle_mmio_store_response(confidential_flow, request),
-            Some(SharePage(request)) => shared_page::share_page(confidential_flow, request),
-            Some(SbiHsmHartStart()) => {
-                confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiResult(SbiResult::success(0)))
+        match flow.hardware_hart.confidential_hart_mut().take_request() {
+            Some(SbiRequest()) => SbiResult::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            Some(MmioLoad(request)) => MmioLoadResult::from_hypervisor_hart(flow.hypervisor_hart(), request).handle(flow),
+            Some(MmioStore(request)) => MmioStoreResult::from_pending(request).handle(flow),
+            Some(SharePage(request)) => SharePageResult::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow, request),
+            Some(SbiHsmHartStartPending()) => {
+                flow.hardware_hart.confidential_hart_mut().transition_from_start_pending_to_started();
+                flow.exit_to_confidential_hart(ExposeToConfidentialVm::Nothing())
             }
-            Some(SbiHsmHartStartPending()) => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::SbiHsmHartStartPending()),
-            None => confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::Resume()),
+            None => flow.exit_to_confidential_hart(ExposeToConfidentialVm::Nothing()),
         }
     }
 
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will
     /// execute the confidential hart on the hardware hart.
-    pub fn exit_to_confidential_hart(self, transformation: ExposeToConfidentialVm) -> ! {
-        let address = self.hardware_hart.confidential_hart_mut().apply(transformation);
+    pub fn exit_to_confidential_hart(mut self, transformation: ExposeToConfidentialVm) -> ! {
+        match transformation {
+            ExposeToConfidentialVm::SbiResult(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
+            ExposeToConfidentialVm::VirtualInstructionResult(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
+            ExposeToConfidentialVm::Nothing() => {}
+        }
+        let address = self.hardware_hart.confidential_hart_mut().address();
         // We must restore some control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts = self.confidential_hart_state().csrs().hvip.read_value() | self.confidential_hart_state().csrs().vsip.read_value();
-        self.confidential_hart_state().csrs().hvip.set(interrupts);
-        self.confidential_hart_state().csrs().sscratch.set(address);
-        self.confidential_hart_state().csrs().mstatus.restore();
-        self.confidential_hart_state().csrs().mepc.restore();
+        let interrupts = self.confidential_hart().csrs().hvip.read_value() | self.confidential_hart().csrs().vsip.read_value();
+        self.confidential_hart().csrs().hvip.set(interrupts);
+        self.confidential_hart().csrs().sscratch.set(address);
+        self.confidential_hart().csrs().mstatus.restore();
+        self.confidential_hart().csrs().mepc.restore();
         unsafe { exit_to_confidential_hart_asm() }
     }
 
     /// Moves in the finite state machine (FSM) from the confidential flow into non-confidential flow.
-    pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
+    pub fn into_non_confidential_flow(self, declassify: DeclassifyToHypervisor) -> NonConfidentialFlow<'a> {
         let confidential_vm_id = self.confidential_vm_id();
         ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
-            confidential_vm.return_confidential_hart(self.hardware_hart);
+            confidential_vm.return_confidential_hart(self.hardware_hart, declassify);
             Ok(NonConfidentialFlow::create(self.hardware_hart))
         })
         // below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
@@ -180,7 +199,7 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Delegation of state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
-    pub fn suspend_confidential_hart(&mut self, request: crate::core::transformations::SbiHsmHartSuspend) -> Result<(), Error> {
+    pub fn suspend_confidential_hart(&mut self, request: SbiHsmHartSuspend) -> Result<(), Error> {
         self.hardware_hart.confidential_hart_mut().transition_from_started_to_suspended(request)
     }
 
@@ -212,28 +231,16 @@ impl<'a> ConfidentialFlow<'a> {
         self.hardware_hart.confidential_hart().confidential_hart_id()
     }
 
+    pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
+        self.hardware_hart.confidential_hart_mut()
+    }
+
     pub fn confidential_hart(&'a self) -> &ConfidentialHart {
         self.hardware_hart.confidential_hart()
     }
 
-    pub fn hardware_hart(&'a self) -> &HardwareHart {
-        &self.hardware_hart
-    }
-
     pub fn hypervisor_hart(&'a self) -> &HypervisorHart {
         &self.hardware_hart.hypervisor_hart()
-    }
-
-    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
-        self.hardware_hart.confidential_hart().confidential_hart_state()
-    }
-    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
-        self.hardware_hart.confidential_hart_mut().confidential_hart_state_mut()
-    }
-
-    pub fn is_confidential_hart_shutdown(&self) -> bool {
-        use crate::core::architecture::HartLifecycleState;
-        self.hardware_hart.confidential_hart().lifecycle_state() == &HartLifecycleState::Shutdown
     }
 
     pub fn set_pending_request(self, request: PendingRequest) -> Self {

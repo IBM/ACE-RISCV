@@ -5,4 +5,4 @@ pub use control_flow::NonConfidentialFlow;
 
 mod context_switch;
 mod control_flow;
-mod handlers;
+pub mod handlers;

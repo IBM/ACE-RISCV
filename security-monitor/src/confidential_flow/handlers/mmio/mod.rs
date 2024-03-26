@@ -1,40 +1,16 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
-use crate::confidential_flow::ConfidentialFlow;
-use crate::core::transformations::{
-    ExposeToConfidentialVm, ExposeToHypervisor, MmioLoadPending, MmioLoadResult, MmioStorePending, MmioStoreResult, PendingRequest,
-};
+pub use crate::confidential_flow::handlers::mmio::load_pending::MmioLoadPending;
+pub use crate::confidential_flow::handlers::mmio::load_request::MmioLoadRequest;
+pub use crate::confidential_flow::handlers::mmio::load_result::MmioLoadResult;
+pub use crate::confidential_flow::handlers::mmio::store_pending::MmioStorePending;
+pub use crate::confidential_flow::handlers::mmio::store_request::MmioStoreRequest;
+pub use crate::confidential_flow::handlers::mmio::store_result::MmioStoreResult;
 
-pub mod requests;
-
-pub fn request_mmio_load(confidential_flow: ConfidentialFlow) -> ! {
-    match MmioLoadRequest::from_confidential_hart(confidential_flow.confidential_hart()) {
-        Ok(mmio_request) => confidential_flow
-            .set_pending_request(PendingRequest::MmioLoad(MmioLoadPending::new(mmio_request.instruction_length(), mmio_request.gpr())))
-            .into_non_confidential_flow()
-            .exit_to_hypervisor(ExposeToHypervisor::MmioLoadRequest(mmio_request)),
-        Err(error) => confidential_flow.into_non_confidential_flow().exit_to_hypervisor(error.into_non_confidential_transformation()),
-    }
-}
-
-pub fn request_mmio_store(confidential_flow: ConfidentialFlow) -> ! {
-    match MmioStoreRequest::from_confidential_hart(confidential_flow.confidential_hart()) {
-        Ok(mmio_request) => confidential_flow
-            .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(mmio_request.instruction_length())))
-            .into_non_confidential_flow()
-            .exit_to_hypervisor(ExposeToHypervisor::MmioStoreRequest(mmio_request)),
-        Err(error) => confidential_flow.into_non_confidential_flow().exit_to_hypervisor(error.into_non_confidential_transformation()),
-    }
-}
-
-pub fn handle_mmio_load_response(confidential_flow: ConfidentialFlow, result: MmioLoadPending) -> ! {
-    let result = MmioLoadResult::from_hypervisor_hart(confidential_flow.hypervisor_hart(), result);
-    confidential_flow.exit_to_confidential_hart(ExposeToConfidentialVm::MmioLoadResult(result))
-}
-
-pub fn handle_mmio_store_response(confidential_flow: ConfidentialFlow, result: MmioStorePending) -> ! {
-    let transformation = ExposeToConfidentialVm::MmioStoreResult(MmioStoreResult::new(result));
-    confidential_flow.exit_to_confidential_hart(transformation)
-}
+pub mod load_pending;
+pub mod load_request;
+pub mod load_result;
+pub mod store_pending;
+pub mod store_request;
+pub mod store_result;

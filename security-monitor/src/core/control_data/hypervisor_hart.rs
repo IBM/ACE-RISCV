@@ -19,6 +19,10 @@ impl HypervisorHart {
         Self { hypervisor_hart_state: HartArchitecturalState::empty(id), hypervisor_memory_protector }
     }
 
+    pub fn address(&self) -> usize {
+        core::ptr::addr_of!(self.hypervisor_hart_state) as usize
+    }
+
     pub fn gprs(&self) -> &GeneralPurposeRegisters {
         self.hypervisor_hart_state.gprs()
     }

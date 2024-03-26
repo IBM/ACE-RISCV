@@ -1,17 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
-use crate::core::architecture::specification::*;
-use crate::core::architecture::{
-    are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, CSR,
-};
+use crate::core::architecture::CSR;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
-use crate::core::transformations::{
-    EnabledInterrupts, ExposeToHypervisor, InterruptRequest, OpensbiResult, SbiRequest, SbiResult, SbiVmRequest,
-};
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
@@ -46,11 +39,6 @@ impl HardwareHart {
         }
     }
 
-    pub fn address(&self) -> usize {
-        core::ptr::addr_of!(self.hypervisor_hart) as usize
-        // + memoffset::offset_of!(HardwareHart, stack_address)
-    }
-
     /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
     /// we replaced during the system initialization. We store the original mscratch value expected by the OpenSBI in
     /// the previous_mscratch field.
@@ -75,19 +63,5 @@ impl HardwareHart {
 
     pub fn hypervisor_hart_mut(&mut self) -> &mut HypervisorHart {
         &mut self.hypervisor_hart
-    }
-}
-
-impl HardwareHart {
-    pub fn apply(&mut self, transformation: &ExposeToHypervisor) {
-        match transformation {
-            ExposeToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::SbiVmRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::SbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::OpensbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-        }
     }
 }

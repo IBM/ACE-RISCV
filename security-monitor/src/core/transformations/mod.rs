@@ -1,62 +1,50 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use interrupt::{EnabledInterrupts, InjectedInterrupts, InterruptRequest};
-pub use mmio_pending::{MmioLoadPending, MmioStorePending};
-pub use mmio_responses::{MmioLoadResult, MmioStoreResult};
-pub use opensbi::{OpensbiRequest, OpensbiResult};
-pub use promote_to_confidential_vm_request::PromoteToConfidentialVm;
-pub use resume_request::ResumeRequest;
-pub use sbi_call::{SbiRequest, SbiResult};
-pub use sbi_vm_request::SbiVmRequest;
-pub use shared_page::{SharePageRequest, SharePageResult, UnsharePageRequest};
-pub use shutdown::{SbiSrstSystemReset, TerminateRequest};
-pub use smp::{
-    SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma,
-    SbiRemoteSfenceVmaAsid,
+use crate::confidential_flow::handlers::interrupts::InterruptRequest;
+use crate::confidential_flow::handlers::mmio::{
+    MmioLoadPending, MmioLoadRequest, MmioLoadResult, MmioStorePending, MmioStoreRequest, MmioStoreResult,
 };
-pub use virtual_instruction::{VirtualInstructionRequest, VirtualInstructionResult};
+use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResult};
+use crate::confidential_flow::handlers::shared_page::SharePageRequest;
+use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
+use crate::confidential_flow::handlers::smp::{
+    SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
+};
+use crate::confidential_flow::handlers::virtual_instructions::VirtualInstructionResult;
+use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmRequest;
+use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiResult;
 
-use crate::confidential_flow::handlers::mmio::requests::{MmioLoadRequest, MmioStoreRequest};
-
-mod interrupt;
-mod mmio_pending;
-mod mmio_responses;
-mod opensbi;
-mod promote_to_confidential_vm_request;
-mod resume_request;
-mod sbi_call;
-mod sbi_vm_request;
-mod shared_page;
-mod shutdown;
-mod smp;
-mod virtual_instruction;
+/// Transformation that modifies hypervisor state as a result of processing its own request
+pub enum ExposeToHypervisor {
+    SbiRequest(SbiRequest),
+    SbiResult(SbiResult),
+    SbiVmRequest(SbiVmRequest),
+    OpensbiResult(OpensbiResult),
+    Resume(),
+}
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
-pub enum ExposeToHypervisor {
-    SbiResult(SbiResult),
-    OpensbiResult(OpensbiResult),
-    SbiVmRequest(SbiVmRequest),
-    InterruptRequest(InterruptRequest),
+pub enum DeclassifyToHypervisor {
     SbiRequest(SbiRequest),
+    SbiResult(SbiResult),
+    InterruptRequest(InterruptRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
 }
 
-pub enum DeclassifyToHypervisor {
-    SbiRequest(SbiRequest),
-    MmioLoadRequest(MmioLoadRequest),
-    MmioStoreRequest(MmioStoreRequest),
+pub enum ExposeToConfidentialVm {
+    SbiResult(SbiResult),
+    VirtualInstructionResult(VirtualInstructionResult),
+    Nothing(),
 }
 
 /// Declassifiers that expose part of the hypervisor's state to a confidential VM's hart.
-pub enum ExposeToConfidentialVm {
+pub enum DeclassifyToConfidentialVm {
     SbiResult(SbiResult),
     MmioLoadResult(MmioLoadResult),
-    VirtualInstructionResult(VirtualInstructionResult),
     MmioStoreResult(MmioStoreResult),
-    Resume(),
-    SbiHsmHartStartPending(),
+    Nothing(),
 }
 
 /// An intermediate confidential hart state that requested certain operation from the hypervisor and is waiting for the
@@ -66,7 +54,6 @@ pub enum PendingRequest {
     SharePage(SharePageRequest),
     MmioLoad(MmioLoadPending),
     MmioStore(MmioStorePending),
-    SbiHsmHartStart(),
     SbiHsmHartStartPending(),
     SbiRequest(),
 }
@@ -79,7 +66,7 @@ pub enum InterHartRequest {
     SbiRemoteSfenceVma(SbiRemoteSfenceVma),
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
     SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
-    SbiSrstSystemReset(SbiSrstSystemReset),
+    ShutdownRequest(ShutdownRequest),
 }
 
 impl InterHartRequest {
@@ -90,7 +77,7 @@ impl InterHartRequest {
             Self::SbiRemoteSfenceVma(v) => v.is_hart_selected(hart_id),
             Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(hart_id),
             Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(hart_id),
-            Self::SbiSrstSystemReset(v) => v.initiating_confidential_hart_id() != hart_id,
+            Self::ShutdownRequest(v) => v.initiating_confidential_hart_id() != hart_id,
         }
     }
 }

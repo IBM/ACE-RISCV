@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
+use crate::confidential_flow::handlers::sbi::SbiResult;
+use crate::core::transformations::{DeclassifyToHypervisor, ExposeToConfidentialVm, ExposeToHypervisor};
 use core::num::TryFromIntError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
@@ -81,6 +82,11 @@ pub enum Error {
 }
 
 impl Error {
+    pub fn into_non_confidential_declassifier(self) -> DeclassifyToHypervisor {
+        let error_code = 0x1000;
+        DeclassifyToHypervisor::SbiResult(SbiResult::failure(error_code))
+    }
+
     pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
         let error_code = 0x1000;
         ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))

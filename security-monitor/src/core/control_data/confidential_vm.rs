@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::interrupts::{EnabledInterrupts, InjectedInterrupts};
+use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
-use crate::core::transformations::{EnabledInterrupts, InjectedInterrupts, InterHartRequest, SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
+use crate::core::transformations::{DeclassifyToHypervisor, InterHartRequest};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -91,7 +93,7 @@ impl ConfidentialVm {
         // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
         hardware_hart.hypervisor_hart_mut().csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
-        self.confidential_harts[confidential_hart_id].confidential_hart_state().csrs().restore_from_main_memory();
+        self.confidential_harts[confidential_hart_id].csrs().restore_from_main_memory();
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
@@ -114,7 +116,7 @@ impl ConfidentialVm {
     /// # Safety
     ///
     /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
-    pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
+    pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart, declassifier: DeclassifyToHypervisor) {
         assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
@@ -125,7 +127,7 @@ impl ConfidentialVm {
 
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
-        self.confidential_harts[confidential_hart_id].confidential_hart_state_mut().csrs_mut().save_in_main_memory();
+        self.confidential_harts[confidential_hart_id].csrs_mut().save_in_main_memory();
         // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
         hardware_hart.hypervisor_hart().csrs().restore_from_main_memory();
         // 3) Expose enabled interrupts
@@ -133,6 +135,13 @@ impl ConfidentialVm {
         // would also better reflect out current approach for information declassification.
         EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
             .declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut());
+        match declassifier {
+            DeclassifyToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::SbiResult(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
+        }
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is

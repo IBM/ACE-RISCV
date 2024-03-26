@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiHsmHartSuspend};
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
 use crate::core::control_data::ConfidentialVmId;
-use crate::core::transformations::{ExposeToConfidentialVm, InterHartRequest, PendingRequest, SbiHsmHartStart, SbiHsmHartSuspend};
+use crate::core::transformations::{InterHartRequest, PendingRequest};
+
 use crate::error::Error;
 
 extern "C" {
@@ -98,6 +100,10 @@ impl ConfidentialHart {
         Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state, pending_request: None }
     }
 
+    pub fn address(&self) -> usize {
+        core::ptr::addr_of!(self.confidential_hart_state) as usize
+    }
+
     pub fn set_confidential_vm_id(&mut self, confidential_vm_id: ConfidentialVmId) {
         self.confidential_vm_id = Some(confidential_vm_id);
     }
@@ -110,12 +116,24 @@ impl ConfidentialHart {
         self.confidential_hart_state.id
     }
 
-    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
-        &self.confidential_hart_state
+    pub fn gprs(&self) -> &GeneralPurposeRegisters {
+        self.confidential_hart_state.gprs()
     }
 
-    pub fn confidential_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
-        &mut self.confidential_hart_state
+    pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
+        self.confidential_hart_state.gprs_mut()
+    }
+
+    pub fn csrs(&self) -> &ControlStatusRegisters {
+        self.confidential_hart_state.csrs()
+    }
+
+    pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
+        self.confidential_hart_state.csrs_mut()
+    }
+
+    pub fn confidential_hart_state(&self) -> &HartArchitecturalState {
+        &self.confidential_hart_state
     }
 
     pub fn take_request(&mut self) -> Option<PendingRequest> {
@@ -214,18 +232,6 @@ impl ConfidentialHart {
 }
 
 impl ConfidentialHart {
-    pub fn apply(&mut self, transformation: ExposeToConfidentialVm) -> usize {
-        match transformation {
-            ExposeToConfidentialVm::SbiResult(v) => v.declassify_to_confidential_hart(self),
-            ExposeToConfidentialVm::MmioLoadResult(v) => v.declassify_to_confidential_hart(self),
-            ExposeToConfidentialVm::VirtualInstructionResult(v) => v.declassify_to_confidential_hart(self),
-            ExposeToConfidentialVm::MmioStoreResult(v) => v.declassify_to_confidential_hart(self),
-            ExposeToConfidentialVm::SbiHsmHartStartPending() => self.transition_from_start_pending_to_started(),
-            ExposeToConfidentialVm::Resume() => {}
-        }
-        core::ptr::addr_of!(self.confidential_hart_state) as usize
-    }
-
     pub fn execute(&mut self, request: &InterHartRequest) {
         match request {
             InterHartRequest::SbiIpi(v) => v.declassify_to_confidential_hart(self),
@@ -233,7 +239,7 @@ impl ConfidentialHart {
             InterHartRequest::SbiRemoteSfenceVma(v) => v.declassify_to_confidential_hart(self),
             InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.declassify_to_confidential_hart(self),
             InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.declassify_to_confidential_hart(self),
-            InterHartRequest::SbiSrstSystemReset(_) => self.transition_to_shutdown(),
+            InterHartRequest::ShutdownRequest(_) => self.transition_to_shutdown(),
         }
     }
 }
