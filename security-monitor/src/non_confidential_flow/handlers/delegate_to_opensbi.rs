@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
-use crate::core::transformations::ExposeToHypervisor;
-use crate::non_confidential_flow::NonConfidentialFlow;
+use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 use opensbi_sys::sbi_trap_regs;
 
 extern "C" {
@@ -69,7 +68,7 @@ impl OpensbiRequest {
         unsafe { sbi_trap_handler(&mut self.regs as *mut _) };
         non_confidential_flow.swap_mscratch();
 
-        let transformation = ExposeToHypervisor::OpensbiResult(OpensbiResult::from_opensbi_handler(self.regs));
+        let transformation = ApplyToHypervisor::OpensbiResult(OpensbiResult::from_opensbi_handler(self.regs));
         non_confidential_flow.exit_to_hypervisor(transformation)
     }
 }

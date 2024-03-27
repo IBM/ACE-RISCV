@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
-use crate::core::transformations::{DeclassifyToHypervisor, ExposeToHypervisor, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart, PendingRequest};
 
 pub struct SbiRequest {
     extension_id: usize,
@@ -39,8 +38,8 @@ impl SbiRequest {
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         confidential_flow
             .set_pending_request(PendingRequest::SbiRequest())
-            .into_non_confidential_flow(DeclassifyToHypervisor::SbiRequest(self))
-            .exit_to_hypervisor(ExposeToHypervisor::Resume())
+            .into_non_confidential_flow()
+            .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self))
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {

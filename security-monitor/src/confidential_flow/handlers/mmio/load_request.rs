@@ -2,15 +2,14 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::mmio::MmioLoadPending;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::is_bit_enabled;
-use crate::core::control_data::{ConfidentialHart, HypervisorHart};
-use crate::core::transformations::{DeclassifyToHypervisor, ExposeToHypervisor, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 
 pub struct MmioLoadRequest {
-    code: usize,
-    stval: usize,
-    htval: usize,
+    mcause: usize,
+    mtval: usize,
+    mtval2: usize,
     mtinst: usize,
     instruction: usize,
     instruction_length: usize,
@@ -27,26 +26,26 @@ impl MmioLoadRequest {
         let instruction = mtinst | 0x3;
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
 
-        Self { code: mcause, stval: mtval, htval: mtval2, mtinst, instruction, instruction_length }
+        Self { mcause: mcause, mtval, mtval2, mtinst, instruction, instruction_length }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match crate::core::architecture::decode_result_register(self.instruction) {
             Ok(gpr) => confidential_flow
                 .set_pending_request(PendingRequest::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))
-                .into_non_confidential_flow(DeclassifyToHypervisor::MmioLoadRequest(self))
-                .exit_to_hypervisor(ExposeToHypervisor::Resume()),
-            Err(error) => confidential_flow
-                .into_non_confidential_flow(error.into_non_confidential_declassifier())
-                .exit_to_hypervisor(ExposeToHypervisor::Resume()),
+                .into_non_confidential_flow()
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioLoadRequest(self)),
+            Err(error) => {
+                confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(error.into_non_confidential_declassifier())
+            }
         }
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        hypervisor_hart.csrs_mut().scause.set(self.code);
+        hypervisor_hart.csrs_mut().scause.set(self.mcause);
         // KVM uses htval and stval to recreate the fault address
-        hypervisor_hart.csrs_mut().stval.set(self.stval);
-        hypervisor_hart.csrs_mut().htval.set(self.htval);
+        hypervisor_hart.csrs_mut().stval.set(self.mtval);
+        hypervisor_hart.csrs_mut().htval.set(self.mtval2);
         // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
         // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
         hypervisor_hart.csrs_mut().vsscratch.set(self.mtinst);

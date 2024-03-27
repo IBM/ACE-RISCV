@@ -63,4 +63,4 @@ enter_from_confidential_hart_asm:
     #   * `mscratch` points to the dump area of this hardware hart
     #   * `sscratch` points to the dump area of the confidential hart assigned to this hardware hart
     #   * `a0` is the pointer to the dump area of this hardware hart
-    j        route_confidential_flow
+    j        route_confidential_hart_trap

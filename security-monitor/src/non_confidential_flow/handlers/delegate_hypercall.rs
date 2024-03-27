@@ -2,10 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiRequest;
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{GeneralPurposeRegister, CAUSE_VIRTUAL_SUPERVISOR_ECALL};
 use crate::core::control_data::HypervisorHart;
-use crate::core::transformations::ExposeToHypervisor;
-use crate::non_confidential_flow::NonConfidentialFlow;
+use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 
 pub struct SbiVmRequest {
     sbi_request: SbiRequest,
@@ -28,11 +27,10 @@ impl SbiVmRequest {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        non_confidential_flow.exit_to_hypervisor(ExposeToHypervisor::SbiVmRequest(self))
+        non_confidential_flow.exit_to_hypervisor(ApplyToHypervisor::SbiVmRequest(self))
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        use crate::core::architecture::CAUSE_VIRTUAL_SUPERVISOR_ECALL;
         hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a7, self.sbi_request.extension_id());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a6, self.sbi_request.function_id());

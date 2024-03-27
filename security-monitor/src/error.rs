@@ -2,7 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResult;
-use crate::core::transformations::{DeclassifyToHypervisor, ExposeToConfidentialVm, ExposeToHypervisor};
+use crate::confidential_flow::{ApplyToConfidentialVm, DeclassifyToHypervisor};
+use crate::non_confidential_flow::ApplyToHypervisor;
 use core::num::TryFromIntError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
@@ -87,14 +88,14 @@ impl Error {
         DeclassifyToHypervisor::SbiResult(SbiResult::failure(error_code))
     }
 
-    pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
+    pub fn into_non_confidential_transformation(self) -> ApplyToHypervisor {
         let error_code = 0x1000;
-        ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))
+        ApplyToHypervisor::SbiResult(SbiResult::failure(error_code))
     }
 
-    pub fn into_confidential_transformation(self) -> ExposeToConfidentialVm {
+    pub fn into_confidential_transformation(self) -> ApplyToConfidentialVm {
         let error_code = 0x1000;
-        ExposeToConfidentialVm::SbiResult(SbiResult::failure(error_code))
+        ApplyToConfidentialVm::SbiResult(SbiResult::failure(error_code))
     }
 }
 

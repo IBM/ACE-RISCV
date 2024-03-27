@@ -6,19 +6,19 @@ use crate::core::architecture::GeneralPurposeRegister;
 #[derive(PartialEq)]
 pub struct MmioLoadPending {
     instruction_length: usize,
-    result_gpr: GeneralPurposeRegister,
+    gpr_with_load_result: GeneralPurposeRegister,
 }
 
 impl MmioLoadPending {
-    pub fn new(instruction_length: usize, result_gpr: GeneralPurposeRegister) -> Self {
-        Self { instruction_length, result_gpr }
+    pub fn new(instruction_length: usize, gpr_with_load_result: GeneralPurposeRegister) -> Self {
+        Self { instruction_length, gpr_with_load_result }
     }
 
     pub fn instruction_length(&self) -> usize {
         self.instruction_length
     }
 
-    pub fn result_gpr(&self) -> GeneralPurposeRegister {
-        self.result_gpr
+    pub fn gpr_with_load_result(&self) -> GeneralPurposeRegister {
+        self.gpr_with_load_result
     }
 }

@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::smp::SbiRequest;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::handlers::sbi::SbiRequest;
+use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
-use crate::core::transformations::{DeclassifyToHypervisor, ExposeToHypervisor};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct SbiHsmHartSuspend {
@@ -32,8 +31,8 @@ impl SbiHsmHartSuspend {
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.suspend_confidential_hart(self) {
             Ok(_) => confidential_flow
-                .into_non_confidential_flow(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend()))
-                .exit_to_hypervisor(ExposeToHypervisor::Resume()),
+                .into_non_confidential_flow()
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend())),
             Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
         }
     }

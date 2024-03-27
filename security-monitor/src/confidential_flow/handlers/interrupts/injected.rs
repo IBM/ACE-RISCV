@@ -13,10 +13,6 @@ impl InjectedInterrupts {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        confidential_hart.csrs_mut().hvip.save_value(self.hvip());
-    }
-
-    pub fn hvip(&self) -> usize {
-        self.hvip
+        confidential_hart.csrs_mut().hvip.save_value(self.hvip);
     }
 }

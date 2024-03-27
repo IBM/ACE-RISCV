@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::ConfidentialFlow;
+pub use apply_to_hypervisor::ApplyToHypervisor;
+
+use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
-use crate::core::control_data::{ControlData, HardwareHart, HypervisorHart};
-use crate::core::transformations::ExposeToHypervisor;
+use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmRequest;
 use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiRequest;
@@ -21,6 +22,8 @@ extern "C" {
     /// KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
 }
+
+mod apply_to_hypervisor;
 
 /// This control flow structure encapsulates the HardwareHart instance, which is never exposed.
 pub struct NonConfidentialFlow<'a> {
@@ -64,22 +67,33 @@ impl<'a> NonConfidentialFlow<'a> {
         }
     }
 
-    pub fn into_confidential_flow(self, request: ResumeRequest) -> (NonConfidentialFlow<'a>, Error) {
-        match ControlData::try_confidential_vm(request.confidential_vm_id(), |mut confidential_vm| {
-            confidential_vm.steal_confidential_hart(request.confidential_hart_id(), self.hardware_hart)
-        }) {
-            Ok(_) => ConfidentialFlow::resume_confidential_hart_execution(self.hardware_hart),
-            Err(error) => (self, error),
+    pub fn into_confidential_flow(
+        self, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
+    ) -> Result<ConfidentialFlow<'a>, (NonConfidentialFlow<'a>, Error)> {
+        match ConfidentialFlow::enter_from_non_confidential_flow(self.hardware_hart, confidential_vm_id, confidential_hart_id) {
+            Ok(confidential_flow) => Ok(confidential_flow),
+            Err((hardware_hart, error)) => Err((Self::create(hardware_hart), error)),
         }
     }
 
-    pub fn exit_to_hypervisor(mut self, transformation: ExposeToHypervisor) -> ! {
-        match transformation {
-            ExposeToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::SbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::SbiVmRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::OpensbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ExposeToHypervisor::Resume() => {}
+    pub fn declassify_and_exit_to_hypervisor(mut self, declassify: DeclassifyToHypervisor) -> ! {
+        match declassify {
+            DeclassifyToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::SbiResult(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+        }
+        self.exit_to_hypervisor(ApplyToHypervisor::Nothing())
+    }
+
+    pub(super) fn exit_to_hypervisor(mut self, expose_to_hypervisor: ApplyToHypervisor) -> ! {
+        match expose_to_hypervisor {
+            ApplyToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisor::SbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisor::SbiVmRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisor::OpensbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisor::Nothing() => {}
         }
         // Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function
         // should be called just before exiting to the assembly context switch, so when we are sure that these CSRs have their
@@ -95,7 +109,7 @@ impl<'a> NonConfidentialFlow<'a> {
         self.hardware_hart.swap_mscratch()
     }
 
-    pub fn restore_original_gprs(&mut self) {
+    pub fn hack_restore_original_gprs(&mut self) {
         use crate::core::architecture::GeneralPurposeRegister;
         // Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GRPs).
         // GRPs might carry SBI- or MMIO-related reponses, so using GRPs would destroy the communication between the

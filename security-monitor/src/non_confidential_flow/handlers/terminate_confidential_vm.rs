@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResult;
 use crate::core::control_data::{ConfidentialVmId, ControlData, HypervisorHart};
-use crate::core::transformations::ExposeToHypervisor;
-use crate::non_confidential_flow::NonConfidentialFlow;
+use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 
 #[derive(PartialEq)]
 pub struct TerminateRequest {
@@ -23,9 +22,9 @@ impl TerminateRequest {
 
     /// The hypervisor command to terminate the confidential VM and remove it from the memory.
     pub fn handle(self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
-        non_confidential_flow.restore_original_gprs();
+        non_confidential_flow.hack_restore_original_gprs();
         let transformation = ControlData::remove_confidential_vm(self.confidential_vm_id)
-            .and_then(|_| Ok(ExposeToHypervisor::SbiResult(SbiResult::success(0))))
+            .and_then(|_| Ok(ApplyToHypervisor::SbiResult(SbiResult::success(0))))
             .unwrap_or_else(|error| error.into_non_confidential_transformation());
         non_confidential_flow.exit_to_hypervisor(transformation)
     }

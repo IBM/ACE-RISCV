@@ -3,17 +3,16 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::shutdown::shutdown_confidential_hart;
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::control_data::ConfidentialHart;
-use crate::core::transformations::InterHartRequest;
+use crate::core::control_data::{ConfidentialHart, InterHartRequest};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ShutdownRequest {
-    initiating_confidential_hart_id: usize,
+    calling_hart_id: usize,
 }
 
 impl ShutdownRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        Self { initiating_confidential_hart_id: confidential_hart.confidential_hart_id() }
+        Self { calling_hart_id: confidential_hart.confidential_hart_id() }
     }
 
     /// Handles the system reset call of the SBI's SRST extension. This call is a request to shutdown or reboot the
@@ -30,7 +29,7 @@ impl ShutdownRequest {
         }
     }
 
-    pub fn initiating_confidential_hart_id(&self) -> usize {
-        self.initiating_confidential_hart_id
+    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+        self.calling_hart_id != hart_id
     }
 }

@@ -3,9 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiHsmHartSuspend};
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
-use crate::core::control_data::ConfidentialVmId;
-use crate::core::transformations::{InterHartRequest, PendingRequest};
-
+use crate::core::control_data::{ConfidentialVmId, InterHartRequest, PendingRequest};
 use crate::error::Error;
 
 extern "C" {
@@ -234,11 +232,11 @@ impl ConfidentialHart {
 impl ConfidentialHart {
     pub fn execute(&mut self, request: &InterHartRequest) {
         match request {
-            InterHartRequest::SbiIpi(v) => v.declassify_to_confidential_hart(self),
-            InterHartRequest::SbiRemoteFenceI(v) => v.declassify_to_confidential_hart(self),
-            InterHartRequest::SbiRemoteSfenceVma(v) => v.declassify_to_confidential_hart(self),
-            InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.declassify_to_confidential_hart(self),
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.declassify_to_confidential_hart(self),
+            InterHartRequest::SbiIpi(v) => v.execute_on_confidential_hart(self),
+            InterHartRequest::SbiRemoteFenceI(v) => v.execute_on_confidential_hart(self),
+            InterHartRequest::SbiRemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
+            InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
+            InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
             InterHartRequest::ShutdownRequest(_) => self.transition_to_shutdown(),
         }
     }

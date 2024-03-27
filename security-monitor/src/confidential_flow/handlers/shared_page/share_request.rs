@@ -2,12 +2,12 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiRequest;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;
-use crate::core::transformations::{DeclassifyToHypervisor, ExposeToHypervisor, PendingRequest};
+
 #[derive(PartialEq)]
 pub struct SharePageRequest {
     address: ConfidentialVmPhysicalAddress,
@@ -30,8 +30,8 @@ impl SharePageRequest {
 
         confidential_flow
             .set_pending_request(PendingRequest::SharePage(self))
-            .into_non_confidential_flow(DeclassifyToHypervisor::SbiRequest(sbi_request))
-            .exit_to_hypervisor(ExposeToHypervisor::Resume())
+            .into_non_confidential_flow()
+            .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request))
     }
 
     pub fn confidential_vm_physical_address(&self) -> &ConfidentialVmPhysicalAddress {

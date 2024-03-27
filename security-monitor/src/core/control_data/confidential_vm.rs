@@ -4,11 +4,10 @@
 use crate::confidential_flow::handlers::interrupts::{EnabledInterrupts, InjectedInterrupts};
 use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::core::architecture::HartLifecycleState;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart, InterHartRequest};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
-use crate::core::transformations::{DeclassifyToHypervisor, InterHartRequest};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -57,17 +56,15 @@ impl ConfidentialVm {
         confidential_vm_address: ConfidentialVmPhysicalAddress,
     ) -> Result<(), Error> {
         self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
-        let tlb_shutdown_request =
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id));
-        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
         Ok(())
     }
 
     pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
-        let tlb_shutdown_request =
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
-        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
         Ok(())
     }
 
@@ -77,8 +74,7 @@ impl ConfidentialVm {
     ///
     /// # Guarantees
     ///
-    /// If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
-    /// the confidential VM.
+    /// The physical hart is configured to enforce memory access control so that the confidential VM has access only to its own memory.
     pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
@@ -116,7 +112,7 @@ impl ConfidentialVm {
     /// # Safety
     ///
     /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
-    pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart, declassifier: DeclassifyToHypervisor) {
+    pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
@@ -135,13 +131,6 @@ impl ConfidentialVm {
         // would also better reflect out current approach for information declassification.
         EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
             .declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut());
-        match declassifier {
-            DeclassifyToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::SbiResult(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut()),
-        }
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is

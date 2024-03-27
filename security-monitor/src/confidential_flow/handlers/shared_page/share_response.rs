@@ -3,33 +3,35 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResult;
 use crate::confidential_flow::handlers::shared_page::SharePageRequest;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ControlData, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
-use crate::core::transformations::ExposeToConfidentialVm;
 
 #[derive(PartialEq)]
-pub struct SharePageResult {
+pub struct SharePageResponse {
     response_code: usize,
     hypervisor_page_address: usize,
+    request: SharePageRequest,
 }
 
-impl SharePageResult {
-    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        let response_code = hypervisor_hart.gprs().read(GeneralPurposeRegister::a0);
-        let hypervisor_page_address = hypervisor_hart.gprs().read(GeneralPurposeRegister::a1);
-        Self { response_code, hypervisor_page_address }
+impl SharePageResponse {
+    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart, request: SharePageRequest) -> Self {
+        Self {
+            response_code: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0),
+            hypervisor_page_address: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
+            request,
+        }
     }
 
     /// Handles a response from the hypervisor about the creation of a shared page.
     ///
     /// Control always flows to the confidential VM.
-    pub fn handle(self, confidential_flow: ConfidentialFlow, request: SharePageRequest) -> ! {
+    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         if self.is_error() {
             // Hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
             // confidential VM.
-            let transformation = ExposeToConfidentialVm::SbiResult(SbiResult::failure(self.response_code()));
+            let transformation = ApplyToConfidentialVm::SbiResult(SbiResult::failure(self.response_code()));
             confidential_flow.exit_to_confidential_hart(transformation);
         }
 
@@ -37,9 +39,13 @@ impl SharePageResult {
         match NonConfidentialMemoryAddress::new(self.hypervisor_page_address() as *mut usize) {
             Ok(hypervisor_address) => {
                 let transformation = ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-                    confidential_vm.map_shared_page(hypervisor_address, request.page_size(), *request.confidential_vm_physical_address())
+                    confidential_vm.map_shared_page(
+                        hypervisor_address,
+                        self.request.page_size(),
+                        *self.request.confidential_vm_physical_address(),
+                    )
                 })
-                .and_then(|_| Ok(ExposeToConfidentialVm::SbiResult(SbiResult::success(0))))
+                .and_then(|_| Ok(ApplyToConfidentialVm::SbiResult(SbiResult::success(0))))
                 .unwrap_or_else(|error| error.into_confidential_transformation());
                 confidential_flow.exit_to_confidential_hart(transformation)
             }

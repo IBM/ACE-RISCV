@@ -8,9 +8,8 @@ use crate::core::control_data::{
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
-use crate::core::transformations::ExposeToHypervisor;
 use crate::error::Error;
-use crate::non_confidential_flow::NonConfidentialFlow;
+use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 use flattened_device_tree::FlattenedDeviceTree;
 
 /// Our convention is to give the boot hart a fixed id.
@@ -42,7 +41,7 @@ impl PromoteToConfidentialVm {
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         debug!("Promoting a VM into a confidential VM");
         let transformation = match self.create_confidential_vm() {
-            Ok(id) => ExposeToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
+            Ok(id) => ApplyToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
             Err(error) => {
                 debug!("Promotion to confidential VM failed: {:?}", error);
                 error.into_non_confidential_transformation()
