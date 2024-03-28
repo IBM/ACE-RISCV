@@ -68,17 +68,17 @@ impl OpensbiRequest {
         unsafe { sbi_trap_handler(&mut self.regs as *mut _) };
         non_confidential_flow.swap_mscratch();
 
-        let transformation = ApplyToHypervisor::OpensbiResult(OpensbiResult::from_opensbi_handler(self.regs));
-        non_confidential_flow.exit_to_hypervisor(transformation)
+        let transformation = ApplyToHypervisor::OpenSbiResponse(OpenSbiResponse::from_opensbi_handler(self.regs));
+        non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
     }
 }
 
 #[derive(Debug)]
-pub struct OpensbiResult {
+pub struct OpenSbiResponse {
     trap_regs: opensbi_sys::sbi_trap_regs,
 }
 
-impl OpensbiResult {
+impl OpenSbiResponse {
     pub fn from_opensbi_handler(trap_regs: opensbi_sys::sbi_trap_regs) -> Self {
         Self { trap_regs }
     }

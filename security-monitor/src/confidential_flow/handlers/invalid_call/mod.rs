@@ -18,6 +18,6 @@ impl InvalidCall {
     /// not support such exception. For example, a confidential hart could trap after making a not supported SBI call.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let transformation = Error::InvalidCall(self.mcause).into_confidential_transformation();
-        confidential_flow.exit_to_confidential_hart(transformation)
+        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

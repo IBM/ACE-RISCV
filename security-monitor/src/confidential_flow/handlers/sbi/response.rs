@@ -8,13 +8,13 @@ use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 /// Sbi is a result of the SBI call from the Hypervisor to the SBI
 /// firmware or a result of the SBI call to the security monitor.
 #[derive(Debug)]
-pub struct SbiResult {
+pub struct SbiResponse {
     a0: usize,
     a1: usize,
     pc_offset: usize,
 }
 
-impl SbiResult {
+impl SbiResponse {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self {
             a0: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0),
@@ -26,7 +26,7 @@ impl SbiResult {
     /// Handles a response to the hypercall. This response comes from the hypervisor and carries a result of a hypercall
     /// requested by the confidential hart.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        confidential_flow.declassify_and_exit_to_confidential_hart(DeclassifyToConfidentialVm::SbiResult(self))
+        confidential_flow.declassify_and_exit_to_confidential_hart(DeclassifyToConfidentialVm::SbiResponse(self))
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {

@@ -5,19 +5,20 @@
 .option norvc
 .section .text.init,"ax",@progbits
 
-# Traps on exceptions or interrupts occurring during the confidential hart's execution. This is an entry point to the security monitor.
+# Traps on exceptions or interrupts occurring during the hypervisor execution. This is an entry point to the security monitor
 #
 # # Safety
 #
-# The caller must ensure that:
-#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart. 
-#   * `sscratch` contains the address of the dump hart area of the confidential hart scheduled on this hardware hart.
-.globl enter_from_confidential_hart_asm
-# The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
+# # The caller must ensure that:
+#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+# The function guarantees that on return:
+#   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
+.section .text.init
+.globl enter_from_hypervisor_or_vm_asm
 .align 4
-enter_from_confidential_hart_asm:
-    csrrw	      a0,	sscratch, a0
-    # Store current processor state (except for `a0`) in the dump hart area of the confidential hart.
+enter_from_hypervisor_or_vm_asm:
+    csrrw	      a0,	mscratch, a0
+    # Store current processor state (except for `a0`) in memory
     sd	        ra, ({HART_RA_OFFSET})(a0)
     sd	        sp, ({HART_SP_OFFSET})(a0)
     sd	        gp, ({HART_GP_OFFSET})(a0)
@@ -50,17 +51,16 @@ enter_from_confidential_hart_asm:
     sd	        t5, ({HART_T5_OFFSET})(a0)
     sd	        t6, ({HART_T6_OFFSET})(a0)
 
-    # Store the original `a0`
-    csrrw	      t0,	sscratch, a0
+    csrr        t0, mepc
+    sd	        t0, ({HART_MEPC_OFFSET})(a0)
+    csrr        t0, mstatus
+    sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
+
+    # Store the original value of `a0` in the main memory and set `mscratch` to its original value
+    csrrw	      t0, mscratch, a0
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
-    # Recover the stack pointer for this hart. 
-    # The stack pointer is stored in the memory dump area of the hart (pointed by `mscratch`)
-    csrr        a0, mscratch
+    # Set the stack for the security monitor execution on this physical hart
     ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
 
-    # Before calling Rust code, we must guarantee that: 
-    #   * `mscratch` points to the dump area of this hardware hart
-    #   * `sscratch` points to the dump area of the confidential hart assigned to this hardware hart
-    #   * `a0` is the pointer to the dump area of this hardware hart
-    j        route_confidential_hart_trap
+    j           route_trap_from_hypervisor_or_vm

@@ -47,7 +47,7 @@ impl PromoteToConfidentialVm {
                 error.into_non_confidential_transformation()
             }
         };
-        non_confidential_flow.exit_to_hypervisor(transformation)
+        non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
     }
 
     fn create_confidential_vm(&self) -> Result<ConfidentialVmId, Error> {

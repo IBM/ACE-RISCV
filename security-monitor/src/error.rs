@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResult;
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialVm, DeclassifyToHypervisor};
 use crate::non_confidential_flow::ApplyToHypervisor;
 use core::num::TryFromIntError;
@@ -85,17 +85,17 @@ pub enum Error {
 impl Error {
     pub fn into_non_confidential_declassifier(self) -> DeclassifyToHypervisor {
         let error_code = 0x1000;
-        DeclassifyToHypervisor::SbiResult(SbiResult::failure(error_code))
+        DeclassifyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
     }
 
     pub fn into_non_confidential_transformation(self) -> ApplyToHypervisor {
         let error_code = 0x1000;
-        ApplyToHypervisor::SbiResult(SbiResult::failure(error_code))
+        ApplyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
     }
 
     pub fn into_confidential_transformation(self) -> ApplyToConfidentialVm {
         let error_code = 0x1000;
-        ApplyToConfidentialVm::SbiResult(SbiResult::failure(error_code))
+        ApplyToConfidentialVm::SbiResponse(SbiResponse::failure(error_code))
     }
 }
 

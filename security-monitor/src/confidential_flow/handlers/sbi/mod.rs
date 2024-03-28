@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pub use discovery::SbiExtensionProbe;
 pub use request::SbiRequest;
-pub use response::SbiResult;
+pub use response::SbiResponse;
 
 mod discovery;
 mod request;

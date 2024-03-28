@@ -4,7 +4,6 @@
 
 pub use fence_i::SbiRemoteFenceI;
 pub use hart_start::SbiHsmHartStart;
-pub use hart_start_pending::SbiHsmHartStartPending;
 pub use hart_status::SbiHsmHartStatus;
 pub use hart_stop::SbiHsmHartStop;
 pub use hart_suspend::SbiHsmHartSuspend;
@@ -16,7 +15,6 @@ pub use sfence_vma_asid::SbiRemoteSfenceVmaAsid;
 
 mod fence_i;
 mod hart_start;
-mod hart_start_pending;
 mod hart_status;
 mod hart_stop;
 mod hart_suspend;

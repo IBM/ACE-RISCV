@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use apply_to_hypervisor::ApplyToHypervisor;
-
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::SbiExtension::*;
@@ -15,6 +13,7 @@ use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiRequest;
 use crate::non_confidential_flow::handlers::promote_to_confidential_vm::PromoteToConfidentialVm;
 use crate::non_confidential_flow::handlers::resume_confidential_hart::ResumeRequest;
 use crate::non_confidential_flow::handlers::terminate_confidential_vm::TerminateRequest;
+use crate::non_confidential_flow::ApplyToHypervisor;
 
 extern "C" {
     /// To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
@@ -23,8 +22,6 @@ extern "C" {
     fn exit_to_hypervisor_asm() -> !;
 }
 
-mod apply_to_hypervisor;
-
 /// This control flow structure encapsulates the HardwareHart instance, which is never exposed.
 pub struct NonConfidentialFlow<'a> {
     hardware_hart: &'a mut HardwareHart,
@@ -32,8 +29,7 @@ pub struct NonConfidentialFlow<'a> {
 
 impl<'a> NonConfidentialFlow<'a> {
     /// Creates an instance of non-confidential flow token. NonConfidentialFlow instance can be created only by the code
-    /// owning a mutable reference to the HardwareHart. This can be only the piece of code invoked by assembly and the
-    /// ConfidentialFlow.
+    /// owning a mutable reference to the HardwareHart.
     ///
     /// # Safety
     ///
@@ -44,11 +40,9 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     #[no_mangle]
-    extern "C" fn route_non_confidential_flow(hart_ptr: *mut HardwareHart) -> ! {
+    extern "C" fn route_trap_from_hypervisor_or_vm(hart_ptr: *mut HardwareHart) -> ! {
         let hardware_hart = unsafe { hart_ptr.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-        let mut flow = Self::create(hardware_hart);
-        flow.hypervisor_hart_mut().csrs_mut().mepc.save();
-        flow.hypervisor_hart_mut().csrs_mut().mstatus.save();
+        let flow = Self::create(hardware_hart);
 
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
             Interrupt => OpensbiRequest::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -79,27 +73,21 @@ impl<'a> NonConfidentialFlow<'a> {
     pub fn declassify_and_exit_to_hypervisor(mut self, declassify: DeclassifyToHypervisor) -> ! {
         match declassify {
             DeclassifyToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::SbiResult(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::SbiResponse(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::InterruptRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
-        self.exit_to_hypervisor(ApplyToHypervisor::Nothing())
+        unsafe { exit_to_hypervisor_asm() }
     }
 
-    pub(super) fn exit_to_hypervisor(mut self, expose_to_hypervisor: ApplyToHypervisor) -> ! {
-        match expose_to_hypervisor {
+    pub(super) fn apply_and_exit_to_hypervisor(mut self, apply_to_hypervisor: ApplyToHypervisor) -> ! {
+        match apply_to_hypervisor {
             ApplyToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::SbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisor::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::SbiVmRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::OpensbiResult(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::Nothing() => {}
+            ApplyToHypervisor::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
-        // Loads control and status registers (CSRs) that might have changed during execution of the security monitor. This function
-        // should be called just before exiting to the assembly context switch, so when we are sure that these CSRs have their
-        // final values.
-        self.hypervisor_hart().csrs().mepc.restore();
-        self.hypervisor_hart().csrs().mstatus.restore();
         unsafe { exit_to_hypervisor_asm() }
     }
 

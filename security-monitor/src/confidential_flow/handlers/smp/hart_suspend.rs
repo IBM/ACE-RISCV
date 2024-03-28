@@ -33,7 +33,7 @@ impl SbiHsmHartSuspend {
             Ok(_) => confidential_flow
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend())),
-            Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
+            Err(error) => confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation()),
         }
     }
 }

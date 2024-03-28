@@ -8,7 +8,6 @@ use crate::confidential_flow::handlers::shared_page::SharePageRequest;
 /// response. This structure might store some information required to complete the request once the hypervisor responds to it.
 #[derive(PartialEq)]
 pub enum PendingRequest {
-    SbiHsmHartStartPending(),
     SbiRequest(),
     SharePage(SharePageRequest),
     MmioLoad(MmioLoadPending),

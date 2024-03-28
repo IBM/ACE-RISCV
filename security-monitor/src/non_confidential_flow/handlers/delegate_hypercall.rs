@@ -27,7 +27,7 @@ impl SbiVmRequest {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        non_confidential_flow.exit_to_hypervisor(ApplyToHypervisor::SbiVmRequest(self))
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisor::SbiVmRequest(self))
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {

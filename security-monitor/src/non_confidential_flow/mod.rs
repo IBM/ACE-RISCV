@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use control_flow::{ApplyToHypervisor, NonConfidentialFlow};
+pub use apply_to_hypervisor::ApplyToHypervisor;
+pub use finite_state_machine::NonConfidentialFlow;
 
-mod context_switch;
-mod control_flow;
+mod apply_to_hypervisor;
+mod finite_state_machine;
 pub mod handlers;
+mod lightweight_context_switch;

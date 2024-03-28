@@ -146,9 +146,9 @@ impl ConfidentialVm {
 
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
     /// not in the `Stopped` state or a confidential hart with the requested id does not exist.
-    pub fn transit_confidential_hart_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
+    pub fn start_confidential_hart(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
         let hart = self.confidential_harts.get_mut(request.confidential_hart_id()).ok_or(Error::InvalidHartId())?;
-        hart.transition_from_stopped_to_start_pending(request)?;
+        hart.transition_from_stopped_to_started(request)?;
         Ok(())
     }
 

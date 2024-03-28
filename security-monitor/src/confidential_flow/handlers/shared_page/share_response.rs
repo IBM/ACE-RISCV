@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResult;
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::shared_page::SharePageRequest;
 use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
@@ -31,8 +31,8 @@ impl SharePageResponse {
         if self.is_error() {
             // Hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
             // confidential VM.
-            let transformation = ApplyToConfidentialVm::SbiResult(SbiResult::failure(self.response_code()));
-            confidential_flow.exit_to_confidential_hart(transformation);
+            let transformation = ApplyToConfidentialVm::SbiResponse(SbiResponse::failure(self.response_code()));
+            confidential_flow.apply_and_exit_to_confidential_hart(transformation);
         }
 
         // Security: check that the start address is located in the non-confidential memory
@@ -45,11 +45,11 @@ impl SharePageResponse {
                         *self.request.confidential_vm_physical_address(),
                     )
                 })
-                .and_then(|_| Ok(ApplyToConfidentialVm::SbiResult(SbiResult::success(0))))
+                .and_then(|_| Ok(ApplyToConfidentialVm::SbiResponse(SbiResponse::success(0))))
                 .unwrap_or_else(|error| error.into_confidential_transformation());
-                confidential_flow.exit_to_confidential_hart(transformation)
+                confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
-            Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
+            Err(error) => confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation()),
         }
     }
 

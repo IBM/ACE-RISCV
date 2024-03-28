@@ -25,7 +25,7 @@ impl ShutdownRequest {
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.broadcast_inter_hart_request(InterHartRequest::ShutdownRequest(self)) {
             Ok(_) => shutdown_confidential_hart(confidential_flow),
-            Err(error) => confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation()),
+            Err(error) => confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation()),
         }
     }
 

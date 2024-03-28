@@ -5,8 +5,9 @@ use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysic
 use crate::core::memory_protector::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
+use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
-use crate::core::memory_protector::mmu::paging_system::{PageTableLevel, PagingSystem};
+use crate::core::memory_protector::mmu::paging_system::PagingSystem;
 use crate::core::memory_protector::{PageSize, SharedPage};
 use crate::core::page_allocator::PageAllocator;
 use crate::error::Error;

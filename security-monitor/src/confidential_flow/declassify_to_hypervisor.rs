@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::interrupts::InterruptRequest;
 use crate::confidential_flow::handlers::mmio::{MmioLoadRequest, MmioStoreRequest};
-use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResult};
+use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum DeclassifyToHypervisor {
     SbiRequest(SbiRequest),
-    SbiResult(SbiResult),
+    SbiResponse(SbiResponse),
     InterruptRequest(InterruptRequest),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),

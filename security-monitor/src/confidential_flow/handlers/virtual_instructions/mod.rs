@@ -27,7 +27,7 @@ impl VirtualInstruction {
             // TODO: for not supported instructions, inject illegal instruction exception to the guest
             panic!("Not supported virtual instruction: {:x}", self.instruction);
         };
-        confidential_flow.exit_to_confidential_hart(transformation)
+        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 
     pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {

@@ -35,7 +35,7 @@ impl ResumeRequest {
                 // confidential hart that is already running on another physical hart. Let's keep informing the hypervisor
                 // that the confidential VM is shutdown regardless of what the real reason is.
                 let transformation = ApplyToHypervisor::SbiRequest(SbiRequest::kvm_srst_system_reset());
-                non_confidential_flow.exit_to_hypervisor(transformation)
+                non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
             }
         }
     }

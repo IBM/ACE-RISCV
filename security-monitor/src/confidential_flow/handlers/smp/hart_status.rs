@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResult;
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData};
@@ -21,9 +21,9 @@ impl SbiHsmHartStatus {
         let transformation = ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
             confidential_vm.confidential_hart_lifecycle_state(self.confidential_hart_id)
         })
-        .and_then(|lifecycle_state| Ok(ApplyToConfidentialVm::SbiResult(SbiResult::success(lifecycle_state.sbi_code()))))
+        .and_then(|lifecycle_state| Ok(ApplyToConfidentialVm::SbiResponse(SbiResponse::success(lifecycle_state.sbi_code()))))
         .unwrap_or_else(|error| error.into_confidential_transformation());
 
-        confidential_flow.exit_to_confidential_hart(transformation)
+        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

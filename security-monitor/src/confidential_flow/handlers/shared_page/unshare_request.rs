@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResult;
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData};
@@ -23,9 +23,9 @@ impl UnsharePageRequest {
         let transformation = ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.unmap_shared_page(self.address())
         })
-        .and_then(|_| Ok(ApplyToConfidentialVm::SbiResult(SbiResult::success(0))))
+        .and_then(|_| Ok(ApplyToConfidentialVm::SbiResponse(SbiResponse::success(0))))
         .unwrap_or_else(|error| error.into_confidential_transformation());
-        confidential_flow.exit_to_confidential_hart(transformation)
+        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 
     pub fn address(&self) -> &ConfidentialVmPhysicalAddress {

@@ -144,7 +144,7 @@ impl ConfidentialHart {
 
     /// Returns true if this confidential hart can be scheduled on the physical hart.
     pub fn is_executable(&self) -> bool {
-        let hart_states_allowed_to_resume = [HartLifecycleState::Started, HartLifecycleState::StartPending, HartLifecycleState::Suspended];
+        let hart_states_allowed_to_resume = [HartLifecycleState::Started, HartLifecycleState::Suspended];
         !self.is_dummy() && hart_states_allowed_to_resume.contains(&self.lifecycle_state)
     }
 
@@ -170,13 +170,12 @@ impl ConfidentialHart {
     /// Changes the lifecycle state of the hart into the `StartPending` state. Confidential hart's state is set as if
     /// the hart was reset. This function is called as a response of another confidential hart (typically a boot hart)
     /// to start another confidential hart. Returns error if the confidential hart is not in stopped state.
-    pub fn transition_from_stopped_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
+    pub fn transition_from_stopped_to_started(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
         assure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
         assure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
 
         // Let's set up the confidential hart initial state so that it can be run
-        self.lifecycle_state = HartLifecycleState::StartPending;
-        self.pending_request = Some(PendingRequest::SbiHsmHartStartPending());
+        self.lifecycle_state = HartLifecycleState::Started;
 
         // Following the SBI documentation of the function `hart start` in the HSM extension, only vsatp, vsstatus.SIE,
         // a0, a1 have defined values, all other registers are in an undefined state. The hart will start
@@ -192,14 +191,6 @@ impl ConfidentialHart {
         self.confidential_hart_state.csrs.mepc.save_value(request.start_address());
 
         Ok(())
-    }
-
-    /// Changes the lifecycle state of the confidential hart to the `Started` state.
-    pub fn transition_from_start_pending_to_started(&mut self) {
-        assert!(!self.is_dummy());
-        if self.lifecycle_state == HartLifecycleState::StartPending {
-            self.lifecycle_state = HartLifecycleState::Started;
-        }
     }
 
     pub fn transition_from_started_to_suspended(&mut self, _request: SbiHsmHartSuspend) -> Result<(), Error> {

@@ -5,22 +5,26 @@
 .option norvc
 .section .text.init,"ax",@progbits
 
-# Restores the remaining confidential's hart state and eventually resumes the confidential VM execution.
+# Restores the remaining hypervisor's hart state and eventually resumes the hypervisor execution.
 # We do not store the security monitor's state because the security monitor's execution is stateless. 
 # 
 # # Safety
 #
 # The caller must ensure that:
-#   * `sscratch` contains the address of the dump hart area of thie confidential hart scheduled on this hardware hart.
-#
+#   * `a0` stores the address of the dump hart area of the currently executing hardware hart.
 # The function guarantees that on return:
 #   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
-#   * `sscratch` contains the address of the dump hart area of the confidential hart scheduled on this hardware hart.
-.globl exit_to_confidential_hart_asm
-# The trap vector address must be aligned to 4 bytes according to the RISC-V spec (see `stvec`).
+.globl exit_to_hypervisor_asm
 .align 4
-exit_to_confidential_hart_asm:
-    csrr        t6, sscratch
+exit_to_hypervisor_asm:
+    csrr        t6, mscratch
+
+    ld          t0, ({HART_MEPC_OFFSET})(t6)
+    csrw        mepc, t0
+    ld          t0, ({HART_MSTATUS_OFFSET})(t6)
+    csrw        mstatus, t0
+
+    # restore from memory the hypervisor's processor state
     ld	        ra, ({HART_RA_OFFSET})(t6)
     ld	        sp, ({HART_SP_OFFSET})(t6)
     ld	        gp, ({HART_GP_OFFSET})(t6)

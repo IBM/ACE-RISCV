@@ -36,5 +36,7 @@ core::arch::global_asm!(
     HART_T4_OFFSET = const crate::core::architecture::HART_T4_OFFSET,
     HART_T5_OFFSET = const crate::core::architecture::HART_T5_OFFSET,
     HART_T6_OFFSET = const crate::core::architecture::HART_T6_OFFSET,
+    HART_MEPC_OFFSET = const crate::core::architecture::HART_MEPC_OFFSET,
+    HART_MSTATUS_OFFSET = const crate::core::architecture::HART_MSTATUS_OFFSET,
     HART_STACK_ADDRESS_OFFSET = const crate::core::control_data::HART_STACK_ADDRESS_OFFSET,
 );

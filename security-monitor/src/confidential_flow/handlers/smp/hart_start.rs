@@ -34,7 +34,7 @@ impl SbiHsmHartStart {
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
-            confidential_vm.transit_confidential_hart_to_start_pending(self)
+            confidential_vm.start_confidential_hart(self)
         }) {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::SbiRequest())
@@ -46,7 +46,7 @@ impl SbiHsmHartStart {
                 // starting a confidential hart might fail if the incoming request is invalid. For example, the confidential
                 // hart id does not exist or is the same as the one currently assigned to the hardware hart. In such cases,
                 // return an error to the calling confidential hart.
-                confidential_flow.exit_to_confidential_hart(error.into_confidential_transformation())
+                confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation())
             }
         }
     }
