@@ -12,19 +12,21 @@
 pub enum HartLifecycleState {
     Started,
     Stopped,
-    StartPending,
+    // StartPending is never used because the security monitor starts the hart directly and only informs a hypervisor
+    // about it for the bookkeeping purposes.
+    // StartPending,
     //
     // StopPending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping pourposes.
+    // about it for the bookkeeping purposes.
     // StopPending,
     Suspended,
     //
     // SuspendPending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping pourposes.
+    // about it for the bookkeeping purposes.
     // SuspendPending,
     //
     // ResumePending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping pourposes.
+    // about it for the bookkeeping purposes.
     // ResumePending,
     //
     // Shutdown state does not exist in the SBI's HSM extension. We use it to represent a confidential hart that has
@@ -39,9 +41,8 @@ impl HartLifecycleState {
         match self {
             Self::Started => 0,
             Self::Stopped => 1,
-            Self::StartPending => 2,
             Self::Suspended => 4,
-            // Shutdown state is not part of the SBI spec, we represent it as Stopped
+            // Shutdown state is not part of the SBI spec, we represent it as the `Stopped` state.
             Self::Shutdown => 1,
         }
     }

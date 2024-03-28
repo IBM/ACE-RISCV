@@ -12,26 +12,6 @@ pub use riscv::{
 mod riscv;
 
 #[inline]
-pub fn enable_bit(register_value: &mut usize, bit_index: usize) {
-    enable_bits(register_value, 1 << bit_index);
-}
-
-#[inline]
-pub fn enable_bits(register_value: &mut usize, bit_mask: usize) {
-    *register_value |= bit_mask;
-}
-
-#[inline]
-pub fn disable_bit(register_value: &mut usize, bit_index: usize) {
-    disable_bits(register_value, 1 << bit_index);
-}
-
-#[inline]
-pub fn disable_bits(register_value: &mut usize, bit_mask: usize) {
-    *register_value &= !bit_mask;
-}
-
-#[inline]
 pub fn is_bit_enabled(register_value: usize, bit_index: usize) -> bool {
     are_bits_enabled(register_value, 1 << bit_index)
 }

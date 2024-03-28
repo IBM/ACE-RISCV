@@ -13,6 +13,7 @@ pub use shared_page::SharedPage;
 mod page_size;
 mod page_table;
 mod page_table_entry;
+mod page_table_level;
 mod page_table_memory;
 mod paging_system;
 mod shared_page;
@@ -21,8 +22,7 @@ pub fn copy_mmu_configuration_from_non_confidential_memory(hgatp: Hgatp) -> Resu
     let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
     let paging_system = PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
     let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address() as *mut usize)?;
-    let root_page_table = RootPageTable::copy_from_non_confidential_memory(root_page_address, paging_system)?;
-    Ok(root_page_table)
+    Ok(RootPageTable::copy_from_non_confidential_memory(root_page_address, paging_system)?)
 }
 
 pub fn enable_address_translation(hgatp: usize) {
