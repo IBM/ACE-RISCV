@@ -6,7 +6,7 @@ use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::PageTableEntry;
 use crate::core::memory_protector::mmu::paging_system::PageTableLevel;
 use crate::core::memory_protector::mmu::PageSize;
-use crate::core::page_allocator::{Allocated, Page, PageAllocator};
+use crate::core::page_allocator::{Allocated, Page, PageAllocator, UnAllocated};
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::ops::Range;
@@ -26,7 +26,7 @@ impl PageTableMemory {
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
         let number_of_pages = paging_system.configuration_pages(level);
-        let pages = PageAllocator::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE)?
+        let pages = PageAllocator::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE, Self::PAGE_SIZE)?
             .into_iter()
             .enumerate()
             .map(|(i, page)| {
@@ -42,7 +42,10 @@ impl PageTableMemory {
 
     pub(super) fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let number_of_pages = paging_system.configuration_pages(level);
-        let pages = PageAllocator::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE)?.into_iter().map(|f| f.zeroize()).collect();
+        let pages = PageAllocator::acquire_continous_pages(number_of_pages, Self::PAGE_SIZE, Self::PAGE_SIZE)?
+            .into_iter()
+            .map(|f| f.zeroize())
+            .collect();
         let number_of_entries = paging_system.entries(level);
         let entry_size = paging_system.entry_size();
         Ok(Self { pages, number_of_entries, entry_size })
@@ -94,11 +97,9 @@ impl PageTableMemory {
             None
         }
     }
-}
 
-impl Drop for PageTableMemory {
-    fn drop(&mut self) {
-        let deallocated_pages: Vec<_> = self.pages.drain(..).map(|p| p.deallocate()).collect();
-        PageAllocator::release_pages(deallocated_pages);
+    pub fn clear(&mut self) -> Vec<Page<UnAllocated>> {
+        self.number_of_entries = 0;
+        self.pages.drain(..).map(|p| p.deallocate()).collect()
     }
 }

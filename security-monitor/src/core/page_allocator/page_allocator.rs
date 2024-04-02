@@ -5,7 +5,7 @@ use super::page::{Page, UnAllocated};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::PageSize;
 use crate::error::Error;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::vec;
 use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockWriteGuard};
@@ -144,80 +144,149 @@ impl<'a> PageAllocator {
         })
     }
 
-    /// Returns page tokens that all together have ownership over a continous unallocated memory region of the requested size. Returns error
-    /// if it could not obtain write access to the global instance of the page allocator or if there are not enough page tokens satisfying
-    /// the requested criteria.
-    pub fn acquire_continous_pages(number_of_pages: usize, page_size: PageSize) -> Result<Vec<Page<UnAllocated>>, Error> {
-        let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size)))?;
+    /// Returns page tokens that all together have ownership over a continous unallocated memory region of the requested size and aligned to
+    /// a specific page size. Returns error if it could not obtain write access to the global instance of the page allocator or if there are
+    /// not enough page tokens satisfying the requested criteria.
+    pub fn acquire_continous_pages(
+        number_of_pages: usize, page_size: PageSize, align_to: PageSize,
+    ) -> Result<Vec<Page<UnAllocated>>, Error> {
+        let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size, align_to)))?;
         assure_not!(pages.is_empty(), Error::OutOfPages())?;
         Ok(pages)
     }
 
+    /// Returns a page token that has ownership over an unallocated memory region of the requested size.
+    /// See `Self::acquire_continous_pages` for error conditions.
+    pub fn acquire_page(page_size: PageSize) -> Result<Page<UnAllocated>, Error> {
+        Self::acquire_continous_pages(1, page_size, page_size)?.pop().ok_or(Error::OutOfPages())
+    }
+
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
     /// physical memory region owned by the returned page tokens.
-    ///
-    /// TODO: to prevent fragmentation, run a procedure that will try to combine page tokens of smaller sizes into page tokens of bigger
-    /// sizes. Otherwise, after long run, the security monitor's might start occupying to much memory (due to large number of page tokens)
-    /// and being slow.
-    pub fn release_pages(pages: Vec<Page<UnAllocated>>) {
+    pub fn release_pages(released_pages: Vec<Page<UnAllocated>>) {
+        let number_of_released_pages = released_pages.len();
+        if number_of_released_pages == 0 {
+            return;
+        }
+        let mut map = BTreeMap::new();
+        released_pages.into_iter().for_each(|page| {
+            map.entry(*page.size()).or_insert_with(|| Vec::with_capacity(number_of_released_pages)).push(page);
+        });
+
         let _ = Self::try_write(|page_allocator| {
-            Ok(pages.into_iter().for_each(|page| {
-                page_allocator.map.get_mut(&page.size()).and_then(|v| Some(v.push(page)));
-            }))
+            let mut modified_sizes = BTreeSet::new();
+            map.into_iter().for_each(|(size, released_pages)| {
+                modified_sizes.append(&mut page_allocator.insert_pages_of_the_same_size(released_pages, size));
+            });
+            page_allocator.defragment(modified_sizes);
+            Ok(())
         })
         .inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
-    pub fn release_page(page: Page<UnAllocated>) {
-        Self::release_pages(vec![page])
+    fn defragment(&mut self, mut modified_page_sizes: BTreeSet<PageSize>) {
+        let mut page_size = PageSize::smallest();
+        while let Some(larger_page_size) = page_size.larger() {
+            if modified_page_sizes.contains(&page_size) {
+                let number_of_pages = larger_page_size.in_bytes() / page_size.in_bytes();
+                let mut larger_pages_to_insert = vec![];
+                // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
+                while self.map.get(&page_size).unwrap().len() > 4 * number_of_pages {
+                    let allocated_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size, larger_page_size);
+                    if allocated_pages.is_empty() {
+                        break;
+                    }
+                    // below invocation of unsafe is ok because (1) pages are ordered, (2) they are aligned to the larger page size, and (3)
+                    // the cover all expected new page size
+                    let larger_page_to_insert = unsafe { Page::merge(allocated_pages, larger_page_size) };
+                    larger_pages_to_insert.push(larger_page_to_insert)
+                }
+                modified_page_sizes.append(&mut self.insert_pages_of_the_same_size(larger_pages_to_insert, larger_page_size));
+            }
+            page_size = larger_page_size;
+        }
+    }
+
+    /// Checks if consecutive pages at the given range compose a continuous memory region. The assumption is that pages are sorted.
+    /// Thus, it is enough to check if all neighbouring page tokens compose a continuous memory region.
+    fn are_pages_contigious(pages: &mut Vec<Page<UnAllocated>>, start_index: usize, number_of_pages: usize, page_size: PageSize) -> bool {
+        if number_of_pages <= 1 {
+            return true;
+        }
+        // Because pages are stored in the ascending order, it is enough to do boundary checking to reason if all pages are contiguous.
+        let expected_end_address_of_last_page = pages[start_index].start_address() + number_of_pages * page_size.in_bytes();
+        pages[start_index + number_of_pages - 1].end_address() == expected_end_address_of_last_page
     }
 
     /// Returns vector of unallocated page tokens representing a continous memory region. If it failes to find allocation within free pages
     /// of the requested size, it divides larger page tokens. Empty vector is returned if there are not enough page tokens in the system
     /// that meet the requested criteria.
-    fn acquire(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
-        let mut available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size);
-        // it might be that there is not enough page tokens of the requested page size. In such a case, let's try to divide page tokens of
-        // larger page sizes and try the allocation again.
+    fn acquire(&mut self, number_of_pages: usize, page_size: PageSize, align_to: PageSize) -> Vec<Page<UnAllocated>> {
+        let mut available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size, align_to);
         if available_pages.is_empty() {
+            // It might be that there is not enough page tokens of the requested page size. In such a case, let's try to divide page tokens
+            // of larger page sizes and try the allocation again.
             self.divide_pages(page_size);
-            available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size);
+            available_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size, align_to);
         }
         available_pages
     }
 
     /// Tries to allocate a continous chunk of physical memory composed of the requested number of pages. Returns a vector of unallocated
     /// page tokens, all of them having the same size, or an empty vector if the allocation fails.
-    fn acquire_continous_pages_of_given_size(&mut self, number_of_pages: usize, page_size: PageSize) -> Vec<Page<UnAllocated>> {
+    fn acquire_continous_pages_of_given_size(
+        &mut self, number_of_pages: usize, page_size: PageSize, align_to: PageSize,
+    ) -> Vec<Page<UnAllocated>> {
         // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
         let pages = self.map.get_mut(&page_size).unwrap();
-        if pages.len() < number_of_pages {
-            // early return because there is not enough page tokens for the requested page size.
+        if number_of_pages == 0 || pages.len() < number_of_pages {
             return vec![];
         }
 
-        // Checks if consecutive pages at the given range compose a continuous memory region. The assumption is that pages are sorted.
-        // Thus, it is enough to check if all neighbouring page tokens compose a continuous memory region.
-        let is_memory_region_continous = |pages: &mut Vec<Page<UnAllocated>>, start_index: usize, end_index: usize| {
-            (start_index..(end_index - 1)).all(|page_index| pages[page_index].end_address() == pages[page_index + 1].start_address())
-        };
-
+        // Because we store pages in a `Vec`, the most performant way is to allocate from the end of the vector. Like this, we reduce the
+        // number of elements shifts.
         let mut allocated_pages = Vec::with_capacity(number_of_pages);
-        let last_possible_index = pages.len() - number_of_pages;
-        (0..last_possible_index)
-            .find(|&allocation_start_index| {
-                let allocation_end_index = allocation_start_index + number_of_pages;
-                is_memory_region_continous(pages, allocation_start_index, allocation_end_index)
-            })
-            .inspect(|allocation_start_index| {
-                // we found allocation, lets return page tokens to the caller
-                (0..number_of_pages).for_each(|_| {
-                    // `Vec::push` appends to the end of the vector, so we preserve the order of pages. `Vec::remove` removes the page token
-                    // at the given index and shifts left all other page tokens, so we preserve the order of pages in the map
-                    allocated_pages.push(pages.remove(*allocation_start_index))
-                })
-            });
+        let mut index = pages.len() - number_of_pages;
+        let alignment = align_to.in_bytes();
+        loop {
+            // Improve performance by skipping pages that are not aligned. Since we did not find an allocation, let's calculate what is the
+            // index of the next possible aligned address.
+            let distance = if pages[index].address().is_aligned_to(alignment) {
+                if Self::are_pages_contigious(pages, index, number_of_pages, page_size) {
+                    // We found allocation, lets return page tokens to the caller
+                    allocated_pages = pages.drain(index..(index + number_of_pages)).collect();
+                    break;
+                }
+                alignment / page_size.in_bytes()
+            } else {
+                let aligned_down = (pages[index].start_address() - 1) & !(alignment - 1);
+                (pages[index].start_address() - aligned_down) / page_size.in_bytes()
+            };
+            if distance > index {
+                break;
+            }
+            index -= distance;
+        }
         allocated_pages
+    }
+
+    /// Inserts pages to the internal storage, while maintaining the sorted order. Returns a set containing sizes of pages that might be
+    /// subject of potential defragmentation as a result of inserting pages into the internal storage.
+    ///
+    /// # Safety
+    ///
+    /// All given pages must be of the same size.
+    fn insert_pages_of_the_same_size(&mut self, mut pages_to_insert: Vec<Page<UnAllocated>>, size: PageSize) -> BTreeSet<PageSize> {
+        // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
+        let pages = self.map.get_mut(&size).unwrap();
+        pages.append(&mut pages_to_insert);
+        pages.sort_by(|a, b| a.start_address().cmp(&b.start_address()));
+
+        let mut modified_sizes = BTreeSet::new();
+        if pages.len() > Self::EXPECTED_NUMBER_OF_TOKENS_PER_SIZE {
+            modified_sizes.insert(size);
+        }
+        modified_sizes
     }
 
     /// Tries to divide existing page tokens, so that the PageAllocator has page tokens of the requested page size.
@@ -249,7 +318,7 @@ impl<'a> PageAllocator {
                 // Below unwraps are safe because the PageAllocator constructor guarantees that the map contains keys for every possible
                 // page size.
                 self.map.get_mut(&from_size).unwrap().pop().and_then(|page| {
-                    self.map.get_mut(&to_size).unwrap().append(&mut page.divide());
+                    self.insert_pages_of_the_same_size(page.divide(), to_size);
                     Some(true)
                 })
             })

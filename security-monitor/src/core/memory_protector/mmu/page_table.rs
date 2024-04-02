@@ -85,8 +85,7 @@ impl PageTable {
                 } else if PageTableBits::is_leaf(entry_raw) {
                     let address = NonConfidentialMemoryAddress::new(PageTableAddress::decode(entry_raw))?;
                     let page_size = paging_system.page_size(level);
-                    let page = PageAllocator::acquire_continous_pages(1, page_size)?
-                        .remove(0)
+                    let page = PageAllocator::acquire_page(page_size)?
                         .copy_from_non_confidential_memory(address)
                         .map_err(|_| Error::PageTableCorrupted())?;
                     let configuration = PageTableConfiguration::decode(entry_raw);
@@ -211,19 +210,33 @@ impl PageTable {
         self.page_table_memory.set_entry(index, &entry);
         let entry_to_remove = core::mem::replace(&mut self.entries[index], entry);
         if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry_to_remove {
-            PageAllocator::release_page(page.deallocate());
+            PageAllocator::release_pages(alloc::vec![page.deallocate()]);
         }
+    }
+
+    fn clear(&mut self) {
+        // To clear the page table we should deallocate pages in the order they have been allocated when recreating the page table configuration.
+        let mut pages = Vec::with_capacity(512);
+        pages.append(&mut self.page_table_memory.clear());
+        for index in (0..self.entries.len()).rev() {
+            match core::mem::replace(&mut self.entries[index], PageTableEntry::NotValid) {
+                PageTableEntry::PointerToNextPageTable(mut next_page_table, _) => {
+                    PageAllocator::release_pages(pages);
+                    pages = Vec::with_capacity(512);
+                    next_page_table.clear();
+                }
+                PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
+                    pages.push(page.deallocate());
+                }
+                _ => {}
+            }
+        }
+        PageAllocator::release_pages(pages);
     }
 }
 
-impl Drop for PageTable {
-    /// When page table is dropped, we go through all its entries and make sure that confidential pages are returned to the page allocator.
-    /// Otherwise, we would have a memory leak.
+impl Drop for RootPageTable {
     fn drop(&mut self) {
-        self.entries.drain(..).for_each(|entry| {
-            if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry {
-                PageAllocator::release_page(page.deallocate());
-            }
-        });
+        self.page_table.clear();
     }
 }

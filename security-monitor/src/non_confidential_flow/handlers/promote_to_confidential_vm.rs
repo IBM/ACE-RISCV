@@ -59,7 +59,7 @@ fn create_confidential_vm(promote_to_confidential_vm_request: PromoteToConfident
     // We create a fixed number of harts (all but the boot hart are in the reset state) according to the FDT configuration. An alternative
     // approach (to discuss) is to create just a boot hart and then allow creation of more harts when getting a call from the confidential
     // VM to start a hart.
-    let number_of_confidential_harts = device_tree.harts().count();
+    let number_of_confidential_harts = 2; //device_tree.harts().count();
     assure!(number_of_confidential_harts < ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::ReachedMaxNumberOfHartsPerVm())?;
     let confidential_harts = (0..number_of_confidential_harts)
         .map(|confidential_hart_id| match confidential_hart_id {
