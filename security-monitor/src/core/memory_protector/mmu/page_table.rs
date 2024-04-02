@@ -215,14 +215,14 @@ impl PageTable {
     }
 
     fn clear(&mut self) {
-        // To clear the page table we should deallocate pages in the order they have been allocated when recreating the page table configuration.
-        let mut pages = Vec::with_capacity(512);
-        pages.append(&mut self.page_table_memory.clear());
+        // To clear the page table we should deallocate pages in the order they have been allocated when recreating the page table
+        // configuration.
+        let mut pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
         for index in (0..self.entries.len()).rev() {
             match core::mem::replace(&mut self.entries[index], PageTableEntry::NotValid) {
                 PageTableEntry::PointerToNextPageTable(mut next_page_table, _) => {
                     PageAllocator::release_pages(pages);
-                    pages = Vec::with_capacity(512);
+                    pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
                     next_page_table.clear();
                 }
                 PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
@@ -231,6 +231,7 @@ impl PageTable {
                 _ => {}
             }
         }
+        pages.append(&mut self.page_table_memory.clear());
         PageAllocator::release_pages(pages);
     }
 }

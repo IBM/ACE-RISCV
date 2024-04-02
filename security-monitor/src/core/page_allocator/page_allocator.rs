@@ -22,9 +22,6 @@ pub struct PageAllocator {
 }
 
 impl<'a> PageAllocator {
-    // Usually there are 512 pages of size x that can fit in a single page of size y, where y is next page size larger than x (e.g., 2MiB
-    // and 4KiB).
-    const EXPECTED_NUMBER_OF_TOKENS_PER_SIZE: usize = 512;
     const NOT_INITIALIZED: &'static str = "Bug. Could not access page allocator because it is not initialized";
 
     /// Initializes the global instance of a `PageAllocator`. Returns error if the `PageAllocator` has already been initialized.
@@ -52,7 +49,7 @@ impl<'a> PageAllocator {
     fn empty() -> Self {
         let mut map = BTreeMap::new();
         for page_size in PageSize::all_from_largest_to_smallest() {
-            let page_tokens = Vec::<_>::with_capacity(Self::EXPECTED_NUMBER_OF_TOKENS_PER_SIZE);
+            let page_tokens = Vec::<_>::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
             map.insert(page_size.clone(), page_tokens);
         }
         Self { map }
@@ -162,7 +159,7 @@ impl<'a> PageAllocator {
     }
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
-    /// physical memory region owned by the returned page tokens.
+    /// physical memory region owned by the returned page tokens. Given vector of pages might contains pages of arbitrary sizes.
     pub fn release_pages(released_pages: Vec<Page<UnAllocated>>) {
         let number_of_released_pages = released_pages.len();
         if number_of_released_pages == 0 {
@@ -172,7 +169,6 @@ impl<'a> PageAllocator {
         released_pages.into_iter().for_each(|page| {
             map.entry(*page.size()).or_insert_with(|| Vec::with_capacity(number_of_released_pages)).push(page);
         });
-
         let _ = Self::try_write(|page_allocator| {
             let mut modified_sizes = BTreeSet::new();
             map.into_iter().for_each(|(size, released_pages)| {
@@ -184,20 +180,25 @@ impl<'a> PageAllocator {
         .inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
+    /// Combines contiguous pages into pages of a larger size, if possible.
     fn defragment(&mut self, mut modified_page_sizes: BTreeSet<PageSize>) {
         let mut page_size = PageSize::smallest();
         while let Some(larger_page_size) = page_size.larger() {
             if modified_page_sizes.contains(&page_size) {
                 let number_of_pages = larger_page_size.in_bytes() / page_size.in_bytes();
                 let mut larger_pages_to_insert = vec![];
-                // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
+                // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page
+                // size.
+                // Run defragmentation only if there is enough pages to possible merge them. For example, it make no sense to even try to
+                // search for pages to merge, if we need at 512 pages and there is only 100. We also do not want to defragment to
+                // agresively, because it might make sense to keep enough pages in the storage so that allocation is fast.
                 while self.map.get(&page_size).unwrap().len() > 4 * number_of_pages {
                     let allocated_pages = self.acquire_continous_pages_of_given_size(number_of_pages, page_size, larger_page_size);
                     if allocated_pages.is_empty() {
                         break;
                     }
-                    // below invocation of unsafe is ok because (1) pages are ordered, (2) they are aligned to the larger page size, and (3)
-                    // the cover all expected new page size
+                    // Below invocation of unsafe is ok because (1) pages are ordered, (2) the first page is aligned to the larger page
+                    // size, and (3) they all have the size of the larger page size.
                     let larger_page_to_insert = unsafe { Page::merge(allocated_pages, larger_page_size) };
                     larger_pages_to_insert.push(larger_page_to_insert)
                 }
@@ -237,54 +238,63 @@ impl<'a> PageAllocator {
     fn acquire_continous_pages_of_given_size(
         &mut self, number_of_pages: usize, page_size: PageSize, align_to: PageSize,
     ) -> Vec<Page<UnAllocated>> {
+        let mut acquired_pages = Vec::with_capacity(0);
         // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
         let pages = self.map.get_mut(&page_size).unwrap();
         if number_of_pages == 0 || pages.len() < number_of_pages {
-            return vec![];
+            return acquired_pages;
         }
 
         // Because we store pages in a `Vec`, the most performant way is to allocate from the end of the vector. Like this, we reduce the
-        // number of elements shifts.
-        let mut allocated_pages = Vec::with_capacity(number_of_pages);
+        // number of elements shifts. Thus, we set index to the largest possible value at which we might find the first allocation.
         let mut index = pages.len() - number_of_pages;
-        let alignment = align_to.in_bytes();
         loop {
             // Improve performance by skipping pages that are not aligned. Since we did not find an allocation, let's calculate what is the
             // index of the next possible aligned address.
-            let distance = if pages[index].address().is_aligned_to(alignment) {
+            let offset_from_next_aligned_address = if pages[index].address().is_aligned_to(align_to.in_bytes()) {
                 if Self::are_pages_contigious(pages, index, number_of_pages, page_size) {
                     // We found allocation, lets return page tokens to the caller
-                    allocated_pages = pages.drain(index..(index + number_of_pages)).collect();
+                    acquired_pages = pages.drain(index..(index + number_of_pages)).collect();
                     break;
                 }
-                alignment / page_size.in_bytes()
+                // We did not find the allocation. Let's check the next possible aligned address.
+                align_to.in_bytes() / page_size.in_bytes()
             } else {
-                let aligned_down = (pages[index].start_address() - 1) & !(alignment - 1);
-                (pages[index].start_address() - aligned_down) / page_size.in_bytes()
+                // Since the current page is not correctly aligned, let's check at which offset a correctly aligned address might be. Since
+                // we are iterating from the end to the beginning of addresses, we align down.
+                let address_aligned_down = (pages[index].start_address() - 1) & !(align_to.in_bytes() - 1);
+                (pages[index].start_address() - address_aligned_down) / page_size.in_bytes()
             };
-            if distance > index {
+            // Loop termination condition: the minimum index is 0
+            if offset_from_next_aligned_address > index {
                 break;
             }
-            index -= distance;
+            // Moving by the distance improves performence when searching for large allocation. This is heavily used during defragmentation
+            // that searches for contiguous pages that can be combined into a larger page. For example, 2MiB page would contain 512 4KiB
+            // pages. Thus, this allocation algorithm will eventually move the index by distance equal to 512.
+            index -= offset_from_next_aligned_address;
         }
-        allocated_pages
+        acquired_pages
     }
 
-    /// Inserts pages to the internal storage, while maintaining the sorted order. Returns a set containing sizes of pages that might be
-    /// subject of potential defragmentation as a result of inserting pages into the internal storage.
+    /// Inserts pages to the internal storage, while maintaining the sorted order. Returns a set that contains sizes of pages that might
+    /// make sense to defragment.
     ///
-    /// # Safety
+    /// # Requirements
     ///
-    /// All given pages must be of the same size.
+    /// Caller must guarantee that all given pages must be of the same size.
     fn insert_pages_of_the_same_size(&mut self, mut pages_to_insert: Vec<Page<UnAllocated>>, size: PageSize) -> BTreeSet<PageSize> {
-        // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page size.
-        let pages = self.map.get_mut(&size).unwrap();
-        pages.append(&mut pages_to_insert);
-        pages.sort_by(|a, b| a.start_address().cmp(&b.start_address()));
-
         let mut modified_sizes = BTreeSet::new();
-        if pages.len() > Self::EXPECTED_NUMBER_OF_TOKENS_PER_SIZE {
-            modified_sizes.insert(size);
+        if !pages_to_insert.is_empty() {
+            // Below unwrap is safe because the PageAllocator constructor guarantees that the map contains keys for every possible page
+            // size.
+            let pages = self.map.get_mut(&size).unwrap();
+            pages.append(&mut pages_to_insert);
+            // We use `unstable` sort because there are no repeating elements in the vector (pages have unique addresses).
+            pages.sort_unstable_by(|a, b| a.start_address().cmp(&b.start_address()));
+            if pages.len() > 4 * PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE {
+                modified_sizes.insert(size);
+            }
         }
         modified_sizes
     }
