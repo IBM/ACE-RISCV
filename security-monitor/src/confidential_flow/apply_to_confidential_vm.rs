@@ -4,7 +4,8 @@
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 
-pub enum ApplyToConfidentialVm {
+/// Transformation of the confidential hart state created as a result of processing a confidential hart call.
+pub enum ApplyToConfidentialHart {
     SbiResponse(SbiResponse),
     VirtualInstruction(VirtualInstruction),
 }

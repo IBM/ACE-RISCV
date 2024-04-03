@@ -5,6 +5,7 @@ use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart, PendingRequest};
 
+/// Handles a hypercall from a confidential hart to hypervisor.
 pub struct SbiRequest {
     extension_id: usize,
     function_id: usize,
@@ -34,7 +35,6 @@ impl SbiRequest {
         )
     }
 
-    /// Handles a hypercall from a confidential hart to hypervisor.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         confidential_flow
             .set_pending_request(PendingRequest::SbiRequest())
@@ -85,11 +85,6 @@ impl SbiRequest {
     pub fn kvm_hsm_hart_suspend() -> Self {
         use crate::core::architecture::HsmExtension;
         Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0, 0, 0, 0, 0)
-    }
-
-    pub fn kvm_srst_system_reset() -> Self {
-        use crate::core::architecture::SrstExtension;
-        Self::new(SrstExtension::EXTID, SrstExtension::SYSTEM_RESET_FID, 0, 0, 0, 0, 0, 0)
     }
 
     pub fn extension_id(&self) -> usize {

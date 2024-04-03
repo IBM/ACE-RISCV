@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::WFI_INSTRUCTION;
 use crate::core::control_data::ConfidentialHart;
 
-#[derive(PartialEq)]
+/// Handles virtual instruction trap that occured during execution of the confidential hart.
 pub struct VirtualInstruction {
     instruction: usize,
     instruction_length: usize,
@@ -21,7 +21,7 @@ impl VirtualInstruction {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let transformation = if self.instruction == WFI_INSTRUCTION {
-            ApplyToConfidentialVm::VirtualInstruction(self)
+            ApplyToConfidentialHart::VirtualInstruction(self)
         } else {
             // TODO: add support for some CSR manipulation
             // TODO: for not supported instructions, inject illegal instruction exception to the guest

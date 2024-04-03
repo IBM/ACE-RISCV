@@ -47,27 +47,6 @@ impl ConfidentialVm {
         Self { id, measurements, confidential_harts, memory_protector, inter_hart_requests }
     }
 
-    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
-        self.id
-    }
-
-    pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
-        confidential_vm_address: ConfidentialVmPhysicalAddress,
-    ) -> Result<(), Error> {
-        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
-        let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
-        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
-        Ok(())
-    }
-
-    pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
-        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
-        let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
-        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
-        Ok(())
-    }
-
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
@@ -140,8 +119,35 @@ impl ConfidentialVm {
         unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
 
+    pub fn map_shared_page(
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
+        confidential_vm_address: ConfidentialVmPhysicalAddress,
+    ) -> Result<(), Error> {
+        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        Ok(())
+    }
+
+    pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
+        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        Ok(())
+    }
+
+    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
+        self.id
+    }
+
     pub fn are_all_harts_shutdown(&self) -> bool {
         self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::Shutdown).count() == 0
+    }
+
+    /// Returns the lifecycle state of the confidential hart
+    pub fn confidential_hart_lifecycle_state(&self, confidential_hart_id: usize) -> Result<HartLifecycleState, Error> {
+        assure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
+        Ok(self.confidential_harts[confidential_hart_id].lifecycle_state().clone())
     }
 
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
@@ -189,12 +195,6 @@ impl ConfidentialVm {
                 }
                 Ok(())
             })
-    }
-
-    /// Returns the lifecycle state of the confidential hart
-    pub fn confidential_hart_lifecycle_state(&self, confidential_hart_id: usize) -> Result<HartLifecycleState, Error> {
-        assure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
-        Ok(self.confidential_harts[confidential_hart_id].lifecycle_state().clone())
     }
 
     pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>

@@ -2,13 +2,13 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
-use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmRequest;
-use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpenSbiResponse;
+use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmHandler;
+use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiHandler;
 
-/// Transformation that modifies hypervisor state as a result of processing its own request
+/// Transformation of the hypervisor state created as a result of processing a hypervisor call.
 pub enum ApplyToHypervisor {
     SbiRequest(SbiRequest),
     SbiResponse(SbiResponse),
-    SbiVmRequest(SbiVmRequest),
-    OpenSbiResponse(OpenSbiResponse),
+    SbiVmRequest(SbiVmHandler),
+    OpenSbiResponse(OpensbiHandler),
 }

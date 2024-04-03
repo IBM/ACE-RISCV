@@ -15,33 +15,38 @@ use flattened_device_tree::FlattenedDeviceTree;
 /// Our convention is to give the boot hart a fixed id.
 const BOOT_HART_ID: usize = 0;
 
-pub struct PromoteToConfidentialVm {
+/// Handles the `promote to confidential VM` call requested by the non-confidential VM via an environment call. The call traps in the
+/// security monitor as an `environment call from VS-mode` (see `mcause` register specification). In a response to this call, the
+/// security monitor creates a confidential VM and informs the hypervisor that the VM became a confidential VM. The hypervisor
+/// should then record this information and use dedicated entry point (`resume confidential hart` call) to execute particular
+/// confidential hart.
+///
+/// # Security
+///
+/// In case of a Linux kernel confidential VM, Linux kernel must make this call before 1) it uses parameters from the Linux command
+/// line, 2) before it changes the content of the VM's memory.
+///
+/// # Safety
+///
+/// The virtual machine must make this call on a boot hart before other harts come out of reset.
+pub struct PromoteVmHandler {
     hart_state: HartArchitecturalState,
+    fdt_address: ConfidentialVmPhysicalAddress,
 }
 
-impl PromoteToConfidentialVm {
+impl PromoteVmHandler {
     pub fn from_vm_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        Self { hart_state: HartArchitecturalState::from_existing(0, hypervisor_hart.hypervisor_hart_state()) }
+        let hart_state = HartArchitecturalState::from_existing(0, hypervisor_hart.hypervisor_hart_state());
+        let fdt_address = ConfidentialVmPhysicalAddress::new(hart_state.gprs.read(GeneralPurposeRegister::a0));
+        Self { hart_state, fdt_address }
     }
 
-    /// Handles the `promote to confidential VM` call requested by the non-confidential VM via an environment call. The call traps in the
-    /// security monitor as an `environment call from VS-mode` (see `mcause` register specification). In a response to this call, the
-    /// security monitor creates a confidential VM and informs the hypervisor that the VM became a confidential VM. The hypervisor
-    /// should then record this information and use dedicated entry point (`resume confidential hart` call) to execute particular
-    /// confidential hart.
-    ///
-    /// # Security
-    ///
-    /// In case of a Linux kernel confidential VM, Linux kernel must make this call before 1) it uses parameters from the Linux command
-    /// line, 2) before it changes the content of the VM's memory.
-    ///
-    /// # Safety
-    ///
-    /// The virtual machine must make this call on a boot hart before other harts come out of reset.
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        debug!("Promoting a VM into a confidential VM");
         let transformation = match self.create_confidential_vm() {
-            Ok(id) => ApplyToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(id, BOOT_HART_ID)),
+            Ok(confidential_vm_id) => {
+                debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
+                ApplyToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(confidential_vm_id, BOOT_HART_ID))
+            }
             Err(error) => {
                 debug!("Promotion to confidential VM failed: {:?}", error);
                 error.into_non_confidential_transformation()
@@ -51,6 +56,7 @@ impl PromoteToConfidentialVm {
     }
 
     fn create_confidential_vm(&self) -> Result<ConfidentialVmId, Error> {
+        debug!("Promoting a VM into a confidential VM");
         // The pointer to the flattened device tree (FDT) as well as the entire FDT must be treated as an untrusted input, which measurement
         // is reflected during attestation. Only after moving VM's data (and the FDT) to the confidential memory, we can check if
         // the pointer is valid, i.e., it points to a valid address in the confidential VM's address space.
@@ -60,8 +66,10 @@ impl PromoteToConfidentialVm {
 
         // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the not-yet-created
         // confidential VM's and (2) there is only one physical hart executing this code.
-        let fdt_address_in_confidential_memory = unsafe { memory_protector.translate_address(&self.fdt_address())?.to_ptr() };
-        // We parse untrusted FDT using an external library. A vulnerability in this library might blow up the security!
+        let fdt_address_in_confidential_memory = unsafe { memory_protector.translate_address(&self.fdt_address)?.to_ptr() };
+        // Security note: We parse untrusted FDT using an external library. A vulnerability in this library might blow up our security
+        // guarantees!
+        //
         // Below unsafe is ok because it is the start of the entire page which is at least 4KiB in size (see safety requirements of
         // `FlattenedDeviceTree::from_raw_pointer`).
         let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(fdt_address_in_confidential_memory)? };
@@ -83,21 +91,12 @@ impl PromoteToConfidentialVm {
 
         // TODO: perform local attestation (optional) if there is a `confidential VM's blob`
 
-        let confidential_vm_id = ControlData::try_write(|control_data| {
+        ControlData::try_write(|control_data| {
             // We have a write lock on the entire control data! Spend as little time here as possible because we are
             // blocking all other harts from accessing the control data. This influences all confidential VMs in the system!
             let id = control_data.unique_id()?;
             let confidential_vm = ConfidentialVm::new(id, confidential_harts, measurements, memory_protector);
             control_data.insert_confidential_vm(confidential_vm)
-        })?;
-
-        debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
-
-        Ok(confidential_vm_id)
-    }
-
-    /// Returns the address of the device tree provided as the first argument of the call.
-    fn fdt_address(&self) -> ConfidentialVmPhysicalAddress {
-        ConfidentialVmPhysicalAddress::new(self.hart_state.gprs.read(GeneralPurposeRegister::a0))
+        })
     }
 }

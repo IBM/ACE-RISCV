@@ -8,6 +8,11 @@ use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
+/// Represents a state of the physical hart executing in the security monitor. It is always associated with a hypervisor hart that made a
+/// call to the security monitor.
+///
+/// There is exactly one instance of this structure created per physical hart during system initialization. We link the physical hart with
+/// its instance of `HardwareHart` structure using `mscratch` register. See assembly code that implements the lightweight context switch.
 #[repr(C)]
 pub struct HardwareHart {
     // We store a hypervisor hart that was executing on this physical hart when making a call to the security monitor.
@@ -29,6 +34,7 @@ pub struct HardwareHart {
 }
 
 impl HardwareHart {
+    /// Creates the instance of a state associated with the physical hart.
     pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
             hypervisor_hart: HypervisorHart::new(id, hypervisor_memory_protector),

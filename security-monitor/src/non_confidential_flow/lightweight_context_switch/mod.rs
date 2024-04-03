@@ -4,6 +4,7 @@
 core::arch::global_asm!(
     include_str!("enter_from_hypervisor_or_vm.S"),
     include_str!("exit_to_hypervisor.S"),
+    // below is a boilerplate code to glue Rust and Assembly code.
     HART_RA_OFFSET = const crate::core::architecture::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::architecture::HART_SP_OFFSET,
     HART_GP_OFFSET = const crate::core::architecture::HART_GP_OFFSET,

@@ -12,10 +12,9 @@ use crate::core::memory_layout::MemoryLayout;
 fn panic(info: &core::panic::PanicInfo) -> ! {
     // TODO: halt all other harts and make sure the below code executes exclusively on one hart
     debug!("Ops security monitor panicked!");
-    if let Some(p) = info.location() {
-        debug!("Line {}, file {}: {}", p.line(), p.file(), info.message().unwrap());
-    } else {
-        debug!("no information available.");
+    match info.location() {
+        Some(p) => debug!("Line {}, file {}: {}", p.line(), p.file(), info.message().unwrap()),
+        None => debug!("no information available."),
     }
     debug!("Cleaning up...");
     // Clear the content of the confidential memory.

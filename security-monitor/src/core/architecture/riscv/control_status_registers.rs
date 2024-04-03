@@ -14,14 +14,14 @@ pub struct ControlStatusRegisters {
     pub medeleg: ReadWriteRiscvCsr<CSR_MEDELEG>,
     pub mideleg: ReadWriteRiscvCsr<CSR_MIDELEG>,
     pub mie: ReadWriteRiscvCsr<CSR_MIE>,
-    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
+    pub mip: ReadRiscvCsr<CSR_MIP>,
     pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
     pub mtinst: ReadWriteRiscvCsr<CSR_MTINST>,
     pub mtval: ReadWriteRiscvCsr<CSR_MTVAL>,
     pub mtval2: ReadWriteRiscvCsr<CSR_MTVAL2>,
     pub mtvec: ReadWriteRiscvCsr<CSR_MTVEC>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
-    pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
+    pub mhartid: ReadRiscvCsr<CSR_MHARTID>,
     // S-mode
     pub sstatus: ReadWriteRiscvCsr<CSR_SSTATUS>,
     pub sepc: ReadWriteRiscvCsr<CSR_SEPC>,
@@ -69,14 +69,14 @@ impl ControlStatusRegisters {
             medeleg: ReadWriteRiscvCsr::new(),
             mideleg: ReadWriteRiscvCsr::new(),
             mie: ReadWriteRiscvCsr::new(),
-            mip: ReadWriteRiscvCsr::new(),
+            mip: ReadRiscvCsr::new(),
             mstatus: ReadWriteRiscvCsr::new(),
             mtinst: ReadWriteRiscvCsr::new(),
             mtval: ReadWriteRiscvCsr::new(),
             mtval2: ReadWriteRiscvCsr::new(),
             mtvec: ReadWriteRiscvCsr::new(),
             mscratch: ReadWriteRiscvCsr::new(),
-            mhartid: ReadWriteRiscvCsr::new(),
+            mhartid: ReadRiscvCsr::new(),
             // S-mode
             sstatus: ReadWriteRiscvCsr::new(),
             sepc: ReadWriteRiscvCsr::new(),
@@ -132,7 +132,6 @@ impl ControlStatusRegisters {
         csrs.mtval2.save_value(self.mtval2.read_value());
         csrs.mtvec.save_value(self.mtvec.read_value());
         csrs.mscratch.save_value(self.mscratch.read_value());
-        csrs.mhartid.save_value(self.mhartid.read_value());
         // S-mode
         csrs.sstatus.save_value(self.sstatus.read_value());
         csrs.sepc.save_value(self.sepc.read_value());
@@ -185,7 +184,6 @@ impl ControlStatusRegisters {
         self.mtval2.save();
         self.mtvec.save();
         self.mscratch.save();
-        self.mhartid.save();
         // S-mode
         self.sstatus.save();
         self.sepc.save();
@@ -303,16 +301,16 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
         self.0 = self.read();
     }
 
+    pub fn save_value(&mut self, value: usize) {
+        self.0 = value;
+    }
+
     pub fn restore(&self) {
         self.set(self.0);
     }
 
     pub fn read_value(&self) -> usize {
         self.0
-    }
-
-    pub fn save_value(&mut self, value: usize) {
-        self.0 = value;
     }
 
     #[inline]
@@ -381,6 +379,24 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
                  rd = out(reg) r,
                  csr = const V,
                  rs1 = in(reg) bitmask);
+        }
+        r
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct ReadRiscvCsr<const V: u16>(usize);
+
+impl<const V: u16> ReadRiscvCsr<V> {
+    pub const fn new() -> Self {
+        Self(0)
+    }
+
+    #[inline]
+    pub fn read(&self) -> usize {
+        let r: usize;
+        unsafe {
+            asm!("csrr {rd}, {csr}", rd = out(reg) r, csr = const V);
         }
         r
     }

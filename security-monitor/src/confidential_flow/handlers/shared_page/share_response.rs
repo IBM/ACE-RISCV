@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::shared_page::SharePageRequest;
-use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ControlData, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 
-#[derive(PartialEq)]
+/// Handles a response from the hypervisor about the creation of a shared page.
+///
+/// Control always flows to the confidential VM.
 pub struct SharePageResponse {
     response_code: usize,
     hypervisor_page_address: usize,
@@ -24,14 +26,11 @@ impl SharePageResponse {
         }
     }
 
-    /// Handles a response from the hypervisor about the creation of a shared page.
-    ///
-    /// Control always flows to the confidential VM.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         if self.is_error() {
             // Hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
             // confidential VM.
-            let transformation = ApplyToConfidentialVm::SbiResponse(SbiResponse::failure(self.response_code()));
+            let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(self.response_code()));
             confidential_flow.apply_and_exit_to_confidential_hart(transformation);
         }
 
@@ -45,7 +44,7 @@ impl SharePageResponse {
                         *self.request.confidential_vm_physical_address(),
                     )
                 })
-                .and_then(|_| Ok(ApplyToConfidentialVm::SbiResponse(SbiResponse::success(0))))
+                .and_then(|_| Ok(ApplyToConfidentialHart::SbiResponse(SbiResponse::success(0))))
                 .unwrap_or_else(|error| error.into_confidential_transformation());
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }

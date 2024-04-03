@@ -2,10 +2,12 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::{ApplyToConfidentialVm, ConfidentialFlow};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::{GeneralPurposeRegister, *};
 use crate::core::control_data::ConfidentialHart;
 
+/// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
+/// not support such exception. For example, a confidential hart could trap after making a not supported SBI call.
 pub struct SbiExtensionProbe {
     extension_id: usize,
 }
@@ -15,8 +17,6 @@ impl SbiExtensionProbe {
         Self { extension_id: confidential_hart.gprs().read(GeneralPurposeRegister::a0) }
     }
 
-    /// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
-    /// not support such exception. For example, a confidential hart could trap after making a not supported SBI call.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let response = match self.extension_id {
             AceExtension::EXTID => 1,
@@ -27,7 +27,7 @@ impl SbiExtensionProbe {
             SrstExtension::EXTID => 1,
             _ => 0,
         };
-        let transformation = ApplyToConfidentialVm::SbiResponse(SbiResponse::success(response));
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(response));
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

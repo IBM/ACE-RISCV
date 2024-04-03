@@ -5,10 +5,11 @@ use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
 use crate::confidential_flow::handlers::smp::{
     SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
 };
+use crate::core::control_data::ConfidentialHart;
 
 /// Represents a request send from one confidential hart (sender) to another confidential hart (receiver). Both sender and receiver belong
 /// to the same confidential VM.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Clone)]
 pub enum InterHartRequest {
     SbiIpi(SbiIpi),
     SbiRemoteFenceI(SbiRemoteFenceI),
@@ -19,14 +20,19 @@ pub enum InterHartRequest {
 }
 
 impl InterHartRequest {
-    pub fn is_hart_selected(&self, hart_id: usize) -> bool {
+    pub fn is_hart_selected(&self, confidential_hart_id: usize) -> bool {
         match self {
-            Self::SbiIpi(v) => v.is_hart_selected(hart_id),
-            Self::SbiRemoteFenceI(v) => v.is_hart_selected(hart_id),
-            Self::SbiRemoteSfenceVma(v) => v.is_hart_selected(hart_id),
-            Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(hart_id),
-            Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(hart_id),
-            Self::ShutdownRequest(v) => v.is_hart_selected(hart_id),
+            Self::SbiIpi(v) => v.is_hart_selected(confidential_hart_id),
+            Self::SbiRemoteFenceI(v) => v.is_hart_selected(confidential_hart_id),
+            Self::SbiRemoteSfenceVma(v) => v.is_hart_selected(confidential_hart_id),
+            Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(confidential_hart_id),
+            Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(confidential_hart_id),
+            Self::ShutdownRequest(v) => v.is_hart_selected(confidential_hart_id),
         }
     }
+}
+
+pub trait InterHartRequestExecutable {
+    fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart);
+    fn is_hart_selected(&self, confidential_hart_id: usize) -> bool;
 }

@@ -6,7 +6,6 @@ use crate::confidential_flow::handlers::shared_page::SharePageRequest;
 
 /// Indicates an intermediate state of the confidential hart that requested certain operation from the hypervisor and is waiting for the
 /// response. This structure might store some information required to complete the request once the hypervisor responds to it.
-#[derive(PartialEq)]
 pub enum PendingRequest {
     SbiRequest(),
     SharePage(SharePageRequest),

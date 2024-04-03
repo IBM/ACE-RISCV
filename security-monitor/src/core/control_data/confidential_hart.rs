@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiHsmHartSuspend};
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
+use crate::core::control_data::inter_hart_request::InterHartRequestExecutable;
 use crate::core::control_data::{ConfidentialVmId, InterHartRequest, PendingRequest};
 use crate::error::Error;
 

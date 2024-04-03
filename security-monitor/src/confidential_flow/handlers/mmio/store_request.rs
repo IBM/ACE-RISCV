@@ -7,6 +7,7 @@ use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 use crate::error::Error;
 
+/// Handles MMIO store request coming from the confidential hart. This request will be declassified to the hypervisor.
 pub struct MmioStoreRequest {
     mcause: usize,
     mtval: usize,

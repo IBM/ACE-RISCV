@@ -6,7 +6,14 @@ use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
 
-#[derive(PartialEq, Debug, Clone)]
+/// Handles a request to start a remote confidential hart. This is an implementation of the HartStart function from the HSM extension of
+/// SBI.
+///
+/// This call is triggered by a confidential hart that wants to start another confidential hart. Error is returned to
+/// the caller if the targetted confidential hart is not in the stopped state or it does not exist. The security monitor
+/// moves targetted confidential harts into `StartPending` state and informs then the hypervisor that these harts are
+/// runnable. Once the hypervisor schedules such a confidential hart for execution, the confidential hart will change
+/// the state to `Started`.
 pub struct SbiHsmHartStart {
     confidential_hart_id: usize,
     start_address: usize,
@@ -22,13 +29,6 @@ impl SbiHsmHartStart {
         }
     }
 
-    /// Requests to start a remote confidential hart. This is an implementation of the HartStart function from the HSM extension of SBI.
-    ///
-    /// This call is triggered by a confidential hart that wants to start another confidential hart. Error is returned to
-    /// the caller if the targetted confidential hart is not in the stopped state or it does not exist. The security monitor
-    /// moves targetted confidential harts into `StartPending` state and informs then the hypervisor that these harts are
-    /// runnable. Once the hypervisor schedules such a confidential hart for execution, the confidential hart will change
-    /// the state to `Started`.
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let confidential_hart_id = self.confidential_hart_id;
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to

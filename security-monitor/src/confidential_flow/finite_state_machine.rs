@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::interrupts::InterruptRequest;
+use crate::confidential_flow::handlers::interrupts::InterruptHandler;
 use crate::confidential_flow::handlers::invalid_call::InvalidCall;
 use crate::confidential_flow::handlers::mmio::load_request::MmioLoadRequest;
 use crate::confidential_flow::handlers::mmio::store_request::MmioStoreRequest;
@@ -14,7 +14,7 @@ use crate::confidential_flow::handlers::smp::{
     SbiRemoteSfenceVmaAsid,
 };
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
-use crate::confidential_flow::{ApplyToConfidentialVm, DeclassifyToConfidentialVm};
+use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
 use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::BaseExtension::*;
 use crate::core::architecture::HsmExtension::*;
@@ -50,6 +50,8 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
+    pub const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
+
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
     /// security monitor from the assembly context switch.
     ///
@@ -57,13 +59,11 @@ impl<'a> ConfidentialFlow<'a> {
     /// requirements of the asembly context switch. This is a private function, not accessible from the outside of the ConfidentialFlow but
     /// accessible to the assembly code performing the context switch.
     #[no_mangle]
-    extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
-        let hardware_hart = unsafe { hardware_hart_pointer.as_mut().expect(crate::error::CTX_SWITCH_ERROR_MSG) };
-        assert!(!hardware_hart.confidential_hart().is_dummy());
-        let flow = Self { hardware_hart };
-
+    unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
+        let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
+        assert!(!flow.hardware_hart.confidential_hart().is_dummy());
         match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
-            Interrupt => InterruptRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            Interrupt => InterruptHandler::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Ace(SharePageWithHypervisor)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Ace(UnsharePageWithHypervisor)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -110,8 +110,7 @@ impl<'a> ConfidentialFlow<'a> {
 
     /// Moves in the finite state machine (FSM) from the confidential flow into non-confidential flow.
     pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
-        let confidential_vm_id = self.confidential_vm_id();
-        ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+        ControlData::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.return_confidential_hart(self.hardware_hart);
             Ok(NonConfidentialFlow::create(self.hardware_hart))
         })
@@ -157,10 +156,10 @@ impl<'a> ConfidentialFlow<'a> {
 
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will
     /// execute the confidential hart on the hardware hart.
-    pub fn apply_and_exit_to_confidential_hart(mut self, transformation: ApplyToConfidentialVm) -> ! {
+    pub fn apply_and_exit_to_confidential_hart(mut self, transformation: ApplyToConfidentialHart) -> ! {
         match transformation {
-            ApplyToConfidentialVm::SbiResponse(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
-            ApplyToConfidentialVm::VirtualInstruction(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
+            ApplyToConfidentialHart::SbiResponse(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
+            ApplyToConfidentialHart::VirtualInstruction(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
         }
         self.exit_to_confidential_hart()
     }

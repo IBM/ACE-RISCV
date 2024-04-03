@@ -22,5 +22,7 @@ pub fn shutdown_confidential_hart(mut confidential_flow: ConfidentialFlow) -> ! 
     // long as all confidential harts are in the `Shutdown` state. We do not know which confidential hart will be the
     // last one to shutdown, so we always try to remove the confidential VM when a confidential hart goes through the
     // shutdown procedure.
-    non_confidential_flow.declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_srst_system_reset()))
+    use crate::core::architecture::SrstExtension;
+    let kvm_srst_system_reset = SbiRequest::new(SrstExtension::EXTID, SrstExtension::SYSTEM_RESET_FID, 0, 0, 0, 0, 0, 0);
+    non_confidential_flow.declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(kvm_srst_system_reset))
 }

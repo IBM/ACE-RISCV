@@ -5,19 +5,18 @@ use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::core::control_data::{ConfidentialVmId, ControlData, HypervisorHart};
 use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 
-#[derive(PartialEq)]
-pub struct TerminateRequest {
+/// Handles the hypervisor request to terminate the VM's execution.
+pub struct TerminateVmHandler {
     confidential_vm_id: ConfidentialVmId,
 }
 
-impl TerminateRequest {
+impl TerminateVmHandler {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        // Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GRPs). GRPs
-        // might carry SBI- or MMIO-related reponses, so using GRPs would destroy the communication between the hypervisor and confidential
+        // Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GPRs). GPRs
+        // might carry SBI- or MMIO-related reponses, so using GPRs would destroy the communication between the hypervisor and confidential
         // VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V NACL extension that solves these problems by
         // using shared memory region in which the SBI- and MMIO-related information is transfered.
-        let confidential_vm_id = hypervisor_hart.csrs().vstvec.read();
-        Self { confidential_vm_id: ConfidentialVmId::new(confidential_vm_id) }
+        Self { confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.csrs().vstvec.read()) }
     }
 
     /// The hypervisor command to terminate the confidential VM and remove it from the memory.

@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-#[derive(PartialEq)]
+/// Information stored in the confidential hart that requested MMIO store and is waiting for the response.
 pub struct MmioStorePending {
     instruction_length: usize,
 }

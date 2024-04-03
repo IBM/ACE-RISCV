@@ -6,6 +6,7 @@ use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::is_bit_enabled;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 
+/// Handles MMIO load request coming from the confidential hart. This request will be declassified to the hypervisor.
 pub struct MmioLoadRequest {
     mcause: usize,
     mtval: usize,
@@ -26,7 +27,7 @@ impl MmioLoadRequest {
         let instruction = mtinst | 0x3;
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
 
-        Self { mcause: mcause, mtval, mtval2, mtinst, instruction, instruction_length }
+        Self { mcause, mtval, mtval2, mtinst, instruction, instruction_length }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {

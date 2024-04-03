@@ -6,28 +6,27 @@ use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 
-#[derive(PartialEq, Debug, Clone)]
+/// Suspends a confidential hart that made this request. This is an implementation of the HartSuspend function from the
+/// HSM extension of SBI.
+///
+/// The request to suspend the confidential hart comes from the confidential hart itself. The security monitor suspends
+/// the confidential hart and informs about it the hypervisor. This functions returns an error to the calling
+/// confidential hart if this confidential hart cannot be suspended, for example, because it is not in the started
+/// state.
 pub struct SbiHsmHartSuspend {
-    suspend_type: usize,
-    resume_address: usize,
-    opaque: usize,
+    _suspend_type: usize,
+    _resume_address: usize,
+    _opaque: usize,
 }
 
 impl SbiHsmHartSuspend {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let suspend_type = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        let resume_address = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
-        let opaque = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
-        Self { suspend_type, resume_address, opaque }
+        let _suspend_type = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
+        let _resume_address = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        let _opaque = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
+        Self { _suspend_type, _resume_address, _opaque }
     }
 
-    /// Suspends a confidential hart that made this request. This is an implementation of the HartSuspend function from the
-    /// HSM extension of SBI.
-    ///
-    /// The request to suspend the confidential hart comes frmo the confidential hart itself. The security monitor suspends
-    /// the confidential hart and informs about it the hypervisor. This functions returns an error to the calling
-    /// confidential hart if this confidential hart cannot be suspended, for example, because it is not in the started
-    /// state.
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.suspend_confidential_hart(self) {
             Ok(_) => confidential_flow

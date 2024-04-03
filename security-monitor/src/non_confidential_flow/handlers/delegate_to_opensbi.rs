@@ -10,15 +10,15 @@ extern "C" {
     fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;
 }
 
-#[derive(Debug)]
-pub struct OpensbiRequest {
-    regs: opensbi_sys::sbi_trap_regs,
+/// Handles call from the hypervisor to OpenSBI firmware by delegating it to the OpenSBI trap handler.
+pub struct OpensbiHandler {
+    trap_regs: opensbi_sys::sbi_trap_regs,
 }
 
-impl OpensbiRequest {
+impl OpensbiHandler {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self {
-            regs: opensbi_sys::sbi_trap_regs {
+            trap_regs: opensbi_sys::sbi_trap_regs {
                 zero: 0,
                 ra: hypervisor_hart.gprs().read(GeneralPurposeRegister::ra).try_into().unwrap_or(0),
                 sp: hypervisor_hart.gprs().read(GeneralPurposeRegister::sp).try_into().unwrap_or(0),
@@ -53,34 +53,21 @@ impl OpensbiRequest {
                 t6: hypervisor_hart.gprs().read(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
                 mepc: hypervisor_hart.csrs().mepc.read_value().try_into().unwrap_or(0),
                 mstatus: hypervisor_hart.csrs().mstatus.read_value().try_into().unwrap_or(0),
-                // TODO: mstatusH exists only in rv32. Adjust this to support rv32
+                // TODO: mstatusH exists only in rv32. Adjust this in case we want to support rv32
                 mstatusH: 0,
             },
         }
     }
 
-    /// OpenSBI handler processes regular SBI calls sent by a hypervisor or VMs
     pub fn handle(mut self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
         // We must ensure that the swap is called twice, before and after executing the OpenSBI handler. Otherwise, we end
         // up having incorrect address in mscratch and the context switches to/from the security monitor will not work
         // anymore.
         non_confidential_flow.swap_mscratch();
-        unsafe { sbi_trap_handler(&mut self.regs as *mut _) };
+        unsafe { sbi_trap_handler(&mut self.trap_regs as *mut _) };
         non_confidential_flow.swap_mscratch();
 
-        let transformation = ApplyToHypervisor::OpenSbiResponse(OpenSbiResponse::from_opensbi_handler(self.regs));
-        non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
-    }
-}
-
-#[derive(Debug)]
-pub struct OpenSbiResponse {
-    trap_regs: opensbi_sys::sbi_trap_regs,
-}
-
-impl OpenSbiResponse {
-    pub fn from_opensbi_handler(trap_regs: opensbi_sys::sbi_trap_regs) -> Self {
-        Self { trap_regs }
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisor::OpenSbiResponse(self))
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {

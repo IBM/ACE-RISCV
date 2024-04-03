@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::mmio::MmioStorePending;
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToConfidentialVm};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 
-#[derive(PartialEq)]
+/// Handles MMIO store response coming from the hypervisor.
 pub struct MmioStoreResponse {
     instruction_length: usize,
 }

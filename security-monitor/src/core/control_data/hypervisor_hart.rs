@@ -5,6 +5,7 @@ use crate::core::architecture::specification::*;
 use crate::core::architecture::{are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 
+/// Represents a state of the hypervisor hart at the time the hypervisor called the security monitor.
 pub struct HypervisorHart {
     // Safety: HypervisorHart and ConfidentialHart must both start with the HartArchitecturalState element
     // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.

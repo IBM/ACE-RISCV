@@ -5,7 +5,12 @@ use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::control_data::ConfidentialHart;
 
-#[derive(PartialEq, Debug, Clone)]
+/// Handles a request to stops the confidential hart as defined in the HSM extension of SBI. Error is returned to the confidential hart if
+/// the security monitor cannot stop it, for example, because it is not in the started state.
+///
+/// The request to stop the confidential hart comes from the confidential hart itself. The security monitor stops the
+/// hart and informs the hypervisor that the hart has been stopped. The hypervisor should not resume execution of a
+/// stopped confidential hart. Only another confidential hart of the confidential VM can start the confidential hart.
 pub struct SbiHsmHartStop {}
 
 impl SbiHsmHartStop {
@@ -13,12 +18,6 @@ impl SbiHsmHartStop {
         Self {}
     }
 
-    /// Stops the confidential hart as defined in the HSM extension of SBI. Error is returned to the confidential hart if
-    /// the security monitor cannot stop it, for example, because it is not in the started state.
-    ///
-    /// The request to stop the confidential hart comes from the confidential hart itself. The security monitor stops the
-    /// hart and informs the hypervisor that the hart has been stopped. The hypervisor should not resume execution of a
-    /// stopped confidential hart. Only another confidential hart of the confidential VM can start the confidential hart.
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.stop_confidential_hart() {
             Ok(_) => confidential_flow

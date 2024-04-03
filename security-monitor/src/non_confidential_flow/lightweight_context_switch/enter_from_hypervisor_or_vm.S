@@ -5,7 +5,7 @@
 .option norvc
 .section .text.init,"ax",@progbits
 
-# Traps on exceptions or interrupts occurring during the hypervisor execution. This is an entry point to the security monitor
+# Traps on exceptions or interrupts occurring during the hypervisor execution. This is an entry point to the security monitor.
 #
 # # Safety
 #

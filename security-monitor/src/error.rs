@@ -2,14 +2,11 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::{ApplyToConfidentialVm, DeclassifyToHypervisor};
+use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToHypervisor};
 use crate::non_confidential_flow::ApplyToHypervisor;
 use core::num::TryFromIntError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
-
-pub const CTX_SWITCH_ERROR_MSG: &str =
-    "Invalid assembly implementation of the context switch. a0 must point to the correct processor state";
 
 pub const NOT_INITIALIZED_HART: &str = "Physical hart does not have a state allocated in the confidential memory. There is an error in the security monitor initialization vector";
 
@@ -61,8 +58,8 @@ pub enum Error {
     HartNotExecutable(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
-    #[error("Invalid call cause: {0}")]
-    InvalidCall(usize),
+    #[error("Invalid ecall extid: {0} fid: {1}")]
+    InvalidCall(usize, usize),
     #[error("Internal error")]
     Pointer(#[from] PointerError),
     #[error("Reached max number of remote hart requests")]
@@ -93,9 +90,9 @@ impl Error {
         ApplyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
     }
 
-    pub fn into_confidential_transformation(self) -> ApplyToConfidentialVm {
+    pub fn into_confidential_transformation(self) -> ApplyToConfidentialHart {
         let error_code = 0x1000;
-        ApplyToConfidentialVm::SbiResponse(SbiResponse::failure(error_code))
+        ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error_code))
     }
 }
 
