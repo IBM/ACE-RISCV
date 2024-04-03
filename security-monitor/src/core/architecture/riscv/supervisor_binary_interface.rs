@@ -31,8 +31,8 @@ impl SbiExtension {
 #[derive(Debug)]
 pub enum AceExtension {
     SharePageWithHypervisor,
-    StopSharingPageWithHypervisor,
-    PromoteToConfidentialVm,
+    UnsharePageWithHypervisor,
+    PromoteVmHandler,
     ResumeConfidentialHart,
     TerminateConfidentialVm,
     PrintDebugInfo,
@@ -45,10 +45,10 @@ impl AceExtension {
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
-            1000 => Self::PromoteToConfidentialVm,
+            1000 => Self::PromoteVmHandler,
             1010 => Self::ResumeConfidentialHart,
             2000 => Self::SharePageWithHypervisor,
-            2001 => Self::StopSharingPageWithHypervisor,
+            2001 => Self::UnsharePageWithHypervisor,
             3001 => Self::TerminateConfidentialVm,
             9000 => Self::PrintDebugInfo,
             _ => Self::Unknown(Self::EXTID, function_id),

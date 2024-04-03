@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use super::specification::*;
 use super::supervisor_binary_interface::SbiExtension;
-use crate::core::architecture::is_bit_enabled;
+use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState};
 
 #[derive(Debug)]
 pub enum TrapCause {
@@ -24,11 +24,15 @@ pub enum TrapCause {
 }
 
 impl TrapCause {
-    pub fn from(cause: usize, extension_id: usize, function_id: usize) -> Self {
-        if is_bit_enabled(cause, CAUSE_INTERRUPT_BIT) {
+    pub fn from_hart_architectural_state(hart_state: &HartArchitecturalState) -> Self {
+        let mcause = hart_state.csrs.mcause.read();
+        let extension_id = hart_state.gprs.read(GeneralPurposeRegister::a7);
+        let function_id = hart_state.gprs.read(GeneralPurposeRegister::a6);
+
+        if is_bit_enabled(mcause, CAUSE_INTERRUPT_BIT) {
             Self::Interrupt
         } else {
-            match cause as u8 {
+            match mcause as u8 {
                 CAUSE_ILLEGAL_INSTRUCTION => Self::IllegalInstruction,
                 CAUSE_MISALIGNED_LOAD => Self::LoadAddressMisaligned,
                 CAUSE_LOAD_ACCESS => Self::LoadAccessFault,
@@ -41,7 +45,7 @@ impl TrapCause {
                 CAUSE_LOAD_GUEST_PAGE_FAULT => Self::GuestLoadPageFault,
                 CAUSE_VIRTUAL_INSTRUCTION => Self::VirtualInstruction,
                 CAUSE_STORE_GUEST_PAGE_FAULT => Self::GuestStorePageFault,
-                cause => Self::Unknown(cause),
+                mcause => Self::Unknown(mcause),
             }
         }
     }

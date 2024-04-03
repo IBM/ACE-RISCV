@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HgatpMode;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
+use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_protector::PageSize;
 
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page
@@ -58,7 +59,7 @@ impl PagingSystem {
         }
     }
 
-    pub fn vpn(&self, virtual_address: ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
+    pub fn vpn(&self, virtual_address: &ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
         match self {
             PagingSystem::Sv57x4 => match level {
                 PageTableLevel::Level5 => (virtual_address.usize() >> 48) & 0x3ff,
@@ -77,27 +78,6 @@ impl PagingSystem {
             PageTableLevel::Level3 => PageSize::Size1GiB,
             PageTableLevel::Level2 => PageSize::Size2MiB,
             PageTableLevel::Level1 => PageSize::Size4KiB,
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum PageTableLevel {
-    Level5,
-    Level4,
-    Level3,
-    Level2,
-    Level1,
-}
-
-impl PageTableLevel {
-    pub fn lower(&self) -> Option<Self> {
-        match self {
-            Self::Level5 => Some(Self::Level4),
-            Self::Level4 => Some(Self::Level3),
-            Self::Level3 => Some(Self::Level2),
-            Self::Level2 => Some(Self::Level1),
-            Self::Level1 => None,
         }
     }
 }

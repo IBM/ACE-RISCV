@@ -6,6 +6,9 @@ pub use confidential_vm::ConfidentialVm;
 pub use confidential_vm_id::ConfidentialVmId;
 pub use confidential_vm_measurement::ConfidentialVmMeasurement;
 pub use hardware_hart::{HardwareHart, HART_STACK_ADDRESS_OFFSET};
+pub use hypervisor_hart::HypervisorHart;
+pub use inter_hart_request::{InterHartRequest, InterHartRequestExecutable};
+pub use pending_request::PendingRequest;
 pub use storage::{ControlData, CONTROL_DATA};
 
 mod confidential_hart;
@@ -13,4 +16,7 @@ mod confidential_vm;
 mod confidential_vm_id;
 mod confidential_vm_measurement;
 mod hardware_hart;
+mod hypervisor_hart;
+mod inter_hart_request;
+mod pending_request;
 mod storage;

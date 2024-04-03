@@ -12,6 +12,7 @@ pub const SSTC_EXTENSION: &str = "sstc";
 pub const IFENCEI_EXTENSION: &str = "zifencei";
 pub const FDT_RISCV_ISA: &str = "riscv,isa";
 
+pub const WFI_INSTRUCTION: usize = 0x10500073;
 pub const ECALL_INSTRUCTION_LENGTH: usize = 4;
 
 pub const CAUSE_INTERRUPT_BIT: usize = 63;
