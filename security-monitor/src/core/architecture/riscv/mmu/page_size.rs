@@ -13,6 +13,7 @@ pub enum PageSize {
     #[rr::pattern("Size4KiB")]
     Size4KiB,
     /// 16KiB page is used by G-stage root page table in RISC-V
+    #[rr::pattern("Size16MiB")]
     Size16KiB,
     #[rr::pattern("Size2MiB")]
     Size2MiB,
