@@ -6,10 +6,9 @@ use crate::core::memory_protector::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
 use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
-use crate::core::memory_protector::mmu::page_table_memory::PageTableMemory;
 use crate::core::memory_protector::mmu::paging_system::PagingSystem;
 use crate::core::memory_protector::{PageSize, SharedPage};
-use crate::core::page_allocator::PageAllocator;
+use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -51,7 +50,7 @@ impl RootPageTable {
 
 pub(super) struct PageTable {
     level: PageTableLevel,
-    page_table_memory: PageTableMemory,
+    memory: Page<Allocated>,
     entries: Vec<PageTableEntry>,
 }
 
@@ -75,12 +74,16 @@ impl PageTable {
     fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
-        let mut page_table_memory = PageTableMemory::copy_from_non_confidential_memory(address, paging_system, level)?;
-        let entries = page_table_memory
-            .indices()
+        let mut memory = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?
+            .remove(0)
+            .copy_from_non_confidential_memory(address)
+            .map_err(|_| Error::PageTableCorrupted())?;
+
+        let entries = (0..memory.size().in_bytes())
+            .step_by(paging_system.entry_size())
             .map(|index| {
                 // below unwrap is ok because we iterate over indices of the page table memory, so `index` is valid.
-                let entry_raw = page_table_memory.entry(index).unwrap();
+                let entry_raw = memory.read(index).unwrap();
                 let page_table_entry = if !PageTableBits::is_valid(entry_raw) {
                     PageTableEntry::NotValid
                 } else if PageTableBits::is_leaf(entry_raw) {
@@ -100,19 +103,19 @@ impl PageTable {
                     let configuration = PageTableConfiguration::decode(entry_raw);
                     PageTableEntry::PointerToNextPageTable(Box::new(page_table), configuration)
                 };
-                page_table_memory.set_entry(index, &page_table_entry);
+                memory.write(index, page_table_entry.encode()).unwrap();
                 Ok(page_table_entry)
             })
             .collect::<Result<Vec<PageTableEntry>, Error>>()?;
-        Ok(Self { level, page_table_memory, entries })
+        Ok(Self { level, memory, entries })
     }
 
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
     fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
-        let page_table_memory = PageTableMemory::empty(paging_system, level)?;
-        let entries = Vec::with_capacity(page_table_memory.number_of_entries());
-        Ok(Self { level, page_table_memory, entries })
+        let memory = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?.remove(0).zeroize();
+        let entries = Vec::with_capacity(memory.size().in_bytes() / paging_system.entry_size());
+        Ok(Self { level, memory, entries })
     }
 
     /// This function maps the confidential VM's physical address into the address of the page allocated by the
@@ -204,12 +207,16 @@ impl PageTable {
 
     /// Returns the physical address in confidential memory of the page table configuration.
     pub(super) fn address(&self) -> usize {
-        self.page_table_memory.start_address()
+        self.memory.start_address()
     }
 
     /// Set a new page table entry at the given index, replacing whatever there was before.
-    fn set_entry(&mut self, index: usize, entry: PageTableEntry) {
-        self.page_table_memory.set_entry(index, &entry);
+    fn set_entry(&mut self, virtual_page_number: usize, entry: PageTableEntry) {
+        let entries_per_page = self.memory.size().in_bytes() / 8; //self.entry_size;
+        let index = virtual_page_number % entries_per_page;
+        let offset = 8 * index;
+
+        self.memory.write(offset, entry.encode()).unwrap();
         let entry_to_remove = core::mem::replace(&mut self.entries[index], entry);
         if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry_to_remove {
             PageAllocator::release_page(page.deallocate());

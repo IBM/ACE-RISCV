@@ -63,7 +63,6 @@ impl PromoteVmHandler {
 
         // Copy the entire VM's state to the confidential memory, recreating the MMU configuration.
         let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hart_state)?;
-
         // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the not-yet-created
         // confidential VM's and (2) there is only one physical hart executing this code.
         let fdt_address_in_confidential_memory = unsafe { memory_protector.translate_address(&self.fdt_address)?.to_ptr() };
@@ -73,11 +72,10 @@ impl PromoteVmHandler {
         // Below unsafe is ok because it is the start of the entire page which is at least 4KiB in size (see safety requirements of
         // `FlattenedDeviceTree::from_raw_pointer`).
         let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(fdt_address_in_confidential_memory)? };
-
         // We create a fixed number of harts (all but the boot hart are in the reset state) according to the FDT configuration. An
         // alternative approach (to discuss) is to create just a boot hart and then allow creation of more harts when getting a call
         // from the confidential VM to start a hart.
-        let number_of_confidential_harts = device_tree.harts().count();
+        let number_of_confidential_harts = 2; //device_tree.harts().count();
         assure!(number_of_confidential_harts < ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::ReachedMaxNumberOfHartsPerVm())?;
         let confidential_harts = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {
