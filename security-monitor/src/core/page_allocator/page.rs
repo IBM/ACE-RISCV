@@ -28,6 +28,7 @@ impl PageState for Allocated {}
 #[rr::refined_by("p" : "page")]
 /// Invariant: As an invariant, a `Page` *exclusively owns* this memory region, and ascribes the value `v` to it.
 #[rr::invariant(#type "p.(page_loc)" : "<#> p.(page_val)" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
+#[rr::invariant("page_wf p")]
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
 #[rr::exists("MEMORY_CONFIG")]
@@ -71,6 +72,8 @@ impl Page<UnAllocated> {
     /// Precondition: We require ownership of the memory region starting at `l` for size `sz`.
     /// Moreover, `l` needs to be properly aligned for a page of size `sz`, and contain valid integers.
     #[rr::requires(#type "l" : "<#> v" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
+    /// Precondition: The page needs to be sufficiently aligned.
+    #[rr::requires("l `aligned_to` (page_size_align sz)")]
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
     /// Precondition: The page is entirely contained in the confidential memory range.
@@ -83,7 +86,7 @@ impl Page<UnAllocated> {
     }
 
     /// Specification:
-    #[rr::skip]
+    #[rr::only_spec]
     #[rr::params("p")]
     #[rr::args("p")]
     /// We return a page starting at `l` with size `sz`, but with all bytes initialized to zero.
@@ -95,18 +98,18 @@ impl Page<UnAllocated> {
 
     /// Moves a page to the Allocated state after filling its content with the
     /// content of a page located in the non-confidential memory.
-    #[rr::skip]
+    #[rr::only_spec]
     #[rr::params("p", "l2", "v2", "MEMORY_CONFIG")]
-    #[rr::args("p", "l2", "v2")]
+    #[rr::args("p", "l2")]
     /// Precondition: We need to know the current memory layout.
-    #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" MEMORY_CONFIG")]
+    #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
     /// Precondition: The region we are copying from is in non-confidential memory.
     #[rr::requires("MEMORY_CONFIG.(non_conf_start).2 ≤ l2.2")]
-    #[rr::requires("l2.2 + page_size_in_bytes_Z sz ≤ MEMORY_CONFIG.(non_conf_end).2")]
+    #[rr::requires("l2.2 + page_size_in_bytes_Z p.(page_sz) ≤ MEMORY_CONFIG.(non_conf_end).2")]
     /// Precondition: We require ownership over the memory region.
-    #[rr::requires(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
+    #[rr::requires(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
     /// Postcondition: We return ownership over the memory region.
-    #[rr::ensures(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
+    #[rr::ensures(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
     #[rr::returns("Ok(#(mk_page p.(page_loc) p.(page_sz) v2))")]
     pub fn copy_from_non_confidential_memory(mut self, mut address: NonConfidentialMemoryAddress) -> Result<Page<Allocated>, Error> {
         // NOTE: here we get the offsets. We need to prove that the address is still in bounds of non-confidential memory.
@@ -124,12 +127,12 @@ impl Page<UnAllocated> {
     /// Returns a collection of all smaller pages that fit within the current page and
     /// are correctly aligned. If this page is the smallest page (4KiB for RISC-V), then
     /// the same page is returned.
-    #[rr::skip]
-    #[rr::params("p", "x")]
+    #[rr::only_spec]
+    #[rr::params("p", "x" : "memory_layout")]
     #[rr::args("p")]
     /// Precondition: The memory layout needs to have been initialized.
-    #[rr::requires(#iris "initialized π \"MEMORY_LAYOUT\" x")]
-    #[rr::returns("subdivide_pages p.(page_loc) p.(page_sz) p.(page_val)")]
+    #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some x)")]
+    #[rr::returns("<#> subdivide_page p")]
     pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
         let smaller_page_size = self.size.smaller().unwrap_or(self.size);
         let number_of_smaller_pages = self.size.in_bytes() / smaller_page_size.in_bytes();
@@ -172,7 +175,7 @@ impl Page<UnAllocated> {
 impl Page<Allocated> {
     /// Clears the entire memory content by writing 0s to it and then converts the Page from Allocated to UnAllocated so it can be returned
     /// to the page allocator.
-    #[rr::skip]
+    #[rr::trust_me]
     #[rr::params("p")]
     #[rr::args("p")]
     #[rr::returns("mk_page p.(page_loc) p.(page_sz) (zero_page p.(page_sz))")]
@@ -186,7 +189,7 @@ impl Page<Allocated> {
 impl<T: PageState> Page<T> {
     #[rr::params("p")]
     #[rr::args("#p")]
-    #[rr::returns("p.(page_loc)")]
+    #[rr::returns("#p.(page_loc)")]
     pub fn address(&self) -> &ConfidentialMemoryAddress {
         &self.address
     }

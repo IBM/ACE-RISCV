@@ -14,6 +14,8 @@ use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
+// TODO: rename Page -> PageToken ?
+// Consider: make generic over PageTableLevel
 /// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitor fully controls these mappings for confidential VMs.
 ///
 /// We represent page tables in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
@@ -25,15 +27,27 @@ use alloc::vec::Vec;
 ///
 /// During the execution of a confidential hart, MMU might traverse the serialized representation. Our changes to this representation must
 /// be atomic, so that MMU always reads a valid configuration.
+#[rr::refined_by("pt_logical" : "page_table_tree")]
+#[rr::exists("pt_byte" : "page")]
+#[rr::invariant("is_byte_level_representation pt_logical p_byte")]
 pub struct PageTable {
+    #[rr::field("page_table_get_level pt_logical")]
     level: PageTableLevel,
     paging_system: PagingSystem,
     /// Serialized representation stores the architecture-specific, binary representation of the page table configuration that is read by
     /// the MMU.
+    #[rr::field("pt_byte")]
     serialized_representation: Page<Allocated>,
     /// Logical representation stores a strongly typed page table configuration used by security monitor.
+    #[rr::field("get_subtrees pt_logical")]
     logical_representation: Vec<PageTableEntry>,
 }
+
+// What do we want to prove?
+// - good structure according to hw spec
+// - page table has unique ownership over all "reachable" memory
+// - copy from non-confidential memory only reads from non-confidential memory
+// - if input to copy_.. is not a valid page table, fail correctly
 
 impl PageTable {
     /// This functions copies recursively page table structure from non-confidential memory to confidential memory. It
@@ -52,6 +66,16 @@ impl PageTable {
     ///   * all `pointer` page table entries point to another page table belonging to the same page table configuration.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
+    // input: page table to copy
+    // output: 
+    //
+    // Need to make sure that we only copy from non-confidential memory.
+    //
+    // Attestation happens after this function.
+    #[rr::params("l_nonconf", "ps", "level" : "nat")]
+    #[rr::args("l_nonconf", "ps", "level")]
+    #[rr::invariant(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
+    // TODO
     pub fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
@@ -91,6 +115,9 @@ impl PageTable {
 
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
+    #[rr::skip]
+    #[rr::args("system", "level")]
+    #[rr::returns("Ok(# make_empty_page_tree level)")]
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
         let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();

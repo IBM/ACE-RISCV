@@ -246,6 +246,8 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     pub fn set_pending_request(mut self, request: PendingRequest) -> Self {
         if let Err(error) = self.confidential_hart_mut().set_pending_request(request) {
+            // NOTE: this should not be possible. There are no pending requests if the confidential hart is running.
+            // This should be an invariant.
             self.apply_and_exit_to_confidential_hart(error.into_confidential_transformation());
         }
         self

@@ -6,4 +6,5 @@ run_check = false
 admit_proofs = true
 skip_unsupported_features = false
 extra_specs = "./extra_specs.v"
+generate_dune_project = false
 lib_load_paths = ["./refinedrust/stdlib/"]

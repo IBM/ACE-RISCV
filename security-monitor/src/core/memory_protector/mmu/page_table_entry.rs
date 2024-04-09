@@ -7,9 +7,14 @@ use crate::core::page_allocator::{Allocated, Page};
 use alloc::boxed::Box;
 
 pub(super) enum PageTableEntry {
+    // node
     PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
+    // leaf
     PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
     PageSharedWithHypervisor(SharedPage, PageTableConfiguration, PageTablePermission),
+    // special case
+    // this is an unmapped page
+    // TODO: change name to "UnmappedPage"?
     NotValid,
 }
 

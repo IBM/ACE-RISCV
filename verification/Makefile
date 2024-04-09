@@ -32,3 +32,20 @@ verify: generate
 clean:
 	rm -rf $(ACE_DIR)
 	# TODO: clean generated proof files
+
+
+# generate _CoqProject file
+define COQPROJECT_BODY
+## theories for manually proved things
+-Q _build/default/theories/memory_tracker/page/ ace.theories.page
+-Q _build/default/theories/memory_tracker/page_allocator ace.theories.page_allocator
+-Q _build/default/theories/result ace.theories.result
+-Q _build/default/theories/memory_layout ace.theories.memory_layout
+
+# include RefinedRust-generated theories here
+-Q _build/default/generated_code/ace sm.ace
+endef
+export COQPROJECT_BODY
+
+coqproject:
+	@echo "$$COQPROJECT_BODY" > _CoqProject

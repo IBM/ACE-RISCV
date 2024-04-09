@@ -66,6 +66,9 @@ To update for a new version of RefinedRust, update your checkout and then re-run
 REFINEDRUST_ROOT=$PWD/refinedrust ./refinedrust/scripts/install-frontend.sh
 ```
 
+### Interactive proofs
+You can interactively explore the Coq code with an editor with a Coq plugin (such as Coqtail for vim, ProofGeneral for emacs, or VSCoq for VSCode).
+If the Coq plugin of your choice does not provide native support for the `dune` build system, you may want to run `make coqproject` to generate a `_CoqProject` file that your editor can use to infer the project structure.
 
 ## Verifying the code
 
@@ -74,3 +77,5 @@ To that end, run (from the root of the repository)
 ```
 make verify
 ```
+
+
