@@ -60,6 +60,21 @@ impl PagingSystem {
         }
     }
 
+    pub fn page_offset(&self, virtual_address: &ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
+        let vpn_bits_mask = match self {
+            PagingSystem::Sv57x4 => match level {
+                PageTableLevel::Level5 => 0xfffffffff << 12,
+                PageTableLevel::Level4 => 0x7ffffff << 12,
+                PageTableLevel::Level3 => 0x3ffff << 12,
+                PageTableLevel::Level2 => 0x1ff << 12,
+                PageTableLevel::Level1 => 0 << 12,
+            },
+        };
+        let vpn_to_rewrite = virtual_address.usize() & vpn_bits_mask;
+        let page_offset = virtual_address.usize() & 0xfff;
+        vpn_to_rewrite | page_offset
+    }
+
     pub fn page_size(&self, level: PageTableLevel) -> PageSize {
         match level {
             PageTableLevel::Level5 => PageSize::Size128TiB,

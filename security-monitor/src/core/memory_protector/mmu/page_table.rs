@@ -35,7 +35,7 @@ impl RootPageTable {
         self.page_table.unmap_shared_page(self.paging_system, address)
     }
 
-    pub fn translate(&self, address: &ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+    pub fn translate(&self, address: &ConfidentialVmPhysicalAddress) -> Result<ConfidentialMemoryAddress, Error> {
         self.page_table.translate(self.paging_system, address)
     }
 
@@ -196,11 +196,16 @@ impl PageTable {
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
     pub fn translate(
         &self, paging_system: PagingSystem, address: &ConfidentialVmPhysicalAddress,
-    ) -> Result<&ConfidentialMemoryAddress, Error> {
+    ) -> Result<ConfidentialMemoryAddress, Error> {
         let virtual_page_number = paging_system.vpn(address, self.level);
         match self.entries.get(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.translate(paging_system, address),
-            PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => Ok(page.address()),
+            PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
+                let page_offset = paging_system.page_offset(address, self.level);
+                // below unsafe is ok because page_offset recorded in the page table entry is lower than the page size. Thus, we the
+                // resulting address will still be in confidential memory because the page is in confidential memory by definition.
+                Ok(unsafe { page.address().add(page_offset, page.end_address_ptr())? })
+            }
             _ => Err(Error::AddressTranslationFailed()),
         }
     }
