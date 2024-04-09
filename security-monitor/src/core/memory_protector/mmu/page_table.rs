@@ -48,10 +48,21 @@ impl RootPageTable {
     }
 }
 
+/// Changes to the logical representation triggers changes to the serialized representation, so these two are always synced. Since the
+/// security monitor is uninterruptible and access to page table configuration is synchronized for different security monitor threads, the
+/// changes can be considered automic.
+///
+/// # Safety
+///
+/// During the execution of a confidential hart, MMU might traverse the serialized representation. Our changes to this representation must
+/// be atomic, so that MMU always reads a valid configuration.
 pub(super) struct PageTable {
     level: PageTableLevel,
-    memory: Page<Allocated>,
-    entries: Vec<PageTableEntry>,
+    paging_system: PagingSystem,
+    /// Serialized representation stores a page table configuration used by the MMU.
+    serialized_representation: Page<Allocated>,
+    /// Logical representation stores a strongly typed page table configuration used by security monitor.
+    logical_representation: Vec<PageTableEntry>,
 }
 
 impl PageTable {
@@ -74,16 +85,16 @@ impl PageTable {
     fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
-        let mut memory = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?
+        let mut serialized_representation = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?
             .remove(0)
             .copy_from_non_confidential_memory(address)
             .map_err(|_| Error::PageTableCorrupted())?;
 
-        let entries = (0..memory.size().in_bytes())
+        let logical_representation = (0..serialized_representation.size().in_bytes())
             .step_by(paging_system.entry_size())
             .map(|index| {
                 // below unwrap is ok because we iterate over indices of the page table memory, so `index` is valid.
-                let entry_raw = memory.read(index).unwrap();
+                let entry_raw = serialized_representation.read(index).unwrap();
                 let page_table_entry = if !PageTableBits::is_valid(entry_raw) {
                     PageTableEntry::NotValid
                 } else if PageTableBits::is_leaf(entry_raw) {
@@ -103,23 +114,25 @@ impl PageTable {
                     let configuration = PageTableConfiguration::decode(entry_raw);
                     PageTableEntry::PointerToNextPageTable(Box::new(page_table), configuration)
                 };
-                memory.write(index, page_table_entry.encode()).unwrap();
+                serialized_representation.write(index, page_table_entry.encode()).unwrap();
                 Ok(page_table_entry)
             })
             .collect::<Result<Vec<PageTableEntry>, Error>>()?;
-        Ok(Self { level, memory, entries })
+        Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
     fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
-        let memory = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?.remove(0).zeroize();
-        let entries = Vec::with_capacity(memory.size().in_bytes() / paging_system.entry_size());
-        Ok(Self { level, memory, entries })
+        let serialized_representation =
+            PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?.remove(0).zeroize();
+        let logical_representation = Vec::with_capacity(serialized_representation.size().in_bytes() / paging_system.entry_size());
+        Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
-    /// This function maps the confidential VM's physical address into the address of the page allocated by the
-    /// hypervisor.
+    /// This function maps the confidential VM's physical address into the address of the page allocated by the hypervisor.
+    ///
+    /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
     ///
     /// # Guarantees
     ///
@@ -129,7 +142,10 @@ impl PageTable {
     ///   * Any previous mapping at the given guest physical address is overwritten,
     ///   * If the previous mapping pointed to a page in confidential memory, this page is deallocated and returned to the page allocator.
     ///
-    /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
+    /// # Confidential VM execution correctness
+    ///
+    /// The caller of this function must ensure that he synchronizes changes to page table configuration, i.e., by clearing address
+    /// translation caches.
     fn map_shared_page(
         &mut self, paging_system: PagingSystem, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
         confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
@@ -140,17 +156,15 @@ impl PageTable {
 
         if page_size_at_current_level > page_size {
             // We are at the intermediary page table. We will recursively go to the next page table, creating it in case it does not exist.
-            match self.entries.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
+            match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
                 PageTableEntry::PointerToNextPageTable(next_page_table, _) => {
                     next_page_table.map_shared_page(paging_system, hypervisor_address, page_size, confidential_vm_physical_address)?;
                 }
                 PageTableEntry::NotValid => {
-                    let mut next_page_table = PageTable::empty(paging_system, self.level)?;
+                    let mut next_page_table = Box::new(PageTable::empty(paging_system, self.level)?);
                     next_page_table.map_shared_page(paging_system, hypervisor_address, page_size, confidential_vm_physical_address)?;
-                    self.set_entry(
-                        virtual_page_number,
-                        PageTableEntry::PointerToNextPageTable(Box::new(next_page_table), PageTableConfiguration::empty()),
-                    );
+                    let new_page_table_entry = PageTableEntry::PointerToNextPageTable(next_page_table, PageTableConfiguration::empty());
+                    self.set_entry(virtual_page_number, new_page_table_entry);
                 }
                 _ => {
                     // We do not support corner cases when the confidential VM requests the creation of a shared page within another
@@ -177,9 +191,14 @@ impl PageTable {
     /// address. Returns the size of the unmapped shared page on succeess.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
+    ///
+    /// # Confidential VM execution correctness
+    ///
+    /// The caller of this function must ensure that he synchronizes changes to page table configuration, i.e., by clearing address
+    /// translation caches.
     fn unmap_shared_page(&mut self, paging_system: PagingSystem, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
         let virtual_page_number = paging_system.vpn(address, self.level);
-        match self.entries.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
+        match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(paging_system, address),
             PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
                 assure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
@@ -198,7 +217,7 @@ impl PageTable {
         &self, paging_system: PagingSystem, address: &ConfidentialVmPhysicalAddress,
     ) -> Result<ConfidentialMemoryAddress, Error> {
         let virtual_page_number = paging_system.vpn(address, self.level);
-        match self.entries.get(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
+        match self.logical_representation.get(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.translate(paging_system, address),
             PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
                 let page_offset = paging_system.page_offset(address, self.level);
@@ -212,17 +231,13 @@ impl PageTable {
 
     /// Returns the physical address in confidential memory of the page table configuration.
     pub(super) fn address(&self) -> usize {
-        self.memory.start_address()
+        self.serialized_representation.start_address()
     }
 
-    /// Set a new page table entry at the given index, replacing whatever there was before.
+    /// Set a new page table entry at the given index, replacing whatever was there before.
     fn set_entry(&mut self, virtual_page_number: usize, entry: PageTableEntry) {
-        let entries_per_page = self.memory.size().in_bytes() / 8; //self.entry_size;
-        let index = virtual_page_number % entries_per_page;
-        let offset = 8 * index;
-
-        self.memory.write(offset, entry.encode()).unwrap();
-        let entry_to_remove = core::mem::replace(&mut self.entries[index], entry);
+        self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.encode()).unwrap();
+        let entry_to_remove = core::mem::replace(&mut self.logical_representation[virtual_page_number], entry);
         if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry_to_remove {
             PageAllocator::release_page(page.deallocate());
         }
@@ -233,7 +248,7 @@ impl Drop for PageTable {
     /// When page table is dropped, we go through all its entries and make sure that confidential pages are returned to the page allocator.
     /// Otherwise, we would have a memory leak.
     fn drop(&mut self) {
-        self.entries.drain(..).for_each(|entry| {
+        self.logical_representation.drain(..).for_each(|entry| {
             if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry {
                 PageAllocator::release_page(page.deallocate());
             }
