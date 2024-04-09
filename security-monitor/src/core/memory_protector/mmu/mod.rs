@@ -14,7 +14,6 @@ mod page_size;
 mod page_table;
 mod page_table_entry;
 mod page_table_level;
-mod page_table_memory;
 mod paging_system;
 mod shared_page;
 

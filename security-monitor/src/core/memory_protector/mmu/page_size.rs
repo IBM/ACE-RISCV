@@ -9,6 +9,8 @@
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum PageSize {
     Size4KiB,
+    /// 16KiB page is used by G-stage root page table in RISC-V
+    Size16KiB,
     Size2MiB,
     Size1GiB,
     Size512GiB,
@@ -22,6 +24,7 @@ impl PageSize {
             PageSize::Size512GiB => 8 * 512 * 512 * 512 * 512,
             PageSize::Size1GiB => 8 * 512 * 512 * 512,
             PageSize::Size2MiB => 8 * 512 * 512,
+            PageSize::Size16KiB => 4 * 8 * 512,
             PageSize::Size4KiB => 8 * 512,
         }
     }
@@ -31,7 +34,8 @@ impl PageSize {
             PageSize::Size128TiB => Some(PageSize::Size512GiB),
             PageSize::Size512GiB => Some(PageSize::Size1GiB),
             PageSize::Size1GiB => Some(PageSize::Size2MiB),
-            PageSize::Size2MiB => Some(PageSize::Size4KiB),
+            PageSize::Size2MiB => Some(PageSize::Size16KiB),
+            PageSize::Size16KiB => Some(PageSize::Size4KiB),
             PageSize::Size4KiB => None,
         }
     }
@@ -42,7 +46,8 @@ impl PageSize {
             PageSize::Size512GiB => Some(PageSize::Size128TiB),
             PageSize::Size1GiB => Some(PageSize::Size512GiB),
             PageSize::Size2MiB => Some(PageSize::Size1GiB),
-            PageSize::Size4KiB => Some(PageSize::Size2MiB),
+            PageSize::Size16KiB => Some(PageSize::Size2MiB),
+            PageSize::Size4KiB => Some(PageSize::Size16KiB),
         }
     }
 
@@ -51,6 +56,6 @@ impl PageSize {
     }
 
     pub fn all_from_largest_to_smallest() -> alloc::vec::Vec<PageSize> {
-        alloc::vec![Self::Size128TiB, Self::Size512GiB, Self::Size1GiB, Self::Size2MiB, Self::Size4KiB]
+        alloc::vec![Self::Size128TiB, Self::Size512GiB, Self::Size1GiB, Self::Size2MiB, Self::Size16KiB, Self::Size4KiB]
     }
 }

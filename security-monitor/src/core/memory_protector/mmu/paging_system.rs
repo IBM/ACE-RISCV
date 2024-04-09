@@ -32,30 +32,19 @@ impl PagingSystem {
         }
     }
 
-    // number of pages required to store the configuration of the page table at the given level
-    // in RISC-V all page tables fit at 4KiB pages except for the root page table in 2-level page table system
-    pub fn configuration_pages(&self, level: PageTableLevel) -> usize {
-        self.size_in_bytes(level) / PageSize::Size4KiB.in_bytes()
+    pub fn memory_page_size(&self, level: PageTableLevel) -> PageSize {
+        match self {
+            PagingSystem::Sv57x4 => match level {
+                PageTableLevel::Level5 => PageSize::Size16KiB,
+                _ => PageSize::Size4KiB,
+            },
+        }
     }
 
     // returns the size of the entry in bytes
     pub fn entry_size(&self) -> usize {
         match self {
             PagingSystem::Sv57x4 => 8,
-        }
-    }
-
-    pub fn size_in_bytes(&self, level: PageTableLevel) -> usize {
-        self.entries(level) * self.entry_size()
-    }
-
-    // 2nd level page table's root is extended by 2 bits according to the spec.
-    pub fn entries(&self, level: PageTableLevel) -> usize {
-        match self {
-            PagingSystem::Sv57x4 => match level {
-                PageTableLevel::Level5 => 1 << 11,
-                _ => 1 << 9,
-            },
         }
     }
 
