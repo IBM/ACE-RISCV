@@ -11,10 +11,18 @@ use alloc::boxed::Box;
 
 /// Logical page table entry contains variants specific to the security monitor architecture. These new variants distinguish among certain
 /// types (e.g., shared page, confidential data page) that are not covered by the general RISC-V specification.
+#[rr::refined_by("page_table_entry")]
 pub(super) enum LogicalPageTableEntry {
+    #[rr::pattern("PointerToNextPageTable" $ "next", "conf")]
+    #[rr::refinement("-[ #(#next); #conf]")]
     PointerToNextPageTable(Box<PageTable>),
+    #[rr::pattern("PageWithConfidentialVmData" $ "p", "conf", "perm")]
+    #[rr::refinement("-[ #(#p); #conf; #perm]")]
     PageWithConfidentialVmData(Box<Page<Allocated>>),
+    #[rr::pattern("PageSharedWithHypervisor" $ "sp", "conf", "perm")]
+    #[rr::refinement("-[ #sp; #conf; #perm]")]
     PageSharedWithHypervisor(SharedPage),
+    #[rr::pattern("UnmappedPage")]
     NotMapped,
 }
 
