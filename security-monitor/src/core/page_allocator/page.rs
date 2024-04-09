@@ -157,7 +157,7 @@ impl<T: PageState> Page<T> {
         (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
     }
 
-    fn end_address_ptr(&self) -> *const usize {
+    pub fn end_address_ptr(&self) -> *const usize {
         self.end_address() as *const usize
     }
 
