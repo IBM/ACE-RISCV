@@ -61,7 +61,7 @@ impl ConfidentialVmMemoryProtector {
 
     /// Translates guest physical address into a real physical address in the confidential memory. Returns error if the guest physical
     /// address is not mapped into the real physical address, i.e., page table walk fails.
-    pub fn translate_address(&self, address: &ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+    pub fn translate_address(&self, address: &ConfidentialVmPhysicalAddress) -> Result<ConfidentialMemoryAddress, Error> {
         self.root_page_table.translate(address)
     }
 

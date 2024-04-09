@@ -20,17 +20,30 @@ pub struct FlattenedDeviceTree<'a> {
 }
 
 impl<'a> FlattenedDeviceTree<'a> {
-    /// Creates an instance of a wrapper over the library that parses the flattened device tree (FDT). Returns error if address is not a 4-bytes aligned pointer to the valid flattened device tree (FDT).
+    pub const FDT_HEADER_SIZE: usize = 40;
+    
+    /// Creates an instance of a wrapper over the library that parses the flattened device tree (FDT). Returns error if address is not a 8-bytes aligned pointer to the valid flattened device tree (FDT).
     ///
     /// # Safety
     ///
     /// Caller must guarantee that:
     ///   * the length of the pointed buffer is at least `DevTree::MIN_HEADER_SIZE`
     pub unsafe fn from_raw_pointer(address: *const u8) -> Result<Self, FdtError> {
-        if address.align_offset(align_of::<u32>()) != 0 {
+        if address.align_offset(align_of::<u64>()) != 0 {
             return Err(FdtPointerNotAligned());
         }
         Ok(Self { inner: unsafe { DevTree::from_raw_pointer(address)? } })
+    }
+
+    pub unsafe fn total_size(address: *const u8) -> Result<usize, FdtError> {
+        // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within the
+        // page boundary. These 8 bytes should contain the `FDT magic` (first 4 bytes) and `FDT totalsize` (next 4 bytes).
+        if address.align_offset(align_of::<u64>()) != 0 {
+            return Err(FdtPointerNotAligned());
+        }
+        let magic_and_size: u64 = unsafe { (address as *const u64).read_volatile() };
+        let fdt_total_size: usize = u32::from_be((magic_and_size >> 32) as u32) as usize;
+        Ok(fdt_total_size)
     }
 
     pub fn harts<'b>(&'b self) -> impl Iterator<Item = Hart<'b, 'a>> {

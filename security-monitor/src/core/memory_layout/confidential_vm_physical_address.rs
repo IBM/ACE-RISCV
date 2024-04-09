@@ -10,6 +10,10 @@ impl ConfidentialVmPhysicalAddress {
         Self(confidential_vm_physical_address)
     }
 
+    pub fn add(&self, offset: usize) -> Self {
+        Self(self.0 + offset)
+    }
+
     pub fn usize(&self) -> usize {
         self.0
     }

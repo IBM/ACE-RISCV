@@ -49,7 +49,7 @@ pub enum Error {
     #[error("Invalid Hart ID")]
     InvalidHartId(),
     #[error("Exceeded the max number of harts per VM")]
-    ReachedMaxNumberOfHartsPerVm(),
+    InvalidNumberOfHartsInFdt(),
     #[error("Invalid confidential VM ID")]
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
@@ -75,6 +75,14 @@ pub enum Error {
     CannotSuspedNotStartedHart(),
     #[error("Cannot start a confidential hart because it is not in the Suspended state.")]
     CannotStartNotSuspendedHart(),
+    #[error("Incorrectly aligned authentication blob")]
+    AuthBlobNotAlignedTo64Bits(),
+    #[error("Authentication blob size is invalid.")]
+    AuthBlobInvalidSize(),
+    #[error("Address not properly aligned")]
+    AddressNotProperlyAligned(),
+    #[error("FDT size is invalid. Expecting at least 40 bytes and maximum 40960 bytes")]
+    FdtInvalidSize(),
     #[error("Device Tree Error")]
     DeviceTreeError(#[from] flattened_device_tree::FdtError),
 }
