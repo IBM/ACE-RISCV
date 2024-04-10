@@ -141,21 +141,11 @@ impl<'a> PageAllocator {
         })
     }
 
-    /// Returns page tokens that all together have ownership over a continous unallocated memory region of the requested size and aligned to
-    /// a specific page size. Returns error if it could not obtain write access to the global instance of the page allocator or if there are
-    /// not enough page tokens satisfying the requested criteria.
-    pub fn acquire_continous_pages(
-        number_of_pages: usize, page_size: PageSize, align_to: PageSize,
-    ) -> Result<Vec<Page<UnAllocated>>, Error> {
-        let pages = Self::try_write(|page_allocator| Ok(page_allocator.acquire(number_of_pages, page_size, align_to)))?;
-        assure_not!(pages.is_empty(), Error::OutOfPages())?;
-        Ok(pages)
-    }
-
-    /// Returns a page token that has ownership over an unallocated memory region of the requested size.
-    /// See `Self::acquire_continous_pages` for error conditions.
+    /// Returns a page token that has ownership over an unallocated memory region of the requested size. Returns error if it could not
+    /// obtain write access to the global instance of the page allocator or if there are not enough page tokens satisfying the requested
+    /// criteria.
     pub fn acquire_page(page_size: PageSize) -> Result<Page<UnAllocated>, Error> {
-        Self::acquire_continous_pages(1, page_size, page_size)?.pop().ok_or(Error::OutOfPages())
+        Self::try_write(|page_allocator| Ok(page_allocator.acquire(1, page_size, page_size)))?.pop().ok_or(Error::OutOfPages())
     }
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
