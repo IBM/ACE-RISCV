@@ -9,9 +9,9 @@ use crate::core::memory_protector::{mmu, pmp, PageSize};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
-/// it protects accesses to the memory which the ConfidentialVM does not own.
+/// it protects accesses to the memory which the confidential VM does not own.
 pub struct ConfidentialVmMemoryProtector {
-    // Stores the page table configuration of the ConfidentialVM.
+    // Stores the page table configuration of the confidential VM.
     root_page_table: RootPageTable,
     // Stores the value of the hypervisor G-stage address translation protocol register.
     hgatp: usize,
@@ -78,5 +78,9 @@ impl ConfidentialVmMemoryProtector {
         pmp::open_access_to_confidential_memory();
         mmu::enable_address_translation(self.hgatp);
         super::tlb::clear_hart_tlbs();
+    }
+
+    pub fn into_root_page_table(self) -> RootPageTable {
+        self.root_page_table
     }
 }

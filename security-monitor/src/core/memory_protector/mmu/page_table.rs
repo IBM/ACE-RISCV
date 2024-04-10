@@ -46,6 +46,10 @@ impl RootPageTable {
     pub fn paging_system(&self) -> &PagingSystem {
         &self.paging_system
     }
+
+    pub fn deallocate(self) {
+        self.page_table.deallocate()
+    }
 }
 
 /// Changes to the logical representation triggers changes to the serialized representation, so these two are always synced. Since the
@@ -85,8 +89,7 @@ impl PageTable {
     fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
-        let mut serialized_representation = PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?
-            .remove(0)
+        let mut serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?
             .copy_from_non_confidential_memory(address)
             .map_err(|_| Error::PageTableCorrupted())?;
 
@@ -100,8 +103,7 @@ impl PageTable {
                 } else if PageTableBits::is_leaf(entry_raw) {
                     let address = NonConfidentialMemoryAddress::new(PageTableAddress::decode(entry_raw))?;
                     let page_size = paging_system.page_size(level);
-                    let page = PageAllocator::acquire_continous_pages(1, page_size)?
-                        .remove(0)
+                    let page = PageAllocator::acquire_page(page_size)?
                         .copy_from_non_confidential_memory(address)
                         .map_err(|_| Error::PageTableCorrupted())?;
                     let configuration = PageTableConfiguration::decode(entry_raw);
@@ -124,8 +126,7 @@ impl PageTable {
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
     fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
-        let serialized_representation =
-            PageAllocator::acquire_continous_pages(1, paging_system.memory_page_size(level))?.remove(0).zeroize();
+        let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
         let logical_representation = Vec::with_capacity(serialized_representation.size().in_bytes() / paging_system.entry_size());
         Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
@@ -239,19 +240,28 @@ impl PageTable {
         self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.encode()).unwrap();
         let entry_to_remove = core::mem::replace(&mut self.logical_representation[virtual_page_number], entry);
         if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry_to_remove {
-            PageAllocator::release_page(page.deallocate());
+            PageAllocator::release_pages(alloc::vec![page.deallocate()]);
         }
     }
-}
 
-impl Drop for PageTable {
-    /// When page table is dropped, we go through all its entries and make sure that confidential pages are returned to the page allocator.
-    /// Otherwise, we would have a memory leak.
-    fn drop(&mut self) {
-        self.logical_representation.drain(..).for_each(|entry| {
-            if let PageTableEntry::PageWithConfidentialVmData(page, _, _) = entry {
-                PageAllocator::release_page(page.deallocate());
+    /// Recursively clears the entire page table configuration, releasing all pages to the PageAllocator.
+    pub fn deallocate(mut self) {
+        let mut pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
+        // To clear the page table we should deallocate pages in the order they have been allocated.
+        for index in (0..self.logical_representation.len()).rev() {
+            match core::mem::replace(&mut self.logical_representation[index], PageTableEntry::NotValid) {
+                PageTableEntry::PointerToNextPageTable(next_page_table, _) => {
+                    PageAllocator::release_pages(pages);
+                    pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
+                    next_page_table.deallocate();
+                }
+                PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
+                    pages.push(page.deallocate());
+                }
+                _ => {}
             }
-        });
+        }
+        pages.push(self.serialized_representation.deallocate());
+        PageAllocator::release_pages(pages);
     }
 }

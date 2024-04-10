@@ -156,7 +156,7 @@ impl PromoteVmHandler {
         memory_protector: &ConfidentialVmMemoryProtector, base_address: &ConfidentialVmPhysicalAddress, number_of_bytes_to_copy: usize,
     ) -> Result<Page<Allocated>, Error> {
         assure!((base_address.usize() as *const u8).is_aligned_to(core::mem::size_of::<usize>()), Error::AddressNotProperlyAligned())?;
-        let mut large_page = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0).zeroize();
+        let mut large_page = PageAllocator::acquire_page(PageSize::Size2MiB)?.zeroize();
         // Let's copy a blob from confidential VM's pages into the newly allocated huge page. We will copy in chunks of 8-bytes (usize).
         let mut copied_bytes = 0;
         while copied_bytes < number_of_bytes_to_copy {

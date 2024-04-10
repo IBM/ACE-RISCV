@@ -141,7 +141,7 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
 fn initalize_security_monitor_state(
     confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
-    const NUMBER_OF_HEAP_PAGES: usize = 40 * 1024;
+    const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
     // start allocating objects on heap, e.g., page tokens. We have to first
     // initialize the global allocator, which permits us to use heap. To initialize heap
@@ -180,7 +180,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     // We need to allocate stack for the dumped state of each physical hart.
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
-        let stack = PageAllocator::acquire_continous_pages(1, PageSize::Size2MiB)?.remove(0);
+        let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("Hart[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));

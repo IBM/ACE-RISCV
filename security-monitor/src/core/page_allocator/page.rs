@@ -82,6 +82,22 @@ impl Page<UnAllocated> {
             })
             .collect()
     }
+
+    /// Merges a collection of contiguous pages into a single correctly aligned page.
+    ///
+    /// # Safety
+    ///
+    /// * Page is aligned to the new size
+    /// * Merged pages are contiguous and cover the entire new size of the future page
+    /// * Merged pages are of the same size
+    /// * Merged pages are sorted
+    pub unsafe fn merge(mut from_pages: Vec<Page<UnAllocated>>, new_size: PageSize) -> Self {
+        assert!(from_pages.len() > 2);
+        assert!(from_pages[0].address.is_aligned_to(new_size.in_bytes()));
+        assert!(new_size.in_bytes() / from_pages[0].size.in_bytes() == from_pages.len());
+        assert!(from_pages[0].start_address() + new_size.in_bytes() == from_pages[from_pages.len() - 1].end_address());
+        Self::init(from_pages.swap_remove(0).address, new_size)
+    }
 }
 
 impl Page<Allocated> {

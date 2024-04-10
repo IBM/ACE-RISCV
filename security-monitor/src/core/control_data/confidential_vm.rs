@@ -197,6 +197,10 @@ impl ConfidentialVm {
             })
     }
 
+    pub fn deallocate(self) {
+        self.memory_protector.into_root_page_table().deallocate();
+    }
+
     pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<InterHartRequest>>) -> Result<F, Error> {
         op(self.inter_hart_requests.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
