@@ -47,8 +47,8 @@ impl RootPageTable {
         &self.paging_system
     }
 
-    pub fn clear(self) {
-        self.page_table.clear()
+    pub fn deallocate(self) {
+        self.page_table.deallocate()
     }
 }
 
@@ -245,16 +245,15 @@ impl PageTable {
     }
 
     /// Recursively clears the entire page table configuration, releasing all pages to the PageAllocator.
-    pub fn clear(mut self) {
-        // To clear the page table we should deallocate pages in the order they have been allocated.
+    pub fn deallocate(mut self) {
         let mut pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
-        pages.push(self.serialized_representation.deallocate());
+        // To clear the page table we should deallocate pages in the order they have been allocated.
         for index in (0..self.logical_representation.len()).rev() {
             match core::mem::replace(&mut self.logical_representation[index], PageTableEntry::NotValid) {
                 PageTableEntry::PointerToNextPageTable(next_page_table, _) => {
                     PageAllocator::release_pages(pages);
                     pages = Vec::with_capacity(PageSize::TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE);
-                    next_page_table.clear();
+                    next_page_table.deallocate();
                 }
                 PageTableEntry::PageWithConfidentialVmData(page, _configuration, _permission) => {
                     pages.push(page.deallocate());
@@ -262,6 +261,7 @@ impl PageTable {
                 _ => {}
             }
         }
+        pages.push(self.serialized_representation.deallocate());
         PageAllocator::release_pages(pages);
     }
 }

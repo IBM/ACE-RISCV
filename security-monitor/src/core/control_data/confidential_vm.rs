@@ -198,7 +198,7 @@ impl ConfidentialVm {
     }
 
     pub fn deallocate(self) {
-        self.memory_protector.into_root_page_table().clear();
+        self.memory_protector.into_root_page_table().deallocate();
     }
 
     pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
