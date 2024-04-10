@@ -1,13 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::transformations::{ExposeToConfidentialVm, ExposeToHypervisor, SbiResult};
+use crate::confidential_flow::handlers::sbi::SbiResponse;
+use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToHypervisor};
+use crate::non_confidential_flow::ApplyToHypervisor;
 use core::num::TryFromIntError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
-
-pub const CTX_SWITCH_ERROR_MSG: &str =
-    "Invalid assembly implementation of the context switch. a0 must point to the correct processor state";
 
 pub const NOT_INITIALIZED_HART: &str = "Physical hart does not have a state allocated in the confidential memory. There is an error in the security monitor initialization vector";
 
@@ -50,7 +49,7 @@ pub enum Error {
     #[error("Invalid Hart ID")]
     InvalidHartId(),
     #[error("Exceeded the max number of harts per VM")]
-    ReachedMaxNumberOfHartsPerVm(),
+    InvalidNumberOfHartsInFdt(),
     #[error("Invalid confidential VM ID")]
     InvalidConfidentialVmId(),
     #[error("vHart is running")]
@@ -59,8 +58,8 @@ pub enum Error {
     HartNotExecutable(),
     #[error("Invalid riscv instruction: {0:x}")]
     InvalidRiscvInstruction(usize),
-    #[error("Invalid call cause: {0}")]
-    InvalidCall(usize),
+    #[error("Invalid ecall extid: {0} fid: {1}")]
+    InvalidCall(usize, usize),
     #[error("Internal error")]
     Pointer(#[from] PointerError),
     #[error("Reached max number of remote hart requests")]
@@ -76,19 +75,32 @@ pub enum Error {
     CannotSuspedNotStartedHart(),
     #[error("Cannot start a confidential hart because it is not in the Suspended state.")]
     CannotStartNotSuspendedHart(),
+    #[error("Incorrectly aligned authentication blob")]
+    AuthBlobNotAlignedTo64Bits(),
+    #[error("Authentication blob size is invalid.")]
+    AuthBlobInvalidSize(),
+    #[error("Address not properly aligned")]
+    AddressNotProperlyAligned(),
+    #[error("FDT size is invalid. Expecting at least 40 bytes and maximum 40960 bytes")]
+    FdtInvalidSize(),
     #[error("Device Tree Error")]
     DeviceTreeError(#[from] flattened_device_tree::FdtError),
 }
 
 impl Error {
-    pub fn into_non_confidential_transformation(self) -> ExposeToHypervisor {
+    pub fn into_non_confidential_declassifier(self) -> DeclassifyToHypervisor {
         let error_code = 0x1000;
-        ExposeToHypervisor::SbiResult(SbiResult::failure(error_code))
+        DeclassifyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
     }
 
-    pub fn into_confidential_transformation(self) -> ExposeToConfidentialVm {
+    pub fn into_non_confidential_transformation(self) -> ApplyToHypervisor {
         let error_code = 0x1000;
-        ExposeToConfidentialVm::SbiResult(SbiResult::failure(error_code))
+        ApplyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
+    }
+
+    pub fn into_confidential_transformation(self) -> ApplyToConfidentialHart {
+        let error_code = 0x1000;
+        ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error_code))
     }
 }
 

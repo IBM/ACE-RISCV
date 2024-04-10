@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HgatpMode;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
+use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_protector::PageSize;
 
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page
@@ -31,10 +32,13 @@ impl PagingSystem {
         }
     }
 
-    // number of pages required to store the configuration of the page table at the given level
-    // in RISC-V all page tables fit at 4KiB pages except for the root page table in 2-level page table system
-    pub fn configuration_pages(&self, level: PageTableLevel) -> usize {
-        self.size_in_bytes(level) / PageSize::Size4KiB.in_bytes()
+    pub fn memory_page_size(&self, level: PageTableLevel) -> PageSize {
+        match self {
+            PagingSystem::Sv57x4 => match level {
+                PageTableLevel::Level5 => PageSize::Size16KiB,
+                _ => PageSize::Size4KiB,
+            },
+        }
     }
 
     // returns the size of the entry in bytes
@@ -44,21 +48,7 @@ impl PagingSystem {
         }
     }
 
-    pub fn size_in_bytes(&self, level: PageTableLevel) -> usize {
-        self.entries(level) * self.entry_size()
-    }
-
-    // 2nd level page table's root is extended by 2 bits according to the spec.
-    pub fn entries(&self, level: PageTableLevel) -> usize {
-        match self {
-            PagingSystem::Sv57x4 => match level {
-                PageTableLevel::Level5 => 1 << 11,
-                _ => 1 << 9,
-            },
-        }
-    }
-
-    pub fn vpn(&self, virtual_address: ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
+    pub fn vpn(&self, virtual_address: &ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
         match self {
             PagingSystem::Sv57x4 => match level {
                 PageTableLevel::Level5 => (virtual_address.usize() >> 48) & 0x3ff,
@@ -70,6 +60,21 @@ impl PagingSystem {
         }
     }
 
+    pub fn page_offset(&self, virtual_address: &ConfidentialVmPhysicalAddress, level: PageTableLevel) -> usize {
+        let vpn_bits_mask = match self {
+            PagingSystem::Sv57x4 => match level {
+                PageTableLevel::Level5 => 0xfffffffff << 12,
+                PageTableLevel::Level4 => 0x7ffffff << 12,
+                PageTableLevel::Level3 => 0x3ffff << 12,
+                PageTableLevel::Level2 => 0x1ff << 12,
+                PageTableLevel::Level1 => 0 << 12,
+            },
+        };
+        let vpn_to_rewrite = virtual_address.usize() & vpn_bits_mask;
+        let page_offset = virtual_address.usize() & 0xfff;
+        vpn_to_rewrite | page_offset
+    }
+
     pub fn page_size(&self, level: PageTableLevel) -> PageSize {
         match level {
             PageTableLevel::Level5 => PageSize::Size128TiB,
@@ -77,27 +82,6 @@ impl PagingSystem {
             PageTableLevel::Level3 => PageSize::Size1GiB,
             PageTableLevel::Level2 => PageSize::Size2MiB,
             PageTableLevel::Level1 => PageSize::Size4KiB,
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-pub enum PageTableLevel {
-    Level5,
-    Level4,
-    Level3,
-    Level2,
-    Level1,
-}
-
-impl PageTableLevel {
-    pub fn lower(&self) -> Option<Self> {
-        match self {
-            Self::Level5 => Some(Self::Level4),
-            Self::Level4 => Some(Self::Level3),
-            Self::Level3 => Some(Self::Level2),
-            Self::Level2 => Some(Self::Level1),
-            Self::Level1 => None,
         }
     }
 }

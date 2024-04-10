@@ -9,9 +9,9 @@ use crate::core::memory_protector::{mmu, pmp, PageSize};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
-/// it protects accesses to the memory which the ConfidentialVM does not own.
+/// it protects accesses to the memory which the confidential VM does not own.
 pub struct ConfidentialVmMemoryProtector {
-    // Stores the page table configuration of the ConfidentialVM.
+    // Stores the page table configuration of the confidential VM.
     root_page_table: RootPageTable,
     // Stores the value of the hypervisor G-stage address translation protocol register.
     hgatp: usize,
@@ -26,7 +26,7 @@ impl ConfidentialVmMemoryProtector {
     ///   * the size of the VM is larger than the size of the available confidential memory,
     ///   * the configuration of the memory isolation component (MMU) is invalid.
     pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
-        let hgatp = Hgatp::from(hart_state.hgatp);
+        let hgatp = Hgatp::from(hart_state.csrs.hgatp.read_value());
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
         Ok(Self { root_page_table, hgatp: 0 })
     }
@@ -55,13 +55,13 @@ impl ConfidentialVmMemoryProtector {
     ///
     /// To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on all confidential harts, so
     /// that all confidential harts do not use the unmaped shared page.
-    pub fn unmap_shared_page(&mut self, address: ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
+    pub fn unmap_shared_page(&mut self, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
         self.root_page_table.unmap_shared_page(address)
     }
 
     /// Translates guest physical address into a real physical address in the confidential memory. Returns error if the guest physical
     /// address is not mapped into the real physical address, i.e., page table walk fails.
-    pub fn translate_address(&self, address: ConfidentialVmPhysicalAddress) -> Result<&ConfidentialMemoryAddress, Error> {
+    pub fn translate_address(&self, address: &ConfidentialVmPhysicalAddress) -> Result<ConfidentialMemoryAddress, Error> {
         self.root_page_table.translate(address)
     }
 
@@ -78,5 +78,9 @@ impl ConfidentialVmMemoryProtector {
         pmp::open_access_to_confidential_memory();
         mmu::enable_address_translation(self.hgatp);
         super::tlb::clear_hart_tlbs();
+    }
+
+    pub fn into_root_page_table(self) -> RootPageTable {
+        self.root_page_table
     }
 }

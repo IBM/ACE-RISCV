@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::interrupts::{EnabledInterrupts, InjectedInterrupts};
+use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::core::architecture::HartLifecycleState;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart, InterHartRequest};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
-use crate::core::transformations::{InterHartRequest, SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -46,37 +47,13 @@ impl ConfidentialVm {
         Self { id, measurements, confidential_harts, memory_protector, inter_hart_requests }
     }
 
-    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
-        self.id
-    }
-
-    pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
-        confidential_vm_address: ConfidentialVmPhysicalAddress,
-    ) -> Result<(), Error> {
-        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
-        let tlb_shutdown_request =
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
-        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
-        Ok(())
-    }
-
-    pub fn unmap_shared_page(&mut self, confidential_vm_address: ConfidentialVmPhysicalAddress) -> Result<(), Error> {
-        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
-        let tlb_shutdown_request =
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id));
-        self.broadcast_inter_hart_request(tlb_shutdown_request)?;
-        Ok(())
-    }
-
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
     /// # Guarantees
     ///
-    /// If confidential hart is assigned to the hardware hart, then the hardware hart is configured to enforce memory access control of
-    /// the confidential VM.
+    /// The physical hart is configured to enforce memory access control so that the confidential VM has access only to its own memory.
     pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         let confidential_hart = self.confidential_harts.get(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
@@ -87,18 +64,23 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         assure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
-        // Context switch: store content of processor registers in the hypervisor hart's memory and load the processor registers values
-        // of the confidential VM to the processor registers
-        let interrupts_to_inject = hardware_hart.save_control_status_registers_in_main_memory();
-        self.confidential_harts[confidential_hart_id].restore_control_status_registers_from_main_memory(interrupts_to_inject);
+        // Heavy context switch:
+        // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
+        hardware_hart.hypervisor_hart_mut().csrs_mut().save_in_main_memory();
+        // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
+        self.confidential_harts[confidential_hart_id].csrs().restore_from_main_memory();
+        // 3) Inject interrupts
+        // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
+        // adapt the same strategy, which would also better reflect out current approach for information declassification.
+        InjectedInterrupts::from_hypervisor_hart(hardware_hart.hypervisor_hart())
+            .declassify_to_confidential_hart(&mut self.confidential_harts[confidential_hart_id]);
 
-        // We can now assign the confidential hart to the hardware hart. The code below this line must not throw an
-        // error.
-        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
-        // It is safe to invoke below unsafe code because at this point we are in the confidential flow part of the
-        // finite state machine and the virtual hart is assigned to the hardware hart. We must reconfigure the hardware memory isolation
-        // mechanism to enforce that the confidential virtual machine has access only to the memory regions it owns.
+        // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
+        // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
+        // machine and the virtual hart is assigned to the hardware hart.
         unsafe { self.memory_protector.enable() };
 
         Ok(())
@@ -110,35 +92,69 @@ impl ConfidentialVm {
     ///
     /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
-        assert!(!hardware_hart.confidential_hart.is_dummy());
+        assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
-        let confidential_hart_id = hardware_hart.confidential_hart.confidential_hart_id();
+        let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
 
         // Return the confidential hart to the confidential machine.
-        core::mem::swap(&mut hardware_hart.confidential_hart, &mut self.confidential_harts[confidential_hart_id]);
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
-        // Switch context between security domains.
-        let enabled_interrupts = self.confidential_harts[confidential_hart_id].save_control_status_registers_in_main_memory();
-        hardware_hart.restore_control_status_registers_from_main_memory(enabled_interrupts);
+        // Heavy context switch:
+        // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
+        self.confidential_harts[confidential_hart_id].csrs_mut().save_in_main_memory();
+        // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
+        hardware_hart.hypervisor_hart().csrs().restore_from_main_memory();
+        // 3) Expose enabled interrupts
+        // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
+        // would also better reflect out current approach for information declassification.
+        EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
+            .declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut());
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
         // associated with a dummy virtual hart.
         // It is safe to invoke below unsafe code because at this point we are transitioning from the confidential flow part of the
         // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
-        unsafe { hardware_hart.enable_hypervisor_memory_protector() };
+        unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
+    }
+
+    pub fn map_shared_page(
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
+        confidential_vm_address: ConfidentialVmPhysicalAddress,
+    ) -> Result<(), Error> {
+        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        Ok(())
+    }
+
+    pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
+        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
+        let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
+        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        Ok(())
+    }
+
+    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
+        self.id
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {
         self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::Shutdown).count() == 0
     }
 
+    /// Returns the lifecycle state of the confidential hart
+    pub fn confidential_hart_lifecycle_state(&self, confidential_hart_id: usize) -> Result<HartLifecycleState, Error> {
+        assure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
+        Ok(self.confidential_harts[confidential_hart_id].lifecycle_state().clone())
+    }
+
     /// Transits the confidential hart's lifecycle state to `StartPending`. Returns error if the confidential hart is
     /// not in the `Stopped` state or a confidential hart with the requested id does not exist.
-    pub fn transit_confidential_hart_to_start_pending(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
-        let hart = self.confidential_harts.get_mut(request.confidential_hart_id).ok_or(Error::InvalidHartId())?;
-        hart.transition_from_stopped_to_start_pending(request)?;
+    pub fn start_confidential_hart(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
+        let hart = self.confidential_harts.get_mut(request.confidential_hart_id()).ok_or(Error::InvalidHartId())?;
+        hart.transition_from_stopped_to_started(request)?;
         Ok(())
     }
 
@@ -155,9 +171,8 @@ impl ConfidentialVm {
                 let is_assigned_to_hardware_hart = { self.confidential_harts[confidential_hart_id].is_dummy() };
                 if !is_assigned_to_hardware_hart {
                     // The confidential hart that should receive an InterHartRequest is not running on any hardware
-                    // hart. Thus, we can apply the InterHartRequest directly.
-                    let transition = inter_hart_request.clone().into_expose_to_confidential_vm();
-                    self.confidential_harts[confidential_hart_id].apply(transition);
+                    // hart. Thus, we can excute the InterHartRequest directly.
+                    self.confidential_harts[confidential_hart_id].execute(&inter_hart_request);
                 } else {
                     // The confidential hart that should receive an InterHartRequest is currently running on a hardware
                     // hart. We add the InterHartRequest to a per confidential hart queue and then interrupt that
@@ -182,10 +197,8 @@ impl ConfidentialVm {
             })
     }
 
-    /// Returns the lifecycle state of the confidential hart
-    pub fn confidential_hart_lifecycle_state(&self, confidential_hart_id: usize) -> Result<HartLifecycleState, Error> {
-        assure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
-        Ok(self.confidential_harts[confidential_hart_id].lifecycle_state().clone())
+    pub fn deallocate(self) {
+        self.memory_protector.into_root_page_table().clear();
     }
 
     pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>

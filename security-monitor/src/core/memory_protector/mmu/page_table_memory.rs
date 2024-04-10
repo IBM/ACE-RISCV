@@ -103,3 +103,4 @@ impl PageTableMemory {
         self.pages.drain(..).map(|p| p.deallocate()).collect()
     }
 }
+

@@ -85,3 +85,4 @@ fn create_confidential_vm(promote_to_confidential_vm_request: PromoteToConfident
 
     Ok(confidential_vm_id)
 }
+
