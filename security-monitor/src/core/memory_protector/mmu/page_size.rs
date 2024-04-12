@@ -74,8 +74,4 @@ impl PageSize {
         }
         result
     }
-
-    pub fn all_from_largest_to_smallest() -> alloc::vec::Vec<PageSize> {
-        alloc::vec![Self::Size128TiB, Self::Size512GiB, Self::Size1GiB, Self::Size2MiB, Self::Size16KiB, Self::Size4KiB]
-    }
 }
