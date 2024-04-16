@@ -5,7 +5,6 @@ use super::page::{Page, UnAllocated};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::PageSize;
 use crate::error::Error;
-use alloc::collections::BTreeSet;
 use alloc::vec;
 use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockWriteGuard};
@@ -16,7 +15,7 @@ static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 pub struct PageAllocator {
     base_address: usize,
     page_size: PageSize,
-    root: TreeNode,
+    root: PageStorageTreeNode,
 }
 
 impl PageAllocator {
@@ -32,7 +31,7 @@ impl PageAllocator {
 
     fn empty(base_address: usize) -> Self {
         let base_address_aligned_down = (base_address - 1) & !(PageSize::largest().in_bytes() - 1);
-        Self { root: TreeNode::new(), base_address: base_address_aligned_down, page_size: PageSize::largest() }
+        Self { root: PageStorageTreeNode::empty(), base_address: base_address_aligned_down, page_size: PageSize::largest() }
     }
 
     unsafe fn add_memory_region(&mut self, memory_region_start: ConfidentialMemoryAddress, memory_region_end: *const usize) {
@@ -111,7 +110,6 @@ impl PageAllocator {
             let page_size = page_allocator.page_size;
             Ok(page_allocator.root.acquire_page_token(base_address, page_size, page_size_to_allocate))
         })?
-        .map(|(page_token, _)| page_token)
     }
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
@@ -135,159 +133,170 @@ impl PageAllocator {
     }
 }
 
-struct TreeNode {
+/// A node of a recursive tree data structure that stores page tokens and maintains additional metadata that simplifies acquisition and
+/// release of page tokens.
+struct PageStorageTreeNode {
+    // Page token owned by this node. None means that this page token has already been allocated or that it has been divided into smaller
+    // pages token that were stored in this node's children.
     page_token: Option<Page<UnAllocated>>,
-    allocable_page_sizes: BTreeSet<PageSize>,
-    children: Vec<TreeNode>,
+    // Specifies what size of the page token can be allocated by exploring the tree starting at this node.
+    max_allocable_page_size: Option<PageSize>,
+    // Children of this node
+    children: Vec<Self>,
 }
 
-impl TreeNode {
-    /// Creates a node at the given addres and page size, and recursively creates all children nodes.
-    pub fn new() -> Self {
-        Self { page_token: None, allocable_page_sizes: BTreeSet::new(), children: vec![] }
+impl PageStorageTreeNode {
+    /// Creates a new empty node with no allocation.
+    pub fn empty() -> Self {
+        Self { page_token: None, max_allocable_page_size: None, children: vec![] }
     }
 
-    pub fn store_page_token(&mut self, base_address: usize, page_size: PageSize, page_token: Page<UnAllocated>) -> BTreeSet<PageSize> {
-        match &page_size == page_token.size() {
-            true => {
-                assert!(base_address == page_token.start_address());
-                assert!(&page_size == page_token.size());
-                self.store_page_token_in_this_node(page_token)
+    /// Recursively traverses the tree until it reaches the node that can store the given page token. Returns the largest page size that can
+    /// be allocated from this node.
+    pub fn store_page_token(
+        &mut self, this_node_base_address: usize, this_node_page_size: PageSize, page_token: Page<UnAllocated>,
+    ) -> PageSize {
+        assert!(this_node_page_size >= *page_token.size());
+        if &this_node_page_size == page_token.size() {
+            // End of recursion, we found the node that can store the page token.
+            assert!(this_node_base_address == page_token.start_address());
+            assert!(&this_node_page_size == page_token.size());
+            self.store_page_token_in_this_node(page_token);
+            this_node_page_size
+        } else {
+            assert!(this_node_page_size.smaller().is_some());
+            if self.children.is_empty() {
+                self.initialize_children(this_node_page_size);
             }
-            false => {
-                // If we do not allocate all possible tree levels during initialization, we must do it lazily. This is what happens below.
-                self.initialize_children_if_needed(page_size);
-
-                // We are at the wrong level. Let's go recursively to the node where this page belongs to.
-                let child_page_size = page_size.smaller().unwrap();
-                let index = (page_token.start_address() - base_address) / child_page_size.in_bytes();
-                let child_base_address = base_address + index * child_page_size.in_bytes();
-                let mut allocable_page_sizes = self.children[index].store_page_token(child_base_address, child_page_size, page_token);
-
-                // We are coming back from the recursion. Since the page token was stored, we might be able to merge page tokens.
-                // Specifically, if every child owns a page token, then we can merge them into a page token belonging to this node.
-                allocable_page_sizes.append(&mut self.merge_pages_if_needed(page_size));
-
-                // Let's update information about allocable page sizes.
-                self.allocable_page_sizes.append(&mut allocable_page_sizes.clone());
-                allocable_page_sizes
+            // We are at the wrong level. Calculate which child should we step into to get to the correct node.
+            let index = self.calculate_child_index(this_node_base_address, this_node_page_size, &page_token);
+            // Let's go recursively to the node where this page belongs to.
+            let (child_base_address, child_page_size) = self.child_address_and_size(this_node_base_address, this_node_page_size, index);
+            let allocable_page_size = self.children[index].store_page_token(child_base_address, child_page_size, page_token);
+            // We are coming back from the recursion.
+            self.try_to_merge_page_tokens(this_node_page_size);
+            if Some(allocable_page_size) > self.max_allocable_page_size {
+                // Some children can allocate page tokens of a size larger than what we used to store.
+                self.max_allocable_page_size = Some(allocable_page_size);
             }
+            self.max_allocable_page_size.unwrap()
         }
     }
 
-    /// Recurisvelt traverses the tree to get to a node that contains the page token of the requested size and returns this page token. This
+    /// Recurisvely traverses the tree to get to a node that contains the page token of the requested size and returns this page token. This
     /// function returns also a set of page size that are not allocable anymore at the node.
+    ///
+    /// Invariants: requested page size to acquire not greater than a page size allocable at this node.
     pub fn acquire_page_token(
-        &mut self, base_address: usize, page_size: PageSize, page_size_to_acquire: PageSize,
-    ) -> Result<(Page<UnAllocated>, BTreeSet<PageSize>), Error> {
-        match &page_size == &page_size_to_acquire {
-            true => {
-                // End of recursion, we found the node from which we acquire a page token.
-                let (page_token, not_allocable_page_sizes) = self.acquire_page_token_from_this_node();
-                assert!(base_address == page_token.start_address());
-                assert!(&page_size == page_token.size());
-                Ok((page_token, not_allocable_page_sizes))
+        &mut self, this_node_base_address: usize, this_node_page_size: PageSize, page_size_to_acquire: PageSize,
+    ) -> Result<Page<UnAllocated>, Error> {
+        assert!(self.max_allocable_page_size >= Some(page_size_to_acquire));
+        if &this_node_page_size == &page_size_to_acquire {
+            // End of recursion, we found the node from which we acquire a page token.
+            let page_token = self.acquire_page_token_from_this_node();
+            assert!(this_node_base_address == page_token.start_address());
+            assert!(&this_node_page_size == page_token.size());
+            Ok(page_token)
+        } else {
+            // We are too high in the tree, i.e., the current level represents page size allocations that are larger than the page size
+            // that was requested.
+            assert!(this_node_page_size.smaller().is_some());
+            // Because we are looking for a page token of a smaller size, we must divide the page token owned by this node, if that has
+            // not yet occured.
+            if self.page_token.is_some() {
+                self.divide_page_token(this_node_base_address, this_node_page_size);
             }
-            false => {
-                // We know that it is possible to allocate the page of the given size. Check if we must divide the page at this level before
-                // we go deeper in the tree.
-                let mut not_allocable_page_sizes = self.divide_page_if_needed(base_address, page_size);
-                // Invoke recursively this function to get to a node containing a page token of the requestd size.
-                let child_page_size = page_size.smaller().unwrap();
-
-                let index = self
-                    .children
-                    .iter_mut()
-                    .position(|n| n.allocable_page_sizes.contains(&page_size_to_acquire))
-                    .ok_or(Error::OutOfPages())?;
-
-                let child_base_address = base_address + index * child_page_size.in_bytes();
-                // below unwrap is ok since we found an index of a node that had allocation for the request page size
-                let (page_token, mut not_allocable_page_sizes_from_children) =
-                    self.children[index].acquire_page_token(child_base_address, child_page_size, page_size_to_acquire).unwrap();
-                
-                // We returned from recursion, time to update nodes with information what page sizes are allocable
-                not_allocable_page_sizes.append(&mut not_allocable_page_sizes_from_children);
-
-                // Check if the page sizes are not available in other nodes.
-                for node in self.children.iter() {
-                    not_allocable_page_sizes.retain(|a| !node.allocable_page_sizes.contains(a));
-                    if not_allocable_page_sizes.is_empty() {
-                        break;
-                    }
-                }
-                // Since we removed a page from childrens, we must update information what page sizes are still allocable in this
-                // node.
-                self.allocable_page_sizes.retain(|a| !not_allocable_page_sizes.contains(a));
-                Ok((page_token, not_allocable_page_sizes))
-            }
+            // Let's get the index of the first child that has requested allocation. It might be that there is no child that can has the
+            // required allocation. In such a case, we return an error.
+            let index = self
+                .children
+                .iter()
+                .position(|node| node.max_allocable_page_size >= Some(page_size_to_acquire))
+                .ok_or(Error::OutOfPages())?;
+            let child_page_size = this_node_page_size.smaller().unwrap();
+            let child_base_address = this_node_base_address + index * child_page_size.in_bytes();
+            // Invoke recursively this function to traverse to a node containing a page token of the requested size.
+            // The below unwrap is ok because we found an index of a node that has requested allocation.
+            let page_token = self.children[index].acquire_page_token(child_base_address, child_page_size, page_size_to_acquire).unwrap();
+            // Let's refresh information about the largest allocable page size available in children.
+            self.max_allocable_page_size = self.children.iter().map(|child| child.max_allocable_page_size).max().flatten();
+            Ok(page_token)
         }
     }
 
-    /// Creates a subtree for the given node.
-    /// Invariant: any child of this node owns a page token
-    fn initialize_children_if_needed(&mut self, page_size: PageSize) {
-        if !self.children.is_empty() {
-            return;
-        }
-        if let Some(smaller_size) = page_size.smaller() {
-            let number_of_smaller_pages = page_size.in_bytes() / smaller_size.in_bytes();
-            self.children = (0..number_of_smaller_pages).map(|_| TreeNode::new()).collect();
-        }
+    /// Creates children for the given node. This is a consequence of building the tree in a lazy fashion.
+    ///
+    /// Invariant: This node has no children
+    /// Outcome:
+    ///     - There is one child for every possible smaller page size that can be created for this node,
+    ///     - Every child is empty, i.e., has no children, no page token, no possible allocation.
+    fn initialize_children(&mut self, this_node_page_size: PageSize) {
+        assert!(self.children.is_empty());
+        self.children = (0..this_node_page_size.number_of_smaller_pages()).map(|_| Self::empty()).collect();
     }
 
-    /// Stores page token in the current node.
+    /// Stores the given page token in the current node.
+    ///
     /// Invariant: if there is page token then all page size equal or lower than the page token are allocable from this node.
-    fn store_page_token_in_this_node(&mut self, page_token: Page<UnAllocated>) -> BTreeSet<PageSize> {
+    fn store_page_token_in_this_node(&mut self, page_token: Page<UnAllocated>) {
         assert!(self.page_token.is_none());
-        self.allocable_page_sizes = page_token.size().all_equal_or_smaller();
+        self.max_allocable_page_size = Some(*page_token.size());
         self.page_token = Some(page_token);
-        self.allocable_page_sizes.clone()
     }
 
-    /// Returns a page token.
-    /// Invariant: if there is no page token, then there is no allocable page size in this node.
-    fn acquire_page_token_from_this_node(&mut self) -> (Page<UnAllocated>, BTreeSet<PageSize>) {
+    /// Returns a page token after removing it from this node.
+    ///
+    /// Invariant: This node owns a page token
+    /// Invariant: After returning the page token, this node does not own the page token and has no allocation
+    fn acquire_page_token_from_this_node(&mut self) -> Page<UnAllocated> {
         assert!(self.page_token.is_some());
-        let page = self.page_token.take().unwrap();
-        let allocable_page_sizes = core::mem::replace(&mut self.allocable_page_sizes, BTreeSet::new());
-        (page, allocable_page_sizes)
+        self.max_allocable_page_size = None;
+        self.page_token.take().unwrap()
     }
 
-    /// Divides the page token (if exists in the node) into smaller page tokens.
-    /// Invariant: page size of the divided page token is no longer allocable on this node.
-    /// Invariant: every child node owns a smaller page token.
-    fn divide_page_if_needed(&mut self, base_address: usize, page_size: PageSize) -> BTreeSet<PageSize> {
-        let mut not_allocable_page_sizes = BTreeSet::new();
-        if let Some(page_token) = self.page_token.take() {
-            // We consume the page, so it will no longer be available for allocation.
-            not_allocable_page_sizes.insert(page_size);
-            // We divide the page into smaller ones, because the caller requested pages of smaller sizes.
-            self.initialize_children_if_needed(page_size);
-
-            let mut smaller_pages = page_token.divide();
-            assert!(smaller_pages.len() == self.children.len());
-            smaller_pages.drain(..).for_each(|smaller_page_token| {
-                let index = (smaller_page_token.start_address() - base_address) / smaller_page_token.size().in_bytes();
-                self.children[index].store_page_token_in_this_node(smaller_page_token);
-            })
-        }
-        not_allocable_page_sizes
+    /// Divides the page token into smaller page tokens.
+    ///
+    /// Invariant: This node owns a page token
+    /// Invariant: After returning, this node can allocate pages of lower page sizes than the original page token.
+    /// Invariant: After returning, every child node owns a page token of smaller size than the original page token.
+    /// Invariant: After returning, every child can allocate a page token of smaller size than the original page token.
+    fn divide_page_token(&mut self, this_node_base_address: usize, this_node_page_size: PageSize) {
+        assert!(self.page_token.is_some());
+        self.initialize_children(this_node_page_size);
+        let mut smaller_pages = self.page_token.take().unwrap().divide();
+        assert!(smaller_pages.len() == self.children.len());
+        smaller_pages.drain(..).for_each(|smaller_page_token| {
+            let index = self.calculate_child_index(this_node_base_address, this_node_page_size, &smaller_page_token);
+            self.children[index].store_page_token_in_this_node(smaller_page_token);
+        });
     }
 
-    /// Merges page tokens owned by children, only if every child owns a page token. Returns a set of page sizes that
-    /// can be allocated at the current node after merging.
-    /// Invariant: after merging, any child ownes a page token
-    /// Invariant: after merging, this node owns a page token corresopnding to the given size and can allocate pages of the given size or
-    /// smaller.
-    fn merge_pages_if_needed(&mut self, larger_page_size: PageSize) -> BTreeSet<PageSize> {
-        // Right now, we need two full iterations, could we these both passes into one iteration?
-        match self.children.iter().all(|child| child.page_token.is_some()) {
-            true => {
-                let pages_to_merge = self.children.iter_mut().map(|child| child.acquire_page_token_from_this_node().0).collect();
-                self.store_page_token_in_this_node(unsafe { Page::merge(pages_to_merge, larger_page_size) })
-            }
-            false => BTreeSet::new(),
+    /// Merges page tokens owned by children.
+    ///
+    /// Invariant: after merging, there is no child that owns a page token
+    /// Invariant: after merging, this node owns a page token that has size larger than the ones owned before by children.
+    fn try_to_merge_page_tokens(&mut self, this_node_page_size: PageSize) {
+        if self.children.iter().all(|child| child.page_token.is_some()) {
+            // all children have page tokens, thus we can merge them.
+            let pages_to_merge = self.children.iter_mut().map(|child| child.acquire_page_token_from_this_node()).collect();
+            self.store_page_token_in_this_node(unsafe { Page::merge(pages_to_merge, this_node_page_size) });
+            self.max_allocable_page_size = Some(this_node_page_size);
         }
+    }
+
+    /// Returns the index in this node's children, at which the page token can be stored.
+    fn calculate_child_index(&self, this_node_base_address: usize, this_node_page_size: PageSize, page_token: &Page<UnAllocated>) -> usize {
+        assert!(this_node_page_size > *page_token.size());
+        let index = (page_token.start_address() - this_node_base_address) / this_node_page_size.smaller().unwrap().in_bytes();
+        assert!(index < self.children.len());
+        index
+    }
+
+    fn child_address_and_size(&self, this_node_base_address: usize, this_node_page_size: PageSize, index: usize) -> (usize, PageSize) {
+        assert!(index < self.children.len());
+        assert!(this_node_page_size.smaller().is_some());
+        let child_base_address = this_node_base_address + index * this_node_page_size.smaller().unwrap().in_bytes();
+        let child_page_size = this_node_page_size.smaller().unwrap();
+        (child_base_address, child_page_size)
     }
 }

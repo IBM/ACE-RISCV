@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use alloc::collections::BTreeSet;
 
 // The order of page size in this enum must follow the increasing sizes of
 // page to guarantee that the Ord/PartialOrd are correctly derived for the `PageSize`.
@@ -56,22 +55,22 @@ impl PageSize {
         }
     }
 
+    pub fn number_of_smaller_pages(&self) -> usize {
+        match self {
+            PageSize::Size128TiB => 256,
+            PageSize::Size512GiB => 512,
+            PageSize::Size1GiB => 512,
+            PageSize::Size2MiB => 128,
+            PageSize::Size16KiB => 4,
+            PageSize::Size4KiB => 0,
+        }
+    }
+
     pub fn largest() -> PageSize {
         PageSize::Size128TiB
     }
 
     pub fn smallest() -> PageSize {
         PageSize::Size4KiB
-    }
-
-    pub fn all_equal_or_smaller(&self) -> BTreeSet<Self> {
-        let mut result = BTreeSet::new();
-        result.insert(*self);
-        let mut ps = *self;
-        while let Some(xxx) = ps.smaller() {
-            result.insert(xxx);
-            ps = xxx;
-        }
-        result
     }
 }
