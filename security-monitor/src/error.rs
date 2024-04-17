@@ -30,6 +30,8 @@ pub enum Error {
     OutOfMemory(),
     #[error("Not enough memory to allocate a page")]
     OutOfPages(),
+    #[error("Unsupported amount of memory")]
+    UnsupportedMemorySize(),
     #[error("Page table error")]
     PageTableConfiguration(),
     #[error("Address translation failed")]
