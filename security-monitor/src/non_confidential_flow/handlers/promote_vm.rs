@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData, HypervisorHart,
@@ -12,9 +11,6 @@ use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
 use flattened_device_tree::FlattenedDeviceTree;
-
-/// Our convention is to give the boot hart a fixed id.
-const BOOT_HART_ID: usize = 0;
 
 /// Handles the `promote to confidential VM` call requested by the non-confidential VM via an environment call. The call traps in the
 /// security monitor as an `environment call from VS-mode` (see `mcause` register specification). In a response to this call, the
@@ -36,6 +32,7 @@ pub struct PromoteVmHandler {
     hart_state: HartArchitecturalState,
     fdt_address: ConfidentialVmPhysicalAddress,
     auth_blob_address: Option<ConfidentialVmPhysicalAddress>,
+    result: Result<ConfidentialVmId, Error>,
 }
 
 impl PromoteVmHandler {
@@ -46,21 +43,28 @@ impl PromoteVmHandler {
             0 => None,
             address => Some(ConfidentialVmPhysicalAddress::new(address)),
         };
-        Self { hart_state, fdt_address, auth_blob_address }
+        Self { hart_state, fdt_address, auth_blob_address, result: Err(Error::InvalidArgument()) }
     }
 
-    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        let transformation = match self.create_confidential_vm() {
+    pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
+        self.result = self.create_confidential_vm();
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisor::PromoteVmResponse(self))
+    }
+
+    pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        let hypervisor_trap_address = hypervisor_hart.csrs().stvec.read();
+        hypervisor_hart.csrs_mut().mepc.save_value(hypervisor_trap_address);
+        match &self.result {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
-                ApplyToHypervisor::SbiRequest(SbiRequest::kvm_ace_register(confidential_vm_id, BOOT_HART_ID))
+                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, 0);
+                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, confidential_vm_id.usize());
             }
             Err(error) => {
                 debug!("Promotion to confidential VM failed: {:?}", error);
-                error.into_non_confidential_transformation()
+                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, 1);
             }
-        };
-        non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
+        }
     }
 
     fn create_confidential_vm(&self) -> Result<ConfidentialVmId, Error> {

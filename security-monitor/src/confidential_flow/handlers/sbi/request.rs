@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 
 /// Handles a hypercall from a confidential hart to hypervisor.
 pub struct SbiRequest {
@@ -19,7 +19,6 @@ pub struct SbiRequest {
 
 impl SbiRequest {
     const KVM_ACE_EXTID: usize = 0x509999;
-    const KVM_ACE_REGISTER_FID: usize = 1;
     const KVM_ACE_PAGE_IN_FID: usize = 2;
 
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
@@ -64,10 +63,6 @@ impl SbiRequest {
         Self { extension_id, function_id, a0, a1, a2, a3, a4, a5 }
     }
 
-    pub fn kvm_ace_register(confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize) -> Self {
-        Self::new(Self::KVM_ACE_EXTID, Self::KVM_ACE_REGISTER_FID, confidential_vm_id.usize(), confidential_hart_id, 0, 0, 0, 0)
-    }
-
     pub fn kvm_ace_page_in(page_address: usize) -> Self {
         Self::new(Self::KVM_ACE_EXTID, Self::KVM_ACE_PAGE_IN_FID, page_address, 0, 0, 0, 0, 0)
     }
@@ -85,37 +80,5 @@ impl SbiRequest {
     pub fn kvm_hsm_hart_suspend() -> Self {
         use crate::core::architecture::HsmExtension;
         Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0, 0, 0, 0, 0)
-    }
-
-    pub fn extension_id(&self) -> usize {
-        self.extension_id
-    }
-
-    pub fn function_id(&self) -> usize {
-        self.function_id
-    }
-
-    pub fn a0(&self) -> usize {
-        self.a0
-    }
-
-    pub fn a1(&self) -> usize {
-        self.a1
-    }
-
-    pub fn a2(&self) -> usize {
-        self.a2
-    }
-
-    pub fn a3(&self) -> usize {
-        self.a3
-    }
-
-    pub fn a4(&self) -> usize {
-        self.a4
-    }
-
-    pub fn a5(&self) -> usize {
-        self.a5
     }
 }

@@ -8,7 +8,6 @@ use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
-use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmHandler;
 use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiHandler;
 use crate::non_confidential_flow::handlers::promote_vm::PromoteVmHandler;
 use crate::non_confidential_flow::handlers::resume_confidential_hart::ResumeHandler;
@@ -59,11 +58,10 @@ impl<'a> NonConfidentialFlow<'a> {
             LoadAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StoreAddressMisaligned => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StoreAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Ace(PromoteVm)) => PromoteVmHandler::from_vm_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Ace(ResumeConfidentialHart)) => ResumeHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Ace(TerminateConfidentialVm)) => TerminateVmHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(_) => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            VsEcall(Ace(PromoteVmHandler)) => PromoteVmHandler::from_vm_hart(flow.hypervisor_hart()).handle(flow),
-            VsEcall(_) => SbiVmHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             MachineEcall => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
@@ -97,9 +95,9 @@ impl<'a> NonConfidentialFlow<'a> {
     /// context switch between security domains).
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisor) -> ! {
         match transformation {
+            ApplyToHypervisor::PromoteVmResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::SbiVmRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         unsafe { exit_to_hypervisor_asm() }

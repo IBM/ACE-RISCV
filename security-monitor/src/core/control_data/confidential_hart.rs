@@ -66,6 +66,15 @@ impl ConfidentialHart {
     /// Constructs a new confidential hart based on the given architectural state. It configures CSRs to a well-known initial state in which
     /// a confidential hart will execute securely.
     fn new(mut confidential_hart_state: HartArchitecturalState, lifecycle_state: HartLifecycleState) -> Self {
+        // Store the program counter of the VM, so that we can resume confidential VM at correct point
+        confidential_hart_state.csrs.mepc.save_value(confidential_hart_state.csrs.sepc.read_value());
+        // Set up mstatus, so that we switch context to VS-mode (see Table 8.8 in Riscv privilege spec 20211203)
+        confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPV);
+        confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
+        confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SIE);
+        confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(5); // SPIE
+        confidential_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
+
         confidential_hart_state.csrs.sstatus.save_value((1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL) | (0b10 << CSR_SSTATUS_FS));
         confidential_hart_state.csrs.hstatus.save_value((1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL));
         // Delegate VS-level interrupts directly to the confidential VM. All other interrupts will trap in the security monitor.

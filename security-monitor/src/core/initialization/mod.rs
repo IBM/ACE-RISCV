@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{fence_wo, CAUSE_SUPERVISOR_ECALL, CAUSE_VIRTUAL_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
+use crate::core::architecture::{fence_wo, CAUSE_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
@@ -228,7 +228,6 @@ extern "C" fn ace_setup_this_hart() {
     // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
     // in the security monitor entry point of a non-confidential flow.
     hart.hypervisor_hart_mut().csrs_mut().medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
-    hart.hypervisor_hart_mut().csrs_mut().medeleg.read_and_clear_bit(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
     debug!(
         "Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}",
         hart.hypervisor_hart().csrs().medeleg.read()
