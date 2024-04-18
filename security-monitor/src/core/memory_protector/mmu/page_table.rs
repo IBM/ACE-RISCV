@@ -31,15 +31,16 @@ use alloc::vec::Vec;
 #[rr::exists("pt_byte" : "page")]
 #[rr::invariant("is_byte_level_representation pt_logical p_byte")]
 pub struct PageTable {
-    #[rr::field("page_table_get_level pt_logical")]
+    #[rr::field("pt_get_level pt_logical")]
     level: PageTableLevel,
+    #[rr::field("pt_get_system pt_logical")]
     paging_system: PagingSystem,
     /// Serialized representation stores the architecture-specific, binary representation of the page table configuration that is read by
     /// the MMU.
     #[rr::field("pt_byte")]
     serialized_representation: Page<Allocated>,
     /// Logical representation stores a strongly typed page table configuration used by security monitor.
-    #[rr::field("get_subtrees pt_logical")]
+    #[rr::field("<#> (pt_get_entries pt_logical)")]
     logical_representation: Vec<PageTableEntry>,
 }
 
@@ -71,11 +72,39 @@ impl PageTable {
     //
     // Need to make sure that we only copy from non-confidential memory.
     //
-    // Attestation happens after this function.
-    #[rr::params("l_nonconf", "ps", "level" : "nat")]
+    // NOTE: Attestation happens after this function.
+    // - measure in order of guest-physical addresses
+    // - if hypervisor switches around order of guest-physical addresses, attestation will
+    // fail
+    //
+    // NOTE: Does not support COW. The hypervisor cannot map zeroed pages to the same address (this function will create multiple copies and create a static image).
+    // Every entry in the page table will get its own physical page.
+    //
+    // Implicit property of this specification: We do not copy from confidential memory, as we do
+    // not get memory permission for that.
+    // SPEC 1: 
+    // For security (not trusting the hypervisor):
+    #[rr::skip]
+    #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
     #[rr::args("l_nonconf", "ps", "level")]
-    #[rr::invariant(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
-    // TODO
+    #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
+    // TODO: want to prove eventually
+    //#[rr::ensures("value_has_security_level Hypervisor x")]
+    // eventually: promote x from Hypervisor to confidential_vm_{new_id}
+    #[rr::exists("x" : "result page_table_tree core_error_Error")]
+    #[rr::returns("x")]
+    /* Alternative specification: 
+    // We won't need this for security, but if we were to trust the hypervisor, we could
+    // prove this specification.
+    // SPEC 2:
+    // For functional correctness (trusting the hypervisor):
+    #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
+    #[rr::args("l_nonconf", "ps", "level")]
+    #[rr::requires(#iris "address_has_valid_page_table l_nonconf pt")]
+    #[rr::exists("pt'")]
+    #[rr::ensures("related_page_tables pt pt'")]
+    #[rr::returns("#Ok(pt')")]   // TODO or out of memory
+    */
     pub fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
     ) -> Result<Self, Error> {
@@ -89,7 +118,7 @@ impl PageTable {
                 // below unwrap is ok because we iterate over indices of the page table memory, so `index` is valid.
                 let entry_raw = serialized_representation.read(index).unwrap();
                 let page_table_entry = if !PageTableBits::is_valid(entry_raw) {
-                    PageTableEntry::NotValid
+                    PageTableEntry::UnmappedPage
                 } else if PageTableBits::is_leaf(entry_raw) {
                     let address = NonConfidentialMemoryAddress::new(PageTableAddress::decode(entry_raw))?;
                     let page_size = paging_system.page_size(level);
@@ -155,7 +184,7 @@ impl PageTable {
                 PageTableEntry::PointerToNextPageTable(next_page_table, _) => {
                     next_page_table.map_shared_page(hypervisor_address, page_size, confidential_vm_physical_address)?;
                 }
-                PageTableEntry::NotValid => {
+                PageTableEntry::UnmappedPage => {
                     let mut next_page_table = Box::new(PageTable::empty(self.paging_system, self.level)?);
                     next_page_table.map_shared_page(hypervisor_address, page_size, confidential_vm_physical_address)?;
                     let new_page_table_entry = PageTableEntry::PointerToNextPageTable(next_page_table, PageTableConfiguration::empty());
@@ -197,7 +226,7 @@ impl PageTable {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(address),
             PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
                 assure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
-                self.set_entry(virtual_page_number, PageTableEntry::NotValid);
+                self.set_entry(virtual_page_number, PageTableEntry::UnmappedPage);
                 Ok(self.paging_system.page_size(self.level))
             }
             _ => Err(Error::PageTableConfiguration()),
@@ -232,6 +261,9 @@ impl PageTable {
     }
 
     /// Set a new page table entry at the given index, replacing whatever was there before.
+    #[rr::args("(#pt, γ)", "vpn", "pte")]
+    #[rr::requires("vpn < pt_number_of_entries pt")]
+    #[rr::oberve("γ": "pt_set_entry pt vpn pte")]
     fn set_entry(&mut self, virtual_page_number: usize, entry: PageTableEntry) {
         self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.encode()).unwrap();
         let entry_to_remove = core::mem::replace(&mut self.logical_representation[virtual_page_number], entry);

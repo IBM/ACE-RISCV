@@ -6,16 +6,22 @@ use crate::core::memory_protector::SharedPage;
 use crate::core::page_allocator::{Allocated, Page};
 use alloc::boxed::Box;
 
+#[rr::refined_by("page_table_entry")]
 pub(super) enum PageTableEntry {
     // node
+    #[rr::pattern("PointerToNextPageTable" $ "next", "conf")]
+    #[rr::refinement("-[ #(#next); #conf]")]
     PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
     // leaf
+    #[rr::pattern("PageWithConfidentialVmData" $ "p", "conf", "perm")]
+    #[rr::refinement("-[ #(#p); #conf; #perm]")]
     PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
+    #[rr::pattern("PageSharedWithHypervisor" $ "sp", "conf", "perm")]
+    #[rr::refinement("-[ #sp; #conf; #perm]")]
     PageSharedWithHypervisor(SharedPage, PageTableConfiguration, PageTablePermission),
-    // special case
     // this is an unmapped page
-    // TODO: change name to "UnmappedPage"?
-    NotValid,
+    #[rr::pattern("UnmappedPage")]
+    UnmappedPage,
 }
 
 impl PageTableEntry {
@@ -33,20 +39,29 @@ impl PageTableEntry {
                     | configuration.encode()
                     | permissions.encode()
             }
-            PageTableEntry::NotValid => 0,
+            PageTableEntry::UnmappedPage => 0,
         }
     }
 }
 
 #[derive(Copy, Clone)]
+#[rr::refined_by("pte_flags_bits")]
 pub(super) enum PageTableBits {
+    #[rr::pattern("PTValid")]
     Valid = 0,
+    #[rr::pattern("PTRead")]
     Read = 1,
+    #[rr::pattern("PTWrite")]
     Write = 2,
+    #[rr::pattern("PTExecute")]
     Execute = 3,
+    #[rr::pattern("PTUser")]
     User = 4,
+    #[rr::pattern("PTGlobal")]
     Global = 5,
+    #[rr::pattern("PTAccessed")]
     Accessed = 6,
+    #[rr::pattern("PTDirty")]
     Dirty = 7,
 }
 
@@ -83,9 +98,13 @@ impl PageTableAddress {
     }
 }
 
+#[rr::refined_by("x" : "page_table_permission")]
 pub(super) struct PageTablePermission {
+    #[rr::field("x.(ptp_can_read)")]
     can_read: bool,
+    #[rr::field("x.(ptp_can_write)")]
     can_write: bool,
+    #[rr::field("x.(ptp_can_execute)")]
     can_execute: bool,
 }
 
@@ -116,10 +135,15 @@ impl PageTablePermission {
     }
 }
 
+#[rr::refined_by("x" : "page_table_config")]
 pub(super) struct PageTableConfiguration {
+    #[rr::field("x.(pt_accessible_to_user)")]
     is_accessible_to_user: bool,
+    #[rr::field("x.(pt_was_accessed)")]
     was_accessed: bool,
+    #[rr::field("x.(pt_is_global_mapping)")]
     is_global_mapping: bool,
+    #[rr::field("x.(pt_is_dirty)")]
     is_dirty: bool,
 }
 
