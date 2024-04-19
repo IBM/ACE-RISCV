@@ -24,6 +24,16 @@ pub struct PageAllocator {
 impl PageAllocator {
     const NOT_INITIALIZED: &'static str = "Bug. Could not access page allocator because has not been initialized.";
 
+    /// Initializes the global memory allocator with the given memory region as confidential memory. Must be called only once during the
+    /// system initialization.
+    ///
+    /// # Arguments
+    ///
+    /// Both `memory_start` and `memory_end` must be aligned to 4KiB page boundaries.
+    ///
+    /// # Safety
+    ///
+    /// Caller must pass the ownership of the memory region [memory_start, memory_end).
     pub unsafe fn initialize(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
         assure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
         let mut page_allocator = Self::empty(memory_start.as_usize());
@@ -33,6 +43,10 @@ impl PageAllocator {
     }
 
     fn empty(base_address: usize) -> Self {
+        assert!(base_address > 1);
+        // It is ok to align downwards because the tree structure only logically represents memory regions, i.e., it does not need ownership
+        // of these memory regions. A tree node is only a placeholder for a page token. We must align downwards because the start of
+        // the confidential memory region may not be (and almost never will be) aligned to the largest page size.
         let base_address_aligned_down = (base_address - 1) & !(PageSize::largest().in_bytes() - 1);
         Self { root: PageStorageTreeNode::empty(), base_address: base_address_aligned_down, page_size: PageSize::largest() }
     }
