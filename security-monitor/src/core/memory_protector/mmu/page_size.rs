@@ -55,11 +55,22 @@ impl PageSize {
         }
     }
 
-    pub fn smallest() -> PageSize {
-        PageSize::Size4KiB
+    pub fn number_of_smaller_pages(&self) -> usize {
+        match self {
+            PageSize::Size128TiB => 256,
+            PageSize::Size512GiB => 512,
+            PageSize::Size1GiB => 512,
+            PageSize::Size2MiB => 128,
+            PageSize::Size16KiB => 4,
+            PageSize::Size4KiB => 0,
+        }
     }
 
-    pub fn all_from_largest_to_smallest() -> alloc::vec::Vec<PageSize> {
-        alloc::vec![Self::Size128TiB, Self::Size512GiB, Self::Size1GiB, Self::Size2MiB, Self::Size16KiB, Self::Size4KiB]
+    pub fn largest() -> PageSize {
+        PageSize::Size128TiB
+    }
+
+    pub fn smallest() -> PageSize {
+        PageSize::Size4KiB
     }
 }
