@@ -14,8 +14,7 @@ use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-/// Represents an architectural 2nd level page table configuring guest physical to real address translation. Security monitors fully
-/// controls these mappings for confidential VMs.
+/// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitors fully controls these mappings for confidential VMs.
 ///
 /// We represent page table in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
 /// representation triggers changes to the serialized representation, so these two are always synced. Since the security monitor is
@@ -94,7 +93,8 @@ impl PageTable {
     /// structure.
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
-        let logical_representation = Vec::with_capacity(serialized_representation.size().in_bytes() / paging_system.entry_size());
+        let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();
+        let logical_representation = Vec::with_capacity(number_of_entries);
         Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
