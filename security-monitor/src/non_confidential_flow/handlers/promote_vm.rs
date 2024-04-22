@@ -21,13 +21,13 @@ use flattened_device_tree::FlattenedDeviceTree;
 /// # Security
 ///
 /// In case of a Linux kernel confidential VM, Linux kernel must make this call before 1) it uses parameters from the Linux command
-/// line, 2) before it changes the content of the VM's memory.
+/// line, 2) before it changes the content of the VM's memory in a not-deterministic way.
 ///
 /// # Safety
 ///
 /// * The virtual machine must make this call on a boot hart before other harts come out of reset.
-/// * the address of the flattened device tree must be aligned to 8 bytes.
-/// * the address of the authentication blob must be either `0` or aligned to 8 bytes.
+/// * The address of the flattened device tree must be aligned to 8 bytes.
+/// * The address of the authentication blob must be either `0` or aligned to 8 bytes.
 pub struct PromoteVmHandler {
     hart_state: HartArchitecturalState,
     fdt_address: ConfidentialVmPhysicalAddress,

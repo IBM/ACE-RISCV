@@ -11,6 +11,7 @@ pub enum SbiExtension {
     Rfence(RfenceExtension),
     Hsm(HsmExtension),
     Srst(SrstExtension),
+    Nacl(NaclExtension),
     Unknown(usize, usize),
 }
 
@@ -171,6 +172,27 @@ impl SrstExtension {
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
             Self::SYSTEM_RESET_FID => Self::SystemReset,
+            _ => Self::Unknown(Self::EXTID, function_id),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum NaclExtension {
+    ProbeFeature,
+    SetSharedMemory,
+    Unknown(usize, usize),
+}
+
+impl NaclExtension {
+    pub const EXTID: usize = 0x4E41434C;
+    pub const PROBE_FEATURE_FID: usize = 0x0;
+    pub const SET_SHARED_MEMORY_FID: usize = 0x1;
+
+    pub fn from_function_id(function_id: usize) -> Self {
+        match function_id {
+            Self::PROBE_FEATURE_FID => Self::ProbeFeature,
+            Self::SET_SHARED_MEMORY_FID => Self::SetSharedMemory,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

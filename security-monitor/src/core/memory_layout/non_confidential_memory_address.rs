@@ -42,6 +42,20 @@ impl NonConfidentialMemoryAddress {
         self.0.read_volatile()
     }
 
+    /// Writes usize-sized sequence of bytes to the non-confidential memory region.
+    ///
+    /// # Safety
+    ///
+    /// We need to ensure the pointer is not used by two threads simultaneously. See `ptr::write_volatile` for safety
+    /// concerns.
+    pub unsafe fn write(&self, value: usize) {
+        self.0.write_volatile(value);
+    }
+
+    pub fn as_ptr(&self) -> *const usize {
+        self.0
+    }
+
     pub fn usize(&self) -> usize {
         self.0 as usize
     }
