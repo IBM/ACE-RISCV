@@ -3,13 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::AceExtension::*;
+use crate::core::architecture::NaclExtension::*;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
+use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
-use crate::non_confidential_flow::handlers::delegate_hypercall::SbiVmHandler;
 use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiHandler;
+use crate::non_confidential_flow::handlers::nacl_handler::NaclHandler;
 use crate::non_confidential_flow::handlers::promote_vm::PromoteVmHandler;
 use crate::non_confidential_flow::handlers::resume_confidential_hart::ResumeHandler;
 use crate::non_confidential_flow::handlers::terminate_confidential_vm::TerminateVmHandler;
@@ -59,11 +61,11 @@ impl<'a> NonConfidentialFlow<'a> {
             LoadAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StoreAddressMisaligned => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StoreAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Ace(PromoteVm)) => PromoteVmHandler::from_vm_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Ace(ResumeConfidentialHart)) => ResumeHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Ace(TerminateConfidentialVm)) => TerminateVmHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Nacl(SetSharedMemory)) => NaclHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(_) => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            VsEcall(Ace(PromoteVmHandler)) => PromoteVmHandler::from_vm_hart(flow.hypervisor_hart()).handle(flow),
-            VsEcall(_) => SbiVmHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             MachineEcall => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
@@ -97,9 +99,9 @@ impl<'a> NonConfidentialFlow<'a> {
     /// context switch between security domains).
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisor) -> ! {
         match transformation {
+            ApplyToHypervisor::PromoteVmResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::SbiVmRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisor::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         unsafe { exit_to_hypervisor_asm() }
@@ -109,6 +111,11 @@ impl<'a> NonConfidentialFlow<'a> {
     /// called before executing any OpenSBI function. We can remove this once we get rid of the OpenSBI firmware.
     pub fn swap_mscratch(&mut self) {
         self.hardware_hart.swap_mscratch()
+    }
+
+    pub fn set_shared_memory(&mut self, shared_memory_base_address: usize) -> Result<(), Error> {
+        let base_address = NonConfidentialMemoryAddress::new(shared_memory_base_address as *mut usize)?;
+        self.hardware_hart.set_shared_memory(base_address)
     }
 
     /// Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GPRs).

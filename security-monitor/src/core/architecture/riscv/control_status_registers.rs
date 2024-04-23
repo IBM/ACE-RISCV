@@ -24,26 +24,36 @@ pub struct ControlStatusRegisters {
     pub mhartid: ReadRiscvCsr<CSR_MHARTID>,
     // S-mode
     pub sstatus: ReadWriteRiscvCsr<CSR_SSTATUS>,
-    pub sepc: ReadWriteRiscvCsr<CSR_SEPC>,
-    pub scounteren: ReadWriteRiscvCsr<CSR_SCOUNTEREN>,
-    pub sip: ReadWriteRiscvCsr<CSR_SIP>,
     pub sie: ReadWriteRiscvCsr<CSR_SIE>,
-    pub scause: ReadWriteRiscvCsr<CSR_SCAUSE>,
     pub stvec: ReadWriteRiscvCsr<CSR_STVEC>,
-    pub stval: ReadWriteRiscvCsr<CSR_STVAL>,
+    pub scounteren: ReadWriteRiscvCsr<CSR_SCOUNTEREN>,
+    pub senvcfg: ReadWriteRiscvCsr<CSR_SENVCFG>,
     pub sscratch: ReadWriteRiscvCsr<CSR_SSCRATCH>,
+    pub sepc: ReadWriteRiscvCsr<CSR_SEPC>,
+    pub scause: ReadWriteRiscvCsr<CSR_SCAUSE>,
+    pub stval: ReadWriteRiscvCsr<CSR_STVAL>,
+    pub sip: ReadWriteRiscvCsr<CSR_SIP>,
+    pub satp: ReadWriteRiscvCsr<CSR_SATP>,
+    // S-mode Debug extension
+    pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
     pub stimecmp: ReadWriteRiscvCsr<CSR_STIMECMP>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
     pub hideleg: ReadWriteRiscvCsr<CSR_HIDELEG>,
-    pub htinst: ReadWriteRiscvCsr<CSR_HTINST>,
-    pub htval: ReadWriteRiscvCsr<CSR_HTVAL>,
-    pub hvip: ReadWriteRiscvCsr<CSR_HVIP>,
-    pub hgeip: ReadWriteRiscvCsr<CSR_HGEIP>,
     pub hie: ReadWriteRiscvCsr<CSR_HIE>,
+    pub hcounteren: ReadWriteRiscvCsr<CSR_HCOUNTEREN>,
+    pub hgeie: ReadWriteRiscvCsr<CSR_HGEIE>,
+    pub htval: ReadWriteRiscvCsr<CSR_HTVAL>,
     pub hip: ReadWriteRiscvCsr<CSR_HIP>,
+    pub hvip: ReadWriteRiscvCsr<CSR_HVIP>,
+    pub htinst: ReadWriteRiscvCsr<CSR_HTINST>,
+    pub hgeip: ReadWriteRiscvCsr<CSR_HGEIP>,
+    pub henvcfg: ReadWriteRiscvCsr<CSR_HENVCFG>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
+    // HS-mode Debug
+    pub hcontext: ReadWriteRiscvCsr<CSR_HCONTEXT>,
+    pub htimedelta: ReadWriteRiscvCsr<CSR_HTIMEDELTA>,
     // VS-mode
     pub vsstatus: ReadWriteRiscvCsr<CSR_VSSTATUS>,
     pub vsie: ReadWriteRiscvCsr<CSR_VSIE>,
@@ -56,8 +66,9 @@ pub struct ControlStatusRegisters {
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
     // timer-related
     pub vstimecmp: ReadWriteRiscvCsr<CSR_VSTIMECMP>,
-    pub htimedelta: ReadWriteRiscvCsr<CSR_HTIMEDELTA>,
     // F-extension
+    pub fflags: ReadWriteRiscvCsr<CSR_FFLAGS>,
+    pub frm: ReadWriteRiscvCsr<CSR_FRM>,
     pub fcsr: ReadWriteRiscvCsr<CSR_FCSR>,
 }
 
@@ -79,26 +90,34 @@ impl ControlStatusRegisters {
             mhartid: ReadRiscvCsr::new(),
             // S-mode
             sstatus: ReadWriteRiscvCsr::new(),
-            sepc: ReadWriteRiscvCsr::new(),
-            scounteren: ReadWriteRiscvCsr::new(),
-            sip: ReadWriteRiscvCsr::new(),
             sie: ReadWriteRiscvCsr::new(),
-            scause: ReadWriteRiscvCsr::new(),
             stvec: ReadWriteRiscvCsr::new(),
-            stval: ReadWriteRiscvCsr::new(),
+            scounteren: ReadWriteRiscvCsr::new(),
+            senvcfg: ReadWriteRiscvCsr::new(),
             sscratch: ReadWriteRiscvCsr::new(),
+            sepc: ReadWriteRiscvCsr::new(),
+            scause: ReadWriteRiscvCsr::new(),
+            stval: ReadWriteRiscvCsr::new(),
+            sip: ReadWriteRiscvCsr::new(),
+            satp: ReadWriteRiscvCsr::new(),
+            scontext: ReadWriteRiscvCsr::new(),
             stimecmp: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
             hideleg: ReadWriteRiscvCsr::new(),
-            htinst: ReadWriteRiscvCsr::new(),
-            htval: ReadWriteRiscvCsr::new(),
-            hvip: ReadWriteRiscvCsr::new(),
-            hgeip: ReadWriteRiscvCsr::new(),
             hie: ReadWriteRiscvCsr::new(),
+            hcounteren: ReadWriteRiscvCsr::new(),
+            hgeie: ReadWriteRiscvCsr::new(),
+            htval: ReadWriteRiscvCsr::new(),
             hip: ReadWriteRiscvCsr::new(),
+            hvip: ReadWriteRiscvCsr::new(),
+            htinst: ReadWriteRiscvCsr::new(),
+            hgeip: ReadWriteRiscvCsr::new(),
+            henvcfg: ReadWriteRiscvCsr::new(),
             hgatp: ReadWriteRiscvCsr::new(),
+            hcontext: ReadWriteRiscvCsr::new(),
+            htimedelta: ReadWriteRiscvCsr::new(),
             // VS-mode
             vsstatus: ReadWriteRiscvCsr::new(),
             vsie: ReadWriteRiscvCsr::new(),
@@ -111,8 +130,9 @@ impl ControlStatusRegisters {
             vsatp: ReadWriteRiscvCsr::new(),
             // timer-related
             vstimecmp: ReadWriteRiscvCsr::new(),
-            htimedelta: ReadWriteRiscvCsr::new(),
             // F-extension
+            fflags: ReadWriteRiscvCsr::new(),
+            frm: ReadWriteRiscvCsr::new(),
             fcsr: ReadWriteRiscvCsr::new(),
         };
         csrs.vstimecmp.save_value(usize::MAX - 1);
@@ -134,26 +154,36 @@ impl ControlStatusRegisters {
         csrs.mscratch.save_value(self.mscratch.read_value());
         // S-mode
         csrs.sstatus.save_value(self.sstatus.read_value());
-        csrs.sepc.save_value(self.sepc.read_value());
-        csrs.scounteren.save_value(self.scounteren.read_value());
-        csrs.sip.save_value(self.sip.read_value());
         csrs.sie.save_value(self.sie.read_value());
-        csrs.scause.save_value(self.scause.read_value());
         csrs.stvec.save_value(self.stvec.read_value());
-        csrs.stval.save_value(self.stval.read_value());
+        csrs.scounteren.save_value(self.scounteren.read_value());
+        csrs.senvcfg.save_value(self.senvcfg.read_value());
         csrs.sscratch.save_value(self.sscratch.read_value());
+        csrs.sepc.save_value(self.sepc.read_value());
+        csrs.scause.save_value(self.scause.read_value());
+        csrs.stval.save_value(self.stval.read_value());
+        csrs.sip.save_value(self.sip.read_value());
+        csrs.satp.save_value(self.satp.read_value());
+        // Only if debug extension is implemented by hardware
+        // csrs.scontext.save_value(self.scontext.read_value());
         csrs.stimecmp.save_value(self.stimecmp.read_value());
         // HS-mode
         csrs.hstatus.save_value(self.hstatus.read_value());
         csrs.hedeleg.save_value(self.hedeleg.read_value());
         csrs.hideleg.save_value(self.hideleg.read_value());
-        csrs.htinst.save_value(self.htinst.read_value());
-        csrs.htval.save_value(self.htval.read_value());
-        csrs.hvip.save_value(self.hvip.read_value());
-        csrs.hgeip.save_value(self.hgeip.read_value());
         csrs.hie.save_value(self.hie.read_value());
+        csrs.hcounteren.save_value(self.hcounteren.read_value());
+        csrs.hgeie.save_value(self.hgeie.read_value());
+        csrs.htval.save_value(self.htval.read_value());
         csrs.hip.save_value(self.hip.read_value());
+        csrs.hvip.save_value(self.hvip.read_value());
+        csrs.htinst.save_value(self.htinst.read_value());
+        csrs.hgeip.save_value(self.hgeip.read_value());
+        csrs.henvcfg.save_value(self.henvcfg.read_value());
         csrs.hgatp.save_value(self.hgatp.read_value());
+        // Only if debug extension is implemented by hardware
+        // csrs.hcontext.save_value(self.hcontext.read_value());
+        csrs.htimedelta.save_value(self.htimedelta.read_value());
         // VS-mode
         csrs.vsstatus.save_value(self.vsstatus.read_value());
         csrs.vsie.save_value(self.vsie.read_value());
@@ -166,8 +196,9 @@ impl ControlStatusRegisters {
         csrs.vsatp.save_value(self.vsatp.read_value());
         // timer-related
         csrs.vstimecmp.save_value(self.vstimecmp.read_value());
-        csrs.htimedelta.save_value(self.htimedelta.read_value());
         // F-extension
+        csrs.fflags.save_value(self.fflags.read_value());
+        csrs.frm.save_value(self.frm.read_value());
         csrs.fcsr.save_value(self.fcsr.read_value());
         csrs
     }
@@ -186,26 +217,36 @@ impl ControlStatusRegisters {
         self.mscratch.save();
         // S-mode
         self.sstatus.save();
-        self.sepc.save();
-        self.scounteren.save();
-        self.sip.save();
         self.sie.save();
-        self.scause.save();
         self.stvec.save();
-        self.stval.save();
+        self.scounteren.save();
+        self.senvcfg.save();
         self.sscratch.save();
+        self.sepc.save();
+        self.scause.save();
+        self.stval.save();
+        self.sip.save();
+        self.satp.save();
+        // Only if debug extension is implemented by hardware
+        // self.scontext.save();
         self.stimecmp.save();
         // HS-mode
         self.hstatus.save();
         self.hedeleg.save();
         self.hideleg.save();
-        self.htinst.save();
-        self.htval.save();
-        self.hvip.save();
-        self.hgeip.save();
         self.hie.save();
+        self.hcounteren.save();
+        self.hgeie.save();
+        self.htval.save();
         self.hip.save();
+        self.hvip.save();
+        self.htinst.save();
+        self.hgeip.save();
+        self.henvcfg.save();
         self.hgatp.save();
+        // Only if debug extension is implemented by hardware
+        // self.hcontext.save();
+        self.htimedelta.save();
         // VS-mode
         self.vsstatus.save();
         self.vsie.save();
@@ -218,8 +259,9 @@ impl ControlStatusRegisters {
         self.vsatp.save();
         // timer-related
         self.vstimecmp.save();
-        self.htimedelta.save();
         // F-extension
+        self.fflags.save();
+        self.frm.save();
         self.fcsr.save();
     }
 
@@ -236,23 +278,37 @@ impl ControlStatusRegisters {
         self.mtvec.restore();
         // S-mode
         self.sstatus.restore();
-        self.sepc.restore();
-        self.scounteren.restore();
-        self.sip.restore();
         self.sie.restore();
-        self.scause.restore();
         self.stvec.restore();
-        self.stval.restore();
+        self.scounteren.restore();
+        self.senvcfg.restore();
         self.sscratch.restore();
+        self.sepc.restore();
+        self.scause.restore();
+        self.stval.restore();
+        self.sip.restore();
+        self.satp.restore();
+        // Only if debug extension is implemented by hardware
+        // self.scontext.restore();
+        // Only if timer extension
         // self.stimecmp.restore();
         // HS-mode
         self.hstatus.restore();
         self.hedeleg.restore();
         self.hideleg.restore();
-        self.htinst.restore();
-        self.htval.restore();
         self.hie.restore();
+        self.hcounteren.restore();
+        self.hgeie.restore();
+        self.htval.restore();
+        // self.hip.restore();
+        // self.hvip.restore();
+        self.htinst.restore();
+        // self.hgeip.restore();
+        self.henvcfg.restore();
         self.hgatp.restore();
+        // Only if debug extension is implemented by hardware
+        // self.hcontext.restore();
+        self.htimedelta.restore();
         // VS-mode
         self.vsstatus.restore();
         self.vsie.restore();
@@ -265,8 +321,9 @@ impl ControlStatusRegisters {
         self.vsatp.restore();
         // timer-related
         self.vstimecmp.restore();
-        self.htimedelta.restore();
         // F-extension
+        self.fflags.restore();
+        self.frm.restore();
         self.fcsr.restore();
     }
 }
