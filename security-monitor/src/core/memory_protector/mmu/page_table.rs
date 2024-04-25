@@ -14,7 +14,7 @@ use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-/// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitors fully controls these mappings for confidential VMs.
+/// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitor fully controls these mappings for confidential VMs.
 ///
 /// We represent page table in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
 /// representation triggers changes to the serialized representation, so these two are always synced. Since the security monitor is
