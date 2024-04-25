@@ -18,10 +18,6 @@ pub enum PageSize {
 }
 
 impl PageSize {
-    // Usually there are 512 pages of size x that can fit in a single page of size y, where y is next page size larger than x (e.g., 2MiB
-    // and 4KiB).
-    pub const TYPICAL_NUMBER_OF_PAGES_INSIDE_LARGER_PAGE: usize = 512;
-
     pub fn in_bytes(&self) -> usize {
         match self {
             PageSize::Size128TiB => 8 * 512 * 512 * 512 * 512 * 256,

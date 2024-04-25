@@ -4,7 +4,7 @@
 use crate::core::architecture::{HartArchitecturalState, Hgatp};
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
-use crate::core::memory_protector::mmu::RootPageTable;
+use crate::core::memory_protector::mmu::PageTable;
 use crate::core::memory_protector::{mmu, pmp, PageSize};
 use crate::error::Error;
 
@@ -12,7 +12,7 @@ use crate::error::Error;
 /// it protects accesses to the memory which the confidential VM does not own.
 pub struct ConfidentialVmMemoryProtector {
     // Stores the page table configuration of the confidential VM.
-    root_page_table: RootPageTable,
+    root_page_table: PageTable,
     // Stores the value of the hypervisor G-stage address translation protocol register.
     hgatp: usize,
 }
@@ -33,7 +33,7 @@ impl ConfidentialVmMemoryProtector {
 
     pub fn set_confidential_vm_id(&mut self, id: ConfidentialVmId) {
         assert!(self.hgatp == 0);
-        let hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.paging_system().hgatp_mode(), id.usize());
+        let hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.hgatp_mode(), id.usize());
         self.hgatp = hgatp.bits();
     }
 
@@ -80,7 +80,7 @@ impl ConfidentialVmMemoryProtector {
         super::tlb::clear_hart_tlbs();
     }
 
-    pub fn into_root_page_table(self) -> RootPageTable {
+    pub fn into_root_page_table(self) -> PageTable {
         self.root_page_table
     }
 }
