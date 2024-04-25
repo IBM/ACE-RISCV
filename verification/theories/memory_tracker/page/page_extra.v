@@ -91,6 +91,13 @@ Proof.
   (* TODO *)
 Admitted.
 
+(** Order on page sizes *)
+Definition page_size_le (p1 p2 : page_size) :=
+  page_size_in_words_nat p1 ≤ page_size_in_words_nat p2.
+Arguments page_size_le : simpl never.
+
+Infix "≤ₚ" := page_size_le (at level 50).
+
 (** Well-formedness of a page *)
 Definition page_wf (p : page) : Prop :=
   page_size_in_words_nat p.(page_sz) = length p.(page_val) ∧
