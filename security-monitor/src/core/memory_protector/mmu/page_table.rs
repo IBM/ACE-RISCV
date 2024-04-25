@@ -16,8 +16,8 @@ use alloc::vec::Vec;
 
 /// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitor fully controls these mappings for confidential VMs.
 ///
-/// We represent page table in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
-/// representation triggers changes to the serialized representation, so these two are always synced. Since the security monitor is
+/// We represent page tables in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
+/// representation trigger changes to the serialized representation, so these two are always synced. Since the security monitor is
 /// uninterruptible and access to page table configuration is synchronized for different security monitor threads, the changes are
 /// considered atomic.
 ///
