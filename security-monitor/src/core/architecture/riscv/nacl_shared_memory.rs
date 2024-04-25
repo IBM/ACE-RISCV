@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{GeneralPurposeRegister, GeneralPurposeRegisters};
 use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
 use crate::error::Error;
 
@@ -43,7 +43,7 @@ impl NaclSharedMemory {
         Ok(())
     }
 
-    pub fn read_csr(&self, csr_code: usize) -> usize {
+    pub fn csr(&self, csr_code: usize) -> usize {
         self.read_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code))
     }
 
@@ -51,12 +51,22 @@ impl NaclSharedMemory {
         self.write_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code), value);
     }
 
-    pub fn read_gpr(&self, gpr: GeneralPurposeRegister) -> usize {
+    pub fn gpr(&self, gpr: GeneralPurposeRegister) -> usize {
         self.read_at_offset(core::mem::size_of::<usize>() * gpr.index())
     }
 
     pub fn write_gpr(&self, gpr: GeneralPurposeRegister, value: usize) {
         self.write_at_offset(core::mem::size_of::<usize>() * gpr.index(), value);
+    }
+
+    pub fn gprs(&self) -> GeneralPurposeRegisters {
+        let mut gprs = GeneralPurposeRegisters::empty();
+        GeneralPurposeRegisters::iter().for_each(|index| {
+            let gpr = GeneralPurposeRegister::from_index(index).unwrap();
+            let value = self.gpr(gpr);
+            gprs.write(gpr, value);
+        });
+        gprs
     }
 
     fn csr_index(csr_code: usize) -> usize {

@@ -67,8 +67,10 @@ impl ConfidentialVm {
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
         hardware_hart.hypervisor_hart_mut().csrs_mut().save_in_main_memory();
-        // 2) Load control and status registers (CSRs) of confidential hart from into the physical hart executing this code.
+
+        // 2) Load control and status registers (CSRs) of confidential hart from the physical hart executing this code.
         self.confidential_harts[confidential_hart_id].csrs().restore_from_main_memory();
+
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.

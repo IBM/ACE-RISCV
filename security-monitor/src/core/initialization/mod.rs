@@ -225,11 +225,11 @@ extern "C" fn ace_setup_this_hart() {
         return;
     }
 
-    // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
-    // in the security monitor entry point of a non-confidential flow.
+    // Hypervisor environmental calls trap into the security monitor. These calls are entry point of a `non-confidential flow` in the
+    // security monitor's finite state machine (FSM).
     hart.hypervisor_hart_mut().csrs_mut().medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
     debug!(
-        "Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}",
+        "Reconfigured exception delegations to take control over HS environmental calls. medeleg={:b}",
         hart.hypervisor_hart().csrs().medeleg.read()
     );
 

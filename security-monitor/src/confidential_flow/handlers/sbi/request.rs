@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{GeneralPurposeRegister, CAUSE_VIRTUAL_SUPERVISOR_ECALL};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 
 /// Handles a hypercall from a confidential hart to hypervisor.
@@ -42,11 +42,6 @@ impl SbiRequest {
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        self.declassify_to_hypervisor_hart(hypervisor_hart);
-    }
-
-    pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        use crate::core::architecture::CAUSE_VIRTUAL_SUPERVISOR_ECALL;
         hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a7, self.extension_id);
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a6, self.function_id);
@@ -56,6 +51,19 @@ impl SbiRequest {
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a3, self.a3);
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a4, self.a4);
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a5, self.a5);
+        hypervisor_hart.apply_trap(false);
+    }
+
+    pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a7, self.extension_id);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a6, self.function_id);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a0, self.a0);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a1, self.a1);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a2, self.a2);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a3, self.a3);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a4, self.a4);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a5, self.a5);
         hypervisor_hart.apply_trap(false);
     }
 

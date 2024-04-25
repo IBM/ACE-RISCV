@@ -25,6 +25,7 @@ impl SbiExtensionProbe {
             RfenceExtension::EXTID => 1,
             HsmExtension::EXTID => 1,
             SrstExtension::EXTID => 1,
+            CovgExtension::EXTID => 1,
             _ => 0,
         };
         let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(response));

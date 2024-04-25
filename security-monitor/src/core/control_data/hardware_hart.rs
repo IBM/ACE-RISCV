@@ -24,9 +24,6 @@ pub struct HardwareHart {
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
     confidential_hart: ConfidentialHart,
-    // Shared memory between the hypervisor and confidential hart is located in non-confidential memory (owned by the hypervisor).
-    // Hypervisor sets this shared memory before creating any confidential VM.
-    shared_memory: NaclSharedMemory,
     // A page containing the stack of the code executing within the given hart.
     stack: Page<Allocated>,
     // The stack_address is redundant (we can learn the stack_address from the page assigned for the stack) but we need
@@ -44,16 +41,10 @@ impl HardwareHart {
         Self {
             hypervisor_hart: HypervisorHart::new(id, hypervisor_memory_protector),
             confidential_hart: ConfidentialHart::dummy(id),
-            shared_memory: NaclSharedMemory::uninitialized(),
             stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
         }
-    }
-
-    pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
-        self.shared_memory.set(base_address)?;
-        Ok(())
     }
 
     /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which

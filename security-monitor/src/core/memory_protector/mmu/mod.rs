@@ -17,7 +17,7 @@ mod page_table_level;
 mod paging_system;
 mod shared_page;
 
-pub fn copy_mmu_configuration_from_non_confidential_memory(hgatp: Hgatp) -> Result<PageTable, Error> {
+pub fn copy_mmu_configuration_from_non_confidential_memory(hgatp: &Hgatp) -> Result<PageTable, Error> {
     let paging_mode = hgatp.mode().ok_or_else(|| Error::UnsupportedPagingMode())?;
     let paging_system = PagingSystem::from(&paging_mode).ok_or_else(|| Error::UnsupportedPagingMode())?;
     let root_page_address = NonConfidentialMemoryAddress::new(hgatp.address() as *mut usize)?;

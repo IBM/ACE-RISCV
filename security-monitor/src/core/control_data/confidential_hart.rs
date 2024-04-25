@@ -49,11 +49,11 @@ impl ConfidentialHart {
     }
 
     /// Constructs a confidential hart with the state after a reset.
-    pub fn from_vm_hart_reset(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
+    pub fn from_vm_hart_reset(id: usize, shared_memory: &NaclSharedMemory) -> Self {
         let mut confidential_hart_state = HartArchitecturalState::empty(id);
         // Set up mstatus, so that the lightweight context switch changes to privileg mode to VS-mode when executing the confidential VM
         // (see Table 8.8 in Riscv privilege spec 20211203)
-        confidential_hart_state.csrs.mstatus.save_value(non_confidential_hart_state.csrs.mstatus.read_value());
+        confidential_hart_state.csrs.mstatus.save_value(confidential_hart_state.csrs.mstatus.read());
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPV);
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SIE);
@@ -91,37 +91,39 @@ impl ConfidentialHart {
         confidential_hart_state.csrs.vstimecmp.save_value(usize::MAX - 1);
         // The same starting clock for all confidential harts within the same confidential VM.
         // TODO: do we reuse what given by untrusted hypervisor or should we generate our own value?
-        confidential_hart_state.csrs.htimedelta.save_value(non_confidential_hart_state.csrs.htimedelta.read_value());
+        confidential_hart_state.csrs.htimedelta.save_value(confidential_hart_state.csrs.htimedelta.read());
         // There is a subset of S-mode CSRs that have no VS equivalent and preserve their function when virtualization is enabled (see
         // `Hypervisor and Virtual Supervisor CSRs` in Volume II: RISC-V Privileged Architectures V20211203)
-        confidential_hart_state.csrs.hcounteren.save_value(non_confidential_hart_state.csrs.hcounteren.read_value());
-        confidential_hart_state.csrs.scounteren.save_value(non_confidential_hart_state.csrs.scounteren.read_value());
-        confidential_hart_state.csrs.henvcfg.save_value(non_confidential_hart_state.csrs.henvcfg.read_value());
-        confidential_hart_state.csrs.senvcfg.save_value(non_confidential_hart_state.csrs.senvcfg.read_value());
+        confidential_hart_state.csrs.hcounteren.save_value(confidential_hart_state.csrs.hcounteren.read());
+        confidential_hart_state.csrs.scounteren.save_value(confidential_hart_state.csrs.scounteren.read());
+        confidential_hart_state.csrs.henvcfg.save_value(confidential_hart_state.csrs.henvcfg.read());
+        confidential_hart_state.csrs.senvcfg.save_value(confidential_hart_state.csrs.senvcfg.read());
 
         Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state: HartLifecycleState::Stopped, pending_request: None }
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
-    pub fn from_vm_hart(id: usize, non_confidential_hart_state: &HartArchitecturalState) -> Self {
+    pub fn from_vm_hart(id: usize, shared_memory: &NaclSharedMemory) -> Self {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.
-        let mut confidential_hart = Self::from_vm_hart_reset(id, non_confidential_hart_state);
+        let mut confidential_hart = Self::from_vm_hart_reset(id, shared_memory);
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
-        confidential_hart_state.gprs = non_confidential_hart_state.gprs.clone();
-        confidential_hart_state.csrs_mut().vsstatus.save_value(non_confidential_hart_state.csrs.vsstatus.read_value());
-        confidential_hart_state.csrs_mut().vsie.save_value(non_confidential_hart_state.csrs.vsie.read_value());
-        confidential_hart_state.csrs_mut().vsip.save_value(non_confidential_hart_state.csrs.vsip.read_value());
-        confidential_hart_state.csrs_mut().vstvec.save_value(non_confidential_hart_state.csrs.vstvec.read_value());
-        confidential_hart_state.csrs_mut().vsscratch.save_value(non_confidential_hart_state.csrs.vsscratch.read_value());
-        confidential_hart_state.csrs_mut().vsepc.save_value(non_confidential_hart_state.csrs.vsepc.read_value());
-        confidential_hart_state.csrs_mut().vscause.save_value(non_confidential_hart_state.csrs.vscause.read_value());
-        confidential_hart_state.csrs_mut().vstval.save_value(non_confidential_hart_state.csrs.vstval.read_value());
-        confidential_hart_state.csrs_mut().vsatp.save_value(non_confidential_hart_state.csrs.vsatp.read_value());
+        confidential_hart_state.gprs = shared_memory.gprs();
+        confidential_hart_state.csrs_mut().vsstatus.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vsie.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vsip.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vstvec.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vsscratch.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vsepc.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vscause.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vstval.restore_from_nacl(&shared_memory);
+        confidential_hart_state.csrs_mut().vsatp.restore_from_nacl(&shared_memory);
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted
         // VM's program counter is in the `sepc` register because VM trapped into the hypervisor, which then reflected
         // the VM's state to the security monitor.
-        confidential_hart_state.csrs_mut().mepc.save_value(non_confidential_hart_state.csrs.sepc.read_value());
+        confidential_hart_state.csrs_mut().sepc.restore_from_nacl(&shared_memory);
+        let sepc = confidential_hart_state.csrs.sepc.read_value();
+        confidential_hart_state.csrs_mut().mepc.save_value(sepc);
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart

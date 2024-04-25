@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState};
+use crate::confidential_flow::handlers::sbi::SbiResponse;
+use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, Hgatp, NaclSharedMemory};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData, HypervisorHart,
 };
@@ -28,49 +29,41 @@ use flattened_device_tree::FlattenedDeviceTree;
 /// * The virtual machine must make this call on a boot hart before other harts come out of reset.
 /// * The address of the flattened device tree must be aligned to 8 bytes.
 /// * The address of the authentication blob must be either `0` or aligned to 8 bytes.
-pub struct PromoteVmHandler {
-    hart_state: HartArchitecturalState,
+pub struct PromoteToConfidentialVm {
     fdt_address: ConfidentialVmPhysicalAddress,
     auth_blob_address: Option<ConfidentialVmPhysicalAddress>,
-    result: Result<ConfidentialVmId, Error>,
+    hgatp: Hgatp,
 }
 
-impl PromoteVmHandler {
-    pub fn from_vm_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        let hart_state = HartArchitecturalState::from_existing(0, hypervisor_hart.hypervisor_hart_state());
-        let fdt_address = ConfidentialVmPhysicalAddress::new(hart_state.gprs.read(GeneralPurposeRegister::a0));
-        let auth_blob_address = match hart_state.gprs.read(GeneralPurposeRegister::a1) {
+impl PromoteToConfidentialVm {
+    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
+        let fdt_address = ConfidentialVmPhysicalAddress::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0));
+        let auth_blob_address = match hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) {
             0 => None,
             address => Some(ConfidentialVmPhysicalAddress::new(address)),
         };
-        Self { hart_state, fdt_address, auth_blob_address, result: Err(Error::InvalidArgument()) }
+        let hgatp = Hgatp::from(hypervisor_hart.csrs().hgatp.read());
+        Self { fdt_address, auth_blob_address, hgatp }
     }
 
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        self.result = self.create_confidential_vm();
-        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisor::PromoteVmResponse(self))
-    }
-
-    pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        let hypervisor_trap_address = hypervisor_hart.csrs().stvec.read();
-        hypervisor_hart.csrs_mut().mepc.save_value(hypervisor_trap_address);
-        match &self.result {
+        let sbi_response = match self.create_confidential_vm(non_confidential_flow.shared_memory()) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
-                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, 0);
-                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, confidential_vm_id.usize());
+                ApplyToHypervisor::SbiResponse(SbiResponse::success(confidential_vm_id.usize()))
             }
             Err(error) => {
                 debug!("Promotion to confidential VM failed: {:?}", error);
-                hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, 1);
+                error.into_non_confidential_transformation()
             }
-        }
+        };
+        non_confidential_flow.apply_and_exit_to_hypervisor(sbi_response)
     }
 
-    fn create_confidential_vm(&self) -> Result<ConfidentialVmId, Error> {
+    fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory) -> Result<ConfidentialVmId, Error> {
         debug!("Promoting a VM into a confidential VM");
         // Copy the entire VM's state to the confidential memory, recreating the MMU configuration.
-        let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hart_state)?;
+        let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hgatp)?;
 
         // The pointer to the flattened device tree (FDT) as well as the entire FDT must be treated as an untrusted input, which measurement
         // is reflected during attestation. We can parse FDT only after moving VM's data (and the FDT) to the confidential memory.
@@ -79,8 +72,8 @@ impl PromoteVmHandler {
         // We create a fixed number of harts (all but the boot hart are in the reset state).
         let confidential_harts = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {
-                0 => ConfidentialHart::from_vm_hart(confidential_hart_id, &self.hart_state),
-                _ => ConfidentialHart::from_vm_hart_reset(confidential_hart_id, &self.hart_state),
+                0 => ConfidentialHart::from_vm_hart(confidential_hart_id, shared_memory),
+                _ => ConfidentialHart::from_vm_hart_reset(confidential_hart_id, shared_memory),
             })
             .collect();
 

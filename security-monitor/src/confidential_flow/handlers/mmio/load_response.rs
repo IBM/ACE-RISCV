@@ -12,7 +12,8 @@ pub struct MmioLoadResponse {
 
 impl MmioLoadResponse {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart, request: MmioLoadPending) -> Self {
-        Self { value: hypervisor_hart.gprs().read(request.gpr_storing_load_result()), request }
+        let value = hypervisor_hart.shared_memory().gpr(request.gpr_storing_load_result());
+        Self { value, request }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {

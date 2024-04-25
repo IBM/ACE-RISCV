@@ -6,6 +6,7 @@
 // https://github.com/rivosinc/salus/blob/fd06d5959fd81c02b8763c1922f36cc0ebe7d301/riscv-regs/src/csrs/csr_access.rs#L47
 #![allow(unused)]
 pub use super::specification::*;
+use crate::core::architecture::NaclSharedMemory;
 use core::arch::asm;
 
 pub struct ControlStatusRegisters {
@@ -260,9 +261,9 @@ impl ControlStatusRegisters {
         // timer-related
         self.vstimecmp.save();
         // F-extension
-        self.fflags.save();
-        self.frm.save();
-        self.fcsr.save();
+        // self.fflags.save();
+        // self.frm.save();
+        // self.fcsr.save();
     }
 
     pub fn restore_from_main_memory(&self) {
@@ -322,9 +323,9 @@ impl ControlStatusRegisters {
         // timer-related
         self.vstimecmp.restore();
         // F-extension
-        self.fflags.restore();
-        self.frm.restore();
-        self.fcsr.restore();
+        // self.fflags.restore();
+        // self.frm.restore();
+        // self.fcsr.restore();
     }
 }
 
@@ -368,6 +369,10 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
 
     pub fn read_value(&self) -> usize {
         self.0
+    }
+
+    pub fn restore_from_nacl(&mut self, nacl_shared_memory: &NaclSharedMemory) {
+        self.0 = nacl_shared_memory.csr(V.into());
     }
 
     #[inline]

@@ -43,13 +43,17 @@ impl MmioLoadRequest {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        use crate::core::architecture::*;
         hypervisor_hart.csrs_mut().scause.set(self.mcause);
+
         // KVM uses htval and stval to recreate the fault address
+        // below needed?
         hypervisor_hart.csrs_mut().stval.set(self.mtval);
-        hypervisor_hart.csrs_mut().htval.set(self.mtval2);
-        // Hack: we do not allow the hypervisor to look into the guest memory but we have to inform him about the instruction that caused
-        // exception. our approach is to expose this instruction via vsscratch. In future, we should move to RISC-V NACL extensions.
-        hypervisor_hart.csrs_mut().vsscratch.set(self.mtinst);
+
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_STVAL.into(), self.mtval);
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), self.mtinst);
+
         hypervisor_hart.apply_trap(true);
     }
 }
