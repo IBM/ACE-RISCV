@@ -47,6 +47,9 @@ Record shared_page : Type := {
 Inductive paging_system :=
   | Sv57x4.
 
+Global Instance paging_system_eqdec : EqDecision paging_system.
+Proof. unfold EqDecision, Decision. intros. destruct x, y; decide equality. Qed.
+
 Inductive page_table_level :=
   | PTLevel5
   | PTLevel4
@@ -54,7 +57,16 @@ Inductive page_table_level :=
   | PTLevel2
   | PTLevel1.
 
+Global Instance page_table_level_eqdec : EqDecision page_table_level.
+Proof. solve_decision. Qed.
 
+Definition paging_system_highest_level (system : paging_system) : page_table_level :=
+  match system with
+  | Sv57x4 => PTLevel5
+  end.
+
+Definition number_of_page_table_entries (system : paging_system) (level : page_table_level) : nat :=
+  if decide (level = paging_system_highest_level system) then 2048%nat else 512%nat.
 
 (* Can we avoid mutual inductives? *)
 Inductive page_table_entry : Type :=
@@ -81,19 +93,24 @@ with page_table_tree :=
       (level : page_table_level)
 .
 
-Definition pg_get_system (pg : page_table_tree) : paging_system :=
+Definition pt_get_system (pt : page_table_tree) : paging_system :=
   match pt with
   | PageTableTree system _ _ => system
   end.
 
 Definition pt_get_level (pt : page_table_tree) : page_table_level :=
   match pt with
-  | PageTableTree _ level => level
+  | PageTableTree _ _ level => level
   end.
 
 Definition pt_get_entries (pt : page_table_tree) : list page_table_entry :=
   match pt with
-  | PageTableTree entries _ => entries
+  | PageTableTree _ entries _ => entries
+  end.
+
+Definition pt_number_of_entries (pt : page_table_tree) : nat :=
+  match pt with
+  | PageTableTree system _ level => number_of_page_table_entries system level
   end.
 
 (*Fixpoint page_table_levels_decreasing (p : page_table_tree) :=*)
@@ -105,28 +122,29 @@ Definition pt_get_entries (pt : page_table_tree) : list page_table_entry :=
   (*match pt with*)
   (*| PointerToNextPageTable next conf =>*)
 
-Definition paging_system_highest_level (system : paging_system) : page_table_level :=
-  match system with
-  | Sv57x4 => PTLevel5
-  end.
-
-Definition number_of_page_table_entries (system : paging_system) (level : page_table_level) : nat :=
-  if decide (level = paging_system_highest_level system) then 2048 else 512.
-
-Definition pt_number_of_entries (pt : page_table_tree) : nat :=
+Fixpoint page_table_tree_has_system (system : paging_system) (pt : page_table_tree) :=
   match pt with
-  | PageTableTree system level _ => number_of_page_table_entries system level
+  | PageTableTree system' entries _ =>
+      system = system' ∧
+      Forall_cb (page_table_entry_has_system system) entries
+  end
+with page_table_entry_has_system (system : paging_system) (pte : page_table_entry) :=
+  match pte with
+  | PointerToNextPageTable pt _ =>
+      page_table_tree_has_system system pt
+  | _ => 
+      True
   end.
+
 
 (* TODO: maybe make this intrinsic using dependent type *)
-Definition page_table_wf (t : page_table_tree) :=
+Definition page_table_wf (pt : page_table_tree) :=
   (* number of page table entries is determined by the level *)
-  (match t with | PageTableTree entries level => number_of_page_table_entries level = length entries end) ∧
+  number_of_page_table_entries (pt_get_system pt) (pt_get_level pt) = length (pt_get_entries pt) ∧
   (* ensure that levels are decreasing *)
   (* TODO *)
   (* ensure that the system is the same across the whole page table *)
-  (* TODO *)
-  True
+  page_table_tree_has_system (pt_get_system pt) pt
 .
 (* TODO: ensure everything is in confidential memory *)
 
@@ -153,8 +171,8 @@ Definition is_byte_level_representation (pt_logical : page_table_tree) (pt_byte 
 (** Operations modifying the page table *)
 Definition pt_set_entry (pt : page_table_tree) (index : nat) (entry : page_table_entry) : page_table_tree :=
   match pt with
-  | PageTableTree system level entries =>
-      PageTableTree system level (<[index := entry]> entries)
+  | PageTableTree system entries level =>
+      PageTableTree system (<[index := entry]> entries) level
   end.
 
 Lemma pt_set_entry_wf : 

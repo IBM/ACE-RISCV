@@ -26,9 +26,26 @@ impl PageState for Allocated {}
 /// - `page_sz` is the size of the page,
 /// - and `page_val` is the sequence of bytes currently stored in the page.
 #[rr::refined_by("p" : "page")]
+
 /// Invariant: As an invariant, a `Page` *exclusively owns* this memory region, and ascribes the value `v` to it.
 #[rr::invariant(#type "p.(page_loc)" : "<#> p.(page_val)" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
+
+/// Invariant: The page is well-formed.
 #[rr::invariant("page_wf p")]
+
+/// Invariant: We know the memory region for the alloc id, linking it up with the PageAllocator instance
+#[rr::exists("γid" : "gname")]
+#[rr::exists("mreg" : "memory_region")]
+#[rr::context("onceG Σ gname")]
+#[rr::invariant(#iris "once_status \"PAGE_ALLOCATOR\" (Some γid)")]
+#[rr::invariant(#iris "has_memory_region γid mreg")]
+/// Invariant: the page lies within the boundaries of the allocator instance
+#[rr::invariant("mreg.(mreg_start) ≤ p.(page_loc).2")]
+#[rr::invariant("page_size_in_bytes_nat p.(page_sz) ≤ mreg.(mreg_size)")] 
+
+// TODO: instead require that we do not exceed maximum memory size that page allocator handles.
+#[rr::invariant()]
+
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
 #[rr::exists("MEMORY_CONFIG")]
@@ -57,6 +74,7 @@ unsafe impl<S> Send for Page<S> where S: PageState {}
 unsafe impl<S> Sync for Page<S> where S: PageState {}
 
 #[rr::context("onceG Σ memory_layout")]
+#[rr::context("onceG Σ gname")]
 impl Page<UnAllocated> {
     /// Creates a page token at the given address in the confidential memory.
     ///
@@ -66,14 +84,26 @@ impl Page<UnAllocated> {
     /// and his ownership is given to the page token.
     ///
     /// # Specification:
-    #[rr::params("l", "sz", "v", "MEMORY_CONFIG")]
+    #[rr::params("l", "sz", "v", "MEMORY_CONFIG", "γid")]
     /// The mathematical values of the two arguments are a memory location `l` and a size `sz`.
     #[rr::args("l", "sz")]
+
     /// Precondition: We require ownership of the memory region starting at `l` for size `sz`.
     /// Moreover, `l` needs to be properly aligned for a page of size `sz`, and contain valid integers.
     #[rr::requires(#type "l" : "<#> v" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
+
     /// Precondition: The page needs to be sufficiently aligned.
     #[rr::requires("l `aligned_to` (page_size_align sz)")]
+
+    /// Precondition: the page allocator is initialized
+    #[rr::invariant(#iris "once_status \"PAGE_ALLOCATOR\" (Some γid)")]
+    #[rr::invariant(#iris "has_memory_region γid mreg")]
+    /// Invariant: the page lies within the boundaries of the allocator instance
+    #[rr::invariant("mreg.(mreg_start) ≤ l.2")]
+    #[rr::invariant("page_size_in_bytes_nat sz ≤ mreg.(mreg_size)")] 
+
+
+
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
     /// Precondition: The page is entirely contained in the confidential memory range.
