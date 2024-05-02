@@ -2,8 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-// The order of page size in this enum must follow the increasing sizes of
-// page to guarantee that the Ord/PartialOrd are correctly derived for the `PageSize`.
+// The order of page size in this enum must follow the increasing sizes of page to guarantee that the Ord/PartialOrd are correctly derived
+// for the `PageSize`.
+//
 // TODO: add unit tests to make sure PageSize can be correctly compared between each other.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]

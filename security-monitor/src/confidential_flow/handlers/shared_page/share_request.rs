@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{CovgExtension, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;
@@ -15,21 +15,30 @@ use crate::core::memory_protector::PageSize;
 /// confidential hart if the request was invalid, e.g., the `guest physical address` was not correct.
 pub struct SharePageRequest {
     address: ConfidentialVmPhysicalAddress,
-    page_size: PageSize,
+    size: usize,
 }
 
 impl SharePageRequest {
+    const SHARED_PAGE_SIZE: PageSize = PageSize::Size4KiB;
+
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
-        Self { address: ConfidentialVmPhysicalAddress::new(address), page_size: PageSize::Size4KiB }
+        let size = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        Self { address: ConfidentialVmPhysicalAddress::new(address), size }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let sbi_request = SbiRequest::kvm_ace_page_in(self.address.usize());
+        debug!("Share request");
+        let sbi_request = self.share_page_sbi_request();
         confidential_flow
             .set_pending_request(PendingRequest::SharePage(self))
             .into_non_confidential_flow()
             .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request))
+    }
+
+    fn share_page_sbi_request(&self) -> SbiRequest {
+        debug!("crate share_page_sbi_request");
+        SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_SHARE_MEMORY, self.address.usize(), self.size, 0, 0, 0, 0)
     }
 
     pub fn confidential_vm_physical_address(&self) -> &ConfidentialVmPhysicalAddress {
@@ -37,6 +46,6 @@ impl SharePageRequest {
     }
 
     pub fn page_size(&self) -> PageSize {
-        self.page_size
+        Self::SHARED_PAGE_SIZE
     }
 }

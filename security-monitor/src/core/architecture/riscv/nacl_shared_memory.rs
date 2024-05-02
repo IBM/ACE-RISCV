@@ -44,11 +44,11 @@ impl NaclSharedMemory {
     }
 
     pub fn csr(&self, csr_code: usize) -> usize {
-        self.read_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code))
+        self.read_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code) * core::mem::size_of::<usize>())
     }
 
     pub fn write_csr(&self, csr_code: usize, value: usize) {
-        self.write_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code), value);
+        self.write_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code) * core::mem::size_of::<usize>(), value);
     }
 
     pub fn gpr(&self, gpr: GeneralPurposeRegister) -> usize {

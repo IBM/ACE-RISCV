@@ -53,7 +53,7 @@ impl ConfidentialHart {
         let mut confidential_hart_state = HartArchitecturalState::empty(id);
         // Set up mstatus, so that the lightweight context switch changes to privileg mode to VS-mode when executing the confidential VM
         // (see Table 8.8 in Riscv privilege spec 20211203)
-        confidential_hart_state.csrs.mstatus.save_value(confidential_hart_state.csrs.mstatus.read());
+        confidential_hart_state.csrs.mstatus.save();
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPV);
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
         confidential_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SIE);
@@ -63,47 +63,49 @@ impl ConfidentialHart {
         confidential_hart_state.csrs.sstatus.save_value((1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL) | (0b10 << CSR_SSTATUS_FS));
         confidential_hart_state.csrs.hstatus.save_value((1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL));
         // Delegate VS-level interrupts directly to the confidential VM. All other interrupts will trap in the security monitor.
-        confidential_hart_state.csrs.mideleg.save_value(MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK);
-        confidential_hart_state.csrs.hideleg.save_value(confidential_hart_state.csrs.mideleg.read_value());
+        let interrupt_delegation = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
+        confidential_hart_state.csrs.mideleg.save_value(interrupt_delegation);
+        confidential_hart_state.csrs.hideleg.save_value(interrupt_delegation);
         // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
-        confidential_hart_state.csrs.hie.save_value(confidential_hart_state.csrs.mideleg.read_value());
+        confidential_hart_state.csrs.hie.save_value(interrupt_delegation);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
         confidential_hart_state.csrs.mie.save_value(MIE_STIP_MASK);
         // Delegate exceptions that can be handled directly in the confidential VM
-        confidential_hart_state.csrs.medeleg.save_value(
-            (1 << CAUSE_MISALIGNED_FETCH)
-                | (1 << CAUSE_FETCH_ACCESS)
-                | (1 << CAUSE_ILLEGAL_INSTRUCTION)
-                | (1 << CAUSE_BREAKPOINT)
-                | (1 << CAUSE_MISALIGNED_LOAD)
-                | (1 << CAUSE_LOAD_ACCESS)
-                | (1 << CAUSE_MISALIGNED_STORE)
-                | (1 << CAUSE_STORE_ACCESS)
-                | (1 << CAUSE_USER_ECALL)
-                | (1 << CAUSE_FETCH_PAGE_FAULT)
-                | (1 << CAUSE_LOAD_PAGE_FAULT)
-                | (1 << CAUSE_STORE_PAGE_FAULT),
-        );
-        confidential_hart_state.csrs.hedeleg.save_value(confidential_hart_state.csrs.medeleg.read_value());
+        let exception_delegation = (1 << CAUSE_MISALIGNED_FETCH)
+            | (1 << CAUSE_FETCH_ACCESS)
+            | (1 << CAUSE_ILLEGAL_INSTRUCTION)
+            | (1 << CAUSE_BREAKPOINT)
+            | (1 << CAUSE_MISALIGNED_LOAD)
+            | (1 << CAUSE_LOAD_ACCESS)
+            | (1 << CAUSE_MISALIGNED_STORE)
+            | (1 << CAUSE_STORE_ACCESS)
+            | (1 << CAUSE_USER_ECALL)
+            | (1 << CAUSE_FETCH_PAGE_FAULT)
+            | (1 << CAUSE_LOAD_PAGE_FAULT)
+            | (1 << CAUSE_STORE_PAGE_FAULT);
+        confidential_hart_state.csrs.medeleg.save_value(exception_delegation);
+        confidential_hart_state.csrs.hedeleg.save_value(exception_delegation);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs.mtvec.save_value(enter_from_confidential_hart_asm as usize);
         // Set timer counter to infinity.
-        confidential_hart_state.csrs.vstimecmp.save_value(usize::MAX - 1);
-        // The same starting clock for all confidential harts within the same confidential VM.
-        // TODO: do we reuse what given by untrusted hypervisor or should we generate our own value?
-        confidential_hart_state.csrs.htimedelta.save_value(confidential_hart_state.csrs.htimedelta.read());
+        let infinity = usize::MAX - 1;
+        confidential_hart_state.csrs.vstimecmp.save_value(infinity);
+        confidential_hart_state.csrs.stimecmp.save_value(infinity);
+        // TODO: The same starting clock for all confidential harts within the same confidential VM.
+        // TODO: generate our own value
+        confidential_hart_state.csrs.htimedelta.save();
         // There is a subset of S-mode CSRs that have no VS equivalent and preserve their function when virtualization is enabled (see
         // `Hypervisor and Virtual Supervisor CSRs` in Volume II: RISC-V Privileged Architectures V20211203)
-        confidential_hart_state.csrs.hcounteren.save_value(confidential_hart_state.csrs.hcounteren.read());
-        confidential_hart_state.csrs.scounteren.save_value(confidential_hart_state.csrs.scounteren.read());
-        confidential_hart_state.csrs.henvcfg.save_value(confidential_hart_state.csrs.henvcfg.read());
-        confidential_hart_state.csrs.senvcfg.save_value(confidential_hart_state.csrs.senvcfg.read());
-
+        confidential_hart_state.csrs.henvcfg.restore_from_nacl(shared_memory);
+        confidential_hart_state.csrs.senvcfg.save();
+        // VS code should directly access only the timer. Everything else will trap
+        confidential_hart_state.csrs.hcounteren.save_value(0x02);
+        confidential_hart_state.csrs.scounteren.save();
         Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state: HartLifecycleState::Stopped, pending_request: None }
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
-    pub fn from_vm_hart(id: usize, shared_memory: &NaclSharedMemory) -> Self {
+    pub fn from_vm_hart(id: usize, sepc: usize, shared_memory: &NaclSharedMemory) -> Self {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.
         let mut confidential_hart = Self::from_vm_hart_reset(id, shared_memory);
@@ -111,7 +113,6 @@ impl ConfidentialHart {
         confidential_hart_state.gprs = shared_memory.gprs();
         confidential_hart_state.csrs_mut().vsstatus.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsie.restore_from_nacl(&shared_memory);
-        confidential_hart_state.csrs_mut().vsip.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vstvec.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsscratch.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsepc.restore_from_nacl(&shared_memory);
@@ -121,9 +122,8 @@ impl ConfidentialHart {
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted
         // VM's program counter is in the `sepc` register because VM trapped into the hypervisor, which then reflected
         // the VM's state to the security monitor.
-        confidential_hart_state.csrs_mut().sepc.restore_from_nacl(&shared_memory);
-        let sepc = confidential_hart_state.csrs.sepc.read_value();
         confidential_hart_state.csrs_mut().mepc.save_value(sepc);
+        debug!("MEPC={:x}", sepc);
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -220,7 +220,6 @@ impl ConfidentialHart {
         self.confidential_hart_state.gprs.write(GeneralPurposeRegister::a0, self.confidential_hart_id());
         self.confidential_hart_state.gprs.write(GeneralPurposeRegister::a1, request.opaque());
         self.confidential_hart_state.csrs.mepc.save_value(request.start_address());
-
         Ok(())
     }
 

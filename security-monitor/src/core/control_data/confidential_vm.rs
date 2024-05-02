@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::interrupts::{EnabledInterrupts, InjectedInterrupts};
+use crate::confidential_flow::handlers::interrupts::{ExposeEnabledInterrupts, InjectInterrupt};
 use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiRemoteHfenceGvmaVmid};
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart, InterHartRequest};
@@ -74,7 +74,7 @@ impl ConfidentialVm {
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
         // adapt the same strategy, which would also better reflect out current approach for information declassification.
-        InjectedInterrupts::from_hypervisor_hart(hardware_hart.hypervisor_hart())
+        InjectInterrupt::from_hypervisor_hart(hardware_hart.hypervisor_hart())
             .declassify_to_confidential_hart(&mut self.confidential_harts[confidential_hart_id]);
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
@@ -110,7 +110,7 @@ impl ConfidentialVm {
         // 3) Expose enabled interrupts
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.
-        EnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
+        ExposeEnabledInterrupts::from_confidential_hart(&self.confidential_harts[confidential_hart_id])
             .declassify_to_hypervisor_hart(hardware_hart.hypervisor_hart_mut());
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we

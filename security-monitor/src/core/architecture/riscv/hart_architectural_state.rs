@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::*;
 
-/// HartArchitecturalState is the dump state of the processor's core, called in RISC-V hardware thread (HART).
+/// HartArchitecturalState is the dump state of the processor's core (hart).
 /// It might represent the state of of software executing on real hardware hart, for example, architectural state of the hypervisor's thread
 /// or confidential VM's thread.
 #[repr(C)]

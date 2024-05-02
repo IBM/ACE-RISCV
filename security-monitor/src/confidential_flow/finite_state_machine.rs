@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::interrupts::InterruptHandler;
+use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, HandleInterrupt};
 use crate::confidential_flow::handlers::invalid_call::InvalidCall;
-use crate::confidential_flow::handlers::mmio::load_request::MmioLoadRequest;
-use crate::confidential_flow::handlers::mmio::store_request::MmioStoreRequest;
-use crate::confidential_flow::handlers::mmio::{MmioLoadResponse, MmioStoreResponse};
-use crate::confidential_flow::handlers::sbi::{SbiExtensionProbe, SbiRequest, SbiResponse};
+use crate::confidential_flow::handlers::mmio::{
+    AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
+};
+use crate::confidential_flow::handlers::sbi::{
+    SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion, SbiResponse,
+};
 use crate::confidential_flow::handlers::shared_page::{SharePageRequest, SharePageResponse, UnsharePageRequest};
 use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
 use crate::confidential_flow::handlers::smp::{
@@ -15,15 +17,15 @@ use crate::confidential_flow::handlers::smp::{
 };
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
-use crate::core::architecture::AceExtension::*;
 use crate::core::architecture::BaseExtension::*;
+use crate::core::architecture::CovgExtension::*;
 use crate::core::architecture::HsmExtension::*;
 use crate::core::architecture::IpiExtension::*;
 use crate::core::architecture::RfenceExtension::*;
 use crate::core::architecture::SbiExtension::*;
 use crate::core::architecture::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{HartLifecycleState, SbiExtension, TrapCause};
+use crate::core::architecture::{CovgExtension, HartLifecycleState, SbiExtension, TrapCause};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialVmId, ControlData, HardwareHart, HypervisorHart, InterHartRequest, PendingRequest,
 };
@@ -50,31 +52,29 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    pub const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
+    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
-    /// security monitor from the assembly context switch.
+    /// the security monitor from the assembly context switch.
     ///
     /// Creates the mutable reference to HardwareHart by casting a raw pointer obtained from the context switch (assembly), see safety
-    /// requirements of the asembly context switch. This is a private function, not accessible from the outside of the ConfidentialFlow but
-    /// accessible to the assembly code performing the context switch.
+    /// requirements of the asembly context switch. This is a private function, not accessible to the Rust code from the outside of the
+    /// ConfidentialFlow but accessible to the assembly code performing the context switch.
     #[no_mangle]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
         let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
         let trap = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
-        debug!("TRAP {:?}", trap);
+        debug!("C trap: {:?}", trap);
         match trap {
-            Interrupt => InterruptHandler::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Ace(SharePageWithHypervisor)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Ace(UnsharePageWithHypervisor)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetSpecVersion)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetImplId)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetImplVersion)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetImplVersion)) => SbiGetImplVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(ProbeExtension)) => SbiExtensionProbe::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetMvendorId)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetMarchid)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Base(GetMimpid)) => SbiRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMvendorId)) => SbiGetMvendorid::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMarchid)) => SbiGetMarchId::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Base(GetMimpid)) => SbiGetMimpid::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Ipi(SendIpi)) => SbiIpi::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Rfence(RemoteFenceI)) => SbiRemoteFenceI::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Rfence(RemoteSfenceVma)) => SbiRemoteSfenceVma::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -88,6 +88,12 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Hsm(HartSuspend)) => SbiHsmHartSuspend::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Hsm(HartGetStatus)) => SbiHsmHartStatus::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Srst(SystemReset)) => ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(AddMmioRegion)) => AddMmioRegion::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(RemoveMmioRegion)) => RemoveMmioRegion::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(AllowExternalInterrupt)) => AllowExternalInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(ShareMemory)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(CovgExtension::Unknown(a, b))) => panic!("Not supported Covg call {:x} {:x}", a, b),
             VsEcall(SbiExtension::Unknown(_, _)) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),

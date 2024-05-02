@@ -12,7 +12,8 @@ pub enum SbiExtension {
     Hsm(HsmExtension),
     Srst(SrstExtension),
     Nacl(NaclExtension),
-    Cove(CoveExtension),
+    Covh(CovhExtension),
+    Covi(CoviExtension),
     Covg(CovgExtension),
     Unknown(usize, usize),
 }
@@ -27,7 +28,7 @@ impl SbiExtension {
             (HsmExtension::EXTID, function_id) => Self::Hsm(HsmExtension::from_function_id(function_id)),
             (SrstExtension::EXTID, function_id) => Self::Srst(SrstExtension::from_function_id(function_id)),
             (NaclExtension::EXTID, function_id) => Self::Nacl(NaclExtension::from_function_id(function_id)),
-            (CoveExtension::EXTID, function_id) => Self::Cove(CoveExtension::from_function_id(function_id)),
+            (CovhExtension::EXTID, function_id) => Self::Covh(CovhExtension::from_function_id(function_id)),
             (CovgExtension::EXTID, function_id) => Self::Covg(CovgExtension::from_function_id(function_id)),
             (extension_id, function_id) => Self::Unknown(extension_id, function_id),
         }
@@ -212,7 +213,7 @@ impl NaclExtension {
 }
 
 #[derive(Debug)]
-pub enum CoveExtension {
+pub enum CovhExtension {
     TsmGetInfo,
     PromoteToTvm,
     DestroyTvm,
@@ -220,7 +221,7 @@ pub enum CoveExtension {
     Unknown(usize, usize),
 }
 
-impl CoveExtension {
+impl CovhExtension {
     pub const EXTID: usize = 0x434F5648;
     pub const SBI_EXT_COVH_TSM_GET_INFO: usize = 0;
     pub const SBI_EXT_COVH_TSM_CONVERT_PAGES: usize = 1;
@@ -258,11 +259,55 @@ impl CoveExtension {
 
 #[derive(Debug)]
 pub enum CovgExtension {
+    AddMmioRegion,
+    RemoveMmioRegion,
+    ShareMemory,
+    UnshareMemory,
+    AllowExternalInterrupt,
+    DenyExternalInterrupt,
     Unknown(usize, usize),
 }
 
 impl CovgExtension {
     pub const EXTID: usize = 0x434F5647;
+    pub const SBI_EXT_COVG_ADD_MMIO_REGION: usize = 0;
+    pub const SBI_EXT_COVG_REMOVE_MMIO_REGION: usize = 1;
+    pub const SBI_EXT_COVG_SHARE_MEMORY: usize = 2;
+    pub const SBI_EXT_COVG_UNSHARE_MEMORY: usize = 3;
+    pub const SBI_EXT_COVG_ALLOW_EXT_INTERRUPT: usize = 4;
+    pub const SBI_EXT_COVG_DENY_EXT_INTERRUPT: usize = 5;
+
+    pub fn from_function_id(function_id: usize) -> Self {
+        match function_id {
+            Self::SBI_EXT_COVG_ADD_MMIO_REGION => Self::AddMmioRegion,
+            Self::SBI_EXT_COVG_REMOVE_MMIO_REGION => Self::RemoveMmioRegion,
+            Self::SBI_EXT_COVG_SHARE_MEMORY => Self::ShareMemory,
+            Self::SBI_EXT_COVG_UNSHARE_MEMORY => Self::UnshareMemory,
+            Self::SBI_EXT_COVG_ALLOW_EXT_INTERRUPT => Self::AllowExternalInterrupt,
+            Self::SBI_EXT_COVG_DENY_EXT_INTERRUPT => Self::DenyExternalInterrupt,
+            _ => Self::Unknown(Self::EXTID, function_id),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CoviExtension {
+    Unknown(usize, usize),
+}
+
+impl CoviExtension {
+    pub const EXTID: usize = 0x434F5649;
+    pub const SBI_EXT_COVI_TVM_AIA_INIT: usize = 0;
+    pub const SBI_EXT_COVI_TVM_CPU_SET_IMSIC_ADDR: usize = 1;
+    pub const SBI_EXT_COVI_TVM_CONVERT_IMSIC: usize = 2;
+    pub const SBI_EXT_COVI_TVM_RECLAIM_IMSIC: usize = 3;
+    pub const SBI_EXT_COVI_TVM_CPU_BIND_IMSIC: usize = 4;
+    pub const SBI_EXT_COVI_TVM_CPU_UNBIND_IMSIC_BEGIN: usize = 5;
+    pub const SBI_EXT_COVI_TVM_CPU_UNBIND_IMSIC_END: usize = 6;
+    pub const SBI_EXT_COVI_TVM_CPU_INJECT_EXT_INTERRUPT: usize = 7;
+    pub const SBI_EXT_COVI_TVM_REBIND_IMSIC_BEGIN: usize = 8;
+    pub const SBI_EXT_COVI_TVM_REBIND_IMSIC_CLONE: usize = 9;
+    pub const SBI_EXT_COVI_TVM_REBIND_IMSIC_END: usize = 10;
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {

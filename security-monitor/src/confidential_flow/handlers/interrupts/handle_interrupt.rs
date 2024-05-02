@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
 use crate::core::architecture::{MIE_SSIP_MASK, SCAUSE_INTERRUPT_MASK};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
@@ -10,11 +11,11 @@ use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 /// The control flows:
 /// - to the hypervisor when an interrupt comes from a hardware device.
 /// - to the confidential hart in case of IPIS
-pub struct InterruptHandler {
+pub struct HandleInterrupt {
     pending_interrupts: usize,
 }
 
-impl InterruptHandler {
+impl HandleInterrupt {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self { pending_interrupts: confidential_hart.csrs().mip.read() }
     }
@@ -35,6 +36,6 @@ impl InterruptHandler {
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         hypervisor_hart.csrs_mut().scause.set(self.pending_interrupts | SCAUSE_INTERRUPT_MASK);
-        hypervisor_hart.apply_trap(false);
+        SbiResponse::success(0).declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

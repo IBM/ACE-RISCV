@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToHypervisor};
-use crate::non_confidential_flow::ApplyToHypervisor;
+use crate::non_confidential_flow::ApplyToHypervisorHart;
 use core::num::TryFromIntError;
 use pointers_utility::PointerError;
 use thiserror_no_std::Error;
@@ -95,9 +95,9 @@ impl Error {
         DeclassifyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
     }
 
-    pub fn into_non_confidential_transformation(self) -> ApplyToHypervisor {
+    pub fn into_non_confidential_transformation(self) -> ApplyToHypervisorHart {
         let error_code = 0x1000;
-        ApplyToHypervisor::SbiResponse(SbiResponse::failure(error_code))
+        ApplyToHypervisorHart::SbiResponse(SbiResponse::failure(error_code))
     }
 
     pub fn into_confidential_transformation(self) -> ApplyToConfidentialHart {

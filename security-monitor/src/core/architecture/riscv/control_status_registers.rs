@@ -292,7 +292,7 @@ impl ControlStatusRegisters {
         // Only if debug extension is implemented by hardware
         // self.scontext.restore();
         // Only if timer extension
-        // self.stimecmp.restore();
+        self.stimecmp.restore();
         // HS-mode
         self.hstatus.restore();
         self.hedeleg.restore();
@@ -331,6 +331,9 @@ impl ControlStatusRegisters {
 
 pub struct ControlStatusRegister {
     pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
+    pub mvendorid: ReadWriteRiscvCsr<CSR_MVENDORID>,
+    pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
+    pub mimpid: ReadWriteRiscvCsr<CSR_MIMPID>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
@@ -340,6 +343,9 @@ pub struct ControlStatusRegister {
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     mhartid: ReadWriteRiscvCsr::new(),
+    mvendorid: ReadWriteRiscvCsr::new(),
+    marchid: ReadWriteRiscvCsr::new(),
+    mimpid: ReadWriteRiscvCsr::new(),
     mscratch: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     pmpcfg0: ReadWriteRiscvCsr::new(),

@@ -58,7 +58,7 @@ extern "C" fn init(hart_id: usize, fdt_paddr: usize) {
     init_memory(&mut uart);
     init_trap(0);
 
-    crate::calls::sm::esm().expect("ESM failed");
+    crate::calls::sm::esm(fdt_paddr).expect("ESM failed");
 
     uart.println("Hello IBM from confidential VM!");
     uart.println(&format!("Hart id: {}", hart_id));
@@ -177,7 +177,6 @@ fn init_memory(uart: &mut Uart) {
         let dma_start = (_dma_start as usize + 4096 - 1) & !(4096 - 1);
         crate::DMA_PADDR = AtomicUsize::new(dma_start);
     }
-    crate::calls::ace::load_all_pages().expect("Load all pages call failed");
 }
 
 fn init_trap(hart_id: usize) {

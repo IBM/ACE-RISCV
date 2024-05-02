@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
-use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
+use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 use opensbi_sys::sbi_trap_regs;
 
 extern "C" {
@@ -11,11 +11,11 @@ extern "C" {
 }
 
 /// Handles call from the hypervisor to OpenSBI firmware by delegating it to the OpenSBI trap handler.
-pub struct OpensbiHandler {
+pub struct DelegateToOpensbi {
     trap_regs: opensbi_sys::sbi_trap_regs,
 }
 
-impl OpensbiHandler {
+impl DelegateToOpensbi {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self {
             trap_regs: opensbi_sys::sbi_trap_regs {
@@ -67,18 +67,13 @@ impl OpensbiHandler {
         unsafe { sbi_trap_handler(&mut self.trap_regs as *mut _) };
         non_confidential_flow.swap_mscratch();
 
-        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisor::OpenSbiResponse(self))
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::OpenSbiResponse(self))
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        let a0 = self.trap_regs.a0.try_into().unwrap();
-        let a1 = self.trap_regs.a1.try_into().unwrap();
-        let mstatus = self.trap_regs.mstatus.try_into().unwrap();
-        let mepc = self.trap_regs.mepc.try_into().unwrap();
-
-        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, a0);
-        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, a1);
-        hypervisor_hart.csrs_mut().mstatus.save_value(mstatus);
-        hypervisor_hart.csrs_mut().mepc.save_value(mepc);
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.trap_regs.a0.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.trap_regs.a1.try_into().unwrap());
+        hypervisor_hart.csrs_mut().mstatus.save_value(self.trap_regs.mstatus.try_into().unwrap());
+        hypervisor_hart.csrs_mut().mepc.save_value(self.trap_regs.mepc.try_into().unwrap());
     }
 }

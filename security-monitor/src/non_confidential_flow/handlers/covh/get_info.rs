@@ -6,7 +6,7 @@ use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
-use crate::non_confidential_flow::{ApplyToHypervisor, NonConfidentialFlow};
+use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
 pub struct GetInfoHandler {
     tsm_info_address: usize,
@@ -21,16 +21,15 @@ impl GetInfoHandler {
         }
     }
 
-    pub fn handle(self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
-        debug!("Handle get info");
-        let sbi_response = match self.fill_tsm_info_state() {
-            Ok(number_of_bytes_written) => ApplyToHypervisor::SbiResponse(SbiResponse::success(number_of_bytes_written)),
-            Err(error) => error.into_non_confidential_transformation(),
-        };
-        non_confidential_flow.apply_and_exit_to_hypervisor(sbi_response)
+    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
+        non_confidential_flow.apply_and_exit_to_hypervisor(self.fill_tsm_info_state().map_or_else(
+            |error| error.into_non_confidential_transformation(),
+            |number_of_bytes_written| ApplyToHypervisorHart::SbiResponse(SbiResponse::success(number_of_bytes_written)),
+        ))
     }
 
     fn fill_tsm_info_state(&self) -> Result<usize, Error> {
+        debug!("Handle get info");
         let mut ptr = NonConfidentialMemoryAddress::new(self.tsm_info_address as *mut usize)?;
         let ptr_end = NonConfidentialMemoryAddress::new((self.tsm_info_address + self.tsm_info_len) as *mut usize)?.as_ptr();
         unsafe {

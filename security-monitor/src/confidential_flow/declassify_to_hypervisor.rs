@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::interrupts::InterruptHandler;
+use crate::confidential_flow::handlers::interrupts::HandleInterrupt;
 use crate::confidential_flow::handlers::mmio::{MmioLoadRequest, MmioStoreRequest};
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 
@@ -9,7 +9,7 @@ use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 pub enum DeclassifyToHypervisor {
     SbiRequest(SbiRequest),
     SbiResponse(SbiResponse),
-    Interrupt(InterruptHandler),
+    Interrupt(HandleInterrupt),
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
 }
