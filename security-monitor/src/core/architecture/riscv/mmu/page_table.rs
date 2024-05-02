@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+#![rr::import("ace.theories.page_table", "page_table")]
 use crate::core::architecture::mmu::page_table_entry::{LogicalPageTableEntry, PageTableEntry};
 use crate::core::architecture::mmu::page_table_level::PageTableLevel;
 use crate::core::architecture::mmu::paging_system::PagingSystem;
@@ -51,6 +52,7 @@ pub struct PageTable {
 // - copy from non-confidential memory only reads from non-confidential memory
 // - if input to copy_.. is not a valid page table, fail correctly
 
+#[rr::skip]
 impl PageTable {
     /// This functions copies recursively page table structure from non-confidential memory to confidential memory. It
     /// allocated a page in confidential memory for every page table. After this function executes, a valid page table
@@ -69,7 +71,7 @@ impl PageTable {
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
     // input: page table to copy
-    // output: 
+    // output:
     //
     // Need to make sure that we only copy from non-confidential memory.
     //
@@ -78,25 +80,26 @@ impl PageTable {
     // - if hypervisor switches around order of guest-physical addresses, attestation will
     // fail
     //
-    // NOTE: Does not support COW. The hypervisor cannot map zeroed pages to the same address (this function will create multiple copies and create a static image).
-    // Every entry in the page table will get its own physical page.
+    // NOTE: Does not support COW. The hypervisor cannot map zeroed pages to the same address (this function will create multiple copies and
+    // create a static image). Every entry in the page table will get its own physical page.
     //
     // Implicit property of this specification: We do not copy from confidential memory, as we do
     // not get memory permission for that.
-    // SPEC 1: 
+    // SPEC 1:
     // For security (not trusting the hypervisor):
-    #[rr::skip]
-    #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
+    #[rr::params("l_nonconf", "ps", "level")]
     #[rr::args("l_nonconf", "ps", "level")]
-    #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
+    #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")]
+    // might need atomicity?
     // TODO: want to prove eventually
     //#[rr::ensures("value_has_security_level Hypervisor x")]
     // eventually: promote x from Hypervisor to confidential_vm_{new_id}
     #[rr::exists("x" : "result page_table_tree core_error_Error")]
-    #[rr::returns("x")]
-    /* Alternative specification: 
+    #[rr::returns("<#>@{result} x")]
+    /* Alternative specification:
     // We won't need this for security, but if we were to trust the hypervisor, we could
     // prove this specification.
+    //
     // SPEC 2:
     // For functional correctness (trusting the hypervisor):
     #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
@@ -144,9 +147,11 @@ impl PageTable {
 
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
-    #[rr::skip]
+    #[rr::params("system", "level")]
     #[rr::args("system", "level")]
-    #[rr::returns("Ok(# make_empty_page_tree level)")]
+    #[rr::exists("res")]
+    #[rr::returns("<#>@{result} res")]
+    #[rr::returns("if_Ok res (λ tree, tree = make_empty_page_tree system level)")]
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
         let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();
@@ -244,6 +249,9 @@ impl PageTable {
     }
 
     /// Returns the physical address in confidential memory of the page table configuration.
+    #[rr::params("pt")]
+    #[rr::args("#pt")]
+    #[rr::returns("pt_get_serialized_loc pt")]
     pub fn address(&self) -> usize {
         self.serialized_representation.start_address()
     }
@@ -253,6 +261,9 @@ impl PageTable {
     }
 
     /// Set a new page table entry at the given index, replacing whatever was there before.
+    // TODO: this requires the representation to be fully initialized, which is not true for empty() page tables.
+    // (or we need to reflect this in pt_number_of_entries accordingly)
+    #[rr::params("pt", "γ", "vpn", "pte")]
     #[rr::args("(#pt, γ)", "vpn", "pte")]
     #[rr::requires("vpn < pt_number_of_entries pt")]
     #[rr::oberve("γ": "pt_set_entry pt vpn pte")]

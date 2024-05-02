@@ -26,9 +26,16 @@ impl PageState for Allocated {}
 /// - `page_sz` is the size of the page,
 /// - and `page_val` is the sequence of bytes currently stored in the page.
 #[rr::refined_by("p" : "page")]
+
 /// Invariant: As an invariant, a `Page` *exclusively owns* this memory region, and ascribes the value `v` to it.
 #[rr::invariant(#type "p.(page_loc)" : "<#> p.(page_val)" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
+
+/// Invariant: The page is well-formed.
 #[rr::invariant("page_wf p")]
+
+/// We require the page to be in this bounded memory region.
+//#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
+
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
 #[rr::exists("MEMORY_CONFIG")]
@@ -57,6 +64,7 @@ unsafe impl<S> Send for Page<S> where S: PageState {}
 unsafe impl<S> Sync for Page<S> where S: PageState {}
 
 #[rr::context("onceG Σ memory_layout")]
+#[rr::context("onceG Σ gname")]
 impl Page<UnAllocated> {
     /// Creates a page token at the given address in the confidential memory.
     ///
@@ -69,11 +77,17 @@ impl Page<UnAllocated> {
     #[rr::params("l", "sz", "v", "MEMORY_CONFIG")]
     /// The mathematical values of the two arguments are a memory location `l` and a size `sz`.
     #[rr::args("l", "sz")]
+
     /// Precondition: We require ownership of the memory region starting at `l` for size `sz`.
     /// Moreover, `l` needs to be properly aligned for a page of size `sz`, and contain valid integers.
     #[rr::requires(#type "l" : "<#> v" @ "array_t (int usize_t) (page_size_in_words_nat sz)")]
+
     /// Precondition: The page needs to be sufficiently aligned.
     #[rr::requires("l `aligned_to` (page_size_align sz)")]
+
+    /// Precondition: The page is located in a bounded memory region.
+    //#[rr::requires("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
+
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
     /// Precondition: The page is entirely contained in the confidential memory range.
@@ -217,7 +231,7 @@ impl<T: PageState> Page<T> {
     #[rr::params("l", "sz")]
     #[rr::args(#raw "#(-[#l; #sz; #tt])")]
     #[rr::returns("l +ₗ page_size_in_bytes_Z sz")]
-    fn end_address_ptr(&self) -> *const usize {
+    pub fn end_address_ptr(&self) -> *const usize {
         // TODO: ideally, use strict-provenance API
         self.end_address() as *const usize
     }
@@ -334,10 +348,6 @@ impl<T: PageState> Page<T> {
     #[rr::returns("step_list 0 (ly_size usize_t) (page_size_in_bytes_nat p.(page_sz))")]
     pub fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
         (0..self.size.in_bytes()).step_by(Self::ENTRY_SIZE)
-    }
-
-    pub fn end_address_ptr(&self) -> *const usize {
-        self.end_address() as *const usize
     }
 
     #[rr::only_spec]

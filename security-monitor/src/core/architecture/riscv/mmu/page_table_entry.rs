@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+#![rr::import("ace.theories.page_table", "page_table")]
 use super::specification::*;
 use crate::core::architecture::mmu::page_table::PageTable;
 use crate::core::architecture::SharedPage;
