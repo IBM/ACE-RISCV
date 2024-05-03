@@ -65,7 +65,7 @@ impl<'a> ConfidentialFlow<'a> {
         let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
         let trap = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
-        debug!("C trap: {:?}", trap);
+        // debug!("C trap: {:?}", trap);
         match trap {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),

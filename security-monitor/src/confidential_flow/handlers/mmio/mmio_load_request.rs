@@ -35,8 +35,6 @@ impl MmioLoadRequest {
         match crate::core::architecture::decode_result_register(self.instruction) {
             Ok(gpr) => {
                 let fault_addr = (self.mtval2 << 2) | (self.mtval & 0x3);
-                debug!("SM fault_addr={:x} mtinst={:x} gpr={:?}", fault_addr, self.mtinst, gpr);
-
                 confidential_flow
                     .set_pending_request(PendingRequest::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))
                     .into_non_confidential_flow()

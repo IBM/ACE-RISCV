@@ -19,18 +19,14 @@ pub struct SharePageResponse {
 
 impl SharePageResponse {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart, request: SharePageRequest) -> Self {
-        let a = hypervisor_hart.shared_memory().gpr(GeneralPurposeRegister::a1);
-        debug!("Share page response: {:x}", a);
-
         Self {
-            response_code: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0),
-            hypervisor_page_address: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
+            response_code: hypervisor_hart.shared_memory().gpr(GeneralPurposeRegister::a0),
+            hypervisor_page_address: hypervisor_hart.shared_memory().gpr(GeneralPurposeRegister::a1),
             request,
         }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("Share page response processing: {} {:x}", self.response_code, self.hypervisor_page_address);
         if self.is_error() {
             // Hypervisor returned an error informing that it could not allocate shared pages. Expose this information the
             // confidential VM.
@@ -42,7 +38,6 @@ impl SharePageResponse {
         match NonConfidentialMemoryAddress::new(self.hypervisor_page_address() as *mut usize) {
             Ok(hypervisor_address) => {
                 let transformation = ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-                    debug!("Mapping shared page: {} -> {:?}", self.request.confidential_vm_physical_address().usize(), hypervisor_address);
                     confidential_vm.map_shared_page(
                         hypervisor_address,
                         self.request.page_size(),

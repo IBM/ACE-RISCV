@@ -22,9 +22,10 @@ impl NaclSetupSharedMemory {
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        debug!("Registering NACL shared memory at {:x}", self.shared_memory_base_address);
         let sbi_response = NonConfidentialMemoryAddress::new(self.shared_memory_base_address as *mut usize)
             .and_then(|address| hypervisor_hart.set_shared_memory(address))
-            .map_or_else(|_| SbiResponse::failure(1), |_| SbiResponse::success(0));
+            .map_or_else(|_error| SbiResponse::failure(1), |_| SbiResponse::success(0));
         sbi_response.apply_to_hypervisor_hart(hypervisor_hart);
     }
 }

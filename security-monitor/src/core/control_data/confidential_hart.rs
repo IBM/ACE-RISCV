@@ -112,7 +112,7 @@ impl ConfidentialHart {
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
         confidential_hart_state.gprs = shared_memory.gprs();
         confidential_hart_state.csrs_mut().vsstatus.restore_from_nacl(&shared_memory);
-        confidential_hart_state.csrs_mut().vsie.restore_from_nacl(&shared_memory);
+        // confidential_hart_state.csrs_mut().vsie.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vstvec.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsscratch.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsepc.restore_from_nacl(&shared_memory);
@@ -123,7 +123,6 @@ impl ConfidentialHart {
         // VM's program counter is in the `sepc` register because VM trapped into the hypervisor, which then reflected
         // the VM's state to the security monitor.
         confidential_hart_state.csrs_mut().mepc.save_value(sepc);
-        debug!("MEPC={:x}", sepc);
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart

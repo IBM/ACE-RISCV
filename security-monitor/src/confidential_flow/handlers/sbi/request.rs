@@ -19,7 +19,6 @@ pub struct SbiRequest {
 
 impl SbiRequest {
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        debug!("SBI declassify {:x} {}", self.extension_id, self.function_id);
         hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a7, self.extension_id);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a6, self.function_id);

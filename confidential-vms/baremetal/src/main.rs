@@ -141,7 +141,7 @@ fn test_base_sbi(uart: &mut Uart) -> Result<(), usize> {
 
 fn test_virtio(uart: &mut Uart, fdt_paddr: usize) -> Result<(), Error> {
     uart.println(&format!("test_virtio: fdt {:x}", fdt_paddr));
-    let mut blk = virtio::get_block_device(fdt_paddr).expect("failed geting blk device");
+    let mut blk = virtio::get_block_device(uart, fdt_paddr).expect("failed geting blk device");
 
     uart.println(&format!("test_virtio: shared memory"));
     let (input_paddr, output_paddr) = prepare_shared_memory()?;

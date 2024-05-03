@@ -28,7 +28,6 @@ impl SharePageRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("Share request");
         let sbi_request = self.share_page_sbi_request();
         confidential_flow
             .set_pending_request(PendingRequest::SharePage(self))
@@ -37,7 +36,6 @@ impl SharePageRequest {
     }
 
     fn share_page_sbi_request(&self) -> SbiRequest {
-        debug!("crate share_page_sbi_request");
         SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_SHARE_MEMORY, self.address.usize(), self.size, 0, 0, 0, 0)
     }
 

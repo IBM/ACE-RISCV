@@ -6,5 +6,5 @@ pub use finite_state_machine::NonConfidentialFlow;
 
 mod apply_to_hypervisor;
 mod finite_state_machine;
-pub mod handlers;
+mod handlers;
 mod lightweight_context_switch;

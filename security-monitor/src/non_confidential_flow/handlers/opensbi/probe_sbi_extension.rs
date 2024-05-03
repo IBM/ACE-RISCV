@@ -22,7 +22,8 @@ impl ProbeSbiExtension {
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match self.extension_id {
-            CovhExtension::EXTID | NaclExtension::EXTID => {
+            CovhExtension::EXTID => {
+                // | NaclExtension::EXTID => {
                 non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(SbiResponse::success(1)))
             }
             _ => self.handler.handle(non_confidential_flow),

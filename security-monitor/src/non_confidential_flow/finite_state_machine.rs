@@ -53,7 +53,7 @@ impl<'a> NonConfidentialFlow<'a> {
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         let trap = TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state());
-        debug!("NC tap {:?}", trap);
+        // debug!("NC tap {:?}", trap);
         match trap {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),

@@ -39,8 +39,6 @@ impl MmioStoreRequest {
         match self.gpr {
             Ok(_) => {
                 let fault_addr = (self.mtval2 << 2) | (self.mtval & 0x3);
-                debug!("SM fault_addr={:x} mtinst={:x} gpr={:?} gpr_value={:x}", fault_addr, self.mtinst, self.gpr, self.gpr_value);
-
                 confidential_flow
                     .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(self.instruction_length)))
                     .into_non_confidential_flow()

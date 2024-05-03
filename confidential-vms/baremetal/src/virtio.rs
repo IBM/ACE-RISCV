@@ -2,6 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::hal::HalSvmImpl;
+use crate::Uart;
+use alloc::format;
 use core::ptr::NonNull;
 use fdt::node::FdtNode;
 use fdt::Fdt;
@@ -9,16 +11,16 @@ use virtio_drivers::device::blk::VirtIOBlk;
 use virtio_drivers::transport::mmio::{MmioTransport, VirtIOHeader};
 use virtio_drivers::transport::{DeviceType, Transport};
 
-pub fn get_block_device(dtb: usize) -> Option<VirtIOBlk<HalSvmImpl, MmioTransport>> {
-    let transport = get_transport(dtb).expect("blk device not found");
+pub fn get_block_device(uart: &mut Uart, dtb: usize) -> Option<VirtIOBlk<HalSvmImpl, MmioTransport>> {
+    let transport = get_transport(uart, dtb).expect("blk device not found");
     Some(VirtIOBlk::<HalSvmImpl, MmioTransport>::new(transport).expect("failed to create blk driver"))
 }
 
-pub fn get_transport(dtb: usize) -> Option<MmioTransport> {
+pub fn get_transport(uart: &mut Uart, dtb: usize) -> Option<MmioTransport> {
     let fdt = unsafe { Fdt::from_ptr(dtb as *const u8).expect("Failed to open FDT") };
     for node in fdt.all_nodes() {
         if let Some(compatible) = node.compatible() {
-            if compatible.all().any(|s| s == "virtio,mmio") {
+            if compatible.all().any(|s| s.contains("virtio,mmio")) {
                 return virtio_probe(node);
             }
         }
