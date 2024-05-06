@@ -1,5 +1,6 @@
 From refinedrust Require Import typing.
 
+
 (* This reflects the page sizes in [core/mmu/page_size.rs] *)
 Inductive page_size : Set :=
   | Size4KiB
@@ -74,6 +75,11 @@ Proof.
   destruct sz; simpl; lia.
 Qed.
 
+(** The maximum address at which a page may be located (one-past-the-end address) *)
+Definition MAX_PAGE_ADDR : Z := 
+  page_size_in_bytes_Z Size128TiB.
+
+(** * Pages *)
 Definition zero_page (sz : page_size) : list Z :=
   replicate (page_size_in_words_nat sz) 0.
 
@@ -90,6 +96,9 @@ Global Instance page_countable : Countable page.
 Proof.
   (* TODO *)
 Admitted.
+
+Definition page_end_loc (p : page) : loc :=
+  p.(page_loc) +ₗ (page_size_in_bytes_Z p.(page_sz)).
 
 (** Order on page sizes *)
 Definition page_size_le (p1 p2 : page_size) :=

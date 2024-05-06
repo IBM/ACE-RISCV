@@ -149,6 +149,9 @@ Definition page_table_wf (pt : page_table_tree) :=
 (* TODO: ensure everything is in confidential memory *)
 
 
+Definition make_empty_page_tree (system : paging_system) (level : page_table_level) := 
+  PageTableTree system [] level.
+
 (** Encoding *)
 Definition encode_page_table_entry (pte : page_table_entry) : Z :=
   (* TODO *)
@@ -164,6 +167,7 @@ Definition is_byte_level_representation (pt_logical : page_table_tree) (pt_byte 
   (* We have a 16KiB page for Level 5, and 4KiB pages otherwise *)
   (if pt_get_level pt_logical is PTLevel5 then pt_byte.(page_sz) = Size16KiB else pt_byte.(page_sz) = Size4KiB) ∧
   (* The encoding of the entries matches the physical content of the pages *)
+  (* NOTE: if the list of entries is [], this should be trivial. *)
   pt_byte.(page_val) = encode_page_table_entries (pt_get_entries pt_logical)
 .
 

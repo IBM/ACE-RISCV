@@ -49,6 +49,15 @@ Section page_allocator.
   Qed.
 End page_allocator.
 
+(* 
+New reasoning:
+   - we bound the memory region by a constant
+   - the page allocator fully covers that region
+   - so we get the initial precondition of the recursion
+
+ *)
+
+
 (*
 (** [m1] is a correct abstraction of [m2] to only specify the number of pages at a given size. *)
 Definition page_allocator_maps_related (m1 : gmap page_size nat) (m2 : gmap page_size (place_rfn (list (place_rfn page)))) : Prop :=
@@ -65,18 +74,15 @@ Definition page_allocator_maps_related (m1 : gmap page_size nat) (m2 : gmap page
 (** * Page allocator invariants *)
 Inductive node_allocation_state :=
 
-  | PageNodeUnavailable
+  | PageTokenUnavailable
 
-  | PageNodeAvailable
+  | PageTokenAvailable
 
-  | PageNodePartiallyAvailable (allocable_sz : page_size)
-
+  | PageTokenPartiallyAvailable (allocable_sz : page_size)
 .
 
 Global Instance node_allocation_state_eqdec : EqDecision node_allocation_state.
 Proof. solve_decision. Defined.
-
-Search "aligned".
 
 (** Our logical representation of storage nodes *)
 Record page_storage_node : Type := mk_page_node {
@@ -84,8 +90,10 @@ Record page_storage_node : Type := mk_page_node {
   max_node_size : page_size;
   (* The base address of the memory region of this node *)
   base_address : Z;
+  (* TODO: this state should not really be part of the public state *)
   (* the current state of this node *)
   allocation_state : node_allocation_state;
+  (* TODO: this state should not really be part of the public state *)
   (* whether the child nodes have been initialized *)
   children_initialized : bool;
 }.
@@ -112,9 +120,9 @@ Definition page_storage_node_children_wf (parent_base_address : Z) (parent_node_
 
 Definition page_node_can_allocate (node : page_storage_node) : option page_size := 
   match node.(allocation_state) with
-  | PageNodeUnavailable => None
-  | PageNodeAvailable => Some node.(max_node_size)
-  | PageNodePartiallyAvailable allocable => Some allocable
+  | PageTokenUnavailable => None
+  | PageTokenAvailable => Some node.(max_node_size)
+  | PageTokenPartiallyAvailable allocable => Some allocable
   end.
 
 
@@ -131,15 +139,15 @@ Definition page_storage_node_invariant
   (if node.(children_initialized) then length children = page_size_multiplier node.(max_node_size) else True) ∧
 
   (* invariant depending on the allocation state: *)
-  if decide (node.(allocation_state) = PageNodeUnavailable) 
+  if decide (node.(allocation_state) = PageTokenUnavailable) 
   then 
       (* No allocation is possible *)
       maybe_page_token = None ∧ max_sz = None ∧
 
       (* all children are unavailable *)
       (* TODO do we need this *)
-      Forall (λ child, child.(allocation_state) = PageNodeUnavailable) children
-  else if decide (node.(allocation_state) = PageNodeAvailable)
+      Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children
+  else if decide (node.(allocation_state) = PageTokenAvailable)
   then
       (* This node is completely available *) 
       ∃ token,
@@ -153,14 +161,14 @@ Definition page_storage_node_invariant
         
         (* all children are unavailable *)
         (* TODO: do we need this? *)
-        Forall (λ child, child.(allocation_state) = PageNodeUnavailable) children
+        Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children
   else 
 
       (* This node is partially available with initialized children *)
       maybe_page_token = None ∧
       (* Some size is available *)
       ∃ allocable_sz, 
-      node.(allocation_state) = PageNodePartiallyAvailable allocable_sz ∧
+      node.(allocation_state) = PageTokenPartiallyAvailable allocable_sz ∧
       max_sz = Some allocable_sz ∧
       
       (* children need to be initialized *)
@@ -174,7 +182,7 @@ Definition page_storage_node_invariant
 
 Lemma page_storage_node_invariant_empty node_size base_address :
   (page_size_align node_size | base_address) →
-  page_storage_node_invariant (mk_page_node node_size base_address PageNodeUnavailable) None None [].
+  page_storage_node_invariant (mk_page_node node_size base_address PageTokenUnavailable) None None [].
 Proof.
   intros.
   split_and!; simpl; last split_and!; try done.

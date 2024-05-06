@@ -85,14 +85,14 @@ impl PageTable {
     // SPEC 1: 
     // For security (not trusting the hypervisor):
     #[rr::skip]
-    #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
+    #[rr::params("l_nonconf", "ps", "level")]
     #[rr::args("l_nonconf", "ps", "level")]
     #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
     // TODO: want to prove eventually
     //#[rr::ensures("value_has_security_level Hypervisor x")]
     // eventually: promote x from Hypervisor to confidential_vm_{new_id}
     #[rr::exists("x" : "result page_table_tree core_error_Error")]
-    #[rr::returns("x")]
+    #[rr::returns("<#>@{result} x")]
     /* Alternative specification: 
     // We won't need this for security, but if we were to trust the hypervisor, we could
     // prove this specification.
@@ -145,8 +145,11 @@ impl PageTable {
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
     #[rr::skip]
+    #[rr::params("system", "level")]
     #[rr::args("system", "level")]
-    #[rr::returns("Ok(# make_empty_page_tree level)")]
+    #[rr::exists("res")]
+    #[rr::returns("<#>@{result} res")]
+    #[rr::returns("if_Ok res (λ tree, tree = make_empty_page_tree system level)")]
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
         let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();
@@ -252,6 +255,7 @@ impl PageTable {
     }
 
     /// Returns the physical address in confidential memory of the page table configuration.
+    // TODO: should expose address of the serialized repr
     pub fn address(&self) -> usize {
         self.serialized_representation.start_address()
     }
@@ -261,6 +265,9 @@ impl PageTable {
     }
 
     /// Set a new page table entry at the given index, replacing whatever was there before.
+    // TODO: this requires the representation to be fully initialized, which is not true for empty() page tables.
+    // (or we need to reflect this in pt_number_of_entries accordingly)
+    #[rr::params("pt", "γ", "vpn", "pte")]
     #[rr::args("(#pt, γ)", "vpn", "pte")]
     #[rr::requires("vpn < pt_number_of_entries pt")]
     #[rr::oberve("γ": "pt_set_entry pt vpn pte")]

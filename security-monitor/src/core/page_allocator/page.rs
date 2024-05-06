@@ -33,18 +33,8 @@ impl PageState for Allocated {}
 /// Invariant: The page is well-formed.
 #[rr::invariant("page_wf p")]
 
-/// Invariant: We know the memory region for the alloc id, linking it up with the PageAllocator instance
-#[rr::exists("γid" : "gname")]
-#[rr::exists("mreg" : "memory_region")]
-#[rr::context("onceG Σ gname")]
-#[rr::invariant(#iris "once_status \"PAGE_ALLOCATOR\" (Some γid)")]
-#[rr::invariant(#iris "has_memory_region γid mreg")]
-/// Invariant: the page lies within the boundaries of the allocator instance
-#[rr::invariant("mreg.(mreg_start) ≤ p.(page_loc).2")]
-#[rr::invariant("page_size_in_bytes_nat p.(page_sz) ≤ mreg.(mreg_size)")] 
-
-// TODO: instead require that we do not exceed maximum memory size that page allocator handles.
-#[rr::invariant()]
+/// We require the page to be in this bounded memory region.
+#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
 
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
@@ -84,7 +74,7 @@ impl Page<UnAllocated> {
     /// and his ownership is given to the page token.
     ///
     /// # Specification:
-    #[rr::params("l", "sz", "v", "MEMORY_CONFIG", "γid")]
+    #[rr::params("l", "sz", "v", "MEMORY_CONFIG")]
     /// The mathematical values of the two arguments are a memory location `l` and a size `sz`.
     #[rr::args("l", "sz")]
 
@@ -95,14 +85,8 @@ impl Page<UnAllocated> {
     /// Precondition: The page needs to be sufficiently aligned.
     #[rr::requires("l `aligned_to` (page_size_align sz)")]
 
-    /// Precondition: the page allocator is initialized
-    #[rr::invariant(#iris "once_status \"PAGE_ALLOCATOR\" (Some γid)")]
-    #[rr::invariant(#iris "has_memory_region γid mreg")]
-    /// Invariant: the page lies within the boundaries of the allocator instance
-    #[rr::invariant("mreg.(mreg_start) ≤ l.2")]
-    #[rr::invariant("page_size_in_bytes_nat sz ≤ mreg.(mreg_size)")] 
-
-
+    /// Precondition: The page is located in a bounded memory region.
+    #[rr::invariant("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
 
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
