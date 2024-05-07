@@ -8,8 +8,8 @@ pub use general_purpose_registers::{GeneralPurposeRegister, GeneralPurposeRegist
 pub use hart_lifecycle_state::HartLifecycleState;
 pub use nacl_shared_memory::NaclSharedMemory;
 pub use supervisor_binary_interface::{
-    AceExtension, BaseExtension, CovgExtension, CovhExtension, CoviExtension, HsmExtension, IpiExtension, NaclExtension, RfenceExtension,
-    SbiExtension, SrstExtension,
+    BaseExtension, CovgExtension, CovhExtension, CoviExtension, HsmExtension, IpiExtension, NaclExtension, RfenceExtension, SbiExtension,
+    SrstExtension,
 };
 pub use trap_cause::TrapCause;
 

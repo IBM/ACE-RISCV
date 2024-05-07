@@ -64,9 +64,7 @@ impl<'a> ConfidentialFlow<'a> {
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
         let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
-        let trap = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
-        // debug!("C trap: {:?}", trap);
-        match trap {
+        match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -176,6 +174,13 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore some control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
+        // let vsie = self.confidential_hart().csrs().vsie.read();
+        // let hie = self.confidential_hart().csrs().hie.read();
+        // let hie2 = self.confidential_hart().csrs().hie.read_value();
+        // let vsip = self.confidential_hart().csrs().vsip.read_value();
+        // let vsstatus = self.confidential_hart().csrs().vsstatus.read();
+        // debug!("exit_to_confidential_hart vsie {:x} hie {:x} hie2 {:x} vsstatus {:x} vsip: {:x}", vsie, hie, hie2, vsstatus, vsip);
+
         let interrupts = self.confidential_hart().csrs().hvip.read_value() | self.confidential_hart().csrs().vsip.read_value();
         let address = self.confidential_hart_mut().address();
         self.confidential_hart().csrs().hvip.set(interrupts);

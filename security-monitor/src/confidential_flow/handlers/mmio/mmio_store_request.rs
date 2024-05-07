@@ -37,13 +37,10 @@ impl MmioStoreRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match self.gpr {
-            Ok(_) => {
-                let fault_addr = (self.mtval2 << 2) | (self.mtval & 0x3);
-                confidential_flow
-                    .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(self.instruction_length)))
-                    .into_non_confidential_flow()
-                    .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioStoreRequest(self))
-            }
+            Ok(_) => confidential_flow
+                .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(self.instruction_length)))
+                .into_non_confidential_flow()
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioStoreRequest(self)),
             Err(error) => {
                 confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(error.into_non_confidential_declassifier())
             }

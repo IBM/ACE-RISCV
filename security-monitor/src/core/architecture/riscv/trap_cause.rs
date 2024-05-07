@@ -25,9 +25,9 @@ pub enum TrapCause {
 
 impl TrapCause {
     pub fn from_hart_architectural_state(hart_state: &HartArchitecturalState) -> Self {
-        let mcause = hart_state.csrs.mcause.read();
-        let extension_id = hart_state.gprs.read(GeneralPurposeRegister::a7);
-        let function_id = hart_state.gprs.read(GeneralPurposeRegister::a6);
+        let mcause = hart_state.csrs().mcause.read();
+        let extension_id = hart_state.gprs().read(GeneralPurposeRegister::a7);
+        let function_id = hart_state.gprs().read(GeneralPurposeRegister::a6);
 
         if is_bit_enabled(mcause, CAUSE_INTERRUPT_BIT) {
             Self::Interrupt

@@ -66,10 +66,10 @@ impl ConfidentialVm {
 
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
-        hardware_hart.hypervisor_hart_mut().csrs_mut().save_in_main_memory();
+        hardware_hart.hypervisor_hart_mut().save_in_main_memory();
 
         // 2) Load control and status registers (CSRs) of confidential hart from the physical hart executing this code.
-        self.confidential_harts[confidential_hart_id].csrs().restore_from_main_memory();
+        self.confidential_harts[confidential_hart_id].restore_from_main_memory();
 
         // 3) Inject interrupts
         // TODO: when moving to CoVE, injecting interrupts becomes an explicit request from the hypervisor to security monitor. We should
@@ -104,9 +104,11 @@ impl ConfidentialVm {
 
         // Heavy context switch:
         // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
-        self.confidential_harts[confidential_hart_id].csrs_mut().save_in_main_memory();
+        self.confidential_harts[confidential_hart_id].save_in_main_memory();
+
         // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
-        hardware_hart.hypervisor_hart().csrs().restore_from_main_memory();
+        hardware_hart.hypervisor_hart().restore_from_main_memory();
+
         // 3) Expose enabled interrupts
         // TODO: when moving to CoVE, exposing enabled interrupts becomes an explicit hypercall. We should adapt the same strategy, which
         // would also better reflect out current approach for information declassification.

@@ -183,7 +183,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("Hart[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
+        harts_states.insert(hart_id, HardwareHart::init(stack, hypervisor_memory_protector));
     }
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
     fence_wo();

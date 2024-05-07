@@ -19,7 +19,6 @@ impl SbiExtensionProbe {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let response = match self.extension_id {
-            AceExtension::EXTID => 1,
             BaseExtension::EXTID => 1,
             IpiExtension::EXTID => 1,
             RfenceExtension::EXTID => 1,

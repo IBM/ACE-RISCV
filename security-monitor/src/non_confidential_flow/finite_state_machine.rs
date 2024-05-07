@@ -52,9 +52,7 @@ impl<'a> NonConfidentialFlow<'a> {
         // Specifically, every physical hart has its own are in the main memory and its `mscratch` register stores the address. See the
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
-        let trap = TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state());
-        // debug!("NC tap {:?}", trap);
-        match trap {
+        match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             LoadAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),

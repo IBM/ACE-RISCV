@@ -5,7 +5,6 @@
 
 #[derive(Debug)]
 pub enum SbiExtension {
-    Ace(AceExtension),
     Base(BaseExtension),
     Ipi(IpiExtension),
     Rfence(RfenceExtension),
@@ -21,7 +20,6 @@ pub enum SbiExtension {
 impl SbiExtension {
     pub fn decode(a7: usize, a6: usize) -> Self {
         match (a7, a6) {
-            (AceExtension::EXTID, function_id) => Self::Ace(AceExtension::from_function_id(function_id)),
             (BaseExtension::EXTID, function_id) => Self::Base(BaseExtension::from_function_id(function_id)),
             (IpiExtension::EXTID, function_id) => Self::Ipi(IpiExtension::from_function_id(function_id)),
             (RfenceExtension::EXTID, function_id) => Self::Rfence(RfenceExtension::from_function_id(function_id)),
@@ -31,34 +29,6 @@ impl SbiExtension {
             (CovhExtension::EXTID, function_id) => Self::Covh(CovhExtension::from_function_id(function_id)),
             (CovgExtension::EXTID, function_id) => Self::Covg(CovgExtension::from_function_id(function_id)),
             (extension_id, function_id) => Self::Unknown(extension_id, function_id),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum AceExtension {
-    SharePageWithHypervisor,
-    UnsharePageWithHypervisor,
-    PromoteVm,
-    ResumeConfidentialHart,
-    TerminateConfidentialVm,
-    PrintDebugInfo,
-    Unknown(usize, usize),
-}
-
-impl AceExtension {
-    // TODO: replace with an identifier registered in the RISC-V fundation
-    pub const EXTID: usize = 0x510000;
-
-    pub fn from_function_id(function_id: usize) -> Self {
-        match function_id {
-            1000 => Self::PromoteVm,
-            1010 => Self::ResumeConfidentialHart,
-            2000 => Self::SharePageWithHypervisor,
-            2001 => Self::UnsharePageWithHypervisor,
-            3001 => Self::TerminateConfidentialVm,
-            9000 => Self::PrintDebugInfo,
-            _ => Self::Unknown(Self::EXTID, function_id),
         }
     }
 }

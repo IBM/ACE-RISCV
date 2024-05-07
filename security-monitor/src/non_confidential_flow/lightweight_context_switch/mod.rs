@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+
 core::arch::global_asm!(
-    include_str!("enter_from_hypervisor_or_vm.S"),
-    include_str!("exit_to_hypervisor.S"),
+    core::include_str!("enter_from_hypervisor_or_vm.S"),
+    core::include_str!("exit_to_hypervisor.S"),
     // below is a boilerplate code to glue Rust and Assembly code.
     HART_RA_OFFSET = const crate::core::architecture::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::architecture::HART_SP_OFFSET,

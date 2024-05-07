@@ -33,13 +33,10 @@ impl MmioLoadRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match crate::core::architecture::decode_result_register(self.instruction) {
-            Ok(gpr) => {
-                let fault_addr = (self.mtval2 << 2) | (self.mtval & 0x3);
-                confidential_flow
-                    .set_pending_request(PendingRequest::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))
-                    .into_non_confidential_flow()
-                    .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioLoadRequest(self))
-            }
+            Ok(gpr) => confidential_flow
+                .set_pending_request(PendingRequest::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))
+                .into_non_confidential_flow()
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioLoadRequest(self)),
             Err(error) => {
                 confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(error.into_non_confidential_declassifier())
             }

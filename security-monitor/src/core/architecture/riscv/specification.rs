@@ -416,3 +416,9 @@ pub const PMP_ADDRESS_SHIFT: u16 = 2;
 pub const MTVEC_BASE_SHIFT: usize = 2;
 
 pub const CSR_STATUS_SIE: usize = 1;
+
+pub const SR_FS: usize = 0x00006000;
+pub const SR_FS_OFF: usize = 0x00000000;
+pub const SR_FS_INITIAL: usize = 0x00002000;
+pub const SR_FS_CLEAN: usize = 0x00004000;
+pub const SR_FS_DIRTY: usize = 0x00006000;

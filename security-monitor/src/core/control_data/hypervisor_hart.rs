@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, NaclSharedMemory};
+use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, NaclSharedMemory, SR_FS};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::error::Error;
@@ -21,12 +21,42 @@ pub struct HypervisorHart {
 }
 
 impl HypervisorHart {
-    pub fn new(id: usize, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
+    pub fn new(hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
-            hypervisor_hart_state: HartArchitecturalState::empty(id),
+            hypervisor_hart_state: HartArchitecturalState::empty(),
             shared_memory: NaclSharedMemory::uninitialized(),
             hypervisor_memory_protector,
         }
+    }
+
+    /// Saves the state of the hypervisor hart in the main memory. This is part of the heavy context switch.
+    pub fn save_in_main_memory(&mut self) {
+        self.csrs_mut().save_in_main_memory();
+        if (self.csrs().mstatus.read() & SR_FS) > 0 {
+            self.csrs_mut().fflags.save();
+            self.csrs_mut().frm.save();
+            self.csrs_mut().fcsr.save();
+            self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+        }
+    }
+
+    /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
+    pub fn restore_from_main_memory(&self) {
+        // TODO: currently we might leak F state. Regardless of the configuration, we must always restore F state it, or zeroize it if the F
+        // extension is disabled.
+        self.csrs().restore_from_main_memory();
+        if (self.csrs().mstatus.read() & SR_FS) > 0 {
+            self.hypervisor_hart_state.fprs().restore_from_main_memory();
+        }
+    }
+
+    pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
+        self.shared_memory.set(base_address)?;
+        Ok(())
+    }
+
+    pub unsafe fn enable_hypervisor_memory_protector(&self) {
+        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_value())
     }
 
     pub fn address(&self) -> usize {
@@ -59,14 +89,5 @@ impl HypervisorHart {
 
     pub fn shared_memory_mut(&mut self) -> &mut NaclSharedMemory {
         &mut self.shared_memory
-    }
-
-    pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
-        self.shared_memory.set(base_address)?;
-        Ok(())
-    }
-
-    pub unsafe fn enable_hypervisor_memory_protector(&self) {
-        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_value())
     }
 }

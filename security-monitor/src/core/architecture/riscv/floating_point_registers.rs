@@ -22,4 +22,13 @@ impl FloatingPointRegisters {
     pub fn iter() -> Range<usize> {
         Range { start: 0, end: Self::LEN }
     }
+
+    pub fn save_in_main_memory(&mut self) {
+        unsafe {
+            core::arch::asm!("fsd f0, 0({val})", val = in(reg) self);
+            // core::arch::asm!("fsd f1, {val}", val = in(reg) self.0[1]);
+        }
+    }
+
+    pub fn restore_from_main_memory(&self) {}
 }

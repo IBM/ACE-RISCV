@@ -14,9 +14,6 @@ impl InjectInterrupt {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        if self.hvip != 0 {
-            debug!("HVIP: {:x}", self.hvip);
-        }
         confidential_hart.csrs_mut().hvip.save_value(self.hvip);
     }
 }

@@ -56,36 +56,11 @@ index 31f4dbd97b03..fba7ebd0cd72 100644
  kvm-y += aia_imsic.o
 -kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o
 +kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o vcpu_sbi_covh.o
-diff --git a/arch/riscv/kvm/aia.c b/arch/riscv/kvm/aia.c
-index 88b91b5d5837..ae55a8ab0133 100644
---- a/arch/riscv/kvm/aia.c
-+++ b/arch/riscv/kvm/aia.c
-@@ -674,8 +674,10 @@ int kvm_riscv_aia_init(void)
- 	int rc;
- 	const struct imsic_global_config *gc;
- 
--	if (!riscv_isa_extension_available(NULL, SxAIA))
-+	if (!riscv_isa_extension_available(NULL, SxAIA)) {
-+		kvm_info("ACE KVM DEBUG: no SxAIA extension abailable\n");
- 		return -ENODEV;
-+	}
- 	gc = imsic_get_global_config();
- 
- 	/* Figure-out number of bits in HGEIE */
 diff --git a/arch/riscv/kvm/cove.c b/arch/riscv/kvm/cove.c
-index ba596b7f2240..d3c19aa745ba 100644
+index ba596b7f2240..76eb5a6f0852 100644
 --- a/arch/riscv/kvm/cove.c
 +++ b/arch/riscv/kvm/cove.c
-@@ -393,6 +393,8 @@ int kvm_riscv_cove_aia_init(struct kvm *kvm)
- 
- void kvm_riscv_cove_vcpu_load(struct kvm_vcpu *vcpu)
- {
-+	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
-+	nacl_csr_write(CSR_HVIP, csr->hvip);
- 	kvm_riscv_vcpu_timer_restore(vcpu);
- }
- 
-@@ -623,7 +625,7 @@ void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu)
+@@ -623,7 +623,7 @@ void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu)
  	 * Just add the vcpu state pages to a list at this point as these can not
  	 * be claimed until tvm is destroyed. *
  	 */
@@ -94,7 +69,7 @@ index ba596b7f2240..d3c19aa745ba 100644
  }
  
  int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
-@@ -985,13 +987,20 @@ int kvm_riscv_cove_init(void)
+@@ -985,13 +985,20 @@ int kvm_riscv_cove_init(void)
  	int rc;
  
  	/* We currently support host in VS mode. Thus, NACL is mandatory */
@@ -227,7 +202,7 @@ index 91ef6238310e..1ec0e1bc57f0 100644
  	/* Allocate per-CPU shared memory */
  	for_each_possible_cpu(cpu) {
 diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
-index 005c7c93536d..67348c2bc8d9 100644
+index 005c7c93536d..47231f33c6cd 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
 @@ -731,8 +731,9 @@ long kvm_arch_vcpu_async_ioctl(struct file *filp,
@@ -242,7 +217,27 @@ index 005c7c93536d..67348c2bc8d9 100644
  
  		if (copy_from_user(&irq, argp, sizeof(irq)))
  			return -EFAULT;
-@@ -1326,8 +1327,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
+@@ -837,7 +838,8 @@ void kvm_riscv_vcpu_sync_interrupts(struct kvm_vcpu *vcpu)
+ 	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
+ 
+ 	/* Read current HVIP and VSIE CSRs */
+-	csr->vsie = nacl_csr_read(CSR_VSIE);
++	// csr->vsie = nacl_csr_read(CSR_VSIE);
++	csr->vsie = nacl_shmem_csr_read(nacl_shmem(), CSR_VSIE);
+ 
+ 	/*
+ 	 * Sync-up HVIP.VSSIP bit changes does by Guest. For TVMs,
+@@ -1148,7 +1150,8 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
+ {
+ 	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
+ 
+-	nacl_csr_write(CSR_HVIP, csr->hvip);
++	// nacl_csr_write(CSR_HVIP, csr->hvip);
++	nacl_shmem_csr_write(nacl_shmem(), CSR_HVIP, csr->hvip);
+ 	kvm_riscv_vcpu_aia_update_hvip(vcpu);
+ }
+ 
+@@ -1326,8 +1329,8 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
  		kvm_riscv_vcpu_flush_interrupts(vcpu);
  
  		/* Update HVIP CSR for current CPU only for non TVMs */
@@ -368,45 +363,55 @@ index 44a3b06d0593..473c2bc4a007 100644
 -	.probe = kvm_sbi_ext_covg_probe,
 +	// .probe = kvm_sbi_ext_covg_probe,
  };
-diff --git a/arch/riscv/mm/mem_encrypt.c b/arch/riscv/mm/mem_encrypt.c
-index 8523c508c3a5..04abe48bacc6 100644
---- a/arch/riscv/mm/mem_encrypt.c
-+++ b/arch/riscv/mm/mem_encrypt.c
-@@ -25,25 +25,35 @@ bool force_dma_unencrypted(struct device *dev)
+diff --git a/init/main.c b/init/main.c
+index bb87b789c543..274087313625 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -1008,7 +1008,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
  
- int set_memory_encrypted(unsigned long addr, int numpages)
- {
-+	int i;
- 	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
- 		return 0;
+ 	/* trace_printk can be enabled here */
+ 	early_trace_init();
+-
+ 	/*
+ 	 * Set up the scheduler prior starting any interrupts (such as the
+ 	 * timer interrupt). Full topology setup happens at smp_init()
+@@ -1027,7 +1026,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	 * workqueue to take non-housekeeping into account.
+ 	 */
+ 	housekeeping_init();
+-
+ 	/*
+ 	 * Allow workqueue creation and work item queueing/cancelling
+ 	 * early.  Work item execution depends on kthreads and starts after
+@@ -1042,7 +1040,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
  
- 	if (!PAGE_ALIGNED(addr))
- 		return -EINVAL;
+ 	if (initcall_debug)
+ 		initcall_debug_enable();
+-
+ 	context_tracking_init();
+ 	/* init some links before init_ISA_irqs() */
+ 	early_irq_init();
+@@ -1055,7 +1052,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	softirq_init();
+ 	timekeeping_init();
+ 	time_init();
+-
+ 	/* This must be after timekeeping is initialized */
+ 	random_init();
  
--	return sbi_covg_unshare_memory(__pa(addr), numpages * PAGE_SIZE);
-+	for (i = 0; i < numpages; i++) {
-+		sbi_covg_unshare_memory(__pa(addr), PAGE_SIZE);
-+        addr += PAGE_SIZE;
-+    }
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(set_memory_encrypted);
+@@ -1070,7 +1066,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
  
- int set_memory_decrypted(unsigned long addr, int numpages)
- {
-+	int i;
- 	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
- 		return 0;
+ 	early_boot_irqs_disabled = false;
+ 	local_irq_enable();
+-
+ 	kmem_cache_init_late();
  
- 	if (!PAGE_ALIGNED(addr))
- 		return -EINVAL;
- 
--	return sbi_covg_share_memory(__pa(addr), numpages * PAGE_SIZE);
-+	for (i = 0; i < numpages; i++) {
-+		sbi_covg_share_memory(__pa(addr), PAGE_SIZE);
-+        addr += PAGE_SIZE;
-+    }
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(set_memory_decrypted);
- 
+ 	/*
+@@ -1099,7 +1094,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
+ 	 * not cause "plain-text" data to be decrypted when accessed.
+ 	 */
+ 	mem_encrypt_init();
+-
+ #ifdef CONFIG_BLK_DEV_INITRD
+ 	if (initrd_start && !initrd_below_start_ok &&
+ 	    page_to_pfn(virt_to_page((void *)initrd_start)) < min_low_pfn) {

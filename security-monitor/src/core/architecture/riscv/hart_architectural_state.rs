@@ -10,23 +10,18 @@ use crate::core::architecture::*;
 pub struct HartArchitecturalState {
     // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
     // address in the memory. This address is used by the assembly code.
-    pub gprs: GeneralPurposeRegisters,
-    pub csrs: ControlStatusRegisters,
-    pub fprs: FloatingPointRegisters,
-    pub id: usize,
+    gprs: GeneralPurposeRegisters,
+    csrs: ControlStatusRegisters,
+    fprs: FloatingPointRegisters,
 }
 
 impl HartArchitecturalState {
-    pub fn from_existing(id: usize, existing: &HartArchitecturalState) -> Self {
-        let new_gprs = existing.gprs.clone();
-        let mut new_csrs = existing.csrs.copy();
-        new_csrs.save_in_main_memory();
-
-        Self { gprs: new_gprs, csrs: new_csrs, fprs: FloatingPointRegisters::empty(), id }
+    pub fn empty() -> Self {
+        Self { gprs: GeneralPurposeRegisters::empty(), csrs: ControlStatusRegisters::empty(), fprs: FloatingPointRegisters::empty() }
     }
 
-    pub fn empty(id: usize) -> Self {
-        Self { gprs: GeneralPurposeRegisters::empty(), csrs: ControlStatusRegisters::empty(), fprs: FloatingPointRegisters::empty(), id }
+    pub fn set_gprs(&mut self, gprs: GeneralPurposeRegisters) {
+        self.gprs = gprs;
     }
 
     pub fn gprs(&self) -> &GeneralPurposeRegisters {
@@ -35,6 +30,14 @@ impl HartArchitecturalState {
 
     pub fn gprs_mut(&mut self) -> &mut GeneralPurposeRegisters {
         &mut self.gprs
+    }
+
+    pub fn fprs(&self) -> &FloatingPointRegisters {
+        &self.fprs
+    }
+
+    pub fn fprs_mut(&mut self) -> &mut FloatingPointRegisters {
+        &mut self.fprs
     }
 
     pub fn csrs(&self) -> &ControlStatusRegisters {
