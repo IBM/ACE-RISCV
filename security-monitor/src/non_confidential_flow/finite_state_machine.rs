@@ -5,8 +5,8 @@ use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::supervisor_binary_interface::BaseExtension::*;
 use crate::core::architecture::supervisor_binary_interface::CovhExtension::*;
 use crate::core::architecture::supervisor_binary_interface::NaclExtension::*;
+use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
 use crate::core::architecture::supervisor_binary_interface::SbiExtension::*;
-use crate::core::architecture::supervisor_binary_interface::{CovhExtension, CoviExtension, NaclSharedMemory};
 use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
@@ -14,6 +14,7 @@ use crate::error::Error;
 use crate::non_confidential_flow::handlers::covh::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
+use crate::non_confidential_flow::handlers::invalid_call::InvalidCall;
 use crate::non_confidential_flow::handlers::nacl::{NaclProbeFeature, NaclSetupSharedMemory};
 use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
@@ -67,8 +68,8 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(Covh(PromoteToTvm)) => PromoteToConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(TvmVcpuRun)) => RunConfidentialHart::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(DestroyTvm)) => DestroyConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Covh(CovhExtension::Unknown(a, b))) => panic!("Not supported Covh {:x} {}", a, b),
-            HsEcall(Covi(CoviExtension::Unknown(a, b))) => panic!("Not supported Covi {:x} {}", a, b),
+            HsEcall(Covh(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covi(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(ProbeFeature)) => NaclProbeFeature::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(SetupSharedMemory)) => NaclSetupSharedMemory::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(_) => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),

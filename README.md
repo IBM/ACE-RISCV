@@ -5,10 +5,12 @@
  
 ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on the [canonical architecture](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor implementation](security-monitor/). We invite collaborators to work with us to push the boundaries of provable confidential computing technology. 
 
+This project implements the RISC-V CoVE spec's deployment model 3 referenced in [Appendix D](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/). 
+
 **This is an active research project, without warranties of any kind.** Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
 
 ## Hardware requirements
-We are currently building on RISC-V 64-bit with integer, atomic and hypervisor extentions, physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc). We plan to adapt some of the RISC-V confidential computing extensions, such as [the CoVE extension](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/specification/riscv-cove.pdf), [the Smmtt extension](https://github.com/riscv/riscv-smmtt), and the NACL SBI extension.
+We are currently building on RISC-V 64-bit with integer (I), atomic (A) and hypervisor extentions (H), physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc). 
 
 ## Quick Start
 Follow instructions to run one of the sample [confidential workloads](confidential-vms) under an [untrusted Linux KVM hypervisor](hypervisor/) in an [emulated RISC-V environment](qemu/).
@@ -61,6 +63,11 @@ git clone --recurse-submodules git@github.com:IBM/ACE-RISCV.git
 ### Compilation
 #### Prerequisites
 Run the following commands from the directory containing this README file.
+
+Make sure once again that all submodules are fetched:
+```
+git submodule update --init --recursive
+```
 
 Set up the ACE_DIR variable to point to the location where the project will build. Default is the `build/` subdirectory of the location where you will execute the `make` command.
 ```

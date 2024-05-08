@@ -22,11 +22,7 @@ impl SbiResponse {
         Self { a0: 0, a1: code }
     }
 
-    pub fn failure(code: usize) -> Self {
-        Self { a0: code, a1: 0 }
-    }
-
     pub fn error(error: Error) -> Self {
-        Self::failure(error.code())
+        Self { a0: error.code(), a1: 0 }
     }
 }
