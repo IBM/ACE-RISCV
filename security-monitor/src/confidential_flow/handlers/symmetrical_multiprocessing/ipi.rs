@@ -31,9 +31,9 @@ impl SbiIpi {
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         let transformation = confidential_flow
             .broadcast_inter_hart_request(InterHartRequest::SbiIpi(self))
-            .and_then(|_| Ok(ApplyToConfidentialHart::SbiResponse(SbiResponse::success(0))))
-            .unwrap_or_else(|error| error.into_confidential_transformation());
-        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+            .and_then(|_| Ok(SbiResponse::success(0)))
+            .unwrap_or_else(|error| SbiResponse::failure(error.code()));
+        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 }
 

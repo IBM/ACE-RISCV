@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{fence_wo, CAUSE_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
+use crate::core::architecture::{fence_wo, CSR, MTVEC_BASE_SHIFT};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
@@ -88,10 +88,10 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
         let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
         let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
         debug!("Hart #{}: {:?}", hart_id, isa);
-        assure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
+        ensure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
         required_extensions
             .into_iter()
-            .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
+            .try_for_each(|ext| ensure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
     }
 
     // TODO: make sure there are enough PMPs
@@ -154,7 +154,7 @@ fn initalize_security_monitor_state(
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
     let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
     let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
-    assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
+    ensure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
@@ -224,14 +224,6 @@ extern "C" fn ace_setup_this_hart() {
     if let Err(_error) = unsafe { HypervisorMemoryProtector::setup() } {
         return;
     }
-
-    // Hypervisor environmental calls trap into the security monitor. These calls are entry point of a `non-confidential flow` in the
-    // security monitor's finite state machine (FSM).
-    hart.hypervisor_hart_mut().csrs_mut().medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
-    debug!(
-        "Reconfigured exception delegations to take control over HS environmental calls. medeleg={:b}",
-        hart.hypervisor_hart().csrs().medeleg.read()
-    );
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;

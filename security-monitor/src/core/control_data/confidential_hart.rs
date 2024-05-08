@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::smp::{SbiHsmHartStart, SbiHsmHartSuspend};
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
+use crate::core::control_data::confidential_hart::supervisor_binary_interface::NaclSharedMemory;
 use crate::core::control_data::inter_hart_request::InterHartRequestExecutable;
 use crate::core::control_data::{ConfidentialVmId, InterHartRequest, PendingRequest};
 use crate::error::Error;
@@ -51,7 +51,7 @@ impl ConfidentialHart {
     }
 
     /// Constructs a confidential hart with the state after a reset.
-    pub fn from_vm_hart_reset(id: usize, shared_memory: &NaclSharedMemory) -> Self {
+    pub fn from_vm_hart_reset(id: usize, htimedelta: usize, shared_memory: &NaclSharedMemory) -> Self {
         let mut confidential_hart_state = HartArchitecturalState::empty();
         // Set up mstatus, so that the lightweight context switch changes to privileg mode to VS-mode when executing the confidential VM
         // (see Table 8.8 in Riscv privilege spec 20211203)
@@ -97,22 +97,23 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().stimecmp.save_value(infinity);
         // TODO: The same starting clock for all confidential harts within the same confidential VM.
         // TODO: generate our own value
-        confidential_hart_state.csrs_mut().htimedelta.save();
+        confidential_hart_state.csrs_mut().htimedelta.save_value(htimedelta);
         // There is a subset of S-mode CSRs that have no VS equivalent and preserve their function when virtualization is enabled (see
         // `Hypervisor and Virtual Supervisor CSRs` in Volume II: RISC-V Privileged Architectures V20211203)
         confidential_hart_state.csrs_mut().henvcfg.restore_from_nacl(shared_memory);
-        confidential_hart_state.csrs_mut().senvcfg.save();
+        let henvcfg = confidential_hart_state.csrs_mut().henvcfg.read_value();
+        confidential_hart_state.csrs_mut().senvcfg.save_value(henvcfg);
         // VS code should directly access only the timer. Everything else will trap
-        confidential_hart_state.csrs_mut().hcounteren.save_value(0x02);
-        confidential_hart_state.csrs_mut().scounteren.save();
+        confidential_hart_state.csrs_mut().hcounteren.save_value(HCOUNTEREN_TM_MASK);
+        confidential_hart_state.csrs_mut().scounteren.save_value(HCOUNTEREN_TM_MASK);
         Self { confidential_vm_id: None, confidential_hart_state, lifecycle_state: HartLifecycleState::Stopped, pending_request: None, id }
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
-    pub fn from_vm_hart(id: usize, sepc: usize, shared_memory: &NaclSharedMemory) -> Self {
+    pub fn from_vm_hart(id: usize, program_counter: usize, htimedelta: usize, shared_memory: &NaclSharedMemory) -> Self {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.
-        let mut confidential_hart = Self::from_vm_hart_reset(id, shared_memory);
+        let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory);
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
         confidential_hart_state.set_gprs(shared_memory.gprs());
         confidential_hart_state.csrs_mut().vsstatus.restore_from_nacl(&shared_memory);
@@ -124,7 +125,7 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().vstval.restore_from_nacl(&shared_memory);
         confidential_hart_state.csrs_mut().vsatp.restore_from_nacl(&shared_memory);
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted.
-        confidential_hart_state.csrs_mut().mepc.save_value(sepc);
+        confidential_hart_state.csrs_mut().mepc.save_value(program_counter);
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
         confidential_hart.pending_request = Some(PendingRequest::SbiRequest());
         confidential_hart
@@ -146,6 +147,9 @@ impl ConfidentialHart {
     /// Restores the state of the confidential hart from the main memory. This is part of the heavy context switch.
     pub fn restore_from_main_memory(&self) {
         self.csrs().restore_from_main_memory();
+        // TODO: add random time to the stimecmp register, so that the hypervisor cannot control the exact time when confidential VM is
+        // interrupted
+
         // TODO: currently we might leak F state. Regardless of the configuration, we must always restore F state it, or zeroize it if the F
         // extension is disabled.
         if (self.csrs().mstatus.read() & SR_FS) > 0 {
@@ -210,7 +214,7 @@ impl ConfidentialHart {
     /// hart, the security monitor will declassify a response to this request that should come from another security
     /// domain, like hypervisor.
     pub fn set_pending_request(&mut self, request: PendingRequest) -> Result<(), Error> {
-        assure!(self.pending_request.is_none(), Error::PendingRequest())?;
+        ensure!(self.pending_request.is_none(), Error::PendingRequest())?;
         self.pending_request = Some(request);
         Ok(())
     }
@@ -228,9 +232,9 @@ impl ConfidentialHart {
     /// Changes the lifecycle state of the hart into the `StartPending` state. Confidential hart's state is set as if
     /// the hart was reset. This function is called as a response of another confidential hart (typically a boot hart)
     /// to start another confidential hart. Returns error if the confidential hart is not in stopped state.
-    pub fn transition_from_stopped_to_started(&mut self, request: SbiHsmHartStart) -> Result<(), Error> {
-        assure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
-        assure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
+    pub fn transition_from_stopped_to_started(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
+        ensure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
+        ensure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
         let confidential_hart_id = self.id;
 
         // Let's set up the confidential hart initial state so that it can be run
@@ -246,28 +250,28 @@ impl ConfidentialHart {
 
         self.confidential_hart_state.csrs_mut().vsstatus.disable_bit_on_saved_value(CSR_STATUS_SIE);
         self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, confidential_hart_id);
-        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, request.opaque());
-        self.confidential_hart_state.csrs_mut().mepc.save_value(request.start_address());
+        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, opaque);
+        self.confidential_hart_state.csrs_mut().mepc.save_value(start_address);
         Ok(())
     }
 
-    pub fn transition_from_started_to_suspended(&mut self, _request: SbiHsmHartSuspend) -> Result<(), Error> {
+    pub fn transition_from_started_to_suspended(&mut self) -> Result<(), Error> {
         assert!(!self.is_dummy());
-        assure!(self.lifecycle_state == HartLifecycleState::Started, Error::CannotSuspedNotStartedHart())?;
+        ensure!(self.lifecycle_state == HartLifecycleState::Started, Error::CannotSuspedNotStartedHart())?;
         self.lifecycle_state = HartLifecycleState::Suspended;
         Ok(())
     }
 
     pub fn transition_from_started_to_stopped(&mut self) -> Result<(), Error> {
         assert!(!self.is_dummy());
-        assure!(self.lifecycle_state == HartLifecycleState::Started, Error::CannotStopNotStartedHart())?;
+        ensure!(self.lifecycle_state == HartLifecycleState::Started, Error::CannotStopNotStartedHart())?;
         self.lifecycle_state = HartLifecycleState::Stopped;
         Ok(())
     }
 
     pub fn transition_from_suspended_to_started(&mut self) -> Result<(), Error> {
         assert!(!self.is_dummy());
-        assure!(self.lifecycle_state == HartLifecycleState::Suspended, Error::CannotStartNotSuspendedHart())?;
+        ensure!(self.lifecycle_state == HartLifecycleState::Suspended, Error::CannotStartNotSuspendedHart())?;
         self.lifecycle_state = HartLifecycleState::Started;
         Ok(())
     }

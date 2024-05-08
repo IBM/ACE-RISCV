@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiRequest;
-use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
+use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
+use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Handles a request to start a remote confidential hart. This is an implementation of the HartStart function from the HSM extension of
 /// SBI.
@@ -34,7 +35,7 @@ impl SbiHsmHartStart {
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
-            confidential_vm.start_confidential_hart(self)
+            confidential_vm.start_confidential_hart(self.confidential_hart_id, self.start_address, self.opaque)
         }) {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::SbiRequest())
@@ -46,20 +47,9 @@ impl SbiHsmHartStart {
                 // starting a confidential hart might fail if the incoming request is invalid. For example, the confidential
                 // hart id does not exist or is the same as the one currently assigned to the hardware hart. In such cases,
                 // return an error to the calling confidential hart.
-                confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation())
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
+                confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }
-    }
-
-    pub fn confidential_hart_id(&self) -> usize {
-        self.confidential_hart_id
-    }
-
-    pub fn start_address(&self) -> usize {
-        self.start_address
-    }
-
-    pub fn opaque(&self) -> usize {
-        self.opaque
     }
 }

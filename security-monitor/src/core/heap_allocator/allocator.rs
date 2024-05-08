@@ -88,7 +88,7 @@ impl FreeMemoryRegion {
         // We only allow allocating from the given region if there is enough space to reuse the resulting space for a
         // FreeMemoryRegion
         let free_space_left = ptr_byte_offset(self.end_address_ptr(), alloc_end);
-        assure!(free_space_left == 0 || free_space_left >= (mem::size_of::<FreeMemoryRegion>() as isize), Error::OutOfMemory())?;
+        ensure!(free_space_left == 0 || free_space_left >= (mem::size_of::<FreeMemoryRegion>() as isize), Error::OutOfMemory())?;
 
         Ok((alloc_start, alloc_end, free_space_left as usize))
     }

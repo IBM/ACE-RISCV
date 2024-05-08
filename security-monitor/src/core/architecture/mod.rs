@@ -4,7 +4,7 @@
 pub use riscv::control_status_registers::*;
 pub use riscv::fence::*;
 pub use riscv::hart_architectural_state::*;
-pub use riscv::*;
+pub use riscv::{supervisor_binary_interface, *};
 
 mod riscv;
 

@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::core::architecture::{GeneralPurposeRegister, *};
+use crate::core::architecture::supervisor_binary_interface::CovhExtension;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
 use crate::non_confidential_flow::handlers::opensbi::DelegateToOpensbi;
+use crate::non_confidential_flow::handlers::sbi::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
 pub struct ProbeSbiExtension {

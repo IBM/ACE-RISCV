@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub use discovery::SbiExtensionProbe;
+pub use extension_probe::SbiExtensionProbe;
 pub use get_impl_id::SbiGetImplId;
 pub use get_impl_version::SbiGetImplVersion;
 pub use get_marchid::SbiGetMarchId;
@@ -11,7 +11,7 @@ pub use get_spec_version::SbiGetSpecVersion;
 pub use request::SbiRequest;
 pub use response::SbiResponse;
 
-mod discovery;
+mod extension_probe;
 mod get_impl_id;
 mod get_impl_version;
 mod get_marchid;

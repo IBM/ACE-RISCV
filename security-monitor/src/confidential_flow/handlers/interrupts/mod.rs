@@ -4,9 +4,7 @@
 pub use allow_external_interrupt::AllowExternalInterrupt;
 pub use expose_enabled_interrupts::ExposeEnabledInterrupts;
 pub use handle_interrupt::HandleInterrupt;
-pub use inject_interrupt::InjectInterrupt;
 
 mod allow_external_interrupt;
 mod expose_enabled_interrupts;
 mod handle_interrupt;
-mod inject_interrupt;

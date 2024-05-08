@@ -95,7 +95,7 @@ impl MemoryLayout {
     pub fn confidential_address_at_offset_bounded(
         &self, address: &ConfidentialMemoryAddress, offset_in_bytes: usize, upper_bound: *const usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
-        assure!(upper_bound <= self.confidential_memory_end, Error::MemoryAccessAuthorization())?;
+        ensure!(upper_bound <= self.confidential_memory_end, Error::MemoryAccessAuthorization())?;
         Ok(self.confidential_address_at_offset(address, offset_in_bytes)?)
     }
 

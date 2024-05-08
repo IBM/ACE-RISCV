@@ -4,11 +4,11 @@
 use crate::core::architecture::CSR_HVIP;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 
-pub struct InjectInterrupt {
+pub struct InjectExternalInterrupt {
     hvip: usize,
 }
 
-impl InjectInterrupt {
+impl InjectExternalInterrupt {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self { hvip: hypervisor_hart.shared_memory().csr(CSR_HVIP.into()) }
     }

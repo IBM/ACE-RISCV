@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
-use crate::confidential_flow::handlers::smp::{
+use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
 };
 use crate::core::control_data::ConfidentialHart;

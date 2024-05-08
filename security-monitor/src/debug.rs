@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::fmt::{Error, Write};
 
 #[macro_export]
-macro_rules! assure {
+macro_rules! ensure {
     ($cond:expr, $error:expr) => {
         if !$cond {
             Err($error)
@@ -18,7 +18,7 @@ macro_rules! assure {
 }
 
 #[macro_export]
-macro_rules! assure_not {
+macro_rules! ensure_not {
     ($cond:expr, $error:expr) => {
         if $cond {
             Err($error)

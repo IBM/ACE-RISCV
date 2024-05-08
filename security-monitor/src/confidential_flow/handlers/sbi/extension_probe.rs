@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::{GeneralPurposeRegister, *};
+use crate::core::architecture::supervisor_binary_interface::*;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 
 /// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does

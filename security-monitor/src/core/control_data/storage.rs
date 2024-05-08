@@ -49,7 +49,7 @@ impl ControlData {
 
     pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
         ControlData::try_write(|control_data| {
-            assure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
+            ensure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
             debug!("ConfidentialVM[{:?}] removed from the control data structure", confidential_vm_id);
             control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
         })?

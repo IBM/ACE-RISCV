@@ -119,7 +119,7 @@ impl PageTable {
         confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
     ) -> Result<(), Error> {
         let page_size_at_current_level = self.paging_system.page_size(self.level);
-        assure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
+        ensure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
         let virtual_page_number = self.paging_system.vpn(&confidential_vm_physical_address, self.level);
 
         if page_size_at_current_level > page_size {
@@ -169,7 +169,7 @@ impl PageTable {
         match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(address),
             PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
-                assure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
+                ensure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
                 self.set_entry(virtual_page_number, PageTableEntry::NotValid);
                 Ok(self.paging_system.page_size(self.level))
             }

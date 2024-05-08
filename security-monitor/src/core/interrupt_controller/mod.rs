@@ -24,7 +24,7 @@ impl<'a> InterruptController {
     /// Constructs the global, unique interrupt controller instance.
     pub unsafe fn initialize() -> Result<(), Error> {
         let interrupt_controller = unsafe { Self::new() }?;
-        assure_not!(INTERRUPT_CONTROLLER.is_completed(), Error::Reinitialization())?;
+        ensure_not!(INTERRUPT_CONTROLLER.is_completed(), Error::Reinitialization())?;
         INTERRUPT_CONTROLLER.call_once(|| RwLock::new(interrupt_controller));
         Ok(())
     }

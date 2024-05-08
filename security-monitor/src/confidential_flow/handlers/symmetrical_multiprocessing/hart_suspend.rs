@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiRequest;
-use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
+use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
+use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Suspends a confidential hart that made this request. This is an implementation of the HartSuspend function from the
 /// HSM extension of SBI.
@@ -32,7 +33,9 @@ impl SbiHsmHartSuspend {
             Ok(_) => confidential_flow
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend())),
-            Err(error) => confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation()),
+            Err(error) => {
+                confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)))
+            }
         }
     }
 }

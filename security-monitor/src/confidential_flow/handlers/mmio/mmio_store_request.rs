@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::mmio::MmioStorePending;
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
+use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 use crate::error::Error;
+use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Handles MMIO store request coming from the confidential hart. This request will be declassified to the hypervisor.
 pub struct MmioStoreRequest {
@@ -42,7 +43,8 @@ impl MmioStoreRequest {
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioStoreRequest(self)),
             Err(error) => {
-                confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(error.into_non_confidential_declassifier())
+                let transformation = DeclassifyToHypervisor::SbiResponse(SbiResponse::failure(error.code()));
+                confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(transformation)
             }
         }
     }

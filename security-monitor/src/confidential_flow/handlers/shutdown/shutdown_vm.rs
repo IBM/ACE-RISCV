@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::shutdown::shutdown_confidential_hart;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::control_data::{ConfidentialHart, InterHartRequest};
 
 /// Handles the system reset call of the SBI's SRST extension. This call is a request to shutdown or reboot the
@@ -25,7 +26,10 @@ impl ShutdownRequest {
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.broadcast_inter_hart_request(InterHartRequest::ShutdownRequest(self)) {
             Ok(_) => shutdown_confidential_hart(confidential_flow),
-            Err(error) => confidential_flow.apply_and_exit_to_confidential_hart(error.into_confidential_transformation()),
+            Err(error) => {
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
+                confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+            }
         }
     }
 

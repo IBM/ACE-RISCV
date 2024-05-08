@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiRequest;
-use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
-use crate::core::architecture::{CovgExtension, GeneralPurposeRegister};
+use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
+use crate::core::architecture::supervisor_binary_interface::CovgExtension;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
+use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Handles a request from the confidential VM to unshare a page that was previously shared with the hypervisor.
 pub struct UnsharePageRequest {
@@ -29,14 +31,14 @@ impl UnsharePageRequest {
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.unshare_page_sbi_request())),
             Err(error) => {
-                let transformation = error.into_confidential_transformation();
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }
     }
 
     fn unshare_page_sbi_request(&self) -> SbiRequest {
-        SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_UNSHARE_MEMORY, self.address.usize(), self.size, 0, 0, 0, 0)
+        SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_UNSHARE_MEMORY, self.address.usize(), self.size)
     }
 
     pub fn address(&self) -> &ConfidentialVmPhysicalAddress {

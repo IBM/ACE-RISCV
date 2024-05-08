@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::smp::SbiIpi;
+use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiIpi;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, InterHartRequestExecutable};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;

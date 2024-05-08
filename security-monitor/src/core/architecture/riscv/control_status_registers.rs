@@ -6,7 +6,7 @@
 // https://github.com/rivosinc/salus/blob/fd06d5959fd81c02b8763c1922f36cc0ebe7d301/riscv-regs/src/csrs/csr_access.rs#L47
 #![allow(unused)]
 pub use super::specification::*;
-use crate::core::architecture::NaclSharedMemory;
+use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
 use core::arch::asm;
 
 pub struct ControlStatusRegisters {
@@ -236,7 +236,7 @@ impl ControlStatusRegisters {
         self.hgeie.restore();
         self.htval.restore();
         // self.hip.restore();
-        // self.hvip.restore();
+        self.hvip.restore();
         self.htinst.restore();
         // self.hgeip.restore();
         self.henvcfg.restore();
@@ -256,12 +256,6 @@ impl ControlStatusRegisters {
         self.vsatp.restore();
         // timer-related
         self.vstimecmp.restore();
-        // F-extension
-        if (self.mstatus.read() & SR_FS) > 0 {
-            self.fflags.restore();
-            self.frm.restore();
-            self.fcsr.restore();
-        }
     }
 }
 

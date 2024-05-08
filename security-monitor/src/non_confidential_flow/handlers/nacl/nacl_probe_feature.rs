@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
+use crate::non_confidential_flow::handlers::sbi::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
-/// Handles the hypervisor request to resume execution of a confidential hart.
+/// Replies what nested acceleration (NACL) features are implemented by the security monitor.
 pub struct NaclProbeFeature {
     _feature_id: usize,
 }
