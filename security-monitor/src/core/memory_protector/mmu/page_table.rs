@@ -94,7 +94,8 @@ impl PageTable {
     /// structure.
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
-        let logical_representation = Vec::with_capacity(serialized_representation.size().in_bytes() / paging_system.entry_size());
+        let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();
+        let logical_representation = Vec::with_capacity(number_of_entries);
         Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
