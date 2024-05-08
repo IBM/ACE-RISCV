@@ -57,7 +57,7 @@ index 31f4dbd97b03..fba7ebd0cd72 100644
 -kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o
 +kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o vcpu_sbi_covh.o
 diff --git a/arch/riscv/kvm/cove.c b/arch/riscv/kvm/cove.c
-index ba596b7f2240..76eb5a6f0852 100644
+index ba596b7f2240..f35ec2c0cc3d 100644
 --- a/arch/riscv/kvm/cove.c
 +++ b/arch/riscv/kvm/cove.c
 @@ -623,7 +623,7 @@ void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu)
@@ -69,7 +69,7 @@ index ba596b7f2240..76eb5a6f0852 100644
  }
  
  int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
-@@ -985,13 +985,20 @@ int kvm_riscv_cove_init(void)
+@@ -985,15 +985,22 @@ int kvm_riscv_cove_init(void)
  	int rc;
  
  	/* We currently support host in VS mode. Thus, NACL is mandatory */
@@ -86,12 +86,15 @@ index ba596b7f2240..76eb5a6f0852 100644
  		return -EINVAL;
  
 +	// TODO: remove below
-+	riscv_cove_enabled = true;
-+	tinfo.tstate = TSM_READY;
++	// riscv_cove_enabled = true;
++	// tinfo.tstate = TSM_READY;
 +
  	if (tinfo.tstate != TSM_READY) {
- 		kvm_err("TSM is not ready yet. Can't run TVMs\n");
+-		kvm_err("TSM is not ready yet. Can't run TVMs\n");
++		kvm_err("TSM is not ready yet. Can't run TVMs %ld %lx\n", tinfo.tstate, tinfo.version);
  		return -EAGAIN;
+ 	}
+ 
 diff --git a/arch/riscv/kvm/cove_sbi.c b/arch/riscv/kvm/cove_sbi.c
 index 4759b4920226..1cb1e45eb185 100644
 --- a/arch/riscv/kvm/cove_sbi.c
@@ -363,6 +366,222 @@ index 44a3b06d0593..473c2bc4a007 100644
 -	.probe = kvm_sbi_ext_covg_probe,
 +	// .probe = kvm_sbi_ext_covg_probe,
  };
+diff --git a/arch/riscv/kvm/vcpu_sbi_covh.c b/arch/riscv/kvm/vcpu_sbi_covh.c
+new file mode 100644
+index 000000000000..7c34fdff68cb
+--- /dev/null
++++ b/arch/riscv/kvm/vcpu_sbi_covh.c
+@@ -0,0 +1,210 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (c) 2023 Rivos Inc.
++ *
++ * Authors:
++ *     Rajnesh Kanwal <rkanwal@rivosinc.com>
++ */
++
++#include <linux/errno.h>
++#include <linux/err.h>
++#include <linux/kvm_host.h>
++#include <linux/list.h>
++#include <linux/mm.h>
++#include <linux/spinlock.h>
++#include <asm/csr.h>
++#include <asm/sbi.h>
++#include <asm/kvm_vcpu_sbi.h>
++#include <asm/kvm_cove.h>
++#include <asm/kvm_cove_sbi.h>
++#include <asm/kvm_nacl.h>
++
++static int preload_load_all_pages(struct kvm_vcpu *vcpu);
++
++static int kvm_riscv_cove_promote_to_tvm(struct kvm_vcpu *vcpu) {
++	struct kvm *kvm = vcpu->kvm;
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	struct kvm_vcpu_csr *csrs = &vcpu->arch.guest_csr;
++	unsigned long fdt_address = cp->a0;
++	unsigned long tap_addr = cp->a1;
++	struct kvm_cove_tvm_context *tvmc;
++	struct page *vcpus_page;
++	struct kvm_cove_tvm_vcpu_context *tvcpuc;
++	unsigned long tvmid;
++	void *nshmem;
++	unsigned long vcpus_phys_addr;
++	int rc;
++
++	preload_load_all_pages(vcpu);
++
++	nshmem = nacl_shmem();
++
++	// use kvm_arch_vcpu_load() instead the code below
++	nacl_shmem_csr_write(nshmem, CSR_VSSTATUS, csrs->vsstatus);
++	nacl_shmem_csr_write(nshmem, CSR_VSIE, csrs->vsie);
++	nacl_shmem_csr_write(nshmem, CSR_VSTVEC, csrs->vstvec);
++	nacl_shmem_csr_write(nshmem, CSR_VSSCRATCH, csrs->vsscratch);
++	nacl_shmem_csr_write(nshmem, CSR_VSEPC, csrs->vsepc);
++	nacl_shmem_csr_write(nshmem, CSR_VSCAUSE, csrs->vscause);
++	nacl_shmem_csr_write(nshmem, CSR_VSTVAL, csrs->vstval);
++	nacl_shmem_csr_write(nshmem, CSR_VSATP, csrs->vsatp);
++	nacl_shmem_csr_write(nshmem, CSR_SCOUNTEREN, csrs->scounteren);
++
++	u64 henvcfg = 0;
++	if (riscv_isa_extension_available(vcpu->arch.isa, SVPBMT))
++		henvcfg |= ENVCFG_PBMTE;
++	if (riscv_isa_extension_available(vcpu->arch.isa, SSTC))
++		henvcfg |= ENVCFG_STCE;
++	if (riscv_isa_extension_available(vcpu->arch.isa, ZICBOM))
++		henvcfg |= (ENVCFG_CBIE | ENVCFG_CBCFE);
++	nacl_shmem_csr_write(nshmem, CSR_HENVCFG, henvcfg);
++
++	// below sets up hgatp in NACL
++	kvm_riscv_gstage_update_hgatp(vcpu);
++
++	// set all GPRs
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_RA, cp->ra);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_SP, cp->sp);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_GP, cp->gp);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_TP, cp->tp);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T0, cp->t0);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T1, cp->t1);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T2, cp->t2);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S0, cp->s0);	
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S1, cp->s1);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A0, cp->a0);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A1, cp->a1);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A2, cp->a2);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A3, cp->a3);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A4, cp->a4);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A5, cp->a5);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A6, cp->a6);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_A7, cp->a7);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S2, cp->s2);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S3, cp->s3);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S4, cp->s4);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S5, cp->s5);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S6, cp->s6);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S7, cp->s7);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S8, cp->s8);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S9, cp->s9);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S10, cp->s10);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_S11, cp->s11);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T3, cp->t3);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T4, cp->t4);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T5, cp->t5);
++	nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_T6, cp->t6);
++
++	// local_irq_disable();
++	rc = sbi_covh_tsm_promote_to_tvm(fdt_address, tap_addr, cp->sepc, &tvmid);
++	// local_irq_enable();
++
++	if (!rc) {
++		tvmc = kzalloc(sizeof(*tvmc), GFP_KERNEL);
++		if (!tvmc)
++			return -ENOMEM;
++
++		INIT_LIST_HEAD(&tvmc->measured_pages);
++		INIT_LIST_HEAD(&tvmc->zero_pages);
++		INIT_LIST_HEAD(&tvmc->shared_pages);
++		INIT_LIST_HEAD(&tvmc->reclaim_pending_pages);
++
++		tvmc->tvm_guest_id = tvmid;
++		// spin_lock_init(&tvmc->tvm_fence_lock);
++		kvm->arch.tvmc = tvmc;
++		// we do not require to finalize the TVM
++		tvmc->finalized_done = true;
++		tvmc->kvm = kvm;
++		kvm->arch.vm_type = KVM_VM_TYPE_RISCV_COVE;
++
++		tvcpuc = kzalloc(sizeof(*tvcpuc), GFP_KERNEL);
++		if (!tvcpuc)
++			return -ENOMEM;
++		vcpus_page = alloc_pages(GFP_KERNEL | __GFP_ZERO, get_order_num_pages(1));
++		if (!vcpus_page) {
++			rc = -ENOMEM;
++			goto alloc_page_failed;
++		}
++
++		tvcpuc->vcpu = vcpu;
++		tvcpuc->vcpu_state.npages = 1;
++		tvcpuc->vcpu_state.page = vcpus_page;
++
++		vcpu->arch.tc = tvcpuc;
++
++		// TODO: iterate over all existing vCPUs and init their tvmc
++
++		// do not use AIA
++		tvcpuc->imsic.bind_required = false;
++
++		kvm_info("Guest VM creation successful with guest id %lx\n", tvmid);
++		vcpu->requests = 0;
++	} else {
++		printk(KERN_INFO "ACE KVM: VM promotion failed error=%d\n", rc);
++	}
++
++alloc_page_failed:
++
++	return rc;
++}
++
++static int preload_load_all_pages(struct kvm_vcpu *vcpu)
++{
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	struct kvm_memory_slot *memslot;
++	unsigned long hva, fault_addr;
++	bool writable;
++	gfn_t gfn;
++	int ret;
++	long page;
++	unsigned long memory_size = cp->a0;
++
++	printk(KERN_INFO "ACE KVM debug: Preloading VM's pages before promotion \n");
++	unsigned long memory_start = 0x80000000;
++	// unsigned long number_of_pages = memory_size / 4096; 
++	unsigned long number_of_pages = 1024*1024; // ~4GiB because a page is 4KiB;
++	for (page=0; page<number_of_pages; page++) {
++		fault_addr = memory_start + page * 4096;
++		gfn = fault_addr >> PAGE_SHIFT;
++		memslot = gfn_to_memslot(vcpu->kvm, gfn);
++		hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
++		if (memslot != NULL && !kvm_is_error_hva(hva)) {
++			kvm_riscv_gstage_map(vcpu, memslot, fault_addr, hva, true);
++		}
++	}
++
++	return 0;
++}
++
++static int kvm_sbi_ext_covh_handler(struct kvm_vcpu *vcpu, struct kvm_run *run,
++				    struct kvm_vcpu_sbi_return *retdata)
++{
++	struct kvm_cpu_context *cp = &vcpu->arch.guest_context;
++	unsigned long funcid = cp->a6;
++	unsigned long *err_val = &retdata->err_val;
++	int ret;
++
++	switch (funcid) {
++	case SBI_EXT_COVH_PROMOTE_TO_TVM:
++		ret = kvm_riscv_cove_promote_to_tvm(vcpu);
++		return 0;
++
++	default:
++		kvm_err("%s: Unsupported guest SBI %ld.\n", __func__, funcid);
++		retdata->err_val = SBI_ERR_NOT_SUPPORTED;
++		return -EOPNOTSUPP;
++	}
++}
++
++// unsigned long kvm_sbi_ext_covh_probe(struct kvm_vcpu *vcpu)
++// {
++// 	/* KVM COVG SBI handler is only meant for handling calls from TSM */
++// 	return 0;
++// }
++
++const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_covh = {
++	.extid_start = SBI_EXT_COVH,
++	.extid_end = SBI_EXT_COVH,
++	.handler = kvm_sbi_ext_covh_handler,
++	// .probe = kvm_sbi_ext_covh_probe,
++};
 diff --git a/init/main.c b/init/main.c
 index bb87b789c543..274087313625 100644
 --- a/init/main.c
