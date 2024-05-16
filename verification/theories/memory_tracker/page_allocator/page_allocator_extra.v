@@ -182,7 +182,7 @@ Definition page_storage_node_invariant
 
 Lemma page_storage_node_invariant_empty node_size base_address :
   (page_size_align node_size | base_address) →
-  page_storage_node_invariant (mk_page_node node_size base_address PageTokenUnavailable) None None [].
+  page_storage_node_invariant (mk_page_node node_size base_address PageTokenUnavailable false) None None [].
 Proof.
   intros.
   split_and!; simpl; last split_and!; try done.

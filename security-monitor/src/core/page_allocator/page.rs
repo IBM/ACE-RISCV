@@ -34,7 +34,7 @@ impl PageState for Allocated {}
 #[rr::invariant("page_wf p")]
 
 /// We require the page to be in this bounded memory region.
-#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
+//#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
 
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
@@ -86,7 +86,7 @@ impl Page<UnAllocated> {
     #[rr::requires("l `aligned_to` (page_size_align sz)")]
 
     /// Precondition: The page is located in a bounded memory region.
-    #[rr::invariant("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
+    //#[rr::requires("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
 
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
@@ -227,7 +227,7 @@ impl<T: PageState> Page<T> {
     #[rr::params("l", "sz")]
     #[rr::args(#raw "#(-[#l; #sz; #tt])")]
     #[rr::returns("l +ₗ page_size_in_bytes_Z sz")]
-    fn end_address_ptr(&self) -> *const usize {
+    pub fn end_address_ptr(&self) -> *const usize {
         // TODO: ideally, use strict-provenance API
         self.end_address() as *const usize
     }
@@ -332,10 +332,6 @@ impl<T: PageState> Page<T> {
     #[rr::returns("step_list 0 (ly_size usize_t) (page_size_in_bytes_nat p.(page_sz))")]
     fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
         (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
-    }
-
-    pub fn end_address_ptr(&self) -> *const usize {
-        self.end_address() as *const usize
     }
 
     #[rr::only_spec]

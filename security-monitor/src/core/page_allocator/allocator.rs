@@ -16,7 +16,7 @@ use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockWriteGuard};
 
 /// A static global structure containing unallocated pages. Once<> guarantees that the PageAllocator can only be initialized once.
-#[rr::name("PAGE_ALLOCATOR")]
+//#[rr::name("PAGE_ALLOCATOR")]
 static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 
 /// This is a root node that represents the largest possible page size. Because of this implementation, there can be a maximum one page
@@ -27,7 +27,7 @@ static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 /// with this allocator.
 #[rr::refined_by("()" : "unit")]
 /// Invariant: We abstract over the root node
-#[rr::exists("node")]
+#[rr::exists("node" : "page_storage_node")]
 /// Invariant: the allocator tree covers the first 128TiB of memory
 #[rr::invariant("node.(base_address) = 0")]
 /// Invariant: the page size is the largest
@@ -41,6 +41,7 @@ pub struct PageAllocator {
     root: PageStorageTreeNode,
 }
 
+#[rr::skip]
 #[rr::context("onceG Σ memory_layout")]
 #[rr::context("onceG Σ unit")]
 impl PageAllocator {
@@ -56,7 +57,6 @@ impl PageAllocator {
     /// # Safety
     ///
     /// Caller must pass the ownership of the memory region [memory_start, memory_end).
-    #[rr::only_spec]
     #[rr::params("conf_start", "conf_end", "vs", "MEMORY_LAYOUT")]
     #[rr::args("conf_start", "conf_end")]
 
@@ -94,15 +94,12 @@ impl PageAllocator {
     }
 
     /// Specification:
-    #[rr::only_spec]
     /// Postcondition: an initialized memory allocator is returned
     #[rr::returns("()")]
     fn empty() -> Self {
         Self { root: PageStorageTreeNode::empty(), base_address: 0, page_size: PageSize::largest() }
     }
 
-    // 
-    #[rr::only_spec]
     #[rr::params("mstart", "mend", "γ", "vs", "MEMORY_CONFIG", "mreg")]
     #[rr::args("(#(), γ)", "mstart", "mend")]
     
@@ -226,7 +223,6 @@ impl PageAllocator {
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
     /// physical memory region owned by the returned page tokens. Given vector of pages might contains pages of arbitrary sizes.
-    #[rr::only_spec]
     #[rr::params("pages")]
     #[rr::args("<#> pages")]
     /// Precondition: We require the page allocator to be initialized.
@@ -257,11 +253,8 @@ impl PageAllocator {
 /// A node is refined by the size of this node, 
 /// its base address,
 /// and the logical allocation state.
-//#[rr::public_refined_by("node" : "public_page_storage_node")]
-//#[rr::public_relation("relation private_node public_node")]
-// -- maybe think about whether it makes sense to have this for functions between the abstracted states.
-
-#[rr::refined_by("private_node" : "page_storage_node")]
+// TODO: consider using separate public and private interfaces
+#[rr::refined_by("node" : "page_storage_node")]
 /// We abstract over the components stored here
 #[rr::exists("max_sz" : "option page_size")]
 #[rr::exists("maybe_page_token" : "option page")]
@@ -283,6 +276,7 @@ struct PageStorageTreeNode {
     children: Vec<Self>,
 }
 
+#[rr::skip]
 impl PageStorageTreeNode {
     /// Creates a new empty node with no allocation.
     /// Specification:
@@ -367,11 +361,11 @@ impl PageStorageTreeNode {
     #[rr::exists("res" : "result page _")]
     #[rr::returns("res")]
     /// If it succeeds, the returned page has the desired size.
-    #[rr::ensures("if_Ok res (λ pg, pg.(page_sz) = sz_to_acquire)")]  
+    #[rr::ensures("if_Ok res (λ pg, pg.(page_sz) = sz_to_acquire)")]
     pub fn acquire_page_token(
         &mut self, this_node_base_address: usize, this_node_page_size: PageSize, page_size_to_acquire: PageSize,
     ) -> Result<Page<UnAllocated>, Error> {
-        assure!(self.max_allocable_page_size >= Some(page_size_to_acquire), Error::OutOfPages)?;
+        assure!(self.max_allocable_page_size >= Some(page_size_to_acquire), Error::OutOfPages())?;
         if &this_node_page_size == &page_size_to_acquire {
             // End of recursion, we found the node from which we acquire a page token.
             assert!(self.page_token.is_some());
@@ -523,7 +517,7 @@ impl PageStorageTreeNode {
     #[rr::exists("i")]
     #[rr::returns("i")]
     #[rr::ensures("is_Some (children !! i)")]
-    // TODO: the token is in the range of the child node
+    // TODO: the token is in the range of the child node.
     // TODO: does not work at this level of abstraction. Use a raw specification.
     fn calculate_child_index(&self, this_node_base_address: usize, this_node_page_size: PageSize, page_token: &Page<UnAllocated>) -> usize {
         assert!(this_node_page_size > *page_token.size());

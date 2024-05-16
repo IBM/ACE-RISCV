@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+
+#![rr::import("ace.theories.page_table", "page_table")]
+
 use crate::core::architecture::HgatpMode;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::{
@@ -50,6 +53,7 @@ pub struct PageTable {
 // - copy from non-confidential memory only reads from non-confidential memory
 // - if input to copy_.. is not a valid page table, fail correctly
 
+#[rr::skip]
 impl PageTable {
     /// This functions copies recursively page table structure from non-confidential memory to confidential memory. It
     /// allocated a page in confidential memory for every page table. After this function executes, a valid page table
@@ -84,7 +88,6 @@ impl PageTable {
     // not get memory permission for that.
     // SPEC 1: 
     // For security (not trusting the hypervisor):
-    #[rr::skip]
     #[rr::params("l_nonconf", "ps", "level")]
     #[rr::args("l_nonconf", "ps", "level")]
     #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")] // might need atomicity?
@@ -96,6 +99,7 @@ impl PageTable {
     /* Alternative specification: 
     // We won't need this for security, but if we were to trust the hypervisor, we could
     // prove this specification.
+    //
     // SPEC 2:
     // For functional correctness (trusting the hypervisor):
     #[rr::params("l_nonconf", "ps", "level" : "nat", "pt" : "page_table_tree")]
@@ -144,7 +148,6 @@ impl PageTable {
 
     /// Creates an empty page table for the given page table level. Returns error if there is not enough memory to allocate this data
     /// structure.
-    #[rr::skip]
     #[rr::params("system", "level")]
     #[rr::args("system", "level")]
     #[rr::exists("res")]
@@ -255,7 +258,9 @@ impl PageTable {
     }
 
     /// Returns the physical address in confidential memory of the page table configuration.
-    // TODO: should expose address of the serialized repr
+    #[rr::params("pt")]
+    #[rr::args("#pt")]
+    #[rr::returns("pt_get_serialized_loc pt")]
     pub fn address(&self) -> usize {
         self.serialized_representation.start_address()
     }
