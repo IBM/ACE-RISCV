@@ -18,10 +18,13 @@ impl SbiGetSpecVersion {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let mut value = (Self::SBI_ECALL_VERSION_MAJOR << Self::SBI_SPEC_VERSION_MAJOR_OFFSET)
-            & (Self::SBI_SPEC_VERSION_MAJOR_MASK << Self::SBI_SPEC_VERSION_MAJOR_OFFSET);
-        value |= Self::SBI_ECALL_VERSION_MINOR;
-        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(value));
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(Self::version()));
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+    }
+
+    fn version() -> usize {
+        ((Self::SBI_ECALL_VERSION_MAJOR << Self::SBI_SPEC_VERSION_MAJOR_OFFSET)
+            & (Self::SBI_SPEC_VERSION_MAJOR_MASK << Self::SBI_SPEC_VERSION_MAJOR_OFFSET))
+            | Self::SBI_ECALL_VERSION_MINOR
     }
 }

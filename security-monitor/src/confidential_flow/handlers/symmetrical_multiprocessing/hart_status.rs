@@ -23,7 +23,6 @@ impl SbiHsmHartStatus {
         })
         .and_then(|lifecycle_state| Ok(SbiResponse::success(lifecycle_state.sbi_code())))
         .unwrap_or_else(|error| SbiResponse::failure(error.code()));
-
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 }

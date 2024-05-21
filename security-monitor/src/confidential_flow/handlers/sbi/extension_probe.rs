@@ -7,8 +7,7 @@ use crate::core::architecture::supervisor_binary_interface::*;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 
-/// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
-/// not support such exception. For example, a confidential hart could trap after making a not supported SBI call.
+/// Returns information whether the confidential VM has access to the specific SBI extension.
 pub struct SbiExtensionProbe {
     extension_id: usize,
 }
@@ -19,7 +18,12 @@ impl SbiExtensionProbe {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let response = match self.extension_id {
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(self.supported_sbi_extensions()));
+        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+    }
+
+    fn supported_sbi_extensions(&self) -> usize {
+        match self.extension_id {
             BaseExtension::EXTID => 1,
             IpiExtension::EXTID => 1,
             RfenceExtension::EXTID => 1,
@@ -27,8 +31,6 @@ impl SbiExtensionProbe {
             SrstExtension::EXTID => 1,
             CovgExtension::EXTID => 1,
             _ => 0,
-        };
-        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(response));
-        confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+        }
     }
 }

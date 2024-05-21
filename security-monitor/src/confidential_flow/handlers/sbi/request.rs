@@ -2,7 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::core::architecture::supervisor_binary_interface::HsmExtension;
 use crate::core::architecture::{GeneralPurposeRegister, CAUSE_VIRTUAL_SUPERVISOR_ECALL};
 use crate::core::control_data::HypervisorHart;
 
@@ -15,6 +14,10 @@ pub struct SbiRequest {
 }
 
 impl SbiRequest {
+    pub fn new(extension_id: usize, function_id: usize, a0: usize, a1: usize) -> Self {
+        Self { extension_id, function_id, a0, a1 }
+    }
+
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a7, self.extension_id);
@@ -26,21 +29,5 @@ impl SbiRequest {
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a4, 0);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a5, 0);
         SbiResponse::success(0).declassify_to_hypervisor_hart(hypervisor_hart);
-    }
-
-    pub fn new(extension_id: usize, function_id: usize, a0: usize, a1: usize) -> Self {
-        Self { extension_id, function_id, a0, a1 }
-    }
-
-    pub fn kvm_hsm_hart_start(virtual_hart_id: usize) -> Self {
-        Self::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, virtual_hart_id, 0)
-    }
-
-    pub fn kvm_hsm_hart_stop() -> Self {
-        Self::new(HsmExtension::EXTID, HsmExtension::HART_STOP_FID, 0, 0)
-    }
-
-    pub fn kvm_hsm_hart_suspend() -> Self {
-        Self::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0)
     }
 }

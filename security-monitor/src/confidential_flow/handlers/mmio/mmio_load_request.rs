@@ -46,7 +46,7 @@ impl MmioLoadRequest {
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         use crate::core::architecture::*;
-        // The security monitor exposes `scause` and `stval` via hart's CSRs but `htval` and `htinst` via the shared page.
+        // The security monitor exposes `scause` and `stval` via hart's CSRs but `htval` and `htinst` via the NACL shared memory.
         hypervisor_hart.csrs_mut().scause.set(self.mcause);
         hypervisor_hart.csrs_mut().stval.set(self.mtval);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);

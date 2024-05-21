@@ -6,7 +6,7 @@ use crate::core::control_data::{ConfidentialVmId, ControlData, HypervisorHart};
 use crate::non_confidential_flow::handlers::sbi::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
-/// Handles the hypervisor request to terminate the VM's execution.
+/// Handles the hypervisor request to destory the confidential VM's execution.
 pub struct DestroyConfidentialVm {
     confidential_vm_id: ConfidentialVmId,
 }
@@ -16,7 +16,6 @@ impl DestroyConfidentialVm {
         Self { confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)) }
     }
 
-    /// The hypervisor command to terminate the confidential VM and remove it from the memory.
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(
             ControlData::remove_confidential_vm(self.confidential_vm_id)

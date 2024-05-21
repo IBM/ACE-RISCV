@@ -22,7 +22,7 @@ pub struct PageAllocator {
 }
 
 impl PageAllocator {
-    const NOT_INITIALIZED: &'static str = "Bug. Could not access page allocator because has not been initialized.";
+    const NOT_INITIALIZED: &'static str = "Bug. Page allocator not initialized.";
 
     /// Initializes the global memory allocator with the given memory region as confidential memory. Must be called only once during the
     /// system initialization.

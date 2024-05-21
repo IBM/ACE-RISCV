@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
+use crate::core::architecture::supervisor_binary_interface::HsmExtension;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -29,13 +30,18 @@ impl SbiHsmHartSuspend {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+        let sbi_request = self.kvm_hsm_hart_suspend();
         match confidential_flow.suspend_confidential_hart(self) {
             Ok(_) => confidential_flow
                 .into_non_confidential_flow()
-                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_suspend())),
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request)),
             Err(error) => {
                 confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)))
             }
         }
+    }
+
+    pub fn kvm_hsm_hart_suspend(&self) -> SbiRequest {
+        SbiRequest::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0)
     }
 }

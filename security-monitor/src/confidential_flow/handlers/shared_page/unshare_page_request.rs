@@ -9,7 +9,7 @@ use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
-/// Handles a request from the confidential VM to unshare a page that was previously shared with the hypervisor.
+/// Unshared memory that has been previously shared with the hypervisor.
 pub struct UnsharePageRequest {
     address: ConfidentialVmPhysicalAddress,
     size: usize,
@@ -24,7 +24,7 @@ impl UnsharePageRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_vm.unmap_shared_page(self.address())
+            confidential_vm.unmap_shared_page(&self.address)
         }) {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::SbiRequest())
@@ -39,9 +39,5 @@ impl UnsharePageRequest {
 
     fn unshare_page_sbi_request(&self) -> SbiRequest {
         SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_UNSHARE_MEMORY, self.address.usize(), self.size)
-    }
-
-    pub fn address(&self) -> &ConfidentialVmPhysicalAddress {
-        &self.address
     }
 }

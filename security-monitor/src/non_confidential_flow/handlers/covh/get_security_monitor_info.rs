@@ -28,16 +28,13 @@ impl GetSecurityMonitorInfo {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(
-            self.fill_tsm_info_state()
-                .map_or_else(|error| SbiResponse::error(error), |number_of_bytes_written| SbiResponse::success(number_of_bytes_written)),
-        ))
+        let sbi_response = self
+            .fill_tsm_info_state()
+            .map_or_else(|error| SbiResponse::error(error), |number_of_written_bytes| SbiResponse::success(number_of_written_bytes));
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(sbi_response))
     }
 
     fn fill_tsm_info_state(&self) -> Result<usize, Error> {
-        let ptr = NonConfidentialMemoryAddress::new(self.tsm_info_address as *mut usize)?;
-        NonConfidentialMemoryAddress::new((self.tsm_info_address + self.tsm_info_len) as *mut usize)?;
-        ensure!(self.tsm_info_len >= core::mem::size_of::<SecurityMonitorInfo>(), Error::InvalidArgument())?;
         let info = SecurityMonitorInfo {
             security_monitor_state: SecurityMonitorState::Ready,
             security_monitor_version: self.get_version(),
@@ -45,6 +42,13 @@ impl GetSecurityMonitorInfo {
             max_vcpus: 32,
             vcpu_state_pages: 0,
         };
+        // Check that the input arguments define a memory region in non-confidential memory that is large enough to store the
+        // `SecurityMonitorInfo` structure.
+        let ptr = NonConfidentialMemoryAddress::new(self.tsm_info_address as *mut usize)?;
+        NonConfidentialMemoryAddress::new((self.tsm_info_address + self.tsm_info_len) as *mut usize)?;
+        ensure!(self.tsm_info_len >= core::mem::size_of::<SecurityMonitorInfo>(), Error::InvalidArgument())?;
+        // below unsafe operation is ok because pointer is a valid address in non-confidential memory, and we have enough space to write the
+        // reponse.
         unsafe { (ptr.as_ptr() as *mut SecurityMonitorInfo).write(info) };
         Ok(core::mem::size_of::<SecurityMonitorInfo>())
     }

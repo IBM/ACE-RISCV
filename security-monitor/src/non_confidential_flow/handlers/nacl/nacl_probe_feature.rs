@@ -6,13 +6,14 @@ use crate::core::control_data::HypervisorHart;
 use crate::non_confidential_flow::handlers::sbi::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
-/// Replies what nested acceleration (NACL) features are implemented by the security monitor.
+/// Returns information on supported nested acceleration (NACL) features that security monitor implements.
 pub struct NaclProbeFeature {
     _feature_id: usize,
 }
 
 impl NaclProbeFeature {
     const FEATURE_NOT_AVAILABLE: usize = 0;
+
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self { _feature_id: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0) }
     }

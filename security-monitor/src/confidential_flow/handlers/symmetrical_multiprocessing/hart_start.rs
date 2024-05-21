@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
+use crate::core::architecture::supervisor_binary_interface::HsmExtension;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -31,7 +32,6 @@ impl SbiHsmHartStart {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let confidential_hart_id = self.confidential_hart_id;
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
@@ -40,9 +40,7 @@ impl SbiHsmHartStart {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::SbiRequest())
                 .into_non_confidential_flow()
-                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(SbiRequest::kvm_hsm_hart_start(
-                    confidential_hart_id,
-                ))),
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_kvm_hsm_hart_start())),
             Err(error) => {
                 // starting a confidential hart might fail if the incoming request is invalid. For example, the confidential
                 // hart id does not exist or is the same as the one currently assigned to the hardware hart. In such cases,
@@ -51,5 +49,9 @@ impl SbiHsmHartStart {
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }
+    }
+
+    fn sbi_kvm_hsm_hart_start(&self) -> SbiRequest {
+        SbiRequest::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, self.confidential_hart_id, 0)
     }
 }

@@ -53,6 +53,7 @@ pub struct ConfidentialFlow<'a> {
 
 impl<'a> ConfidentialFlow<'a> {
     const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
+    const DUMMY_HART_ERROR_MSG: &'static str = "Bug: found dummy hart instead of a confidential hart";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
     /// the security monitor from the assembly context switch.
@@ -180,7 +181,7 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     fn exit_to_confidential_hart(mut self) -> ! {
-        // We must restore some control and status registers (CSRs) that might have changed during execution of the security monitor.
+        // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
         let interrupts = self.confidential_hart().csrs().hvip.read_value() | self.confidential_hart().csrs().vsip.read_value();
@@ -233,25 +234,25 @@ impl<'a> ConfidentialFlow<'a> {
 
 // ConfidentialFlow implementation that supports optional hart lifecycle transitions.
 impl<'a> ConfidentialFlow<'a> {
-    /// Delegation of state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
+    /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
     pub fn suspend_confidential_hart(&mut self, _request: SbiHsmHartSuspend) -> Result<(), Error> {
         self.confidential_hart_mut().transition_from_started_to_suspended()
     }
 
-    /// Delegation of state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
+    /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
     pub fn stop_confidential_hart(&mut self) -> Result<(), Error> {
         self.confidential_hart_mut().transition_from_started_to_stopped()
     }
 
-    /// Delegation of state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
+    /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
     pub fn start_confidential_hart_after_suspend(&mut self) -> Result<(), Error> {
         self.confidential_hart_mut().transition_from_suspended_to_started()
     }
 
-    /// Delegation of state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
+    /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
     pub fn shutdown_confidential_hart(&mut self) {
         self.confidential_hart_mut().transition_to_shutdown();
@@ -267,7 +268,7 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     pub fn confidential_vm_id(&'a self) -> ConfidentialVmId {
-        self.confidential_hart().confidential_vm_id().expect("Bug: found dummy hart instead of a confidential hart")
+        self.confidential_hart().confidential_vm_id().expect(Self::DUMMY_HART_ERROR_MSG)
     }
 
     fn confidential_hart_id(&'a self) -> usize {

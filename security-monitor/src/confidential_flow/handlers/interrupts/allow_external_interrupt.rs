@@ -21,17 +21,17 @@ impl AllowExternalInterrupt {
         match ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             Ok(confidential_vm.set_allowed_external_interrupts(self.interrupt_id))
         }) {
-            Ok(_) => {
-                let sbi_request =
-                    SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_ALLOW_EXT_INTERRUPT, self.interrupt_id, 0);
-                confidential_flow
-                    .set_pending_request(PendingRequest::SbiRequest())
-                    .into_non_confidential_flow()
-                    .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request))
-            }
+            Ok(_) => confidential_flow
+                .set_pending_request(PendingRequest::SbiRequest())
+                .into_non_confidential_flow()
+                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_covg_allow_ext_interrupt())),
             Err(error) => {
                 confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)))
             }
         }
+    }
+
+    fn sbi_covg_allow_ext_interrupt(&self) -> SbiRequest {
+        SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_ALLOW_EXT_INTERRUPT, self.interrupt_id, 0)
     }
 }

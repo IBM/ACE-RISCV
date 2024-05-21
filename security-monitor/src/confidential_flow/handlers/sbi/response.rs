@@ -6,8 +6,7 @@ use crate::core::architecture::{GeneralPurposeRegister, ECALL_INSTRUCTION_LENGTH
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::error::Error;
 
-/// Handles a response to the hypercall. This response comes from the hypervisor and carries a result of a hypercall
-/// requested by the confidential hart.
+/// Handles a response to the hypercall.
 pub struct SbiResponse {
     a0: usize,
     a1: usize,
@@ -23,7 +22,6 @@ impl SbiResponse {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        debug!("SBI result: {} {}", self.a0, self.a1);
         self.apply_to_confidential_hart(confidential_hart);
     }
 
