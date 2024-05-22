@@ -6,8 +6,9 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
 };
 use crate::core::control_data::ConfidentialHart;
+use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
 
-/// Represents a request send from one confidential hart (sender) to another confidential hart (receiver). Both sender and receiver belong
+/// Represents a request sent from one confidential hart (sender) to another confidential hart (receiver). Both sender and receiver belong
 /// to the same confidential VM.
 #[derive(Clone)]
 pub enum InterHartRequest {
@@ -17,6 +18,7 @@ pub enum InterHartRequest {
     SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
     SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
     ShutdownRequest(ShutdownRequest),
+    ExternalInterrupt(InjectExternalInterrupt),
 }
 
 impl InterHartRequest {
@@ -28,6 +30,7 @@ impl InterHartRequest {
             Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(confidential_hart_id),
             Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(confidential_hart_id),
             Self::ShutdownRequest(v) => v.is_hart_selected(confidential_hart_id),
+            Self::ExternalInterrupt(v) => v.is_hart_selected(confidential_hart_id),
         }
     }
 }

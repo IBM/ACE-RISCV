@@ -291,6 +291,7 @@ impl ConfidentialHart {
             InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
             InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
             InterHartRequest::ShutdownRequest(_) => self.transition_to_shutdown(),
+            InterHartRequest::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
         }
     }
 }

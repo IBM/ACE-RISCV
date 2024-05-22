@@ -27,6 +27,7 @@ impl SbiExtension {
             (SrstExtension::EXTID, function_id) => Self::Srst(SrstExtension::from_function_id(function_id)),
             (NaclExtension::EXTID, function_id) => Self::Nacl(NaclExtension::from_function_id(function_id)),
             (CovhExtension::EXTID, function_id) => Self::Covh(CovhExtension::from_function_id(function_id)),
+            (CoviExtension::EXTID, function_id) => Self::Covi(CoviExtension::from_function_id(function_id)),
             (CovgExtension::EXTID, function_id) => Self::Covg(CovgExtension::from_function_id(function_id)),
             (extension_id, function_id) => Self::Unknown(extension_id, function_id),
         }
@@ -263,6 +264,7 @@ impl CovgExtension {
 #[derive(Debug)]
 pub enum CoviExtension {
     Unknown(usize, usize),
+    InjectExternalInterrupt,
 }
 
 impl CoviExtension {
@@ -281,6 +283,7 @@ impl CoviExtension {
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
+            Self::SBI_EXT_COVI_TVM_CPU_INJECT_EXT_INTERRUPT => Self::InjectExternalInterrupt,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

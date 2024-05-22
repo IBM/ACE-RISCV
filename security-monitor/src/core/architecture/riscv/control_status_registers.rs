@@ -178,7 +178,7 @@ impl ControlStatusRegisters {
         self.hgeie.save();
         self.htval.save();
         self.hip.save();
-        self.hvip.save();
+        self.hvip.save_value(0);
         self.htinst.save();
         self.hgeip.save();
         self.henvcfg.save();

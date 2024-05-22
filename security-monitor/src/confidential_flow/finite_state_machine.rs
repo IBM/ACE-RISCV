@@ -156,18 +156,13 @@ impl<'a> ConfidentialFlow<'a> {
         }
     }
 
-    pub fn declassify_to_confidential_hart(mut self, declassifier: DeclassifyToConfidentialVm) -> Self {
+    pub fn declassify_and_exit_to_confidential_hart(mut self, declassifier: DeclassifyToConfidentialVm) -> ! {
         match declassifier {
             DeclassifyToConfidentialVm::SbiResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioLoadResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioStoreResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
-            DeclassifyToConfidentialVm::ExternalInterrupt(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
         }
-        self
-    }
-
-    pub fn declassify_and_exit_to_confidential_hart(self, declassifier: DeclassifyToConfidentialVm) -> ! {
-        self.declassify_to_confidential_hart(declassifier).exit_to_confidential_hart()
+        self.exit_to_confidential_hart()
     }
 
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will

@@ -23,7 +23,7 @@ pub struct ConfidentialVm {
 
 impl ConfidentialVm {
     pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
-    /// An average number of inter hart requests that are buffered before being processed.
+    /// An average number of inter hart requests that can be buffered before being processed.
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
     /// A maximum number of inter hart requests that can be buffered.
     const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
@@ -137,7 +137,8 @@ impl ConfidentialVm {
     }
 
     pub fn set_allowed_external_interrupts(&mut self, allowed_external_interrupts: usize) {
-        self.allowed_external_interrupts = allowed_external_interrupts;
+        debug!("Confidential VM[{:?}] allows an external interrupt: {:x}", self.id, allowed_external_interrupts);
+        self.allowed_external_interrupts |= allowed_external_interrupts;
     }
 
     pub fn are_all_harts_shutdown(&self) -> bool {
@@ -168,9 +169,9 @@ impl ConfidentialVm {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| inter_hart_request.is_hart_selected(*confidential_hart_id))
             .try_for_each(|confidential_hart_id| {
-                let is_assigned_to_hardware_hart = { self.confidential_harts[confidential_hart_id].is_dummy() };
+                let is_assigned_to_hardware_hart = self.confidential_harts[confidential_hart_id].is_dummy();
                 if !is_assigned_to_hardware_hart {
-                    // The confidential hart that should receive an InterHartRequest is not running on any hardware
+                    // The confidential hart that should receive the InterHartRequest is not running on any hardware
                     // hart. Thus, we can excute the InterHartRequest directly.
                     self.confidential_harts[confidential_hart_id].execute(&inter_hart_request);
                 } else {

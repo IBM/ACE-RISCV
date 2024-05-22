@@ -4,6 +4,7 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::supervisor_binary_interface::BaseExtension::*;
 use crate::core::architecture::supervisor_binary_interface::CovhExtension::*;
+use crate::core::architecture::supervisor_binary_interface::CoviExtension::*;
 use crate::core::architecture::supervisor_binary_interface::NaclExtension::*;
 use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
 use crate::core::architecture::supervisor_binary_interface::SbiExtension::*;
@@ -14,9 +15,10 @@ use crate::error::Error;
 use crate::non_confidential_flow::handlers::covh::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
+use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
 use crate::non_confidential_flow::handlers::invalid_call::InvalidCall;
 use crate::non_confidential_flow::handlers::nacl::{NaclProbeFeature, NaclSetupSharedMemory};
-use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
+use crate::non_confidential_flow::handlers::sbi::{DelegateToOpensbi, ProbeSbiExtension};
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
 
 extern "C" {
@@ -69,9 +71,11 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(Covh(TvmVcpuRun)) => RunConfidentialHart::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(DestroyTvm)) => DestroyConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covi(InjectExternalInterrupt)) => InjectExternalInterrupt::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covi(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(ProbeFeature)) => NaclProbeFeature::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(SetupSharedMemory)) => NaclSetupSharedMemory::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Nacl(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(_) => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             MachineEcall => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),

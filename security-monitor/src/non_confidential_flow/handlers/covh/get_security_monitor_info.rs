@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::supervisor_binary_interface::cove::{SecurityMonitorInfo, SecurityMonitorState};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::HypervisorHart;
+use crate::core::control_data::{ConfidentialVm, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::sbi::SbiResponse;
@@ -39,7 +39,7 @@ impl GetSecurityMonitorInfo {
             security_monitor_state: SecurityMonitorState::Ready,
             security_monitor_version: self.get_version(),
             state_pages: 0,
-            max_vcpus: 32,
+            max_vcpus: u64::try_from(ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM).unwrap_or(0),
             vcpu_state_pages: 0,
         };
         // Check that the input arguments define a memory region in non-confidential memory that is large enough to store the

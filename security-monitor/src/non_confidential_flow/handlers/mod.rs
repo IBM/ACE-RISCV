@@ -5,5 +5,4 @@ pub mod covh;
 pub mod covi;
 pub mod invalid_call;
 pub mod nacl;
-pub mod opensbi;
 pub mod sbi;
