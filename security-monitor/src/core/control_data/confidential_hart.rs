@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
 use crate::core::control_data::confidential_hart::supervisor_binary_interface::NaclSharedMemory;
-use crate::core::control_data::inter_hart_request::InterHartRequestExecutable;
-use crate::core::control_data::{ConfidentialVmId, InterHartRequest, PendingRequest};
+use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
+use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, PendingRequest};
 use crate::error::Error;
 
 extern "C" {
@@ -30,13 +30,16 @@ pub struct ConfidentialHart {
     /// A pending request indicates that the confidential hart sent a request to the hypervisor and is waiting for its
     /// reply. The pending request defines the expected response.
     pending_request: Option<PendingRequest>,
+    /// Unique identifier of the confidential hart.
     id: usize,
 }
 
 impl ConfidentialHart {
     /// Constructs a dummy hart. This dummy hart carries no confidential information. It is used to indicate that a real
-    /// confidential hart has been assigned to a hardware hart for execution.
-    pub fn dummy() -> Self {
+    /// confidential hart has been assigned to a hardware hart for execution. A dummy confidential hart has the id of the hardware hart it
+    /// represents. This is required to track information on which hardware hart a stolen confidential hart executes (for example to
+    /// interrupt it with IPI).
+    pub fn dummy(hardware_hart_id: usize) -> Self {
         // We set the lifecycle state of the dummy hart to `Started` because this state will be used as the state of the confidential hart
         // that has been assigned to physical hart. Specifically, after a confidential hart gets assigned to hardware hart, the confidential
         // VM will be left with a dummy hart. Any other code or request that will inspect the state of the (stolen) confidential hart, will
@@ -46,7 +49,7 @@ impl ConfidentialHart {
             confidential_hart_state: HartArchitecturalState::empty(),
             lifecycle_state: HartLifecycleState::Started,
             pending_request: None,
-            id: 0,
+            id: hardware_hart_id,
         }
     }
 
@@ -283,15 +286,15 @@ impl ConfidentialHart {
 }
 
 impl ConfidentialHart {
-    pub fn execute(&mut self, request: &InterHartRequest) {
+    pub fn execute(&mut self, request: &ConfidentialHartRemoteCommand) {
         match request {
-            InterHartRequest::SbiIpi(v) => v.execute_on_confidential_hart(self),
-            InterHartRequest::SbiRemoteFenceI(v) => v.execute_on_confidential_hart(self),
-            InterHartRequest::SbiRemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
-            InterHartRequest::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
-            InterHartRequest::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
-            InterHartRequest::ShutdownRequest(_) => self.transition_to_shutdown(),
-            InterHartRequest::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::SbiIpi(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::SbiRemoteFenceI(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::SbiRemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::ShutdownRequest(_) => self.transition_to_shutdown(),
+            ConfidentialHartRemoteCommand::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
         }
     }
 }

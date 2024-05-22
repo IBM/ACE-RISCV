@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiIpi;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, InterHartRequestExecutable};
+use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommandExecutable, ConfidentialVmId};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::PageSize;
 
@@ -21,7 +21,7 @@ impl SbiRemoteHfenceGvmaVmid {
     }
 }
 
-impl InterHartRequestExecutable for SbiRemoteHfenceGvmaVmid {
+impl ConfidentialHartRemoteCommandExecutable for SbiRemoteHfenceGvmaVmid {
     fn execute_on_confidential_hart(&self, _confidential_hart: &mut ConfidentialHart) {
         // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
         crate::core::architecture::hfence_gvma();

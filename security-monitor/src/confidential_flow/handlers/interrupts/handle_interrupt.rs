@@ -20,7 +20,7 @@ impl HandleInterrupt {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         if self.pending_interrupts & MIE_SSIP_MASK > 0 {
-            // One of the reasons why the confidential hart was interrupted with SSIP is that it got an `InterHartRequest` from
+            // One of the reasons why the confidential hart was interrupted with SSIP is that it got an `ConfidentialHartRemoteCommand` from
             // another confidential hart. If this is the case, we must process all queued requests before resuming confidential
             // hart's execution. This is done as part of the procedure that resumes confidential hart execution.
             confidential_flow.resume_confidential_hart_execution();

@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiRemoteHfenceGvmaVmid;
 use crate::core::architecture::HartLifecycleState;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart, InterHartRequest};
+use crate::core::control_data::{
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart,
+};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
@@ -17,7 +19,7 @@ pub struct ConfidentialVm {
     measurements: [ConfidentialVmMeasurement; 4],
     confidential_harts: Vec<ConfidentialHart>,
     memory_protector: ConfidentialVmMemoryProtector,
-    inter_hart_requests: BTreeMap<usize, Mutex<Vec<InterHartRequest>>>,
+    confidential_hart_remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     allowed_external_interrupts: usize,
 }
 
@@ -38,13 +40,13 @@ impl ConfidentialVm {
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
-        let mut inter_hart_requests = BTreeMap::new();
+        let mut confidential_hart_remote_commands = BTreeMap::new();
         confidential_harts.iter_mut().for_each(|confidential_hart| {
             confidential_hart.set_confidential_vm_id(id);
-            let inter_hart_requests_buffer = Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS));
-            inter_hart_requests.insert(confidential_hart.confidential_hart_id(), inter_hart_requests_buffer);
+            let confidential_hart_remote_commands_buffer = Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS));
+            confidential_hart_remote_commands.insert(confidential_hart.confidential_hart_id(), confidential_hart_remote_commands_buffer);
         });
-        Self { id, measurements, confidential_harts, memory_protector, inter_hart_requests, allowed_external_interrupts: 0 }
+        Self { id, measurements, confidential_harts, memory_protector, confidential_hart_remote_commands, allowed_external_interrupts: 0 }
     }
 
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
@@ -117,14 +119,14 @@ impl ConfidentialVm {
     ) -> Result<(), Error> {
         self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
         let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
-        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        self.broadcast_confidential_hart_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
         Ok(())
     }
 
     pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
         let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
         let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
-        self.broadcast_inter_hart_request(InterHartRequest::SbiRemoteHfenceGvmaVmid(request))?;
+        self.broadcast_confidential_hart_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
         Ok(())
     }
 
@@ -163,29 +165,31 @@ impl ConfidentialVm {
     /// executes that confidential hart. If the confidential hart is not executing, then no hardware interrupt is
     /// emmited.
     ///
-    /// Returns error when 1) a queue that stores the confidential hart's InterHartRequests is full, 2) when sending an
+    /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
-    pub fn broadcast_inter_hart_request(&mut self, inter_hart_request: InterHartRequest) -> Result<(), Error> {
+    pub fn broadcast_confidential_hart_remote_command(
+        &mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+    ) -> Result<(), Error> {
         (0..self.confidential_harts.len())
-            .filter(|confidential_hart_id| inter_hart_request.is_hart_selected(*confidential_hart_id))
+            .filter(|confidential_hart_id| confidential_hart_remote_command.is_hart_selected(*confidential_hart_id))
             .try_for_each(|confidential_hart_id| {
                 let is_assigned_to_hardware_hart = self.confidential_harts[confidential_hart_id].is_dummy();
                 if !is_assigned_to_hardware_hart {
-                    // The confidential hart that should receive the InterHartRequest is not running on any hardware
-                    // hart. Thus, we can excute the InterHartRequest directly.
-                    self.confidential_harts[confidential_hart_id].execute(&inter_hart_request);
+                    // The confidential hart that should receive the ConfidentialHartRemoteCommand is not running on any hardware
+                    // hart. Thus, we can excute the ConfidentialHartRemoteCommand directly.
+                    self.confidential_harts[confidential_hart_id].execute(&confidential_hart_remote_command);
                 } else {
-                    // The confidential hart that should receive an InterHartRequest is currently running on a hardware
-                    // hart. We add the InterHartRequest to a per confidential hart queue and then interrupt that
+                    // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
+                    // hart. We add the ConfidentialHartRemoteCommand to a per confidential hart queue and then interrupt that
                     // hardware hart with IPI. Consequently, the hardware hart running the target confidential hart will
-                    // trap into the security monitor, which will execute InterHartRequests on the targetted
+                    // trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the targetted
                     // confidential hart.
-                    self.try_inter_hart_requests(confidential_hart_id, |ref mut inter_hart_requests| {
+                    self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut confidential_hart_remote_commands| {
                         ensure!(
-                            inter_hart_requests.len() < Self::MAX_NUMBER_OF_REMOTE_HART_REQUESTS,
+                            confidential_hart_remote_commands.len() < Self::MAX_NUMBER_OF_REMOTE_HART_REQUESTS,
                             Error::ReachedMaxNumberOfRemoteHartRequests()
                         )?;
-                        inter_hart_requests.push(inter_hart_request.clone());
+                        confidential_hart_remote_commands.push(confidential_hart_remote_command.clone());
                         Ok(())
                     })?;
                     let confidential_hart = &self.confidential_harts[confidential_hart_id];
@@ -202,8 +206,8 @@ impl ConfidentialVm {
         self.memory_protector.into_root_page_table().deallocate();
     }
 
-    pub fn try_inter_hart_requests<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
-    where O: FnOnce(MutexGuard<'_, Vec<InterHartRequest>>) -> Result<F, Error> {
-        op(self.inter_hart_requests.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
+    pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
+    where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand>>) -> Result<F, Error> {
+        op(self.confidential_hart_remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
 }
