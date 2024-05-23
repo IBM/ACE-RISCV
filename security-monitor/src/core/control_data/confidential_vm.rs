@@ -18,8 +18,8 @@ pub struct ConfidentialVm {
     id: ConfidentialVmId,
     measurements: [ConfidentialVmMeasurement; 4],
     confidential_harts: Vec<ConfidentialHart>,
-    memory_protector: ConfidentialVmMemoryProtector,
     confidential_hart_remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
+    memory_protector: ConfidentialVmMemoryProtector,
     allowed_external_interrupts: usize,
 }
 

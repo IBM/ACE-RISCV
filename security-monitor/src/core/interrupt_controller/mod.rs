@@ -36,6 +36,7 @@ impl<'a> InterruptController {
     }
 
     pub fn send_ipi(&self, target_hart_id: usize) -> Result<(), Error> {
+        // TODO: delay the IPI by random quant of time to prevent time-stepping the confidential VM.
         if target_hart_id == CSR.mhartid.read() {
             return Ok(());
         }

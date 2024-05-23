@@ -158,6 +158,7 @@ impl SrstExtension {
 pub enum NaclExtension {
     ProbeFeature,
     SetupSharedMemory,
+    SyncCsr,
     Unknown(usize, usize),
 }
 
@@ -178,6 +179,7 @@ impl NaclExtension {
         match function_id {
             Self::SBI_EXT_NACL_PROBE_FEATURE => Self::ProbeFeature,
             Self::SBI_EXT_NACL_SETUP_SHMEM => Self::SetupSharedMemory,
+            Self::SBI_EXT_NACL_SYNC_CSR => Self::SyncCsr,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

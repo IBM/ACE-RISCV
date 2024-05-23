@@ -35,11 +35,11 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
+    debug!("Initializing the CoVE security monitor");
     if cold_boot {
-        debug!("initializing the ACE extension");
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
-            debug!("Failed to initialize the ACE extension: {:?}", error);
+            debug!("Failed to initialize the security monitor: {:?}", error);
         }
     }
 }
@@ -78,7 +78,7 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    // TODO: echk for SSTC_EXTENSION, IFENCEI_EXTENSION
+    // TODO: check for SSTC_EXTENSION, IFENCEI_EXTENSION
     use crate::core::architecture::*;
     let required_extensions = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
     // Assumption: all harts in the system can run the security monitor
