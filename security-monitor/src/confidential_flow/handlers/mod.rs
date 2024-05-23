@@ -7,5 +7,5 @@ pub mod mmio;
 pub mod sbi;
 pub mod shared_page;
 pub mod shutdown;
-pub mod smp;
+pub mod symmetrical_multiprocessing;
 pub mod virtual_instructions;

@@ -79,9 +79,6 @@ clippy:
 fmt:
 	@$(CARGO) fmt
 
-test:
-	@$(CARGO) test
-
 bench:
 	@$(CARGO) bench
 

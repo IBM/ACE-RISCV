@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::fmt::{Error, Write};
 
 #[macro_export]
-macro_rules! assure {
+macro_rules! ensure {
     ($cond:expr, $error:expr) => {
         if !$cond {
             Err($error)
@@ -18,7 +18,7 @@ macro_rules! assure {
 }
 
 #[macro_export]
-macro_rules! assure_not {
+macro_rules! ensure_not {
     ($cond:expr, $error:expr) => {
         if $cond {
             Err($error)
@@ -45,6 +45,10 @@ pub fn __print_pmp_configuration() {
     debug!("pmp1 value: {:x}, shifted {:x}", pmp1, pmp1 << PMP_ADDRESS_SHIFT);
     debug!("pmp1 cfg: {:?}", pmp1cfg);
 }
+
+#[macro_export]
+#[cfg(not(feature = "verbose"))]
+pub fn __print_pmp_configuration() {}
 
 #[cfg(feature = "verbose")]
 fn read_memory(address: usize) -> u64 {
@@ -87,12 +91,13 @@ macro_rules! _debug {
 #[macro_export]
 #[cfg(not(feature = "verbose"))]
 macro_rules! debug {
-    ($( $args:expr ),*) => {};
+    () => {{}};
+    ($fmt:expr) => {{}};
+    ($fmt:expr, $($args:tt)+) => {{}};
 }
 
 pub(crate) use {_debug, debug};
 
-#[cfg(feature = "verbose")]
 pub struct Console {}
 
 impl Console {

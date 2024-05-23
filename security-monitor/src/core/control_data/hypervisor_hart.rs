@@ -1,23 +1,63 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::specification::*;
-use crate::core::architecture::{are_bits_enabled, ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState};
+use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
+use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, SR_FS};
+use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
+use crate::error::Error;
 
 /// Represents a state of the hypervisor hart at the time the hypervisor called the security monitor.
+#[repr(C)]
 pub struct HypervisorHart {
     // Safety: HypervisorHart and ConfidentialHart must both start with the HartArchitecturalState element
     // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.
     hypervisor_hart_state: HartArchitecturalState,
+    // Shared memory between the hypervisor and confidential hart is located in non-confidential memory (owned by the hypervisor).
+    // Hypervisor sets this shared memory before creating any confidential VM.
+    shared_memory: NaclSharedMemory,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
     // to the memory region owned by the hypervisor.
     hypervisor_memory_protector: HypervisorMemoryProtector,
 }
 
 impl HypervisorHart {
-    pub fn new(id: usize, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
-        Self { hypervisor_hart_state: HartArchitecturalState::empty(id), hypervisor_memory_protector }
+    pub fn new(hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
+        Self {
+            hypervisor_hart_state: HartArchitecturalState::empty(),
+            shared_memory: NaclSharedMemory::uninitialized(),
+            hypervisor_memory_protector,
+        }
+    }
+
+    /// Saves the state of the hypervisor hart in the main memory. This is part of the heavy context switch.
+    pub fn save_in_main_memory(&mut self) {
+        self.csrs_mut().save_in_main_memory();
+        if (self.csrs().mstatus.read() & SR_FS) > 0 {
+            self.csrs_mut().fflags.save();
+            self.csrs_mut().frm.save();
+            self.csrs_mut().fcsr.save();
+            self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+        }
+    }
+
+    /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
+    pub fn restore_from_main_memory(&self) {
+        // TODO: currently we might leak F state. Regardless of the configuration, we must always restore F state it, or zeroize it if the F
+        // extension is disabled.
+        self.csrs().restore_from_main_memory();
+        if (self.csrs().mstatus.read() & SR_FS) > 0 {
+            self.hypervisor_hart_state.fprs().restore_from_main_memory();
+        }
+    }
+
+    pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
+        self.shared_memory.set(base_address)?;
+        Ok(())
+    }
+
+    pub unsafe fn enable_hypervisor_memory_protector(&self) {
+        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_value())
     }
 
     pub fn address(&self) -> usize {
@@ -44,36 +84,11 @@ impl HypervisorHart {
         &self.hypervisor_hart_state
     }
 
-    pub fn apply_trap(&mut self, encoded_guest_virtual_address: bool) {
-        if are_bits_enabled(self.hypervisor_hart_state.csrs().stvec.read(), STVEC_MODE_VECTORED) {
-            panic!("Not supported functionality: vectored traps");
-        }
-
-        // Set next mode to HS (see Table 8.8 in Riscv privilege spec 20211203)
-        self.hypervisor_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPV);
-        self.hypervisor_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_MPP);
-        self.hypervisor_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
-        self.hypervisor_hart_state.csrs.mstatus.disable_bit_on_saved_value(CSR_MSTATUS_SIE);
-
-        // Resume HS execution at its trap function
-        self.hypervisor_hart_state.csrs().sepc.set(self.hypervisor_hart_state.csrs.mepc.read_value());
-        self.hypervisor_hart_state.csrs.mepc.save_value(self.hypervisor_hart_state.csrs().stvec.read());
-
-        // We trick the hypervisor to think that the trap comes directly from the VS-mode.
-        self.hypervisor_hart_state.csrs.mstatus.enable_bit_on_saved_value(CSR_MSTATUS_SPP);
-        self.hypervisor_hart_state.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPV);
-        self.hypervisor_hart_state.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_SPVP);
-        // According to the spec, hstatus:SPVP and sstatus.SPP have the same value when transitioning from VS to HS mode.
-        self.hypervisor_hart_state.csrs().sstatus.read_and_set_bit(CSR_SSTATUS_SPP);
-
-        if encoded_guest_virtual_address {
-            self.hypervisor_hart_state.csrs().hstatus.read_and_set_bit(CSR_HSTATUS_GVA);
-        } else {
-            self.hypervisor_hart_state.csrs().hstatus.read_and_clear_bit(CSR_HSTATUS_GVA);
-        }
+    pub fn shared_memory(&self) -> &NaclSharedMemory {
+        &self.shared_memory
     }
 
-    pub unsafe fn enable_hypervisor_memory_protector(&self) {
-        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_value())
+    pub fn shared_memory_mut(&mut self) -> &mut NaclSharedMemory {
+        &mut self.shared_memory
     }
 }

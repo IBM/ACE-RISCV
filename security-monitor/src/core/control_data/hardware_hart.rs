@@ -1,12 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{NaclSharedMemory, CSR};
+use crate::core::architecture::CSR;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
-use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
-use crate::error::Error;
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
@@ -24,9 +22,6 @@ pub struct HardwareHart {
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
     confidential_hart: ConfidentialHart,
-    // Shared memory between the hypervisor and confidential hart is located in non-confidential memory (owned by the hypervisor).
-    // Hypervisor sets this shared memory before creating any confidential VM.
-    shared_memory: NaclSharedMemory,
     // A page containing the stack of the code executing within the given hart.
     stack: Page<Allocated>,
     // The stack_address is redundant (we can learn the stack_address from the page assigned for the stack) but we need
@@ -39,21 +34,16 @@ pub struct HardwareHart {
 }
 
 impl HardwareHart {
-    /// Creates the instance of a state associated with the physical hart.
+    /// Creates the instance of a state associated with the physical hart. Id is the unique physical hart identifier used to by hardware
+    /// during inter process interrupts (IPIs), e.g., on RISC-V this will be a number reported by mhartid.
     pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
-            hypervisor_hart: HypervisorHart::new(id, hypervisor_memory_protector),
+            hypervisor_hart: HypervisorHart::new(hypervisor_memory_protector),
             confidential_hart: ConfidentialHart::dummy(id),
-            shared_memory: NaclSharedMemory::uninitialized(),
             stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
         }
-    }
-
-    pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
-        self.shared_memory.set(base_address)?;
-        Ok(())
     }
 
     /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which

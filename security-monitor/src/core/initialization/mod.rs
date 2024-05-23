@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{fence_wo, CAUSE_SUPERVISOR_ECALL, CSR, MTVEC_BASE_SHIFT};
+use crate::core::architecture::{fence_wo, CSR, MTVEC_BASE_SHIFT};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
@@ -35,11 +35,11 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
+    debug!("Initializing the CoVE security monitor");
     if cold_boot {
-        debug!("initializing the ACE extension");
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
-            debug!("Failed to initialize the ACE extension: {:?}", error);
+            debug!("Failed to initialize the security monitor: {:?}", error);
         }
     }
 }
@@ -78,7 +78,7 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    // TODO: echk for SSTC_EXTENSION, IFENCEI_EXTENSION
+    // TODO: check for SSTC_EXTENSION, IFENCEI_EXTENSION
     use crate::core::architecture::*;
     let required_extensions = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
     // Assumption: all harts in the system can run the security monitor
@@ -88,10 +88,10 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
         let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
         let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
         debug!("Hart #{}: {:?}", hart_id, isa);
-        assure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
+        ensure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
         required_extensions
             .into_iter()
-            .try_for_each(|ext| assure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
+            .try_for_each(|ext| ensure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
     }
 
     // TODO: make sure there are enough PMPs
@@ -154,7 +154,7 @@ fn initalize_security_monitor_state(
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
     let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
     let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
-    assure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
+    ensure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
@@ -224,14 +224,6 @@ extern "C" fn ace_setup_this_hart() {
     if let Err(_error) = unsafe { HypervisorMemoryProtector::setup() } {
         return;
     }
-
-    // Hypervisor handles all traps except two that might carry security monitor calls. These exceptions always trap
-    // in the security monitor entry point of a non-confidential flow.
-    hart.hypervisor_hart_mut().csrs_mut().medeleg.read_and_clear_bit(CAUSE_SUPERVISOR_ECALL.into());
-    debug!(
-        "Reconfigured exception delegations to take control over HS and VS ecalls. medeleg={:b}",
-        hart.hypervisor_hart().csrs().medeleg.read()
-    );
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;

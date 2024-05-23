@@ -6,6 +6,7 @@
 // https://github.com/rivosinc/salus/blob/fd06d5959fd81c02b8763c1922f36cc0ebe7d301/riscv-regs/src/csrs/csr_access.rs#L47
 #![allow(unused)]
 pub use super::specification::*;
+use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
 use core::arch::asm;
 
 pub struct ControlStatusRegisters {
@@ -70,6 +71,7 @@ pub struct ControlStatusRegisters {
     pub fflags: ReadWriteRiscvCsr<CSR_FFLAGS>,
     pub frm: ReadWriteRiscvCsr<CSR_FRM>,
     pub fcsr: ReadWriteRiscvCsr<CSR_FCSR>,
+    // V-extension
 }
 
 impl ControlStatusRegisters {
@@ -134,72 +136,9 @@ impl ControlStatusRegisters {
             fflags: ReadWriteRiscvCsr::new(),
             frm: ReadWriteRiscvCsr::new(),
             fcsr: ReadWriteRiscvCsr::new(),
+            // V-extension
         };
         csrs.vstimecmp.save_value(usize::MAX - 1);
-        csrs
-    }
-
-    pub fn copy(&self) -> Self {
-        let mut csrs = Self::empty();
-        csrs.mepc.save_value(self.mepc.read_value());
-        csrs.mcause.save_value(self.mcause.read_value());
-        csrs.medeleg.save_value(self.medeleg.read_value());
-        csrs.mideleg.save_value(self.mideleg.read_value());
-        csrs.mie.save_value(self.mie.read_value());
-        csrs.mstatus.save_value(self.mstatus.read_value());
-        csrs.mtinst.save_value(self.mtinst.read_value());
-        csrs.mtval.save_value(self.mtval.read_value());
-        csrs.mtval2.save_value(self.mtval2.read_value());
-        csrs.mtvec.save_value(self.mtvec.read_value());
-        csrs.mscratch.save_value(self.mscratch.read_value());
-        // S-mode
-        csrs.sstatus.save_value(self.sstatus.read_value());
-        csrs.sie.save_value(self.sie.read_value());
-        csrs.stvec.save_value(self.stvec.read_value());
-        csrs.scounteren.save_value(self.scounteren.read_value());
-        csrs.senvcfg.save_value(self.senvcfg.read_value());
-        csrs.sscratch.save_value(self.sscratch.read_value());
-        csrs.sepc.save_value(self.sepc.read_value());
-        csrs.scause.save_value(self.scause.read_value());
-        csrs.stval.save_value(self.stval.read_value());
-        csrs.sip.save_value(self.sip.read_value());
-        csrs.satp.save_value(self.satp.read_value());
-        // Only if debug extension is implemented by hardware
-        // csrs.scontext.save_value(self.scontext.read_value());
-        csrs.stimecmp.save_value(self.stimecmp.read_value());
-        // HS-mode
-        csrs.hstatus.save_value(self.hstatus.read_value());
-        csrs.hedeleg.save_value(self.hedeleg.read_value());
-        csrs.hideleg.save_value(self.hideleg.read_value());
-        csrs.hie.save_value(self.hie.read_value());
-        csrs.hcounteren.save_value(self.hcounteren.read_value());
-        csrs.hgeie.save_value(self.hgeie.read_value());
-        csrs.htval.save_value(self.htval.read_value());
-        csrs.hip.save_value(self.hip.read_value());
-        csrs.hvip.save_value(self.hvip.read_value());
-        csrs.htinst.save_value(self.htinst.read_value());
-        csrs.hgeip.save_value(self.hgeip.read_value());
-        csrs.henvcfg.save_value(self.henvcfg.read_value());
-        csrs.hgatp.save_value(self.hgatp.read_value());
-        // Only if debug extension is implemented by hardware
-        // csrs.hcontext.save_value(self.hcontext.read_value());
-        csrs.htimedelta.save_value(self.htimedelta.read_value());
-        // VS-mode
-        csrs.vsstatus.save_value(self.vsstatus.read_value());
-        csrs.vsie.save_value(self.vsie.read_value());
-        csrs.vsip.save_value(self.vsip.read_value());
-        csrs.vstvec.save_value(self.vstvec.read_value());
-        csrs.vsscratch.save_value(self.vsscratch.read_value());
-        csrs.vsepc.save_value(self.vsepc.read_value());
-        csrs.vscause.save_value(self.vscause.read_value());
-        csrs.vstval.save_value(self.vstval.read_value());
-        csrs.vsatp.save_value(self.vsatp.read_value());
-        // timer-related
-        csrs.vstimecmp.save_value(self.vstimecmp.read_value());
-        // F-extension
-        csrs.fflags.save_value(self.fflags.read_value());
-        csrs.frm.save_value(self.frm.read_value());
-        csrs.fcsr.save_value(self.fcsr.read_value());
         csrs
     }
 
@@ -239,7 +178,7 @@ impl ControlStatusRegisters {
         self.hgeie.save();
         self.htval.save();
         self.hip.save();
-        self.hvip.save();
+        self.hvip.save_value(0);
         self.htinst.save();
         self.hgeip.save();
         self.henvcfg.save();
@@ -259,10 +198,6 @@ impl ControlStatusRegisters {
         self.vsatp.save();
         // timer-related
         self.vstimecmp.save();
-        // F-extension
-        self.fflags.save();
-        self.frm.save();
-        self.fcsr.save();
     }
 
     pub fn restore_from_main_memory(&self) {
@@ -301,7 +236,7 @@ impl ControlStatusRegisters {
         self.hgeie.restore();
         self.htval.restore();
         // self.hip.restore();
-        // self.hvip.restore();
+        self.hvip.restore();
         self.htinst.restore();
         // self.hgeip.restore();
         self.henvcfg.restore();
@@ -321,15 +256,14 @@ impl ControlStatusRegisters {
         self.vsatp.restore();
         // timer-related
         self.vstimecmp.restore();
-        // F-extension
-        self.fflags.restore();
-        self.frm.restore();
-        self.fcsr.restore();
     }
 }
 
 pub struct ControlStatusRegister {
     pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
+    pub mvendorid: ReadWriteRiscvCsr<CSR_MVENDORID>,
+    pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
+    pub mimpid: ReadWriteRiscvCsr<CSR_MIMPID>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
@@ -339,6 +273,9 @@ pub struct ControlStatusRegister {
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     mhartid: ReadWriteRiscvCsr::new(),
+    mvendorid: ReadWriteRiscvCsr::new(),
+    marchid: ReadWriteRiscvCsr::new(),
+    mimpid: ReadWriteRiscvCsr::new(),
     mscratch: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     pmpcfg0: ReadWriteRiscvCsr::new(),
@@ -368,6 +305,10 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
 
     pub fn read_value(&self) -> usize {
         self.0
+    }
+
+    pub fn restore_from_nacl(&mut self, nacl_shared_memory: &NaclSharedMemory) {
+        self.0 = nacl_shared_memory.csr(V.into());
     }
 
     #[inline]

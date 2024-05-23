@@ -22,7 +22,7 @@ pub struct PageAllocator {
 }
 
 impl PageAllocator {
-    const NOT_INITIALIZED: &'static str = "Bug. Could not access page allocator because has not been initialized.";
+    const NOT_INITIALIZED: &'static str = "Bug. Page allocator not initialized.";
 
     /// Initializes the global memory allocator with the given memory region as confidential memory. Must be called only once during the
     /// system initialization.
@@ -35,7 +35,7 @@ impl PageAllocator {
     ///
     /// Caller must pass the ownership of the memory region [memory_start, memory_end).
     pub unsafe fn initialize(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
-        assure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
+        ensure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
         let mut page_allocator = Self::empty(memory_start.as_usize());
         page_allocator.add_memory_region(memory_start, memory_end)?;
         PAGE_ALLOCATOR.call_once(|| RwLock::new(page_allocator));
@@ -59,7 +59,7 @@ impl PageAllocator {
         assert!(memory_region_end.is_aligned_to(PageSize::smallest().in_bytes()));
         assert!(memory_region_start.as_usize() < memory_region_end as usize);
         // Page allocator supports maximum one page of largest size.
-        assure_not!(
+        ensure_not!(
             memory_region_start.offset_from(memory_region_end) > self.page_size.in_bytes() as isize,
             Error::UnsupportedMemorySize()
         )?;

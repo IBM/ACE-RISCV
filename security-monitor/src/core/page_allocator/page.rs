@@ -156,7 +156,7 @@ impl<T: PageState> Page<T> {
     /// will be written to the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
-        assure!(offset_in_bytes % mem::size_of::<usize>() == 0, Error::MemoryAccessAuthorization())?;
+        ensure!(offset_in_bytes % mem::size_of::<usize>() == 0, Error::MemoryAccessAuthorization())?;
         unsafe {
             // Safety: below add results in a valid confidential memory address because
             // we ensure that it is within the page boundary and page is guaranteed to

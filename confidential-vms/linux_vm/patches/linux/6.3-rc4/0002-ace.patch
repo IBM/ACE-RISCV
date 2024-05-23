@@ -1,0 +1,127 @@
+diff --git a/arch/riscv/cove/cove_guest_sbi.c b/arch/riscv/cove/cove_guest_sbi.c
+index af22d5e7663e..54d170b1c3c0 100644
+--- a/arch/riscv/cove/cove_guest_sbi.c
++++ b/arch/riscv/cove/cove_guest_sbi.c
+@@ -12,6 +12,23 @@
+ #include <asm/sbi.h>
+ #include <asm/covg_sbi.h>
+ 
++int sbi_cove_promote_to_tvm(unsigned long fdt_address, unsigned long tap_addr)
++{
++	struct sbiret ret;
++	int rc = 0;
++
++	ret = sbi_ecall(SBI_EXT_COVH, SBI_EXT_COVH_PROMOTE_TO_TVM, fdt_address,
++			tap_addr, 0, 0, 0, 0);
++
++	if (ret.error) {
++		rc = sbi_err_map_linux_errno(ret.error);
++		goto done;
++	}
++
++done:
++	return rc;
++}
++
+ int sbi_covg_add_mmio_region(unsigned long addr, unsigned long len)
+ {
+ 	struct sbiret ret;
+diff --git a/arch/riscv/include/asm/covg_sbi.h b/arch/riscv/include/asm/covg_sbi.h
+index 31283de6cfa0..9e02d1513086 100644
+--- a/arch/riscv/include/asm/covg_sbi.h
++++ b/arch/riscv/include/asm/covg_sbi.h
+@@ -13,6 +13,7 @@
+ 
+ #ifdef CONFIG_RISCV_COVE_GUEST
+ 
++int sbi_cove_promote_to_tvm(unsigned long fdt_address, unsigned long tap_addr);
+ int sbi_covg_add_mmio_region(unsigned long addr, unsigned long len);
+ int sbi_covg_remove_mmio_region(unsigned long addr, unsigned long len);
+ int sbi_covg_share_memory(unsigned long addr, unsigned long len);
+@@ -24,6 +25,7 @@ int sbi_covg_deny_all_external_interrupt(void);
+ 
+ #else
+ 
++static inline int sbi_cove_promote_to_tvm(unsigned long fdt_address, unsigned long tap_addr) { return 0; }
+ static inline int sbi_covg_add_mmio_region(unsigned long addr, unsigned long len) { return 0; }
+ static inline int sbi_covg_remove_mmio_region(unsigned long addr, unsigned long len) { return 0; }
+ static inline int sbi_covg_share_memory(unsigned long addr, unsigned long len) { return 0; }
+diff --git a/arch/riscv/include/asm/sbi.h b/arch/riscv/include/asm/sbi.h
+index 03b0cc871242..c48fa25a24b4 100644
+--- a/arch/riscv/include/asm/sbi.h
++++ b/arch/riscv/include/asm/sbi.h
+@@ -374,6 +374,7 @@ enum sbi_ext_covh_fid {
+ 	SBI_EXT_COVH_TVM_PROMOTE_PAGE,
+ 	SBI_EXT_COVH_TVM_DEMOTE_PAGE,
+ 	SBI_EXT_COVH_TVM_REMOVE_PAGES,
++	SBI_EXT_COVH_PROMOTE_TO_TVM,
+ };
+ 
+ enum sbi_ext_covi_fid {
+diff --git a/arch/riscv/kernel/setup.c b/arch/riscv/kernel/setup.c
+index 20b028090cb1..6860644272c2 100644
+--- a/arch/riscv/kernel/setup.c
++++ b/arch/riscv/kernel/setup.c
+@@ -36,6 +36,7 @@
+ #include <asm/kasan.h>
+ #include <asm/efi.h>
+ #include <asm/cove.h>
++#include <asm/covg_sbi.h>
+ 
+ #include "head.h"
+ 
+@@ -271,6 +272,12 @@ void __init setup_arch(char **cmdline_p)
+ 
+ 	*cmdline_p = boot_command_line;
+ 
++	#ifdef CONFIG_RISCV_COVE_GUEST
++	if (!sbi_cove_promote_to_tvm(_dtb_early_pa, 0)) {
++		riscv_cove_sbi_init();
++	}
++	#endif
++
+ 	early_ioremap_setup();
+ 	sbi_init();
+ 	riscv_cove_sbi_init();
+diff --git a/arch/riscv/mm/mem_encrypt.c b/arch/riscv/mm/mem_encrypt.c
+index 8523c508c3a5..04abe48bacc6 100644
+--- a/arch/riscv/mm/mem_encrypt.c
++++ b/arch/riscv/mm/mem_encrypt.c
+@@ -25,25 +25,35 @@ bool force_dma_unencrypted(struct device *dev)
+ 
+ int set_memory_encrypted(unsigned long addr, int numpages)
+ {
++	int i;
+ 	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
+ 		return 0;
+ 
+ 	if (!PAGE_ALIGNED(addr))
+ 		return -EINVAL;
+ 
+-	return sbi_covg_unshare_memory(__pa(addr), numpages * PAGE_SIZE);
++	for (i = 0; i < numpages; i++) {
++		sbi_covg_unshare_memory(__pa(addr), PAGE_SIZE);
++        addr += PAGE_SIZE;
++    }
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(set_memory_encrypted);
+ 
+ int set_memory_decrypted(unsigned long addr, int numpages)
+ {
++	int i;
+ 	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
+ 		return 0;
+ 
+ 	if (!PAGE_ALIGNED(addr))
+ 		return -EINVAL;
+ 
+-	return sbi_covg_share_memory(__pa(addr), numpages * PAGE_SIZE);
++	for (i = 0; i < numpages; i++) {
++		sbi_covg_share_memory(__pa(addr), PAGE_SIZE);
++        addr += PAGE_SIZE;
++    }
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(set_memory_decrypted);
+ 

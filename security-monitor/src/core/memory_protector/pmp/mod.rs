@@ -15,7 +15,7 @@ pub(super) fn split_memory_into_confidential_and_non_confidential(
     const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
     let number_of_pmps = 16;
     debug!("Number of PMPs={}", number_of_pmps);
-    assure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps))?;
+    ensure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps))?;
 
     // TODO: simplify use of PMP by using a single PMP entry to isolate the confidential memory.
     // We assume here that the first two PMPs are not used by anyone else, e.g., OpenSBI firmware

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{HartArchitecturalState, Hgatp};
+use crate::core::architecture::Hgatp;
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::PageTable;
@@ -25,8 +25,7 @@ impl ConfidentialVmMemoryProtector {
     /// Returns an error if:
     ///   * the size of the VM is larger than the size of the available confidential memory,
     ///   * the configuration of the memory isolation component (MMU) is invalid.
-    pub fn from_vm_state(hart_state: &HartArchitecturalState) -> Result<Self, Error> {
-        let hgatp = Hgatp::from(hart_state.csrs.hgatp.read_value());
+    pub fn from_vm_state(hgatp: &Hgatp) -> Result<Self, Error> {
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
         Ok(Self { root_page_table, hgatp: 0 })
     }

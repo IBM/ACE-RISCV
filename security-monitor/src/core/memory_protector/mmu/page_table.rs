@@ -14,10 +14,11 @@ use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-/// Represents the architectural 2nd level page table that configures guest physical to real address translation. The security monitor fully controls these mappings for confidential VMs.
+/// Represents an architectural 2nd level page table that defines the guest physical to real address translation. The security monitor fully
+/// controls these mappings for confidential VMs. These page tables are stored in confidential memory (use `Page<Allocated>`).
 ///
-/// We represent page tables in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
-/// representation trigger changes to the serialized representation, so these two are always synced. Since the security monitor is
+/// We represent page table in two ways, logical and serialized, and make sure both are always equivalent, i.e., changes to the logical
+/// representation triggers changes to the serialized representation, so these two are always synced. Since the security monitor is
 /// uninterruptible and access to page table configuration is synchronized for different security monitor threads, the changes are
 /// considered atomic.
 ///
@@ -119,7 +120,7 @@ impl PageTable {
         confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
     ) -> Result<(), Error> {
         let page_size_at_current_level = self.paging_system.page_size(self.level);
-        assure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
+        ensure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
         let virtual_page_number = self.paging_system.vpn(&confidential_vm_physical_address, self.level);
 
         if page_size_at_current_level > page_size {
@@ -169,7 +170,7 @@ impl PageTable {
         match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
             PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(address),
             PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
-                assure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
+                ensure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
                 self.set_entry(virtual_page_number, PageTableEntry::NotValid);
                 Ok(self.paging_system.page_size(self.level))
             }

@@ -9,12 +9,15 @@ function run_confidential_vm() {
     KERNEL_IMAGE=$1
     NUMBER_OF_CORES=$2
     MEMORY_SIZE=$3
+    DRIVE="hdd.dsk"
 
     qemu-system-riscv64 -machine virt -cpu rv64 -smp $NUMBER_OF_CORES -m $MEMORY_SIZE \
         --enable-kvm \
-        -drive if=none,format=raw,file=hdd.dsk,id=foo \
-        -device virtio-blk-device,scsi=off,drive=foo -nographic -bios none \
-        -device virtio-rng-device \
+        -global virtio-mmio.force-legacy=false \
+        -append "console=ttyS0 ro root=/dev/vda swiotlb=mmnn,force nosplash debug promote_to_tvm" \
+        -device virtio-blk-pci,drive=hd0,iommu_platform=on,disable-legacy=on,disable-modern=off \
+        -drive if=none,format=raw,file=${DRIVE},id=hd0 \
+        -nographic -bios none \
         -kernel $KERNEL_IMAGE &
 }
 

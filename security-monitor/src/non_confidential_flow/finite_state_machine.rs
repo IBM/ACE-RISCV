@@ -1,21 +1,25 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::{ConfidentialFlow, DeclassifyToHypervisor};
-use crate::core::architecture::AceExtension::*;
-use crate::core::architecture::NaclExtension::*;
-use crate::core::architecture::SbiExtension::*;
+use crate::confidential_flow::ConfidentialFlow;
+use crate::core::architecture::supervisor_binary_interface::BaseExtension::*;
+use crate::core::architecture::supervisor_binary_interface::CovhExtension::*;
+use crate::core::architecture::supervisor_binary_interface::CoviExtension::*;
+use crate::core::architecture::supervisor_binary_interface::NaclExtension::*;
+use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
+use crate::core::architecture::supervisor_binary_interface::SbiExtension::*;
 use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
-use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
-use crate::non_confidential_flow::handlers::delegate_to_opensbi::OpensbiHandler;
-use crate::non_confidential_flow::handlers::nacl_handler::NaclHandler;
-use crate::non_confidential_flow::handlers::promote_vm::PromoteVmHandler;
-use crate::non_confidential_flow::handlers::resume_confidential_hart::ResumeHandler;
-use crate::non_confidential_flow::handlers::terminate_confidential_vm::TerminateVmHandler;
-use crate::non_confidential_flow::ApplyToHypervisor;
+use crate::non_confidential_flow::handlers::covh::{
+    DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
+};
+use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
+use crate::non_confidential_flow::handlers::invalid_call::InvalidCall;
+use crate::non_confidential_flow::handlers::nacl::{NaclProbeFeature, NaclSetupSharedMemory};
+use crate::non_confidential_flow::handlers::sbi::{DelegateToOpensbi, ProbeSbiExtension};
+use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
 
 extern "C" {
     /// To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
@@ -31,7 +35,7 @@ pub struct NonConfidentialFlow<'a> {
 }
 
 impl<'a> NonConfidentialFlow<'a> {
-    pub const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
+    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
 
     /// Creates an instance of the `NonConfidentialFlow`. A confidential hart must not be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
@@ -55,18 +59,25 @@ impl<'a> NonConfidentialFlow<'a> {
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
-            Interrupt => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            IllegalInstruction => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            LoadAddressMisaligned => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            LoadAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            StoreAddressMisaligned => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            StoreAccessFault => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Ace(PromoteVm)) => PromoteVmHandler::from_vm_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Ace(ResumeConfidentialHart)) => ResumeHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Ace(TerminateConfidentialVm)) => TerminateVmHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Nacl(SetSharedMemory)) => NaclHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(_) => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            MachineEcall => OpensbiHandler::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            LoadAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            LoadAccessFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            StoreAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            StoreAccessFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Base(ProbeExtension)) => ProbeSbiExtension::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covh(TsmGetInfo)) => GetSecurityMonitorInfo::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covh(PromoteToTvm)) => PromoteToConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covh(TvmVcpuRun)) => RunConfidentialHart::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covh(DestroyTvm)) => DestroyConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covh(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covi(InjectExternalInterrupt)) => InjectExternalInterrupt::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Covi(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Nacl(ProbeFeature)) => NaclProbeFeature::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Nacl(SetupSharedMemory)) => NaclSetupSharedMemory::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Nacl(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(_) => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            MachineEcall => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
         }
     }
@@ -80,29 +91,34 @@ impl<'a> NonConfidentialFlow<'a> {
             .map_err(|(hardware_hart, error)| (Self::create(hardware_hart), error))
     }
 
-    /// Resumes execution of the hypervisor hart and declassifies information from a confidential VM to the hypervisor. This is an exit node
-    /// (Rust->Assembly) of the non-confidential part of the finite state machine (FSM), executed as a result of confidential VM
-    /// execution (there was context switch between security domains).
-    pub fn declassify_and_exit_to_hypervisor(mut self, declassify: DeclassifyToHypervisor) -> ! {
+    pub fn declassify_to_hypervisor_hart(mut self, declassify: DeclassifyToHypervisor) -> Self {
         match declassify {
             DeclassifyToHypervisor::SbiRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::SbiResponse(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::Interrupt(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::EnabledInterrupts(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
+        self
+    }
+
+    /// Resumes execution of the hypervisor hart and declassifies information from a confidential VM to the hypervisor. This is an exit node
+    /// (Rust->Assembly) of the non-confidential part of the finite state machine (FSM), executed as a result of confidential VM
+    /// execution (there was context switch between security domains).
+    pub fn declassify_and_exit_to_hypervisor(self, declassify: DeclassifyToHypervisor) -> ! {
+        self.declassify_to_hypervisor_hart(declassify);
         unsafe { exit_to_hypervisor_asm() }
     }
 
     /// Resumes execution of the hypervisor hart and applies state transformation. This is an exit node (Rust->Assembly) of the
     /// non-confidential part of the finite state machine (FSM), executed as a result of processing hypervisor request (there was no
     /// context switch between security domains).
-    pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisor) -> ! {
+    pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisorHart) -> ! {
         match transformation {
-            ApplyToHypervisor::PromoteVmResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::SbiRequest(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisor::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         unsafe { exit_to_hypervisor_asm() }
     }
@@ -113,22 +129,8 @@ impl<'a> NonConfidentialFlow<'a> {
         self.hardware_hart.swap_mscratch()
     }
 
-    pub fn set_shared_memory(&mut self, shared_memory_base_address: usize) -> Result<(), Error> {
-        let base_address = NonConfidentialMemoryAddress::new(shared_memory_base_address as *mut usize)?;
-        self.hardware_hart.set_shared_memory(base_address)
-    }
-
-    /// Arguments to security monitor calls are stored in vs* CSRs because we cannot use regular general purpose registers (GPRs).
-    /// GPRs might carry SBI- or MMIO-related reponses, so using GPRs would destroy the communication between the
-    /// hypervisor and confidential VM. This is a hackish (temporal?) solution, we should probably move to the RISC-V
-    /// NACL extension that solves these problems by using shared memory region in which the SBI- and MMIO-related
-    /// information is transfered. Below we restore the original `a7` and `a6`.
-    pub fn hack_restore_original_gprs(&mut self) {
-        use crate::core::architecture::GeneralPurposeRegister;
-        let original_a7 = self.hypervisor_hart_mut().csrs_mut().vstval.read();
-        let original_a6 = self.hypervisor_hart_mut().csrs_mut().vsepc.read();
-        self.hypervisor_hart_mut().gprs_mut().write(GeneralPurposeRegister::a7, original_a7);
-        self.hypervisor_hart_mut().gprs_mut().write(GeneralPurposeRegister::a6, original_a6);
+    pub fn shared_memory(&self) -> &NaclSharedMemory {
+        self.hypervisor_hart().shared_memory()
     }
 
     fn hypervisor_hart_mut(&mut self) -> &mut HypervisorHart {

@@ -2,9 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 core::arch::global_asm!(
-    include_str!("enter_from_confidential_hart.S"),
-    include_str!("exit_to_confidential_hart.S"),
-    // below is a boilerplate code to glue Rust and Assembly code.
+    core::include_str!("enter_from_confidential_hart.S"),
+    core::include_str!("exit_to_confidential_hart.S"),
+    // below is a piece of boilerplate code required to safely glue Assembly with Rust.
     HART_RA_OFFSET = const crate::core::architecture::HART_RA_OFFSET,
     HART_SP_OFFSET = const crate::core::architecture::HART_SP_OFFSET,
     HART_GP_OFFSET = const crate::core::architecture::HART_GP_OFFSET,
