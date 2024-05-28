@@ -96,7 +96,10 @@ impl<'a> ConfidentialFlow<'a> {
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
+            trap_reason => {
+                debug!("Bug: Not supported trap cause {:?}, maybe due to incorrect exception delegation?", trap_reason);
+                ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
+            }
         }
     }
 
@@ -175,7 +178,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.exit_to_confidential_hart()
     }
 
-    fn exit_to_confidential_hart(mut self) -> ! {
+    pub fn exit_to_confidential_hart(mut self) -> ! {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
@@ -191,15 +194,13 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
-    pub fn broadcast_confidential_hart_remote_command(
-        &mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
-    ) -> Result<(), Error> {
+    pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
         ControlData::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
             // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
             // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
             // that knows the original value of the mscratch expected by OpenSBI.
             self.hardware_hart.swap_mscratch();
-            let result = confidential_vm.broadcast_confidential_hart_remote_command(confidential_hart_remote_command);
+            let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
             // We must revert the content of mscratch back to the value expected by our context switched.
             self.hardware_hart.swap_mscratch();
             result

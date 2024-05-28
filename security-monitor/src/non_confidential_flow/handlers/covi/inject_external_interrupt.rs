@@ -33,7 +33,7 @@ impl InjectExternalInterrupt {
             self.interrupt_id = self.interrupt_id & confidential_vm.allowed_external_interrupts();
             non_confidential_flow.swap_mscratch();
             let command = ConfidentialHartRemoteCommand::ExternalInterrupt(self);
-            let result = confidential_vm.broadcast_confidential_hart_remote_command(command);
+            let result = confidential_vm.broadcast_remote_command(command);
             // We must revert the content of mscratch back to the value expected by our context switched.
             non_confidential_flow.swap_mscratch();
             result

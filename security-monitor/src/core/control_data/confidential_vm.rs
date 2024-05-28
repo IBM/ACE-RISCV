@@ -1,14 +1,12 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiRemoteHfenceGvmaVmid;
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart,
 };
 use crate::core::interrupt_controller::InterruptController;
-use crate::core::memory_layout::{ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
-use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
+use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
@@ -113,25 +111,12 @@ impl ConfidentialVm {
         unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
 
-    pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
-        confidential_vm_address: ConfidentialVmPhysicalAddress,
-    ) -> Result<(), Error> {
-        self.memory_protector.map_shared_page(hypervisor_address, page_size, confidential_vm_address)?;
-        let request = SbiRemoteHfenceGvmaVmid::all_harts(&confidential_vm_address, page_size, self.id);
-        self.broadcast_confidential_hart_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
-        Ok(())
-    }
-
-    pub fn unmap_shared_page(&mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress) -> Result<(), Error> {
-        let page_size = self.memory_protector.unmap_shared_page(confidential_vm_address)?;
-        let request = SbiRemoteHfenceGvmaVmid::all_harts(confidential_vm_address, page_size, self.id);
-        self.broadcast_confidential_hart_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
-        Ok(())
-    }
-
     pub fn confidential_vm_id(&self) -> ConfidentialVmId {
         self.id
+    }
+
+    pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
+        &mut self.memory_protector
     }
 
     pub fn allowed_external_interrupts(&self) -> usize {
@@ -139,7 +124,6 @@ impl ConfidentialVm {
     }
 
     pub fn set_allowed_external_interrupts(&mut self, allowed_external_interrupts: usize) {
-        debug!("Confidential VM[{:?}] allows an external interrupt: {:x}", self.id, allowed_external_interrupts);
         self.allowed_external_interrupts |= allowed_external_interrupts;
     }
 
@@ -167,9 +151,7 @@ impl ConfidentialVm {
     ///
     /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
-    pub fn broadcast_confidential_hart_remote_command(
-        &mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
-    ) -> Result<(), Error> {
+    pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| confidential_hart_remote_command.is_hart_selected(*confidential_hart_id))
             .try_for_each(|confidential_hart_id| {

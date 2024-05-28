@@ -6,7 +6,7 @@ use crate::core::memory_protector::SharedPage;
 use crate::core::page_allocator::{Allocated, Page};
 use alloc::boxed::Box;
 
-pub(super) enum PageTableEntry {
+pub enum PageTableEntry {
     PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
     PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
     PageSharedWithHypervisor(SharedPage, PageTableConfiguration, PageTablePermission),
@@ -78,14 +78,14 @@ impl PageTableAddress {
     }
 }
 
-pub(super) struct PageTablePermission {
+pub struct PageTablePermission {
     can_read: bool,
     can_write: bool,
     can_execute: bool,
 }
 
 impl PageTablePermission {
-    pub fn shared_page_permission() -> Self {
+    pub fn read_write_permissions() -> Self {
         Self { can_read: true, can_write: true, can_execute: false }
     }
 
@@ -111,7 +111,7 @@ impl PageTablePermission {
     }
 }
 
-pub(super) struct PageTableConfiguration {
+pub struct PageTableConfiguration {
     is_accessible_to_user: bool,
     was_accessed: bool,
     is_global_mapping: bool,

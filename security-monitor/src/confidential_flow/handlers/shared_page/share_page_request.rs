@@ -7,7 +7,6 @@ use crate::core::architecture::supervisor_binary_interface::CovgExtension;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
-use crate::core::memory_protector::PageSize;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Handles a request from the confidential VM about creating a shared page.
@@ -21,11 +20,10 @@ pub struct SharePageRequest {
 }
 
 impl SharePageRequest {
-    pub const SHARED_PAGE_SIZE: PageSize = PageSize::Size4KiB;
-
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let address = confidential_hart.gprs().read(GeneralPurposeRegister::a0);
         let size = confidential_hart.gprs().read(GeneralPurposeRegister::a1);
+        // TODO: make sure address is aligned to the page size
         Self { address: ConfidentialVmPhysicalAddress::new(address), size }
     }
 

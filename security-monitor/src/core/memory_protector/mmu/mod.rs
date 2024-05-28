@@ -7,6 +7,7 @@ use crate::error::Error;
 
 pub use page_size::PageSize;
 pub use page_table::PageTable;
+pub use page_table_entry::{PageTableConfiguration, PageTableEntry, PageTablePermission};
 pub use paging_system::PagingSystem;
 pub use shared_page::SharedPage;
 

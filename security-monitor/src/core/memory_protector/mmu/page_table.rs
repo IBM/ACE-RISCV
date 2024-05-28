@@ -8,7 +8,7 @@ use crate::core::memory_protector::mmu::page_table_entry::{
 };
 use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_protector::mmu::paging_system::PagingSystem;
-use crate::core::memory_protector::{PageSize, SharedPage};
+use crate::core::memory_protector::PageSize;
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use alloc::boxed::Box;
@@ -95,87 +95,49 @@ impl PageTable {
     pub fn empty(paging_system: PagingSystem, level: PageTableLevel) -> Result<Self, Error> {
         let serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?.zeroize();
         let number_of_entries = serialized_representation.size().in_bytes() / paging_system.entry_size();
-        let logical_representation = Vec::with_capacity(number_of_entries);
+        let logical_representation = (0..number_of_entries).map(|_| PageTableEntry::NotValid).collect();
         Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
-    /// This function maps the confidential VM's physical address into the address of the page allocated by the hypervisor.
+    /// This function maps the given page table entry into the page table configuration of the confidential VM's. Typically, this function
+    /// will be used to (1) map a page shared with the hypervisor, (2) remove the mapping of a shared page, (3) or lazily load zeroized data
+    /// pages into the address space of the confidential VM. Any previous mapping at the given guest physical address is overwritten. If the
+    /// previous mapping pointed to a page in confidential memory, this page is deallocated and returned to the page allocator.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
-    ///
-    /// # Guarantees
-    ///
-    /// Successful execution of this function results in:
-    ///   * The mapping of guest physical address to a real physical address in non-confidential memory,
-    ///   * The mapped shared page is inside the non-confidential memory,
-    ///   * Any previous mapping at the given guest physical address is overwritten,
-    ///   * If the previous mapping pointed to a page in confidential memory, this page is deallocated and returned to the page allocator.
     ///
     /// # Confidential VM execution correctness
     ///
     /// The caller of this function must ensure that he synchronizes changes to page table configuration, i.e., by clearing address
     /// translation caches.
-    pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
-        confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
+    pub fn map_page_table_entry(
+        &mut self, page_size: PageSize, confidential_vm_physical_address: &ConfidentialVmPhysicalAddress, entry: PageTableEntry,
     ) -> Result<(), Error> {
         let page_size_at_current_level = self.paging_system.page_size(self.level);
         ensure!(page_size_at_current_level >= page_size, Error::InvalidArgument())?;
-        let virtual_page_number = self.paging_system.vpn(&confidential_vm_physical_address, self.level);
+        let virtual_page_number = self.paging_system.vpn(confidential_vm_physical_address, self.level);
 
         if page_size_at_current_level > page_size {
             // We are at the intermediary page table. We will recursively go to the next page table, creating it in case it does not exist.
             match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
                 PageTableEntry::PointerToNextPageTable(next_page_table, _) => {
-                    next_page_table.map_shared_page(hypervisor_address, page_size, confidential_vm_physical_address)?;
+                    next_page_table.map_page_table_entry(page_size, confidential_vm_physical_address, entry)?;
                 }
                 PageTableEntry::NotValid => {
-                    let mut next_page_table = Box::new(PageTable::empty(self.paging_system, self.level)?);
-                    next_page_table.map_shared_page(hypervisor_address, page_size, confidential_vm_physical_address)?;
+                    let mut next_page_table =
+                        Box::new(PageTable::empty(self.paging_system, self.level.lower().ok_or(Error::PageTableCorrupted())?)?);
+                    next_page_table.map_page_table_entry(page_size, confidential_vm_physical_address, entry)?;
                     let new_page_table_entry = PageTableEntry::PointerToNextPageTable(next_page_table, PageTableConfiguration::empty());
                     self.set_entry(virtual_page_number, new_page_table_entry);
                 }
-                _ => {
-                    // We do not support corner cases when the confidential VM requests the creation of a shared page within another
-                    // page (shared or confidential) of larger size. We end the recursion returning error.
-                    return Err(Error::PageTableConfiguration());
-                }
+                _ => return Err(Error::PageTableConfiguration()),
             }
         } else {
             // We are at the correct page table level at which we must create the page table entry for the shared page. We will overwrite
             // whatever was there before. We end the recursion here.
-            self.set_entry(
-                virtual_page_number,
-                PageTableEntry::PageSharedWithHypervisor(
-                    SharedPage::new(hypervisor_address, page_size, confidential_vm_physical_address)?,
-                    PageTableConfiguration::shared_page_configuration(),
-                    PageTablePermission::shared_page_permission(),
-                ),
-            );
+            self.set_entry(virtual_page_number, entry);
         }
         Ok(())
-    }
-
-    /// Removes a shared page from the address space of the confidential VM. Returns error if there is no shared page mapped at the given
-    /// address. Returns the size of the unmapped shared page on succeess.
-    ///
-    /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
-    ///
-    /// # Confidential VM execution correctness
-    ///
-    /// The caller of this function must ensure that he synchronizes changes to page table configuration, i.e., by clearing address
-    /// translation caches.
-    pub fn unmap_shared_page(&mut self, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
-        let virtual_page_number = self.paging_system.vpn(address, self.level);
-        match self.logical_representation.get_mut(virtual_page_number).ok_or_else(|| Error::PageTableConfiguration())? {
-            PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.unmap_shared_page(address),
-            PageTableEntry::PageSharedWithHypervisor(existing_address, _configuration, _permission) => {
-                ensure!(&existing_address.confidential_vm_address == address, Error::PageTableConfiguration())?;
-                self.set_entry(virtual_page_number, PageTableEntry::NotValid);
-                Ok(self.paging_system.page_size(self.level))
-            }
-            _ => Err(Error::PageTableConfiguration()),
-        }
     }
 
     /// Translates the guest physical address to host physical address by doing a page walk. Error is returned if there exists no mapping

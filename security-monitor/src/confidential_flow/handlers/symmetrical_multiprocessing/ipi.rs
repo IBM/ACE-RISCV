@@ -30,7 +30,7 @@ impl SbiIpi {
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         let transformation = confidential_flow
-            .broadcast_confidential_hart_remote_command(ConfidentialHartRemoteCommand::SbiIpi(self))
+            .broadcast_remote_command(ConfidentialHartRemoteCommand::SbiIpi(self))
             .and_then(|_| Ok(SbiResponse::success(0)))
             .unwrap_or_else(|error| SbiResponse::failure(error.code()));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))

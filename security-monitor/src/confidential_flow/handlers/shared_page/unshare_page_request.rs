@@ -2,11 +2,13 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiRemoteHfenceGvmaVmid;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::supervisor_binary_interface::CovgExtension;
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ControlData, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
+use crate::core::memory_protector::SharedPage;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Unshared memory that has been previously shared with the hypervisor.
@@ -24,7 +26,10 @@ impl UnsharePageRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_vm.unmap_shared_page(&self.address)
+            confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
+            let request = SbiRemoteHfenceGvmaVmid::all_harts(&self.address, SharedPage::SIZE, confidential_flow.confidential_vm_id());
+            confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
+            Ok(())
         }) {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::SbiRequest())

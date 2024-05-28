@@ -14,7 +14,6 @@ use crate::error::Error;
 pub struct SharedPage {
     pub hypervisor_address: NonConfidentialMemoryAddress,
     pub confidential_vm_address: ConfidentialVmPhysicalAddress,
-    pub size: PageSize,
 }
 
 /// It is safe to implement Send+Sync on the SharedPage type because it encapsulates the raw pointer
@@ -24,12 +23,13 @@ unsafe impl Send for SharedPage {}
 unsafe impl Sync for SharedPage {}
 
 impl SharedPage {
-    pub fn new(
-        hypervisor_address: NonConfidentialMemoryAddress, size: PageSize, confidential_vm_address: ConfidentialVmPhysicalAddress,
-    ) -> Result<Self, Error> {
-        // Security: check that the end address is located in the non-confidential memory
-        MemoryLayout::read().non_confidential_address_at_offset(&hypervisor_address, size.in_bytes() - 1)?;
+    pub const SIZE: PageSize = PageSize::Size4KiB;
 
-        Ok(Self { hypervisor_address, confidential_vm_address, size })
+    pub fn new(
+        hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_address: ConfidentialVmPhysicalAddress,
+    ) -> Result<Self, Error> {
+        // Security: we check that the end address is located in the non-confidential memory
+        MemoryLayout::read().non_confidential_address_at_offset(&hypervisor_address, Self::SIZE.in_bytes() - 1)?;
+        Ok(Self { hypervisor_address, confidential_vm_address })
     }
 }

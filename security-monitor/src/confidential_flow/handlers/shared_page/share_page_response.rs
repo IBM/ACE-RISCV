@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::shared_page::SharePageRequest;
+use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiRemoteHfenceGvmaVmid;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ControlData, HypervisorHart};
+use crate::core::control_data::{ConfidentialHartRemoteCommand, ControlData, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
+use crate::core::memory_protector::SharedPage;
 
 /// Finishes the pending request of sharing a page between the confidential VM and the hypervisor. The hypervisor should provide information
 /// about the shared page located in non-confidential memory. The security monitor will map this page into the address space of the
@@ -40,7 +42,11 @@ impl SharePageResponse {
         let transformation = match NonConfidentialMemoryAddress::new(self.hypervisor_page_address as *mut usize) {
             Ok(hypervisor_address) => {
                 ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-                    confidential_vm.map_shared_page(hypervisor_address, SharePageRequest::SHARED_PAGE_SIZE, self.request.address)
+                    confidential_vm.memory_protector_mut().map_shared_page(hypervisor_address, self.request.address)?;
+                    let request =
+                        SbiRemoteHfenceGvmaVmid::all_harts(&self.request.address, SharedPage::SIZE, confidential_flow.confidential_vm_id());
+                    confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
+                    Ok(())
                 })
                 .and_then(|_| Ok(SbiResponse::success(0)))
                 .unwrap_or_else(|error| SbiResponse::failure(error.code()))
