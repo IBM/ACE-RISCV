@@ -8,7 +8,6 @@ use crate::core::architecture::supervisor_binary_interface::CovgExtension;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ControlData, PendingRequest};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
-use crate::core::memory_protector::SharedPage;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Unshared memory that has been previously shared with the hypervisor.
@@ -26,8 +25,8 @@ impl UnsharePageRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
-            let request = SbiRemoteHfenceGvmaVmid::all_harts(&self.address, SharedPage::SIZE, confidential_flow.confidential_vm_id());
+            let unmapped_page_size = confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
+            let request = SbiRemoteHfenceGvmaVmid::all_harts(&self.address, unmapped_page_size, confidential_flow.confidential_vm_id());
             confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(request))?;
             Ok(())
         }) {

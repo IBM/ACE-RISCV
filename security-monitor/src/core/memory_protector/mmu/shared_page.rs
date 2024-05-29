@@ -32,4 +32,8 @@ impl SharedPage {
         MemoryLayout::read().non_confidential_address_at_offset(&hypervisor_address, Self::SIZE.in_bytes() - 1)?;
         Ok(Self { hypervisor_address, confidential_vm_address })
     }
+
+    pub fn page_size(&self) -> PageSize {
+        Self::SIZE
+    }
 }
