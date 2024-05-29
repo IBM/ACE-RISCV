@@ -167,7 +167,7 @@ index 31f4dbd97b03..fba7ebd0cd72 100644
 -kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o
 +kvm-$(CONFIG_RISCV_COVE_HOST) += cove_sbi.o cove.o vcpu_sbi_covg.o vcpu_sbi_covh.o
 diff --git a/arch/riscv/kvm/cove.c b/arch/riscv/kvm/cove.c
-index ba596b7f2240..461c3ff2034f 100644
+index ba596b7f2240..15a602a067b6 100644
 --- a/arch/riscv/kvm/cove.c
 +++ b/arch/riscv/kvm/cove.c
 @@ -633,7 +633,7 @@ int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
@@ -258,7 +258,7 @@ index ba596b7f2240..461c3ff2034f 100644
  {
  	struct kvm_cove_tvm_context *tvmc;
  	struct page *tvms_page, *pgt_page;
-@@ -980,11 +990,69 @@ int kvm_riscv_cove_vm_init(struct kvm *kvm)
+@@ -980,11 +990,70 @@ int kvm_riscv_cove_vm_init(struct kvm *kvm)
  	return rc;
  }
  
@@ -278,11 +278,12 @@ index ba596b7f2240..461c3ff2034f 100644
 +	if (!tvmc)
 +		return -ENOMEM;
 +
-+	/* Fill the NACL memory with the VM state required by the TSM's promote to TVM call */
++	/* Fill the NACL memory with the boot hart GPRs */
 +	for (gpr_id = 1; gpr_id < 32; gpr_id++) {
 +		nacl_shmem_gpr_write_cove(nshmem, KVM_ARCH_GUEST_ZERO + gpr_id * sizeof(unsigned long), 
 +									((unsigned long *)cp)[gpr_id]);
 +	}
++	/* Fill the NACL memory with boot hart CSRs */
 +	kvm_arch_vcpu_load(vcpu, smp_processor_id());
 +
 +	rc = sbi_covh_tsm_promote_to_tvm(fdt_address, tap_addr, cp->sepc, &tvm_gid);
@@ -360,20 +361,25 @@ index 4759b4920226..1cb1e45eb185 100644
  {
  	struct sbiret ret;
 diff --git a/arch/riscv/kvm/main.c b/arch/riscv/kvm/main.c
-index a05941420307..9111f1311fa7 100644
+index a05941420307..de5215fd5318 100644
 --- a/arch/riscv/kvm/main.c
 +++ b/arch/riscv/kvm/main.c
-@@ -36,8 +36,8 @@ int kvm_arch_hardware_enable(void)
- 	 * other CSRs as well for legacy VMs.
- 	 * TODO: Handle host in HS mode use case.
- 	 */
+@@ -30,15 +30,6 @@ int kvm_arch_hardware_enable(void)
+ 	if (rc)
+ 		return rc;
+ 
+-	/*
+-	 * We just need to invoke aia enable for CoVE if host is in VS mode
+-	 * However, if the host is running in HS mode, we need to initialize
+-	 * other CSRs as well for legacy VMs.
+-	 * TODO: Handle host in HS mode use case.
+-	 */
 -	if (unlikely(kvm_riscv_cove_enabled()))
 -		goto enable_aia;
-+	// if (unlikely(kvm_riscv_cove_enabled()))
-+	// 	goto enable_aia;
- 
+-
  	hedeleg = 0;
  	hedeleg |= (1UL << EXC_INST_MISALIGNED);
+ 	hedeleg |= (1UL << EXC_BREAKPOINT);
 diff --git a/arch/riscv/kvm/nacl.c b/arch/riscv/kvm/nacl.c
 index 91ef6238310e..05289ba15725 100644
 --- a/arch/riscv/kvm/nacl.c
@@ -445,22 +451,23 @@ index b007c027baed..5a3ef6ea01e9 100644
  						d.addr, d.size, d.order);
  			else
 diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
-index 005c7c93536d..e24ee196ceff 100644
+index 005c7c93536d..87470ca49e65 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
-@@ -731,8 +731,9 @@ long kvm_arch_vcpu_async_ioctl(struct file *filp,
+@@ -730,9 +730,9 @@ long kvm_arch_vcpu_async_ioctl(struct file *filp,
+ 
  	if (ioctl == KVM_INTERRUPT) {
  		struct kvm_interrupt irq;
- 		/* We do not support user space emulated IRQCHIP for TVMs yet */
+-		/* We do not support user space emulated IRQCHIP for TVMs yet */
 -		if (is_cove_vcpu(vcpu))
 -			return -ENXIO;
-+		/* woz: CoVE implementations that does not support AIA might use IRQCHIP */
-+		// if (is_cove_vcpu(vcpu))
-+		// 	return -ENXIO;
++		/* We do not support user space emulated IRQCHIP for TVMs that utilize AIA yet */
++		if (is_cove_vcpu(vcpu) && kvm_riscv_aia_initialized(vcpu->kvm))
++		 	return -ENXIO;
  
  		if (copy_from_user(&irq, argp, sizeof(irq)))
  			return -EFAULT;
-@@ -997,7 +998,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+@@ -997,7 +997,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
  		goto skip_load;
  	}
  
@@ -469,7 +476,7 @@ index 005c7c93536d..e24ee196ceff 100644
  		nshmem = nacl_shmem();
  		nacl_shmem_csr_write(nshmem, CSR_VSSTATUS, csr->vsstatus);
  		nacl_shmem_csr_write(nshmem, CSR_VSIE, csr->vsie);
-@@ -1061,7 +1062,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+@@ -1061,7 +1061,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
  
  	kvm_riscv_vcpu_timer_save(vcpu);
  
@@ -478,16 +485,15 @@ index 005c7c93536d..e24ee196ceff 100644
  		/**
  		 * For TVMs, we don't need a separate case as TSM only updates
  		 * the required CSRs during the world switch. All other CSR
-@@ -1148,8 +1149,14 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
+@@ -1148,8 +1148,13 @@ static void kvm_riscv_update_hvip(struct kvm_vcpu *vcpu)
  {
  	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
  
 -	nacl_csr_write(CSR_HVIP, csr->hvip);
 -	kvm_riscv_vcpu_aia_update_hvip(vcpu);
 +	if (is_cove_vcpu(vcpu)) {
-+		if (csr->hvip > 0) {
++		if (csr->hvip > 0)
 +			kvm_riscv_cove_vcpu_inject_interrupt(vcpu, csr->hvip);
-+		}
 +	} else {
 +		nacl_csr_write(CSR_HVIP, csr->hvip);
 +		kvm_riscv_vcpu_aia_update_hvip(vcpu);
@@ -495,7 +501,7 @@ index 005c7c93536d..e24ee196ceff 100644
  }
  
  /*
-@@ -1325,9 +1332,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
+@@ -1325,9 +1330,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
  		 */
  		kvm_riscv_vcpu_flush_interrupts(vcpu);
  
