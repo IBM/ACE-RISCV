@@ -7,8 +7,6 @@ use crate::error::Error;
 use crate::non_confidential_flow::handlers::sbi::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
-/// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
-/// not support the SBI call.
 pub struct InvalidCall {
     extension_id: usize,
     function_id: usize,

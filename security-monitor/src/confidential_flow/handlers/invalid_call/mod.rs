@@ -7,8 +7,6 @@ use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 use crate::error::Error;
 
-/// Handles the situation in which a confidential hart trapped into the security monitor but the security monitor does
-/// not support the SBI call.
 pub struct InvalidCall {
     extension_id: usize,
     function_id: usize,
