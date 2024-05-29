@@ -45,7 +45,7 @@ impl SbiHsmHartStart {
                 // starting a confidential hart might fail if the incoming request is invalid. For example, the confidential
                 // hart id does not exist or is the same as the one currently assigned to the hardware hart. In such cases,
                 // return an error to the calling confidential hart.
-                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error));
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }

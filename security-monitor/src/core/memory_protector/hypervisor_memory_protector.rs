@@ -44,7 +44,7 @@ impl HypervisorMemoryProtector {
     /// `non-confidential flow` and eventually to the hypervisor code.
     pub unsafe fn enable(&self, hgatp: usize) {
         pmp::close_access_to_confidential_memory();
-        mmu::enable_address_translation(hgatp);
+        mmu::enable_address_translation_and_protection(hgatp);
         super::tlb::clear_hart_tlbs();
     }
 }

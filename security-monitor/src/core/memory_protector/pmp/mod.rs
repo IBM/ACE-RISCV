@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{CSR, PMP_ADDRESS_SHIFT, PMP_CONFIG_SHIFT, PMP_OFF_MASK, PMP_PERMISSION_RWX_MASK, PMP_TOR_MASK};
-use crate::error::{Error, HardwareFeatures};
+use crate::error::Error;
 
 // OpenSBI set already PMPs to isolate OpenSBI firmware from the rest of the
 // system PMP0 protects OpenSBI memory region while PMP1 defines the system
@@ -15,7 +15,7 @@ pub(super) fn split_memory_into_confidential_and_non_confidential(
     const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
     let number_of_pmps = 16;
     debug!("Number of PMPs={}", number_of_pmps);
-    ensure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotSupportedHardware(HardwareFeatures::NotEnoughPmps))?;
+    ensure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotEnoughPmps())?;
 
     // TODO: simplify use of PMP by using a single PMP entry to isolate the confidential memory.
     // We assume here that the first two PMPs are not used by anyone else, e.g., OpenSBI firmware

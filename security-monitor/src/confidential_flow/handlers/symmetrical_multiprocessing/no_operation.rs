@@ -15,6 +15,6 @@ impl NoOperation {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success(0)))
+        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success()))
     }
 }

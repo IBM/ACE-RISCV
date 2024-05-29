@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialVm, ConfidentialVmId};
-use crate::error::{Error, NOT_INITIALIZED_CONTROL_DATA};
+use crate::error::Error;
 use alloc::collections::BTreeMap;
 use spin::{Mutex, MutexGuard, Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -18,6 +18,9 @@ pub struct ControlData {
 }
 
 impl ControlData {
+    const NOT_INITIALIZED_CONTROL_DATA: &'static str =
+        "Bug. Could not access the control data static variable because has not been initialized";
+
     pub fn new() -> Self {
         Self { confidential_vms: BTreeMap::new() }
     }
@@ -34,13 +37,9 @@ impl ControlData {
 
     pub fn insert_confidential_vm(&mut self, confidential_vm: ConfidentialVm) -> Result<ConfidentialVmId, Error> {
         let id = confidential_vm.confidential_vm_id();
-        match self.confidential_vms.contains_key(&id) {
-            false => {
-                self.confidential_vms.insert(id, Mutex::new(confidential_vm));
-                Ok(id)
-            }
-            true => Err(Error::InvalidConfidentialVmId()),
-        }
+        ensure!(!self.confidential_vms.contains_key(&id), Error::InvalidConfidentialVmId())?;
+        self.confidential_vms.insert(id, Mutex::new(confidential_vm));
+        Ok(id)
     }
 
     pub fn confidential_vm(&self, id: ConfidentialVmId) -> Result<MutexGuard<'_, ConfidentialVm>, Error> {
@@ -50,22 +49,20 @@ impl ControlData {
     pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
         ControlData::try_write(|control_data| {
             ensure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
-            debug!("ConfidentialVM[{:?}] removed from the control data structure", confidential_vm_id);
+            debug!("Removing ConfidentialVM[{:?}] from the control data structure", confidential_vm_id);
             control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
-        })?
-        .into_inner()
-        .deallocate();
-        Ok(())
+        })
+        .and_then(|vm| Ok(vm.into_inner().deallocate()))
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&RwLockReadGuard<'_, ControlData>) -> Result<F, Error> {
-        op(&CONTROL_DATA.get().expect(NOT_INITIALIZED_CONTROL_DATA).read())
+        op(&CONTROL_DATA.get().expect(Self::NOT_INITIALIZED_CONTROL_DATA).read())
     }
 
     pub fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, ControlData>) -> Result<F, Error> {
-        op(&mut CONTROL_DATA.get().expect(NOT_INITIALIZED_CONTROL_DATA).write())
+        op(&mut CONTROL_DATA.get().expect(Self::NOT_INITIALIZED_CONTROL_DATA).write())
     }
 
     pub fn try_confidential_vm<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>

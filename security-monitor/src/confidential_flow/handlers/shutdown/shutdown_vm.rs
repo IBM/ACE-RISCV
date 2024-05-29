@@ -27,7 +27,7 @@ impl ShutdownRequest {
         match confidential_flow.broadcast_remote_command(ConfidentialHartRemoteCommand::ShutdownRequest(self)) {
             Ok(_) => shutdown_confidential_hart(confidential_flow),
             Err(error) => {
-                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error));
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }

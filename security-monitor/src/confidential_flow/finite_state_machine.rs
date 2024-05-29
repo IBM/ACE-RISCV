@@ -9,7 +9,7 @@ use crate::confidential_flow::handlers::mmio::{
 use crate::confidential_flow::handlers::sbi::{
     SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion, SbiResponse,
 };
-use crate::confidential_flow::handlers::shared_page::{SharePageRequest, SharePageResponse, UnsharePageRequest};
+use crate::confidential_flow::handlers::shared_page::{SharePageComplete, SharePageRequest, UnsharePageRequest};
 use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     NoOperation, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma,
@@ -128,7 +128,7 @@ impl<'a> ConfidentialFlow<'a> {
             confidential_vm.return_confidential_hart(self.hardware_hart);
             Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(transformation))
         })
-        // below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
+        // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
         // the given id exists in the control data.
         .unwrap()
     }
@@ -154,7 +154,7 @@ impl<'a> ConfidentialFlow<'a> {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
             Some(MmioLoad(request)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
             Some(MmioStore(request)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
-            Some(SharePage(request)) => SharePageResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
+            Some(SharePage(request)) => SharePageComplete::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
             None => self.exit_to_confidential_hart(),
         }
     }
@@ -263,7 +263,7 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     pub fn set_pending_request(mut self, request: PendingRequest) -> Self {
         if let Err(error) = self.confidential_hart_mut().set_pending_request(request) {
-            self.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code())));
+            self.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)));
         }
         self
     }

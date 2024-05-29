@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::HgatpMode;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
+use crate::core::memory_protector::mmu::HgatpMode;
 use crate::core::memory_protector::PageSize;
 
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page

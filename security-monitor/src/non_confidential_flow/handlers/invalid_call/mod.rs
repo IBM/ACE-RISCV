@@ -25,7 +25,6 @@ impl InvalidCall {
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         debug!("Not supported call {:x} {:x}", self.extension_id, self.function_id);
         let error = Error::InvalidCall(self.extension_id, self.function_id);
-        let transformation = ApplyToHypervisorHart::SbiResponse(SbiResponse::error(error));
-        non_confidential_flow.apply_and_exit_to_hypervisor(transformation)
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(SbiResponse::error(error)))
     }
 }

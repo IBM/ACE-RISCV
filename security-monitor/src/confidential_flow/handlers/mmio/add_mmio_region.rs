@@ -23,7 +23,7 @@ impl AddMmioRegion {
         // TODO: make sure region_start_address is aligned to 4KiB
         // TODO: make sure the region_start_address is a valid guest address
         // TODO: make sure this region does not overlap with any other previously defined region
-        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(0));
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success());
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

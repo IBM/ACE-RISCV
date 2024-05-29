@@ -52,8 +52,7 @@ impl HypervisorHart {
     }
 
     pub fn set_shared_memory(&mut self, base_address: NonConfidentialMemoryAddress) -> Result<(), Error> {
-        self.shared_memory.set(base_address)?;
-        Ok(())
+        self.shared_memory.set(base_address)
     }
 
     pub unsafe fn enable_hypervisor_memory_protector(&self) {

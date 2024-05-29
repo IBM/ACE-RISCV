@@ -2,12 +2,12 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
-use crate::core::architecture::{GeneralPurposeRegister, Hgatp};
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData, HypervisorHart,
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
-use crate::core::memory_protector::{ConfidentialVmMemoryProtector, PageSize};
+use crate::core::memory_protector::{ConfidentialVmMemoryProtector, Hgatp, PageSize};
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::sbi::SbiResponse;
@@ -50,7 +50,7 @@ impl PromoteToConfidentialVm {
         let transformation = match self.create_confidential_vm(non_confidential_flow.shared_memory()) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
-                SbiResponse::success(confidential_vm_id.usize())
+                SbiResponse::success_with_code(confidential_vm_id.usize())
             }
             Err(error) => {
                 debug!("Promotion to confidential VM failed: {:?}", error);
@@ -88,8 +88,7 @@ impl PromoteToConfidentialVm {
             // We have a write lock on the entire control data! Spend here as little time as possible because we are
             // blocking all other harts from accessing the control data. This influences all confidential VMs in the system!
             let id = control_data.unique_id()?;
-            let confidential_vm = ConfidentialVm::new(id, confidential_harts, measurements, memory_protector);
-            control_data.insert_confidential_vm(confidential_vm)
+            control_data.insert_confidential_vm(ConfidentialVm::new(id, confidential_harts, measurements, memory_protector))
         })
     }
 
@@ -158,7 +157,7 @@ impl PromoteToConfidentialVm {
     fn relocate(
         memory_protector: &ConfidentialVmMemoryProtector, base_address: &ConfidentialVmPhysicalAddress, number_of_bytes_to_copy: usize,
     ) -> Result<Page<Allocated>, Error> {
-        ensure!((base_address.usize() as *const u8).is_aligned_to(core::mem::size_of::<usize>()), Error::AddressNotProperlyAligned())?;
+        ensure!((base_address.usize() as *const u8).is_aligned_to(core::mem::size_of::<usize>()), Error::AddressNotAligned())?;
         let mut large_page = PageAllocator::acquire_page(PageSize::Size2MiB)?.zeroize();
         // Let's copy a blob from confidential VM's pages into the newly allocated huge page. We will copy in chunks of 8-bytes (usize).
         let mut copied_bytes = 0;

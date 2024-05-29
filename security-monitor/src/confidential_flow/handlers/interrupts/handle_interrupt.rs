@@ -34,6 +34,6 @@ impl HandleInterrupt {
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         hypervisor_hart.csrs_mut().scause.set(self.pending_interrupts | SCAUSE_INTERRUPT_MASK);
-        SbiResponse::success(0).declassify_to_hypervisor_hart(hypervisor_hart);
+        SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

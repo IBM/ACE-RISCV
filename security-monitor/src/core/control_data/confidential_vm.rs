@@ -38,12 +38,13 @@ impl ConfidentialVm {
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
-        let mut confidential_hart_remote_commands = BTreeMap::new();
-        confidential_harts.iter_mut().for_each(|confidential_hart| {
-            confidential_hart.set_confidential_vm_id(id);
-            let confidential_hart_remote_commands_buffer = Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS));
-            confidential_hart_remote_commands.insert(confidential_hart.confidential_hart_id(), confidential_hart_remote_commands_buffer);
-        });
+        let confidential_hart_remote_commands = confidential_harts
+            .iter_mut()
+            .map(|confidential_hart| {
+                confidential_hart.set_confidential_vm_id(id);
+                (confidential_hart.confidential_hart_id(), Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS)))
+            })
+            .collect();
         Self { id, measurements, confidential_harts, memory_protector, confidential_hart_remote_commands, allowed_external_interrupts: 0 }
     }
 
@@ -141,8 +142,7 @@ impl ConfidentialVm {
     /// not in the `Stopped` state or a confidential hart with the requested id does not exist.
     pub fn start_confidential_hart(&mut self, confidential_hart_id: usize, start_address: usize, opaque: usize) -> Result<(), Error> {
         let hart = self.confidential_harts.get_mut(confidential_hart_id).ok_or(Error::InvalidHartId())?;
-        hart.transition_from_stopped_to_started(start_address, opaque)?;
-        Ok(())
+        hart.transition_from_stopped_to_started(start_address, opaque)
     }
 
     /// Queues a request from one confidential hart to another and emits a hardware interrupt to the physical hart that
@@ -184,7 +184,7 @@ impl ConfidentialVm {
             })
     }
 
-    pub fn deallocate(self) {
+    pub(super) fn deallocate(self) {
         self.memory_protector.into_root_page_table().deallocate();
     }
 

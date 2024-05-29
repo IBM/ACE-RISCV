@@ -38,8 +38,8 @@ impl InjectExternalInterrupt {
             non_confidential_flow.swap_mscratch();
             result
         })
-        .and_then(|_| Ok(SbiResponse::success(0)))
-        .unwrap_or_else(|error| SbiResponse::success(error.code()));
+        .and_then(|_| Ok(SbiResponse::success()))
+        .unwrap_or_else(|error| SbiResponse::error(error));
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(transformation))
     }
 }

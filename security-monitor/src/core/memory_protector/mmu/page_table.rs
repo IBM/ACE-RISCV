@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::HgatpMode;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::memory_protector::mmu::page_table_entry::{
     PageTableAddress, PageTableBits, PageTableConfiguration, PageTableEntry, PageTablePermission,
 };
 use crate::core::memory_protector::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_protector::mmu::paging_system::PagingSystem;
+use crate::core::memory_protector::mmu::HgatpMode;
 use crate::core::memory_protector::{PageSize, SharedPage};
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
@@ -60,7 +60,7 @@ impl PageTable {
 
         let mut serialized_representation = PageAllocator::acquire_page(paging_system.memory_page_size(level))?
             .copy_from_non_confidential_memory(address)
-            .map_err(|_| Error::PageTableCorrupted())?;
+            .map_err(|_| Error::AddressNotInNonConfidentialMemory())?;
 
         let logical_representation = serialized_representation
             .offsets()
@@ -74,7 +74,7 @@ impl PageTable {
                     let page_size = paging_system.page_size(level);
                     let page = PageAllocator::acquire_page(page_size)?
                         .copy_from_non_confidential_memory(address)
-                        .map_err(|_| Error::PageTableCorrupted())?;
+                        .map_err(|_| Error::AddressNotInNonConfidentialMemory())?;
                     let configuration = PageTableConfiguration::decode(entry_raw);
                     let permission = PageTablePermission::decode(entry_raw);
                     PageTableEntry::PageWithConfidentialVmData(Box::new(page), configuration, permission)
@@ -113,7 +113,7 @@ impl PageTable {
     /// translation caches.
     pub fn map_shared_page(&mut self, shared_page: SharedPage) -> Result<(), Error> {
         let page_size_at_current_level = self.paging_system.page_size(self.level);
-        ensure!(page_size_at_current_level >= shared_page.page_size(), Error::InvalidArgument())?;
+        ensure!(page_size_at_current_level >= shared_page.page_size(), Error::InvalidParameter())?;
 
         let virtual_page_number = self.paging_system.vpn(&shared_page.confidential_vm_address, self.level);
         if page_size_at_current_level > shared_page.page_size() {
