@@ -2,11 +2,11 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToConfidentialVm};
+use crate::core::architecture::supervisor_binary_interface::SBI_SUCCESS;
 use crate::core::architecture::{GeneralPurposeRegister, ECALL_INSTRUCTION_LENGTH};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::error::Error;
 
-/// Handles a response to the hypercall.
 pub struct SbiResponse {
     a0: usize,
     a1: usize,
@@ -39,15 +39,15 @@ impl SbiResponse {
         hypervisor_hart.csrs_mut().mepc.save_value(new_mepc);
     }
 
-    pub fn success(code: usize) -> Self {
-        Self { a0: 0, a1: code }
+    pub fn success() -> Self {
+        Self::success_with_code(0)
     }
 
-    pub fn failure(code: usize) -> Self {
-        Self { a0: code, a1: 0 }
+    pub fn success_with_code(code: usize) -> Self {
+        Self { a0: SBI_SUCCESS as usize, a1: code }
     }
 
     pub fn error(error: Error) -> Self {
-        Self::failure(error.code())
+        Self { a0: error.sbi_error_code(), a1: 0 }
     }
 }

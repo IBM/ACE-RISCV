@@ -44,7 +44,7 @@ impl ConfidentialMemoryAddress {
     ///
     /// The caller must ensure that the address at given offset is still within the confidential memory region.
     pub unsafe fn add(&self, offset_in_bytes: usize, upper_bound: *const usize) -> Result<ConfidentialMemoryAddress, Error> {
-        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::MemoryAccessAuthorization())?;
+        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::AddressNotInConfidentialMemory())?;
         Ok(ConfidentialMemoryAddress(pointer))
     }
 

@@ -38,7 +38,7 @@ impl MmioLoadRequest {
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioLoadRequest(self)),
             Err(error) => {
-                let transformation = DeclassifyToHypervisor::SbiResponse(SbiResponse::failure(error.code()));
+                let transformation = DeclassifyToHypervisor::SbiResponse(SbiResponse::error(error));
                 confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(transformation)
             }
         }
@@ -51,6 +51,6 @@ impl MmioLoadRequest {
         hypervisor_hart.csrs_mut().stval.set(self.mtval);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), self.mtinst);
-        SbiResponse::success(0).declassify_to_hypervisor_hart(hypervisor_hart);
+        SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

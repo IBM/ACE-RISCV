@@ -22,7 +22,6 @@ pub struct ControlStatusRegisters {
     pub mtval2: ReadWriteRiscvCsr<CSR_MTVAL2>,
     pub mtvec: ReadWriteRiscvCsr<CSR_MTVEC>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
-    pub mhartid: ReadRiscvCsr<CSR_MHARTID>,
     // S-mode
     pub sstatus: ReadWriteRiscvCsr<CSR_SSTATUS>,
     pub sie: ReadWriteRiscvCsr<CSR_SIE>,
@@ -89,7 +88,6 @@ impl ControlStatusRegisters {
             mtval2: ReadWriteRiscvCsr::new(),
             mtvec: ReadWriteRiscvCsr::new(),
             mscratch: ReadWriteRiscvCsr::new(),
-            mhartid: ReadRiscvCsr::new(),
             // S-mode
             sstatus: ReadWriteRiscvCsr::new(),
             sie: ReadWriteRiscvCsr::new(),
@@ -397,58 +395,5 @@ impl<const V: u16> ReadRiscvCsr<V> {
             asm!("csrr {rd}, {csr}", rd = out(reg) r, csr = const V);
         }
         r
-    }
-}
-
-#[repr(usize)]
-#[derive(Clone, Copy, Debug)]
-pub enum HgatpMode {
-    Sv57x4 = 10,
-}
-
-impl HgatpMode {
-    fn code(self) -> usize {
-        self as usize
-    }
-
-    fn from_code(code: usize) -> Option<Self> {
-        match code {
-            10 => Some(HgatpMode::Sv57x4),
-            _ => None,
-        }
-    }
-}
-
-pub struct Hgatp {
-    bits: usize,
-}
-
-impl Hgatp {
-    const HGATP64_MODE_SHIFT: usize = 60;
-    const HGATP64_VMID_SHIFT: usize = 44;
-    const PAGE_SHIFT: usize = 12;
-    const HGATP_PPN_MASK: usize = 0x0000FFFFFFFFFFF;
-
-    pub fn from(bits: usize) -> Self {
-        Self { bits }
-    }
-
-    /// Returns the contents of the register as raw bits
-    #[inline]
-    pub fn bits(&self) -> usize {
-        self.bits
-    }
-
-    pub fn address(&self) -> usize {
-        (self.bits & Self::HGATP_PPN_MASK) << Self::PAGE_SHIFT
-    }
-
-    pub fn mode(&self) -> Option<HgatpMode> {
-        HgatpMode::from_code((self.bits >> Self::HGATP64_MODE_SHIFT) & 0b1111)
-    }
-
-    pub fn new(address: usize, mode: HgatpMode, vmid: usize) -> Self {
-        let ppn = (address >> Self::PAGE_SHIFT) & Self::HGATP_PPN_MASK;
-        Self { bits: (vmid << Self::HGATP64_VMID_SHIFT) | (mode.code() << Self::HGATP64_MODE_SHIFT) | ppn }
     }
 }

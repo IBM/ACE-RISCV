@@ -21,8 +21,8 @@ impl SbiHsmHartStatus {
         let transformation = ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
             confidential_vm.confidential_hart_lifecycle_state(self.confidential_hart_id)
         })
-        .and_then(|lifecycle_state| Ok(SbiResponse::success(lifecycle_state.sbi_code())))
-        .unwrap_or_else(|error| SbiResponse::failure(error.code()));
+        .and_then(|lifecycle_state| Ok(SbiResponse::success_with_code(lifecycle_state.sbi_code())))
+        .unwrap_or_else(|error| SbiResponse::error(error));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 }

@@ -5,7 +5,6 @@ use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::core::architecture::{GeneralPurposeRegister, CAUSE_VIRTUAL_SUPERVISOR_ECALL};
 use crate::core::control_data::HypervisorHart;
 
-/// Handles a hypercall from a confidential hart to hypervisor.
 pub struct SbiRequest {
     extension_id: usize,
     function_id: usize,
@@ -28,6 +27,6 @@ impl SbiRequest {
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a3, 0);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a4, 0);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a5, 0);
-        SbiResponse::success(0).declassify_to_hypervisor_hart(hypervisor_hart);
+        SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

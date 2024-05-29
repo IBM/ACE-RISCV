@@ -25,6 +25,9 @@ impl ConfidentialHartRemoteCommandExecutable for SbiRemoteHfenceGvmaVmid {
     fn execute_on_confidential_hart(&self, _confidential_hart: &mut ConfidentialHart) {
         // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
         crate::core::architecture::hfence_gvma();
+        crate::core::architecture::hfence_vvma();
+        crate::core::architecture::sfence_vma();
+        crate::core::architecture::fence_i();
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {

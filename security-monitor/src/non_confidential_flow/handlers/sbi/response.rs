@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::supervisor_binary_interface::SBI_SUCCESS;
 use crate::core::architecture::{GeneralPurposeRegister, ECALL_INSTRUCTION_LENGTH};
 use crate::core::control_data::HypervisorHart;
 use crate::error::Error;
@@ -18,11 +19,15 @@ impl SbiResponse {
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
     }
 
-    pub fn success(code: usize) -> Self {
-        Self { a0: 0, a1: code }
+    pub fn success() -> Self {
+        Self::success_with_code(0)
+    }
+
+    pub fn success_with_code(code: usize) -> Self {
+        Self { a0: SBI_SUCCESS as usize, a1: code }
     }
 
     pub fn error(error: Error) -> Self {
-        Self { a0: error.code(), a1: 0 }
+        Self { a0: error.sbi_error_code(), a1: 0 }
     }
 }

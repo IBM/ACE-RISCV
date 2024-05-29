@@ -14,7 +14,7 @@ impl SbiGetImplVersion {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let impl_version = 1;
-        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(impl_version));
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(impl_version));
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

@@ -6,7 +6,7 @@ pub use confidential_vm_physical_address::ConfidentialVmPhysicalAddress;
 pub use non_confidential_memory_address::NonConfidentialMemoryAddress;
 
 use crate::core::memory_protector::PageSize;
-use crate::error::{Error, InitType};
+use crate::error::Error;
 use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 use spin::Once;
 
@@ -58,11 +58,11 @@ impl MemoryLayout {
         // sure that its size is the multiply of this page size.
         let smalles_page_size_in_bytes = PageSize::smallest().in_bytes();
         let confidential_memory_start = ptr_align(confidential_memory_start, smalles_page_size_in_bytes, confidential_memory_end)
-            .map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
+            .map_err(|_| Error::NotEnoughMemory())?;
         // Let's make sure that the end of the confidential memory is properly aligned. I.e., there are no dangling
         // bytes after the last page.
         let memory_size = ptr_byte_offset(confidential_memory_end, confidential_memory_start);
-        let memory_size = usize::try_from(memory_size).map_err(|_| Error::Init(InitType::NotEnoughMemory))?;
+        let memory_size = usize::try_from(memory_size).map_err(|_| Error::NotEnoughMemory())?;
         let number_of_pages = memory_size / smalles_page_size_in_bytes;
         let memory_size_in_bytes = number_of_pages * smalles_page_size_in_bytes;
         if memory_size > memory_size_in_bytes {
@@ -85,9 +85,7 @@ impl MemoryLayout {
     pub fn confidential_address_at_offset(
         &self, address: &ConfidentialMemoryAddress, offset_in_bytes: usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
-        let incremented_address =
-            unsafe { address.add(offset_in_bytes, self.confidential_memory_end) }.map_err(|_| Error::MemoryAccessAuthorization())?;
-        Ok(incremented_address)
+        Ok(unsafe { address.add(offset_in_bytes, self.confidential_memory_end) }.map_err(|_| Error::AddressNotInConfidentialMemory())?)
     }
 
     /// Offsets an address in the confidential memory by a given number of bytes. Returns an error if the resulting
@@ -95,7 +93,7 @@ impl MemoryLayout {
     pub fn confidential_address_at_offset_bounded(
         &self, address: &ConfidentialMemoryAddress, offset_in_bytes: usize, upper_bound: *const usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
-        ensure!(upper_bound <= self.confidential_memory_end, Error::MemoryAccessAuthorization())?;
+        ensure!(upper_bound <= self.confidential_memory_end, Error::AddressNotInConfidentialMemory())?;
         Ok(self.confidential_address_at_offset(address, offset_in_bytes)?)
     }
 
@@ -104,9 +102,8 @@ impl MemoryLayout {
     pub fn non_confidential_address_at_offset(
         &self, address: &NonConfidentialMemoryAddress, offset_in_bytes: usize,
     ) -> Result<NonConfidentialMemoryAddress, Error> {
-        let incremented_address =
-            unsafe { address.add(offset_in_bytes, self.non_confidential_memory_end) }.map_err(|_| Error::MemoryAccessAuthorization())?;
-        Ok(incremented_address)
+        Ok(unsafe { address.add(offset_in_bytes, self.non_confidential_memory_end) }
+            .map_err(|_| Error::AddressNotInNonConfidentialMemory())?)
     }
 
     /// Returns true if the raw pointer is inside the non-confidential memory.

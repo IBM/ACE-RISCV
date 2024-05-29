@@ -45,7 +45,7 @@ impl<'a> InterruptController {
         // For now we rely on the underlying OpenSBI to send IPIs to hardware harts.
         match unsafe { sbi_ipi_send_smode(hart_mask, hart_mask_base) } {
             0 => Ok(()),
-            _ => Err(Error::InterruptSendingError()),
+            code => Err(Error::InterruptSendingError(code)),
         }
     }
 

@@ -110,6 +110,8 @@ impl Page<Allocated> {
 }
 
 impl<T: PageState> Page<T> {
+    pub const ENTRY_SIZE: usize = mem::size_of::<usize>();
+
     pub fn address(&self) -> &ConfidentialMemoryAddress {
         &self.address
     }
@@ -135,7 +137,7 @@ impl<T: PageState> Page<T> {
     /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
-        assert!(offset_in_bytes % mem::size_of::<usize>() == 0);
+        assert!(offset_in_bytes % Self::ENTRY_SIZE == 0);
         let data = unsafe {
             // Safety: below add results in a valid confidential memory address because
             // we ensure that it is within the page boundary and page is guaranteed to
@@ -156,7 +158,7 @@ impl<T: PageState> Page<T> {
     /// will be written to the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
-        ensure!(offset_in_bytes % mem::size_of::<usize>() == 0, Error::MemoryAccessAuthorization())?;
+        ensure!(offset_in_bytes % Self::ENTRY_SIZE == 0, Error::AddressNotAligned())?;
         unsafe {
             // Safety: below add results in a valid confidential memory address because
             // we ensure that it is within the page boundary and page is guaranteed to
@@ -169,8 +171,8 @@ impl<T: PageState> Page<T> {
     }
 
     /// Returns all usize-aligned offsets within the page.
-    fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
-        (0..self.size.in_bytes()).step_by(mem::size_of::<usize>())
+    pub fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
+        (0..self.size.in_bytes()).step_by(Self::ENTRY_SIZE)
     }
 
     pub fn end_address_ptr(&self) -> *const usize {

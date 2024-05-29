@@ -9,7 +9,7 @@ use alloc::boxed::Box;
 pub(super) enum PageTableEntry {
     PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
     PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
-    PageSharedWithHypervisor(SharedPage, PageTableConfiguration, PageTablePermission),
+    PageSharedWithHypervisor(SharedPage),
     NotValid,
 }
 
@@ -22,11 +22,11 @@ impl PageTableEntry {
             PageTableEntry::PageWithConfidentialVmData(page, configuration, permissions) => {
                 PageTableBits::Valid.mask() | PageTableAddress::encode(page.start_address()) | configuration.encode() | permissions.encode()
             }
-            PageTableEntry::PageSharedWithHypervisor(shared_page, configuration, permissions) => {
+            PageTableEntry::PageSharedWithHypervisor(shared_page) => {
                 PageTableBits::Valid.mask()
                     | PageTableAddress::encode(shared_page.hypervisor_address.usize())
-                    | configuration.encode()
-                    | permissions.encode()
+                    | PageTableConfiguration::shared_page_configuration().encode()
+                    | PageTablePermission::read_write_permissions().encode()
             }
             PageTableEntry::NotValid => 0,
         }
@@ -85,15 +85,16 @@ pub(super) struct PageTablePermission {
 }
 
 impl PageTablePermission {
-    pub fn shared_page_permission() -> Self {
+    pub fn read_write_permissions() -> Self {
         Self { can_read: true, can_write: true, can_execute: false }
     }
 
     pub fn decode(raw_entry: usize) -> Self {
-        let can_read = PageTableBits::Read.is_set(raw_entry);
-        let can_write = PageTableBits::Write.is_set(raw_entry);
-        let can_execute = PageTableBits::Execute.is_set(raw_entry);
-        Self { can_read, can_write, can_execute }
+        Self {
+            can_read: PageTableBits::Read.is_set(raw_entry),
+            can_write: PageTableBits::Write.is_set(raw_entry),
+            can_execute: PageTableBits::Execute.is_set(raw_entry),
+        }
     }
 
     pub fn encode(&self) -> usize {
@@ -128,11 +129,12 @@ impl PageTableConfiguration {
     }
 
     pub fn decode(raw_entry: usize) -> Self {
-        let is_accessible_to_user = PageTableBits::User.is_set(raw_entry);
-        let was_accessed = PageTableBits::Accessed.is_set(raw_entry);
-        let is_global_mapping = PageTableBits::Global.is_set(raw_entry);
-        let is_dirty = PageTableBits::Dirty.is_set(raw_entry);
-        Self { is_accessible_to_user, was_accessed, is_global_mapping, is_dirty }
+        Self {
+            is_accessible_to_user: PageTableBits::User.is_set(raw_entry),
+            was_accessed: PageTableBits::Accessed.is_set(raw_entry),
+            is_global_mapping: PageTableBits::Global.is_set(raw_entry),
+            is_dirty: PageTableBits::Dirty.is_set(raw_entry),
+        }
     }
 
     pub fn encode(&self) -> usize {

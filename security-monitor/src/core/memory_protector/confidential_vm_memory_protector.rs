@@ -1,15 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::Hgatp;
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
-use crate::core::memory_protector::mmu::PageTable;
-use crate::core::memory_protector::{mmu, pmp, PageSize};
+use crate::core::memory_protector::mmu::{Hgatp, PageTable};
+use crate::core::memory_protector::{mmu, pmp, PageSize, SharedPage};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
-/// it protects accesses to the memory which the confidential VM does not own.
+/// the confidential VM can access only memory it owns.
 pub struct ConfidentialVmMemoryProtector {
     // Stores the page table configuration of the confidential VM.
     root_page_table: PageTable,
@@ -39,14 +38,18 @@ impl ConfidentialVmMemoryProtector {
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
     /// shared page is mapped into the address space of the confidential VM.
     ///
-    /// To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on all confidential harts, so
-    /// that all confidential harts see the newly mapped shared page.
+    /// # Guarantees
+    ///
+    /// Successful execution of this function results in the mapping of guest physical address to a real physical address in
+    /// non-confidential memory. To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on
+    /// all confidential harts, so that all confidential harts see the newly mapped shared page.
     pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, page_size: PageSize,
-        confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
-    ) -> Result<(), Error> {
-        self.root_page_table.map_shared_page(hypervisor_address, page_size, confidential_vm_physical_address)?;
-        Ok(())
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
+    ) -> Result<PageSize, Error> {
+        let shared_page = SharedPage::new(hypervisor_address, confidential_vm_physical_address)?;
+        let shared_page_size = shared_page.page_size();
+        self.root_page_table.map_shared_page(shared_page)?;
+        Ok(shared_page_size)
     }
 
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
@@ -54,8 +57,8 @@ impl ConfidentialVmMemoryProtector {
     ///
     /// To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on all confidential harts, so
     /// that all confidential harts do not use the unmaped shared page.
-    pub fn unmap_shared_page(&mut self, address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
-        self.root_page_table.unmap_shared_page(address)
+    pub fn unmap_shared_page(&mut self, confidential_vm_physical_address: &ConfidentialVmPhysicalAddress) -> Result<PageSize, Error> {
+        self.root_page_table.unmap_shared_page(confidential_vm_physical_address)
     }
 
     /// Translates guest physical address into a real physical address in the confidential memory. Returns error if the guest physical
@@ -75,7 +78,7 @@ impl ConfidentialVmMemoryProtector {
     pub unsafe fn enable(&self) {
         assert!(self.hgatp != 0);
         pmp::open_access_to_confidential_memory();
-        mmu::enable_address_translation(self.hgatp);
+        mmu::enable_address_translation_and_protection(self.hgatp);
         super::tlb::clear_hart_tlbs();
     }
 

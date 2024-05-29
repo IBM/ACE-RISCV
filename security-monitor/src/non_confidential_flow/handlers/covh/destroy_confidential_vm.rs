@@ -19,7 +19,7 @@ impl DestroyConfidentialVm {
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(
             ControlData::remove_confidential_vm(self.confidential_vm_id)
-                .map_or_else(|error| SbiResponse::error(error), |_| SbiResponse::success(0)),
+                .map_or_else(|error| SbiResponse::error(error), |_| SbiResponse::success()),
         ))
     }
 }

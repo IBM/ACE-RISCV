@@ -28,9 +28,10 @@ impl GetSecurityMonitorInfo {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        let sbi_response = self
-            .fill_tsm_info_state()
-            .map_or_else(|error| SbiResponse::error(error), |number_of_written_bytes| SbiResponse::success(number_of_written_bytes));
+        let sbi_response = self.fill_tsm_info_state().map_or_else(
+            |error| SbiResponse::error(error),
+            |number_of_written_bytes| SbiResponse::success_with_code(number_of_written_bytes),
+        );
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(sbi_response))
     }
 
@@ -46,7 +47,7 @@ impl GetSecurityMonitorInfo {
         // `SecurityMonitorInfo` structure.
         let ptr = NonConfidentialMemoryAddress::new(self.tsm_info_address as *mut usize)?;
         NonConfidentialMemoryAddress::new((self.tsm_info_address + self.tsm_info_len) as *mut usize)?;
-        ensure!(self.tsm_info_len >= core::mem::size_of::<SecurityMonitorInfo>(), Error::InvalidArgument())?;
+        ensure!(self.tsm_info_len >= core::mem::size_of::<SecurityMonitorInfo>(), Error::InvalidParameter())?;
         // below unsafe operation is ok because pointer is a valid address in non-confidential memory, and we have enough space to write the
         // reponse.
         unsafe { (ptr.as_ptr() as *mut SecurityMonitorInfo).write(info) };

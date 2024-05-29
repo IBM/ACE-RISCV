@@ -59,10 +59,7 @@ impl PageAllocator {
         assert!(memory_region_end.is_aligned_to(PageSize::smallest().in_bytes()));
         assert!(memory_region_start.as_usize() < memory_region_end as usize);
         // Page allocator supports maximum one page of largest size.
-        ensure_not!(
-            memory_region_start.offset_from(memory_region_end) > self.page_size.in_bytes() as isize,
-            Error::UnsupportedMemorySize()
-        )?;
+        ensure_not!(memory_region_start.offset_from(memory_region_end) > self.page_size.in_bytes() as isize, Error::TooMuchMemory())?;
 
         // Our strategy is to create as few page tokens as possible to keep the memory overhead as low as possible. Therefore, we prefer to
         // create page tokens for the largest page size when possible. We use a greedy approach. We look for the largest possible page that

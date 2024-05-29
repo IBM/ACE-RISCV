@@ -7,7 +7,7 @@ use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
 use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
-use crate::error::{Error, HardwareFeatures, InitType, NOT_INITIALIZED_HART, NOT_INITIALIZED_HARTS};
+use crate::error::Error;
 use alloc::vec::Vec;
 use core::mem::size_of;
 use flattened_device_tree::FlattenedDeviceTree;
@@ -88,10 +88,8 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
         let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
         let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
         debug!("Hart #{}: {:?}", hart_id, isa);
-        ensure!(isa.starts_with(RISCV_ARCH), Error::NotSupportedHardware(HardwareFeatures::InvalidCpuArch))?;
-        required_extensions
-            .into_iter()
-            .try_for_each(|ext| ensure!(extensions.contains(*ext), Error::NotSupportedHardware(HardwareFeatures::NoCpuExtension)))?;
+        ensure!(isa.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
+        required_extensions.into_iter().try_for_each(|ext| ensure!(extensions.contains(*ext), Error::MissingCpuExtension()))?;
     }
 
     // TODO: make sure there are enough PMPs
@@ -99,6 +97,9 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     Ok(fdt.harts().count())
 }
 
+/// Guarantees
+///
+/// The end of the confidential memory is not lower than the start of the confidential memory
 fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
@@ -111,7 +112,7 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     let memory_start = fdt_memory_region.base as *mut usize;
     // In assembly that executed this initialization function splitted the memory into two regions where
     // the second region's size is equal or greater than the first ones.
-    let non_confidential_memory_size = fdt_memory_region.size.try_into().map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+    let non_confidential_memory_size = fdt_memory_region.size.try_into().map_err(|_| Error::InvalidMemoryBoundary())?;
     let confidential_memory_size = non_confidential_memory_size;
     let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
@@ -120,7 +121,7 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     // First region of memory is defined as non-confidential memory
     let non_confidential_memory_start = memory_start;
     let non_confidential_memory_end = ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
-        .map_err(|_| Error::Init(InitType::MemoryBoundary))?;
+        .map_err(|_| Error::InvalidMemoryBoundary())?;
     debug!("Non-confidential memory {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
 
     // Second region of memory is defined as confidential memory
@@ -148,13 +149,14 @@ fn initalize_security_monitor_state(
     // we need to decide what is the confidential memory address range and split this memory
     // into regions owned by heap allocator and page allocator.
     let confidential_memory_size = confidential_memory_start.offset_from(confidential_memory_end);
-    let number_of_pages = usize::try_from(confidential_memory_size)? / PageSize::smallest().in_bytes();
+    assert!(confidential_memory_size > 0);
+    let number_of_pages = confidential_memory_size as usize / PageSize::smallest().in_bytes();
     // calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
     let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
     let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
-    ensure!(number_of_pages > heap_pages, Error::Init(InitType::NotEnoughMemory))?;
+    ensure!(number_of_pages > heap_pages, Error::NotEnoughMemory())?;
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
@@ -204,8 +206,8 @@ extern "C" fn ace_setup_this_hart() {
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
-    let mut harts = HARTS_STATES.get().expect(NOT_INITIALIZED_HARTS).lock();
-    let hart = harts.get_mut(hart_id).expect(NOT_INITIALIZED_HART);
+    let mut harts = HARTS_STATES.get().expect("Bug. Could not set mscratch before initializing memory region for harts states").lock();
+    let hart = harts.get_mut(hart_id).expect("Bug. Incorrectly setup memory region for harts states");
 
     // The mscratch must point to the memory region when the security monitor stores the dumped states of
     // confidential harts. This is crucial for context switches because assembly code will use the mscratch

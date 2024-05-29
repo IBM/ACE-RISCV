@@ -26,7 +26,7 @@ impl SbiHsmHartStop {
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.kvm_hsm_hart_stop())),
             Err(error) => {
-                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::failure(error.code()));
+                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error));
                 confidential_flow.apply_and_exit_to_confidential_hart(transformation)
             }
         }

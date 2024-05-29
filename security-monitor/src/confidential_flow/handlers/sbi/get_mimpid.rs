@@ -14,7 +14,7 @@ impl SbiGetMimpid {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success(CSR.mimpid.read()));
+        let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(CSR.mimpid.read()));
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 }

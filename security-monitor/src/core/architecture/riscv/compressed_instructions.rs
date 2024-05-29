@@ -81,9 +81,9 @@ pub fn decode_result_register(mtinst: usize) -> Result<GeneralPurposeRegister, E
                 let index = index / 8;
                 Ok(index as u32)
             } else {
-                Err(Error::InvalidRiscvInstruction(mtinst))
+                Err(Error::InvalidCompressedRiscvInstruction(mtinst))
             }
         }
     }?;
-    Ok(GeneralPurposeRegister::from_index(register_index as usize).ok_or(Error::InvalidRiscvInstruction(mtinst))?)
+    Ok(GeneralPurposeRegister::from_index(register_index as usize).ok_or(Error::InvalidCompressedRiscvInstruction(mtinst))?)
 }
