@@ -12,6 +12,7 @@
 #![feature(const_mut_refs)]
 // #![feature(const_refs_to_cell)]
 #![feature(pointer_is_aligned)]
+#![feature(pointer_is_aligned_to)]
 #![feature(result_option_inspect)]
 #![feature(pointer_byte_offsets)]
 // used for RefinedRust annotations
