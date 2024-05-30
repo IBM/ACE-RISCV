@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub use fence_i::RemoteFenceI;
+pub use hart_resume::SbiHsmHartResume;
 pub use hart_start::SbiHsmHartStart;
 pub use hart_status::SbiHsmHartStatus;
 pub use hart_stop::SbiHsmHartStop;
@@ -14,6 +15,7 @@ pub use sfence_vma::RemoteSfenceVma;
 pub use sfence_vma_asid::RemoteSfenceVmaAsid;
 
 mod fence_i;
+mod hart_resume;
 mod hart_start;
 mod hart_status;
 mod hart_stop;

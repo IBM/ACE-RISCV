@@ -143,7 +143,7 @@ impl<'a> ConfidentialFlow<'a> {
         // It might have happened, that this confidential hart has been shutdown when processing an IPI. I.e., there was
         // an IPI from other confidential hart that requested this confidential hart to shutdown. If this had happened, we
         // cannot resume this confidential hart anymore. We must exit to the hypervisor and inform it about it.
-        if self.confidential_hart().lifecycle_state() == &HartLifecycleState::Shutdown {
+        if self.confidential_hart().lifecycle_state() == &HartLifecycleState::PoweredOff {
             crate::confidential_flow::handlers::shutdown::shutdown_confidential_hart(self);
         }
 
@@ -152,9 +152,10 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::control_data::PendingRequest::*;
         match self.confidential_hart_mut().take_request() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
-            Some(MmioLoad(request)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
-            Some(MmioStore(request)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
-            Some(SharePage(request)) => SharePageComplete::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
+            Some(ResumeHart(v)) => v.handle(self),
+            Some(MmioLoad(v)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
+            Some(MmioStore(v)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
+            Some(SharePage(v)) => SharePageComplete::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
             None => self.exit_to_confidential_hart(),
         }
     }
@@ -237,7 +238,7 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
-    pub fn suspend_confidential_hart(&mut self, _request: SbiHsmHartSuspend) -> Result<(), Error> {
+    pub fn suspend_confidential_hart(&mut self) -> Result<(), Error> {
         self.confidential_hart_mut().transition_from_started_to_suspended()
     }
 
@@ -249,8 +250,8 @@ impl<'a> ConfidentialFlow<'a> {
 
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
-    pub fn start_confidential_hart_after_suspend(&mut self) -> Result<(), Error> {
-        self.confidential_hart_mut().transition_from_suspended_to_started()
+    pub fn resume_confidential_hart(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
+        self.confidential_hart_mut().transition_from_suspended_to_started(start_address, opaque)
     }
 
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it

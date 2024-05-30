@@ -275,16 +275,18 @@ impl ConfidentialHart {
         Ok(())
     }
 
-    pub fn transition_from_suspended_to_started(&mut self) -> Result<(), Error> {
+    pub fn transition_from_suspended_to_started(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
         assert!(!self.is_dummy());
         ensure!(self.lifecycle_state == HartLifecycleState::Suspended, Error::CannotStartNotSuspendedHart())?;
         self.lifecycle_state = HartLifecycleState::Started;
+        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, opaque);
+        self.confidential_hart_state.csrs_mut().mepc.save_value(start_address);
         Ok(())
     }
 
     pub fn transition_to_shutdown(&mut self) {
         assert!(!self.is_dummy());
-        self.lifecycle_state = HartLifecycleState::Shutdown;
+        self.lifecycle_state = HartLifecycleState::PoweredOff;
     }
 }
 

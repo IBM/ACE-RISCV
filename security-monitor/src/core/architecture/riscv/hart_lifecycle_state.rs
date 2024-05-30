@@ -29,10 +29,10 @@ pub enum HartLifecycleState {
     // about it for the bookkeeping purposes.
     // ResumePending,
     //
-    // Shutdown state does not exist in the SBI's HSM extension. We use it to represent a confidential hart that has
-    // been shutdown and cannot be used anymore. When all confidential harts are shutdown the confidential VM can be
+    // PoweredOff state does not exist in the SBI's HSM extension. We use it to represent a confidential hart that has
+    // been shutdown and cannot be used anymore. When all confidential harts are powered off the confidential VM can be
     // removed from the control data.
-    Shutdown,
+    PoweredOff,
 }
 
 impl HartLifecycleState {
@@ -42,8 +42,8 @@ impl HartLifecycleState {
             Self::Started => 0,
             Self::Stopped => 1,
             Self::Suspended => 4,
-            // Shutdown state is not part of the SBI spec, we represent it as the `Stopped` state.
-            Self::Shutdown => 1,
+            // PoweredOff state is not part of the SBI spec, we represent it as the `Stopped` state.
+            Self::PoweredOff => 1,
         }
     }
 }
