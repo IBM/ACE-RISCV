@@ -8,12 +8,12 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand,
 
 /// Handles a request from one confidential hart to execute IPI on other confidential harts.
 #[derive(PartialEq, Debug, Clone)]
-pub struct SbiIpi {
+pub struct Ipi {
     hart_mask: usize,
     hart_mask_base: usize,
 }
 
-impl SbiIpi {
+impl Ipi {
     pub fn new(hart_mask: usize, hart_mask_base: usize) -> Self {
         Self { hart_mask, hart_mask_base }
     }
@@ -30,17 +30,17 @@ impl SbiIpi {
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         let transformation = confidential_flow
-            .broadcast_remote_command(ConfidentialHartRemoteCommand::SbiIpi(self))
+            .broadcast_remote_command(ConfidentialHartRemoteCommand::Ipi(self))
             .and_then(|_| Ok(SbiResponse::success()))
             .unwrap_or_else(|error| SbiResponse::error(error));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 }
 
-impl ConfidentialHartRemoteCommandExecutable for SbiIpi {
+impl ConfidentialHartRemoteCommandExecutable for Ipi {
     fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         // IPI exposes itself as supervisor-level software interrupt.
-        confidential_hart.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::MIE_VSSIP);
+        confidential_hart.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::riscv::specification::MIE_VSSIP);
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {

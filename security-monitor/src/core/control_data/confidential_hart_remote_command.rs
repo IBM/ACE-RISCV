@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
-    SbiIpi, SbiRemoteFenceI, SbiRemoteHfenceGvmaVmid, SbiRemoteSfenceVma, SbiRemoteSfenceVmaAsid,
+    Ipi, RemoteFenceI, RemoteHfenceGvmaVmid, RemoteSfenceVma, RemoteSfenceVmaAsid,
 };
 use crate::core::control_data::ConfidentialHart;
-use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
+use crate::non_confidential_flow::handlers::cove_interrupt_extension::InjectExternalInterrupt;
 
 /// Represents a command that must be executed on a confidential hart. Typically this is an inter hart request that was sent from one
 /// confidential hart (sender) to another confidential hart (receiver), both sender and receiver belong to the same confidential VM.
@@ -16,11 +16,11 @@ use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
 /// executed on the next time the receiver is scheduled to run.
 #[derive(Clone)]
 pub enum ConfidentialHartRemoteCommand {
-    SbiIpi(SbiIpi),
-    SbiRemoteFenceI(SbiRemoteFenceI),
-    SbiRemoteSfenceVma(SbiRemoteSfenceVma),
-    SbiRemoteSfenceVmaAsid(SbiRemoteSfenceVmaAsid),
-    SbiRemoteHfenceGvmaVmid(SbiRemoteHfenceGvmaVmid),
+    Ipi(Ipi),
+    RemoteFenceI(RemoteFenceI),
+    RemoteSfenceVma(RemoteSfenceVma),
+    RemoteSfenceVmaAsid(RemoteSfenceVmaAsid),
+    RemoteHfenceGvmaVmid(RemoteHfenceGvmaVmid),
     ShutdownRequest(ShutdownRequest),
     ExternalInterrupt(InjectExternalInterrupt),
 }
@@ -28,11 +28,11 @@ pub enum ConfidentialHartRemoteCommand {
 impl ConfidentialHartRemoteCommand {
     pub fn is_hart_selected(&self, confidential_hart_id: usize) -> bool {
         match self {
-            Self::SbiIpi(v) => v.is_hart_selected(confidential_hart_id),
-            Self::SbiRemoteFenceI(v) => v.is_hart_selected(confidential_hart_id),
-            Self::SbiRemoteSfenceVma(v) => v.is_hart_selected(confidential_hart_id),
-            Self::SbiRemoteSfenceVmaAsid(v) => v.is_hart_selected(confidential_hart_id),
-            Self::SbiRemoteHfenceGvmaVmid(v) => v.is_hart_selected(confidential_hart_id),
+            Self::Ipi(v) => v.is_hart_selected(confidential_hart_id),
+            Self::RemoteFenceI(v) => v.is_hart_selected(confidential_hart_id),
+            Self::RemoteSfenceVma(v) => v.is_hart_selected(confidential_hart_id),
+            Self::RemoteSfenceVmaAsid(v) => v.is_hart_selected(confidential_hart_id),
+            Self::RemoteHfenceGvmaVmid(v) => v.is_hart_selected(confidential_hart_id),
             Self::ShutdownRequest(v) => v.is_hart_selected(confidential_hart_id),
             Self::ExternalInterrupt(v) => v.is_hart_selected(confidential_hart_id),
         }

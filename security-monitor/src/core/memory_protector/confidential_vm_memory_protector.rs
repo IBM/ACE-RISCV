@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::mmu::{Hgatp, PageTable};
+use crate::core::architecture::riscv::{mmu, pmp, tlb};
+use crate::core::architecture::{PageSize, SharedPage};
 use crate::core::control_data::ConfidentialVmId;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
-use crate::core::memory_protector::mmu::{Hgatp, PageTable};
-use crate::core::memory_protector::{mmu, pmp, PageSize, SharedPage};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
@@ -79,7 +80,7 @@ impl ConfidentialVmMemoryProtector {
         assert!(self.hgatp != 0);
         pmp::open_access_to_confidential_memory();
         mmu::enable_address_translation_and_protection(self.hgatp);
-        super::tlb::clear_hart_tlbs();
+        tlb::clear_hart_tlbs();
     }
 
     pub fn into_root_page_table(self) -> PageTable {

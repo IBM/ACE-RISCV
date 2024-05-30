@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-// TODO: these constants should be generated from the spec
+// TODO: these constants should be generated from the RISC-V formal spec
 #![allow(unused)]
 
 pub const RISCV_ARCH: &str = "rv64";

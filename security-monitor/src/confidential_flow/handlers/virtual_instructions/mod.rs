@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::WFI_INSTRUCTION;
+use crate::core::architecture::riscv::specification::WFI_INSTRUCTION;
 use crate::core::control_data::ConfidentialHart;
 
 /// Handles virtual instruction trap that occured during execution of the confidential hart.

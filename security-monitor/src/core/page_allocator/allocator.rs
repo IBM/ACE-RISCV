@@ -2,8 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use super::page::{Page, UnAllocated};
+use crate::core::architecture::PageSize;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
-use crate::core::memory_protector::PageSize;
 use crate::error::Error;
 use alloc::vec;
 use alloc::vec::Vec;

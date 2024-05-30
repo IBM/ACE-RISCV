@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-pub mod covh;
-pub mod covi;
-pub mod invalid_call;
-pub mod nacl;
-pub mod sbi;
+pub mod cove_hypervisor_extension;
+pub mod cove_interrupt_extension;
+pub mod nested_acceleration_extension;
+pub mod opensbi;
+pub mod supervisor_binary_interface;

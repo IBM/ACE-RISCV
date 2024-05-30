@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::*;
+use crate::core::architecture::riscv::specification::*;
+use crate::core::architecture::riscv::{ControlStatusRegisters, FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters};
 
 /// HartArchitecturalState is the dump state of the processor's core (hart).
 /// It might represent the state of of software executing on real hardware hart, for example, architectural state of the hypervisor's thread

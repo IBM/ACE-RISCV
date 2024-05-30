@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use super::hart_architectural_state::HartArchitecturalState;
+use super::sbi::SbiExtension;
 use super::specification::*;
-use super::supervisor_binary_interface::SbiExtension;
-use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister, HartArchitecturalState};
+use super::GeneralPurposeRegister;
+use crate::core::architecture::is_bit_enabled;
 
 #[derive(Debug)]
 pub enum TrapCause {

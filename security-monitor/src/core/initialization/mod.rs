@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{fence_wo, CSR, MTVEC_BASE_SHIFT};
+use crate::core::architecture::riscv::fence::fence_wo;
+use crate::core::architecture::riscv::specification::MTVEC_BASE_SHIFT;
+use crate::core::architecture::{PageSize, CSR};
 use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
-use crate::core::memory_protector::{HypervisorMemoryProtector, PageSize};
+use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
 use crate::error::Error;
 use alloc::vec::Vec;
@@ -79,7 +81,7 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     // TODO: check for SSTC_EXTENSION, IFENCEI_EXTENSION
-    use crate::core::architecture::*;
+    use crate::core::architecture::riscv::specification::*;
     let required_extensions = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
     // Assumption: all harts in the system can run the security monitor
     // and thus we expect that everyone hart implements all required features

@@ -50,8 +50,7 @@ impl MmioStoreRequest {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        use crate::core::architecture::*;
-        // security monitor exposes `scause` and `stval` via CSR, `htval`, `htinst`, and the value to store via the shared page.
+        use crate::core::architecture::riscv::specification::*;
         hypervisor_hart.csrs_mut().scause.set(self.mcause);
         hypervisor_hart.csrs_mut().stval.set(self.mtval);
         hypervisor_hart.shared_memory_mut().write_gpr(*self.gpr.as_ref().unwrap_or(&GeneralPurposeRegister::zero), self.gpr_value);

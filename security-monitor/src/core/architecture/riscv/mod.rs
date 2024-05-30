@@ -2,26 +2,32 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![allow(unused)]
-pub use compressed_instructions::decode_result_register;
-pub use floating_point_registers::FloatingPointRegisters;
+pub use control_status_registers::{ControlStatusRegister, ControlStatusRegisters, CSR};
+pub use extensions::compressed_instructions::decode_result_register;
+pub use extensions::floating_point::FloatingPointRegisters;
 pub use general_purpose_registers::{GeneralPurposeRegister, GeneralPurposeRegisters};
+pub use hart_architectural_state::HartArchitecturalState;
 pub use hart_lifecycle_state::HartLifecycleState;
+pub use mmu::{Hgatp, PageSize, SharedPage};
 pub use trap_cause::TrapCause;
 
-pub mod control_status_registers;
 pub mod fence;
 pub mod hart_architectural_state;
+pub mod iopmp;
+pub mod mmu;
+pub mod pmp;
+pub mod sbi;
 pub mod specification;
-pub mod supervisor_binary_interface;
+pub mod tlb;
 
-mod compressed_instructions;
-mod floating_point_registers;
+mod control_status_registers;
+mod extensions;
 mod general_purpose_registers;
 mod hart_lifecycle_state;
 mod trap_cause;
-mod vector_registers;
 
 pub fn put_hart_to_sleep() {
+    // careful: if interrupts are disabled, this hart will never trap
     unsafe {
         core::arch::asm!("wfi");
     }

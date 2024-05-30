@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::{MIE_SSIP_MASK, SCAUSE_INTERRUPT_MASK};
+use crate::core::architecture::specification::{MIE_SSIP_MASK, SCAUSE_INTERRUPT_MASK};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 

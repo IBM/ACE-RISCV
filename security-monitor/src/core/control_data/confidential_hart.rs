@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
-use crate::core::control_data::confidential_hart::supervisor_binary_interface::NaclSharedMemory;
+use crate::core::architecture::riscv::sbi::NaclSharedMemory;
+use crate::core::architecture::riscv::specification::*;
+use crate::core::architecture::{
+    ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState,
+};
 use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
 use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, PendingRequest};
 use crate::error::Error;
@@ -288,11 +291,11 @@ impl ConfidentialHart {
 impl ConfidentialHart {
     pub fn execute(&mut self, request: &ConfidentialHartRemoteCommand) {
         match request {
-            ConfidentialHartRemoteCommand::SbiIpi(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteFenceI(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::Ipi(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteFenceI(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
             ConfidentialHartRemoteCommand::ShutdownRequest(_) => self.transition_to_shutdown(),
             ConfidentialHartRemoteCommand::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
         }
