@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::mmio::MmioStorePending;
+use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioStorePending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
+use crate::core::architecture::specification::CAUSE_STORE_ACCESS;
 use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 use crate::error::Error;
@@ -33,10 +34,17 @@ impl MmioStoreRequest {
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
         let gpr = crate::core::architecture::decode_result_register(instruction);
         let gpr_value = gpr.as_ref().and_then(|ref gpr| Ok(confidential_hart.gprs().read(**gpr))).unwrap_or(0);
+
         Self { mcause, mtval, mtval2, mtinst, instruction_length, gpr, gpr_value }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+        let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
+        if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
+            let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_STORE_ACCESS.into(), self.mtval, self.instruction_length);
+            confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
+        }
+
         match self.gpr {
             Ok(_) => confidential_flow
                 .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(self.instruction_length)))

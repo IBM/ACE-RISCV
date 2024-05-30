@@ -69,6 +69,8 @@ pub enum Error {
     InvalidCall(usize, usize),
     #[error("Device Tree Error")]
     DeviceTreeError(#[from] flattened_device_tree::FdtError),
+    #[error("Mmio region overlaps with a region already defined in the past")]
+    OverlappingMmioRegion(),
 
     /* SBI HSM extension-related errors */
     #[error("Cannot start a confidential hart because it is not in the Stopped state.")]
@@ -95,6 +97,8 @@ pub enum Error {
     PendingRequest(),
     #[error("Reached max number of remote hart requests")]
     ReachedMaxNumberOfRemoteHartRequests(),
+    #[error("Reached max number of registered MMIO regions")]
+    ReachedMaxNumberOfMmioRegions(),
     #[error("Could not send an IPI, error code: {0}")]
     InterruptSendingError(usize),
 }
