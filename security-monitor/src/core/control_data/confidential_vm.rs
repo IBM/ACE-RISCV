@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMeasurement, HardwareHart,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMeasurement, ConfidentialVmMmioRegion, HardwareHart,
 };
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
@@ -19,14 +19,20 @@ pub struct ConfidentialVm {
     confidential_hart_remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     memory_protector: ConfidentialVmMemoryProtector,
     allowed_external_interrupts: usize,
+    mmio_regions: Vec<ConfidentialVmMmioRegion>,
 }
 
 impl ConfidentialVm {
     pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
+
     /// An average number of inter hart requests that can be buffered before being processed.
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
+
     /// A maximum number of inter hart requests that can be buffered.
     const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
+
+    /// A maximum number of MMIO regions that a confidential VM can register
+    const MAX_NUMBER_OF_MMIO_REGIONS: usize = 1024;
 
     /// Constructs a new confidential VM.
     ///
@@ -45,9 +51,33 @@ impl ConfidentialVm {
                 (confidential_hart.confidential_hart_id(), Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS)))
             })
             .collect();
-        Self { id, measurements, confidential_harts, memory_protector, confidential_hart_remote_commands, allowed_external_interrupts: 0 }
+        let mmio_regions = Vec::with_capacity(8);
+        Self {
+            id,
+            measurements,
+            confidential_harts,
+            memory_protector,
+            confidential_hart_remote_commands,
+            allowed_external_interrupts: 0,
+            mmio_regions,
+        }
     }
 
+    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
+        self.id
+    }
+
+    pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
+        &mut self.memory_protector
+    }
+
+    pub(super) fn deallocate(self) {
+        self.memory_protector.into_root_page_table().deallocate();
+    }
+}
+
+/* Heavy context switches */
+impl ConfidentialVm {
     /// Assigns a confidential hart of the confidential VM to the hardware hart. The hardware memory isolation mechanism
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
@@ -111,15 +141,10 @@ impl ConfidentialVm {
         // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
         unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
+}
 
-    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
-        self.id
-    }
-
-    pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
-        &mut self.memory_protector
-    }
-
+/* Interrupt related */
+impl ConfidentialVm {
     pub fn allowed_external_interrupts(&self) -> usize {
         self.allowed_external_interrupts
     }
@@ -127,7 +152,28 @@ impl ConfidentialVm {
     pub fn set_allowed_external_interrupts(&mut self, allowed_external_interrupts: usize) {
         self.allowed_external_interrupts |= allowed_external_interrupts;
     }
+}
 
+/* Management of untrusted MMIO regions */
+impl ConfidentialVm {
+    pub fn add_mmio_region(&mut self, region: ConfidentialVmMmioRegion) -> Result<(), Error> {
+        ensure!(self.mmio_regions.len() < Self::MAX_NUMBER_OF_MMIO_REGIONS, Error::ReachedMaxNumberOfMmioRegions())?;
+        ensure!(!self.mmio_regions.iter().any(|x| x.overlaps(&region)), Error::OverlappingMmioRegion())?;
+        self.mmio_regions.push(region);
+        Ok(())
+    }
+
+    pub fn remove_mmio_region(&mut self, region: &ConfidentialVmMmioRegion) {
+        self.mmio_regions.retain(|x| !x.overlaps(region));
+    }
+
+    pub fn is_mmio_region_defined(&self, region: &ConfidentialVmMmioRegion) -> bool {
+        self.mmio_regions.iter().any(|x| x.contains(region))
+    }
+}
+
+/* Lifecycle related */
+impl ConfidentialVm {
     pub fn are_all_harts_shutdown(&self) -> bool {
         self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::PoweredOff).count() == 0
     }
@@ -144,7 +190,10 @@ impl ConfidentialVm {
         let hart = self.confidential_harts.get_mut(confidential_hart_id).ok_or(Error::InvalidHartId())?;
         hart.transition_from_stopped_to_started(start_address, opaque)
     }
+}
 
+/* Remote commands */
+impl ConfidentialVm {
     /// Queues a request from one confidential hart to another and emits a hardware interrupt to the physical hart that
     /// executes that confidential hart. If the confidential hart is not executing, then no hardware interrupt is
     /// emmited.
@@ -182,10 +231,6 @@ impl ConfidentialVm {
                 }
                 Ok(())
             })
-    }
-
-    pub(super) fn deallocate(self) {
-        self.memory_protector.into_root_page_table().deallocate();
     }
 
     pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>

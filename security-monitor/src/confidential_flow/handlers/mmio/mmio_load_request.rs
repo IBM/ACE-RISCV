@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::mmio::MmioLoadPending;
+use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioLoadPending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::is_bit_enabled;
+use crate::core::architecture::specification::CAUSE_LOAD_ACCESS;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -31,6 +32,12 @@ impl MmioLoadRequest {
         assert!(self.mtinst & 0x1 > 0);
         let instruction = self.mtinst | 0x3;
         let instruction_length = if is_bit_enabled(self.mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
+
+        let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
+        if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
+            let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, instruction_length);
+            confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
+        }
 
         match crate::core::architecture::decode_result_register(instruction) {
             Ok(gpr) => confidential_flow

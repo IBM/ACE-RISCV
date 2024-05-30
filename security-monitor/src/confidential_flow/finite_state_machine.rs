@@ -173,6 +173,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// execute the confidential hart on the hardware hart.
     pub fn apply_and_exit_to_confidential_hart(mut self, transformation: ApplyToConfidentialHart) -> ! {
         match transformation {
+            ApplyToConfidentialHart::MmioAccessFault(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::SbiResponse(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::VirtualInstruction(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
         }
