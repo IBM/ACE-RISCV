@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{CSR_VSIE, CSR_VSTIMECMP};
+use crate::core::architecture::specification::{CSR_VSIE, CSR_VSTIMECMP};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 
 pub struct ExposeEnabledInterrupts {

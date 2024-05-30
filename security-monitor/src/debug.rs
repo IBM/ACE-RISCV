@@ -33,7 +33,7 @@ pub fn __printout_metadata(svm_id: usize) {}
 
 #[cfg(feature = "verbose")]
 pub fn __print_pmp_configuration() {
-    use crate::core::architecture::PMP_ADDRESS_SHIFT;
+    use crate::core::architecture::specification::PMP_ADDRESS_SHIFT;
     let pmpcfg0 = CSR.pmpcfg0.read();
     let pmp0 = CSR.pmpaddr0.read();
     let pmp0cfg = pmpcfg0 & 0b11111111;

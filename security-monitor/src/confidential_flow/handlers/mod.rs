@@ -2,9 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 pub mod interrupts;
-pub mod invalid_call;
 pub mod mmio;
 pub mod sbi;
+pub mod sbi_base_extension;
 pub mod shared_page;
 pub mod shutdown;
 pub mod symmetrical_multiprocessing;

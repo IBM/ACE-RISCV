@@ -2,28 +2,28 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, ExposeEnabledInterrupts, HandleInterrupt};
-use crate::confidential_flow::handlers::invalid_call::InvalidCall;
 use crate::confidential_flow::handlers::mmio::{
     AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
 };
-use crate::confidential_flow::handlers::sbi::{
-    SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion, SbiResponse,
+use crate::confidential_flow::handlers::sbi::{InvalidCall, SbiResponse};
+use crate::confidential_flow::handlers::sbi_base_extension::{
+    SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion,
 };
 use crate::confidential_flow::handlers::shared_page::{SharePageComplete, SharePageRequest, UnsharePageRequest};
 use crate::confidential_flow::handlers::shutdown::ShutdownRequest;
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
-    NoOperation, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop, SbiHsmHartSuspend, SbiIpi, SbiRemoteFenceI, SbiRemoteSfenceVma,
-    SbiRemoteSfenceVmaAsid,
+    Ipi, NoOperation, RemoteFenceI, RemoteSfenceVma, RemoteSfenceVmaAsid, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop,
+    SbiHsmHartSuspend,
 };
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
-use crate::core::architecture::supervisor_binary_interface::BaseExtension::*;
-use crate::core::architecture::supervisor_binary_interface::CovgExtension::*;
-use crate::core::architecture::supervisor_binary_interface::HsmExtension::*;
-use crate::core::architecture::supervisor_binary_interface::IpiExtension::*;
-use crate::core::architecture::supervisor_binary_interface::RfenceExtension::*;
-use crate::core::architecture::supervisor_binary_interface::SbiExtension::*;
-use crate::core::architecture::supervisor_binary_interface::SrstExtension::*;
+use crate::core::architecture::riscv::sbi::BaseExtension::*;
+use crate::core::architecture::riscv::sbi::CovgExtension::*;
+use crate::core::architecture::riscv::sbi::HsmExtension::*;
+use crate::core::architecture::riscv::sbi::IpiExtension::*;
+use crate::core::architecture::riscv::sbi::RfenceExtension::*;
+use crate::core::architecture::riscv::sbi::SbiExtension::*;
+use crate::core::architecture::riscv::sbi::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
@@ -74,10 +74,10 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Base(GetMvendorId)) => SbiGetMvendorid::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetMarchid)) => SbiGetMarchId::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetMimpid)) => SbiGetMimpid::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Ipi(SendIpi)) => SbiIpi::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Rfence(RemoteFenceI)) => SbiRemoteFenceI::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Rfence(RemoteSfenceVma)) => SbiRemoteSfenceVma::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Rfence(RemoteSfenceVmaAsid)) => SbiRemoteSfenceVmaAsid::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Ipi(SendIpi)) => Ipi::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteFenceI)) => RemoteFenceI::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteSfenceVma)) => RemoteSfenceVma::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Rfence(RemoteSfenceVmaAsid)) => RemoteSfenceVmaAsid::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Rfence(RemoteHfenceGvmaVmid)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Rfence(RemoteHfenceGvma)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Rfence(RemoteHfenceVvmaAsid)) => NoOperation::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -143,7 +143,7 @@ impl<'a> ConfidentialFlow<'a> {
         // It might have happened, that this confidential hart has been shutdown when processing an IPI. I.e., there was
         // an IPI from other confidential hart that requested this confidential hart to shutdown. If this had happened, we
         // cannot resume this confidential hart anymore. We must exit to the hypervisor and inform it about it.
-        if self.confidential_hart().lifecycle_state() == &HartLifecycleState::Shutdown {
+        if self.confidential_hart().lifecycle_state() == &HartLifecycleState::PoweredOff {
             crate::confidential_flow::handlers::shutdown::shutdown_confidential_hart(self);
         }
 
@@ -152,9 +152,10 @@ impl<'a> ConfidentialFlow<'a> {
         use crate::core::control_data::PendingRequest::*;
         match self.confidential_hart_mut().take_request() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
-            Some(MmioLoad(request)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
-            Some(MmioStore(request)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
-            Some(SharePage(request)) => SharePageComplete::from_hypervisor_hart(self.hypervisor_hart(), request).handle(self),
+            Some(ResumeHart(v)) => v.handle(self),
+            Some(MmioLoad(v)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
+            Some(MmioStore(v)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
+            Some(SharePage(v)) => SharePageComplete::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
             None => self.exit_to_confidential_hart(),
         }
     }
@@ -237,7 +238,7 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
-    pub fn suspend_confidential_hart(&mut self, _request: SbiHsmHartSuspend) -> Result<(), Error> {
+    pub fn suspend_confidential_hart(&mut self) -> Result<(), Error> {
         self.confidential_hart_mut().transition_from_started_to_suspended()
     }
 
@@ -249,8 +250,8 @@ impl<'a> ConfidentialFlow<'a> {
 
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it
     /// other than via the ControlFlow.
-    pub fn start_confidential_hart_after_suspend(&mut self) -> Result<(), Error> {
-        self.confidential_hart_mut().transition_from_suspended_to_started()
+    pub fn resume_confidential_hart(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
+        self.confidential_hart_mut().transition_from_suspended_to_started(start_address, opaque)
     }
 
     /// Delegates the state transition to the confidential hart. The confidential hart is intentionally encapsulated to prevent access to it

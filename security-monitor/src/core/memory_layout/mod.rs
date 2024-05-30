@@ -5,7 +5,7 @@ pub use confidential_memory_address::ConfidentialMemoryAddress;
 pub use confidential_vm_physical_address::ConfidentialVmPhysicalAddress;
 pub use non_confidential_memory_address::NonConfidentialMemoryAddress;
 
-use crate::core::memory_protector::PageSize;
+use crate::core::architecture::PageSize;
 use crate::error::Error;
 use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 use spin::Once;

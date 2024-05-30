@@ -2,7 +2,8 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::core::architecture::{GeneralPurposeRegister, CAUSE_VIRTUAL_SUPERVISOR_ECALL};
+use crate::core::architecture::riscv::specification::CAUSE_VIRTUAL_SUPERVISOR_ECALL;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
 
 pub struct SbiRequest {

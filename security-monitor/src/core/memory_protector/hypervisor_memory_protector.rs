@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::riscv::{iopmp, mmu, pmp, tlb};
 use crate::core::memory_layout::MemoryLayout;
-use crate::core::memory_protector::{iopmp, mmu, pmp};
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component to set memory access protection preventing
@@ -45,6 +45,6 @@ impl HypervisorMemoryProtector {
     pub unsafe fn enable(&self, hgatp: usize) {
         pmp::close_access_to_confidential_memory();
         mmu::enable_address_translation_and_protection(hgatp);
-        super::tlb::clear_hart_tlbs();
+        tlb::clear_hart_tlbs();
     }
 }

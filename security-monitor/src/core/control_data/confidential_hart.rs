@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::{GeneralPurposeRegister, HartArchitecturalState, HartLifecycleState, *};
-use crate::core::control_data::confidential_hart::supervisor_binary_interface::NaclSharedMemory;
+use crate::core::architecture::riscv::sbi::NaclSharedMemory;
+use crate::core::architecture::riscv::specification::*;
+use crate::core::architecture::{
+    ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState,
+};
 use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
 use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, PendingRequest};
 use crate::error::Error;
@@ -272,27 +275,29 @@ impl ConfidentialHart {
         Ok(())
     }
 
-    pub fn transition_from_suspended_to_started(&mut self) -> Result<(), Error> {
+    pub fn transition_from_suspended_to_started(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
         assert!(!self.is_dummy());
         ensure!(self.lifecycle_state == HartLifecycleState::Suspended, Error::CannotStartNotSuspendedHart())?;
         self.lifecycle_state = HartLifecycleState::Started;
+        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, opaque);
+        self.confidential_hart_state.csrs_mut().mepc.save_value(start_address);
         Ok(())
     }
 
     pub fn transition_to_shutdown(&mut self) {
         assert!(!self.is_dummy());
-        self.lifecycle_state = HartLifecycleState::Shutdown;
+        self.lifecycle_state = HartLifecycleState::PoweredOff;
     }
 }
 
 impl ConfidentialHart {
     pub fn execute(&mut self, request: &ConfidentialHartRemoteCommand) {
         match request {
-            ConfidentialHartRemoteCommand::SbiIpi(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteFenceI(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
-            ConfidentialHartRemoteCommand::SbiRemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::Ipi(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteFenceI(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteSfenceVma(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
+            ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
             ConfidentialHartRemoteCommand::ShutdownRequest(_) => self.transition_to_shutdown(),
             ConfidentialHartRemoteCommand::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
         }

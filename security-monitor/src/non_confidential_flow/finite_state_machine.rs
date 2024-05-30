@@ -2,23 +2,23 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::supervisor_binary_interface::BaseExtension::*;
-use crate::core::architecture::supervisor_binary_interface::CovhExtension::*;
-use crate::core::architecture::supervisor_binary_interface::CoviExtension::*;
-use crate::core::architecture::supervisor_binary_interface::NaclExtension::*;
-use crate::core::architecture::supervisor_binary_interface::NaclSharedMemory;
-use crate::core::architecture::supervisor_binary_interface::SbiExtension::*;
+use crate::core::architecture::riscv::sbi::BaseExtension::*;
+use crate::core::architecture::riscv::sbi::CovhExtension::*;
+use crate::core::architecture::riscv::sbi::CoviExtension::*;
+use crate::core::architecture::riscv::sbi::NaclExtension::*;
+use crate::core::architecture::riscv::sbi::NaclSharedMemory;
+use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
-use crate::non_confidential_flow::handlers::covh::{
+use crate::non_confidential_flow::handlers::cove_hypervisor_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
-use crate::non_confidential_flow::handlers::covi::InjectExternalInterrupt;
-use crate::non_confidential_flow::handlers::invalid_call::InvalidCall;
-use crate::non_confidential_flow::handlers::nacl::{NaclProbeFeature, NaclSetupSharedMemory};
-use crate::non_confidential_flow::handlers::sbi::{DelegateToOpensbi, ProbeSbiExtension};
+use crate::non_confidential_flow::handlers::cove_interrupt_extension::InjectExternalInterrupt;
+use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
+use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
+use crate::non_confidential_flow::handlers::supervisor_binary_interface::InvalidCall;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
 
 extern "C" {

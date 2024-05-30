@@ -2,22 +2,22 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiIpi;
+use crate::confidential_flow::handlers::symmetrical_multiprocessing::Ipi;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable};
 
 /// Handles a request from one confidential hart to execute sfence.vma instruction on remote confidential harts.
 #[derive(Clone)]
-pub struct SbiRemoteSfenceVma {
-    ipi: SbiIpi,
+pub struct RemoteSfenceVma {
+    ipi: Ipi,
     _start_address: usize,
     _size: usize,
 }
 
-impl SbiRemoteSfenceVma {
+impl RemoteSfenceVma {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let ipi = SbiIpi::from_confidential_hart(confidential_hart);
+        let ipi = Ipi::from_confidential_hart(confidential_hart);
         let _start_address = confidential_hart.gprs().read(GeneralPurposeRegister::a2);
         let _size = confidential_hart.gprs().read(GeneralPurposeRegister::a3);
         Self { ipi, _start_address, _size }
@@ -25,17 +25,17 @@ impl SbiRemoteSfenceVma {
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         let transformation = confidential_flow
-            .broadcast_remote_command(ConfidentialHartRemoteCommand::SbiRemoteSfenceVma(self))
+            .broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteSfenceVma(self))
             .and_then(|_| Ok(SbiResponse::success()))
             .unwrap_or_else(|error| SbiResponse::error(error));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 }
 
-impl ConfidentialHartRemoteCommandExecutable for SbiRemoteSfenceVma {
+impl ConfidentialHartRemoteCommandExecutable for RemoteSfenceVma {
     fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
-        crate::core::architecture::hfence_vvma();
+        crate::core::architecture::riscv::fence::hfence_vvma();
         self.ipi.execute_on_confidential_hart(confidential_hart);
     }
 
