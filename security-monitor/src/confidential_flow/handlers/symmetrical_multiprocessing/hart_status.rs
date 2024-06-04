@@ -4,7 +4,7 @@
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ControlData};
+use crate::core::control_data::{ConfidentialHart, ControlDataStorage};
 
 /// Handles the request from a confidential hart to learn about the lifecycle state of another confidential hart as defined in the HART get
 /// status (FID #2) function of the SBI's HSM extension.
@@ -18,7 +18,7 @@ impl SbiHsmHartStatus {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let transformation = ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
+        let transformation = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
             confidential_vm.confidential_hart_lifecycle_state(self.confidential_hart_id)
         })
         .and_then(|lifecycle_state| Ok(SbiResponse::success_with_code(lifecycle_state.sbi_code())))

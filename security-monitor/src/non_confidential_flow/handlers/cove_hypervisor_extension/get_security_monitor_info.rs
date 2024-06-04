@@ -9,8 +9,9 @@ use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
-/// Returns information to the hypervisor about the state of the security monitor.
-/// This handler implements the COVE Host Get TSM Info function from the COVH ABI.
+/// This handler implements the `Get TSM Info` function of the CoVE Host ABI.
+///
+/// Returns information to the hypervisor about the state and configuration of the security monitor.
 ///
 /// Returns error to the caller if the given address range is not in the non-confidential memory or is not large enough to contain the
 /// expected response.

@@ -20,7 +20,6 @@ impl MmioStoreResponse {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        let new_mepc = confidential_hart.csrs().mepc.read_value() + self.instruction_length;
-        confidential_hart.csrs_mut().mepc.save_value(new_mepc);
+        confidential_hart.csrs_mut().mepc.add(self.instruction_length);
     }
 }

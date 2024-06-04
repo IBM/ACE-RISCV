@@ -6,23 +6,25 @@ use crate::error::Error;
 use alloc::collections::BTreeMap;
 use spin::{Mutex, MutexGuard, Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+static CONTROL_DATA_STORAGE: Once<RwLock<ControlDataStorage>> = Once::new();
+
 /// The control data region is located in the confidential memory. It is visible only to the security monitor. The
 /// security monitor uses it to store persistent confidential VM information.
 ///
 /// Access to it variable is exposed to other modules with try_read_*() and try_write_*(). These functions synchronize
 /// accesses to the control data region descriptor requested from multiple physical harts.
-pub static CONTROL_DATA: Once<RwLock<ControlData>> = Once::new();
-
-pub struct ControlData {
+pub struct ControlDataStorage {
     confidential_vms: BTreeMap<ConfidentialVmId, Mutex<ConfidentialVm>>,
 }
 
-impl ControlData {
-    const NOT_INITIALIZED_CONTROL_DATA: &'static str =
-        "Bug. Could not access the control data static variable because has not been initialized";
+impl ControlDataStorage {
+    const NOT_INITIALIZED: &'static str = "Bug: Control data not initialized";
 
-    pub fn new() -> Self {
-        Self { confidential_vms: BTreeMap::new() }
+    pub fn initialize() -> Result<(), Error> {
+        let control_data = Self { confidential_vms: BTreeMap::new() };
+        ensure_not!(CONTROL_DATA_STORAGE.is_completed(), Error::Reinitialization())?;
+        CONTROL_DATA_STORAGE.call_once(|| RwLock::new(control_data));
+        Ok(())
     }
 
     pub fn unique_id(&self) -> Result<ConfidentialVmId, Error> {
@@ -47,7 +49,7 @@ impl ControlData {
     }
 
     pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
-        ControlData::try_write(|control_data| {
+        ControlDataStorage::try_write(|control_data| {
             ensure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
             debug!("Removing ConfidentialVM[{:?}] from the control data structure", confidential_vm_id);
             control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
@@ -56,13 +58,13 @@ impl ControlData {
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>
-    where O: FnOnce(&RwLockReadGuard<'_, ControlData>) -> Result<F, Error> {
-        op(&CONTROL_DATA.get().expect(Self::NOT_INITIALIZED_CONTROL_DATA).read())
+    where O: FnOnce(&RwLockReadGuard<'_, ControlDataStorage>) -> Result<F, Error> {
+        op(&CONTROL_DATA_STORAGE.get().expect(Self::NOT_INITIALIZED).read())
     }
 
     pub fn try_write<F, O>(op: O) -> Result<F, Error>
-    where O: FnOnce(&mut RwLockWriteGuard<'static, ControlData>) -> Result<F, Error> {
-        op(&mut CONTROL_DATA.get().expect(Self::NOT_INITIALIZED_CONTROL_DATA).write())
+    where O: FnOnce(&mut RwLockWriteGuard<'static, ControlDataStorage>) -> Result<F, Error> {
+        op(&mut CONTROL_DATA_STORAGE.get().expect(Self::NOT_INITIALIZED).write())
     }
 
     pub fn try_confidential_vm<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>

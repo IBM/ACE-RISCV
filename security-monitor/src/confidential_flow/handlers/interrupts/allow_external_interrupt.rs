@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ControlDataStorage, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 pub struct AllowExternalInterrupt {
@@ -18,11 +18,11 @@ impl AllowExternalInterrupt {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        match ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             Ok(confidential_vm.set_allowed_external_interrupts(self.interrupt_id))
         }) {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::SbiRequest())
+                .set_resumable_operation(ResumableOperation::SbiRequest())
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_covg_allow_ext_interrupt())),
             Err(error) => {

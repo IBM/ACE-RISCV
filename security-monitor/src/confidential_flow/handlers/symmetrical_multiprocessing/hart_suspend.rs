@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::hart_resume::SbiHsmHartResume;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::HsmExtension;
-use crate::core::control_data::{ConfidentialHart, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Suspends a confidential hart that made this request. This is an implementation of the HartSuspend function from the
@@ -28,7 +28,7 @@ impl SbiHsmHartSuspend {
         let sbi_request = SbiRequest::new(HsmExtension::EXTID, HsmExtension::HART_SUSPEND_FID, 0, 0);
         match confidential_flow.suspend_confidential_hart() {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::ResumeHart(self.resume_handler))
+                .set_resumable_operation(ResumableOperation::ResumeHart(self.resume_handler))
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request)),
             Err(error) => {

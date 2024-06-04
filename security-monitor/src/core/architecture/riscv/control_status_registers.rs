@@ -9,6 +9,7 @@ use super::specification::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use core::arch::asm;
 
+/// Represents all control status registers (CSRs) accessible to modes less privileged than M-mode.
 pub struct ControlStatusRegisters {
     pub mepc: ReadWriteRiscvCsr<CSR_MEPC>,
     pub mcause: ReadWriteRiscvCsr<CSR_MCAUSE>,
@@ -136,124 +137,125 @@ impl ControlStatusRegisters {
             fcsr: ReadWriteRiscvCsr::new(),
             // V-extension
         };
-        csrs.vstimecmp.save_value(usize::MAX - 1);
+        csrs.vstimecmp.save_value_in_main_memory(usize::MAX - 1);
         csrs
     }
 
     pub fn save_in_main_memory(&mut self) {
-        self.mepc.save();
-        self.mcause.save();
-        self.medeleg.save();
-        self.mideleg.save();
-        self.mie.save();
-        self.mstatus.save();
-        self.mtinst.save();
-        self.mtval.save();
-        self.mtval2.save();
-        self.mtvec.save();
-        self.mscratch.save();
+        self.mepc.save_in_main_memory();
+        self.mcause.save_in_main_memory();
+        self.medeleg.save_in_main_memory();
+        self.mideleg.save_in_main_memory();
+        self.mie.save_in_main_memory();
+        self.mstatus.save_in_main_memory();
+        self.mtinst.save_in_main_memory();
+        self.mtval.save_in_main_memory();
+        self.mtval2.save_in_main_memory();
+        self.mtvec.save_in_main_memory();
+        self.mscratch.save_in_main_memory();
         // S-mode
-        self.sstatus.save();
-        self.sie.save();
-        self.stvec.save();
-        self.scounteren.save();
-        self.senvcfg.save();
-        self.sscratch.save();
-        self.sepc.save();
-        self.scause.save();
-        self.stval.save();
-        self.sip.save();
-        self.satp.save();
-        // Only if debug extension is implemented by hardware
-        // self.scontext.save();
-        self.stimecmp.save();
+        self.sstatus.save_in_main_memory();
+        self.sie.save_in_main_memory();
+        self.stvec.save_in_main_memory();
+        self.scounteren.save_in_main_memory();
+        self.senvcfg.save_in_main_memory();
+        self.sscratch.save_in_main_memory();
+        self.sepc.save_in_main_memory();
+        self.scause.save_in_main_memory();
+        self.stval.save_in_main_memory();
+        self.sip.save_in_main_memory();
+        self.satp.save_in_main_memory();
+        // DEBUG extension should never be present due to security concerns.
+        // self.scontext.save_in_main_memory();
+        // Timer (Sstc) extension is required by the ACE architecture
+        self.stimecmp.save_in_main_memory();
         // HS-mode
-        self.hstatus.save();
-        self.hedeleg.save();
-        self.hideleg.save();
-        self.hie.save();
-        self.hcounteren.save();
-        self.hgeie.save();
-        self.htval.save();
-        self.hip.save();
-        self.hvip.save_value(0);
-        self.htinst.save();
-        self.hgeip.save();
-        self.henvcfg.save();
-        self.hgatp.save();
-        // Only if debug extension is implemented by hardware
-        // self.hcontext.save();
-        self.htimedelta.save();
+        self.hstatus.save_in_main_memory();
+        self.hedeleg.save_in_main_memory();
+        self.hideleg.save_in_main_memory();
+        self.hie.save_in_main_memory();
+        self.hcounteren.save_in_main_memory();
+        self.hgeie.save_in_main_memory();
+        self.htval.save_in_main_memory();
+        self.hip.save_in_main_memory();
+        self.hvip.save_value_in_main_memory(0);
+        self.htinst.save_in_main_memory();
+        self.hgeip.save_in_main_memory();
+        self.henvcfg.save_in_main_memory();
+        self.hgatp.save_in_main_memory();
+        // DEBUG extension should never be present due to security concerns.
+        // self.hcontext.save_in_main_memory();
+        self.htimedelta.save_in_main_memory();
         // VS-mode
-        self.vsstatus.save();
-        self.vsie.save();
-        self.vsip.save();
-        self.vstvec.save();
-        self.vsscratch.save();
-        self.vsepc.save();
-        self.vscause.save();
-        self.vstval.save();
-        self.vsatp.save();
-        // timer-related
-        self.vstimecmp.save();
+        self.vsstatus.save_in_main_memory();
+        self.vsie.save_in_main_memory();
+        self.vsip.save_in_main_memory();
+        self.vstvec.save_in_main_memory();
+        self.vsscratch.save_in_main_memory();
+        self.vsepc.save_in_main_memory();
+        self.vscause.save_in_main_memory();
+        self.vstval.save_in_main_memory();
+        self.vsatp.save_in_main_memory();
+        // Timer (Sstc) extension is required by the ACE architecture
+        self.vstimecmp.save_in_main_memory();
     }
 
     pub fn restore_from_main_memory(&self) {
-        self.mepc.restore();
-        self.mcause.restore();
-        self.medeleg.restore();
-        self.mideleg.restore();
-        self.mie.restore();
-        self.mstatus.restore();
-        self.mtinst.restore();
-        self.mtval.restore();
-        self.mtval2.restore();
-        self.mtvec.restore();
+        self.mepc.restore_from_main_memory();
+        self.mcause.restore_from_main_memory();
+        self.medeleg.restore_from_main_memory();
+        self.mideleg.restore_from_main_memory();
+        self.mie.restore_from_main_memory();
+        self.mstatus.restore_from_main_memory();
+        self.mtinst.restore_from_main_memory();
+        self.mtval.restore_from_main_memory();
+        self.mtval2.restore_from_main_memory();
+        self.mtvec.restore_from_main_memory();
         // S-mode
-        self.sstatus.restore();
-        self.sie.restore();
-        self.stvec.restore();
-        self.scounteren.restore();
-        self.senvcfg.restore();
-        self.sscratch.restore();
-        self.sepc.restore();
-        self.scause.restore();
-        self.stval.restore();
-        self.sip.restore();
-        self.satp.restore();
-        // Only if debug extension is implemented by hardware
-        // self.scontext.restore();
-        // Only if timer extension
-        // self.stimecmp.restore();
+        self.sstatus.restore_from_main_memory();
+        self.sie.restore_from_main_memory();
+        self.stvec.restore_from_main_memory();
+        self.scounteren.restore_from_main_memory();
+        self.senvcfg.restore_from_main_memory();
+        self.sscratch.restore_from_main_memory();
+        self.sepc.restore_from_main_memory();
+        self.scause.restore_from_main_memory();
+        self.stval.restore_from_main_memory();
+        self.sip.restore_from_main_memory();
+        self.satp.restore_from_main_memory();
+        // DEBUG extension should never be present due to security concerns.
+        // self.scontext.restore_from_main_memory();
+        // Timer (Sstc) extension is required by the ACE architecture
+        self.stimecmp.restore_from_main_memory();
         // HS-mode
-        self.hstatus.restore();
-        self.hedeleg.restore();
-        self.hideleg.restore();
-        self.hie.restore();
-        self.hcounteren.restore();
-        self.hgeie.restore();
-        self.htval.restore();
-        // self.hip.restore();
-        self.hvip.restore();
-        self.htinst.restore();
-        // self.hgeip.restore();
-        self.henvcfg.restore();
-        self.hgatp.restore();
-        // Only if debug extension is implemented by hardware
-        // self.hcontext.restore();
-        self.htimedelta.restore();
+        self.hstatus.restore_from_main_memory();
+        self.hedeleg.restore_from_main_memory();
+        self.hideleg.restore_from_main_memory();
+        self.hie.restore_from_main_memory();
+        self.hcounteren.restore_from_main_memory();
+        self.hgeie.restore_from_main_memory();
+        self.htval.restore_from_main_memory();
+        // self.hip.restore_from_main_memory();
+        self.hvip.restore_from_main_memory();
+        self.htinst.restore_from_main_memory();
+        // self.hgeip.restore_from_main_memory();
+        self.henvcfg.restore_from_main_memory();
+        self.hgatp.restore_from_main_memory();
+        // DEBUG extension should never be present due to security concerns.
+        // self.hcontext.restore_from_main_memory();
+        self.htimedelta.restore_from_main_memory();
         // VS-mode
-        self.vsstatus.restore();
-        self.vsie.restore();
-        self.vsip.restore();
-        self.vstvec.restore();
-        self.vsscratch.restore();
-        self.vsepc.restore();
-        self.vscause.restore();
-        self.vstval.restore();
-        self.vsatp.restore();
-        // timer-related
-        self.vstimecmp.restore();
+        self.vsstatus.restore_from_main_memory();
+        self.vsie.restore_from_main_memory();
+        self.vsip.restore_from_main_memory();
+        self.vstvec.restore_from_main_memory();
+        self.vsscratch.restore_from_main_memory();
+        self.vsepc.restore_from_main_memory();
+        self.vscause.restore_from_main_memory();
+        self.vstval.restore_from_main_memory();
+        self.vsatp.restore_from_main_memory();
+        // Timer (Sstc) extension is required by the ACE architecture
+        self.vstimecmp.restore_from_main_memory();
     }
 }
 
@@ -289,24 +291,28 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
         ReadWriteRiscvCsr(0)
     }
 
-    pub fn save(&mut self) {
+    pub fn save_in_main_memory(&mut self) {
         self.0 = self.read();
     }
 
-    pub fn save_value(&mut self, value: usize) {
+    pub fn save_value_in_main_memory(&mut self, value: usize) {
         self.0 = value;
     }
 
-    pub fn restore(&self) {
-        self.set(self.0);
+    pub fn save_nacl_value_in_main_memory(&mut self, nacl_shared_memory: &NaclSharedMemory) {
+        self.0 = nacl_shared_memory.csr(V.into());
     }
 
-    pub fn read_value(&self) -> usize {
+    pub fn restore_from_main_memory(&self) {
+        self.write(self.0);
+    }
+
+    pub fn read_from_main_memory(&self) -> usize {
         self.0
     }
 
-    pub fn restore_from_nacl(&mut self, nacl_shared_memory: &NaclSharedMemory) {
-        self.0 = nacl_shared_memory.csr(V.into());
+    pub fn add(&mut self, value: usize) {
+        self.0 = self.0 + value;
     }
 
     #[inline]
@@ -339,15 +345,10 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
     }
 
     #[inline]
-    pub fn set(&self, val_to_set: usize) {
+    pub fn write(&self, val_to_set: usize) {
         unsafe {
             asm!("csrw {csr}, {rs}", rs = in(reg) val_to_set, csr = const V);
         }
-    }
-
-    #[inline]
-    pub fn read_and_set_bit(&self, bit: usize) -> usize {
-        self.read_and_set_bits(1 << bit)
     }
 
     #[inline]
@@ -360,11 +361,6 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
                  rs1 = in(reg) bitmask);
         }
         r
-    }
-
-    #[inline]
-    pub fn read_and_clear_bit(&self, bit: usize) -> usize {
-        self.read_and_clear_bits(1 << bit)
     }
 
     #[inline]

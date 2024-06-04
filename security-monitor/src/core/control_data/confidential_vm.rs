@@ -24,13 +24,10 @@ pub struct ConfidentialVm {
 
 impl ConfidentialVm {
     pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
-
     /// An average number of inter hart requests that can be buffered before being processed.
     const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
-
     /// A maximum number of inter hart requests that can be buffered.
     const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
-
     /// A maximum number of MMIO regions that a confidential VM can register
     const MAX_NUMBER_OF_MMIO_REGIONS: usize = 1024;
 
@@ -113,11 +110,12 @@ impl ConfidentialVm {
         Ok(())
     }
 
-    /// Unassigns a confidential hart from the hardware hart.
+    /// Unassigns a confidential hart from the hardware hart. The confidential hart is stored back in the confidential VM. The dummy hart
+    /// that was stored as a placeholder in the confidential VM is given back to the hardware hart.
     ///
     /// # Safety
     ///
-    /// A confidential hart belonging to this confidential VM is assigned to the hardware hart.
+    /// A confidential hart belongs to this confidential VM and is currently assigned to the hardware hart.
     pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());

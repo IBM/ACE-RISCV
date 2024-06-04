@@ -22,7 +22,6 @@ impl MmioLoadResponse {
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         confidential_hart.gprs_mut().write(self.request.gpr_storing_load_result(), self.value);
-        let new_mepc = confidential_hart.csrs().mepc.read_value() + self.request.instruction_length();
-        confidential_hart.csrs_mut().mepc.save_value(new_mepc);
+        confidential_hart.csrs_mut().mepc.add(self.request.instruction_length());
     }
 }

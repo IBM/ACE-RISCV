@@ -4,7 +4,7 @@
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::{GeneralPurposeRegister, Hgatp, PageSize};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlData, HypervisorHart,
+    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlDataStorage, HypervisorHart,
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
@@ -84,7 +84,7 @@ impl PromoteToConfidentialVm {
 
         self.authenticate_and_authorize_vm(&memory_protector, &measurements)?;
 
-        ControlData::try_write(|control_data| {
+        ControlDataStorage::try_write(|control_data| {
             // We have a write lock on the entire control data! Spend here as little time as possible because we are
             // blocking all other harts from accessing the control data. This influences all confidential VMs in the system!
             let id = control_data.unique_id()?;

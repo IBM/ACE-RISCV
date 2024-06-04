@@ -7,14 +7,15 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::mem;
 use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 
+///! TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
+///! is safer and prevents fragmentation.
+
 pub type HeapAllocator = Locked<LinkedListAllocator>;
 
 pub struct LinkedListAllocator {
     head: FreeMemoryRegion,
 }
 
-// TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
-// is safer and prevents fragmentation.
 impl LinkedListAllocator {
     pub(self) const fn empty() -> Self {
         Self { head: FreeMemoryRegion::new(0) }

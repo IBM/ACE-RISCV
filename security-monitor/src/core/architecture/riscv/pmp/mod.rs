@@ -22,8 +22,8 @@ pub fn split_memory_into_confidential_and_non_confidential(
 
     // TODO: simplify use of PMP by using a single PMP entry to isolate the confidential memory.
     // We assume here that the first two PMPs are not used by anyone else, e.g., OpenSBI firmware
-    CSR.pmpaddr0.set(confidential_memory_start >> PMP_ADDRESS_SHIFT);
-    CSR.pmpaddr1.set(confidential_memory_end >> PMP_ADDRESS_SHIFT);
+    CSR.pmpaddr0.write(confidential_memory_start >> PMP_ADDRESS_SHIFT);
+    CSR.pmpaddr1.write(confidential_memory_end >> PMP_ADDRESS_SHIFT);
 
     close_access_to_confidential_memory();
     crate::debug::__print_pmp_configuration();

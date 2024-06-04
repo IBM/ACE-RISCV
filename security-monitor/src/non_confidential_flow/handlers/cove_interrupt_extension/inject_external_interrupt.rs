@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable, ConfidentialVmId, ControlData, HypervisorHart,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable, ConfidentialVmId, ControlDataStorage,
+    HypervisorHart,
 };
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
@@ -29,7 +30,7 @@ impl InjectExternalInterrupt {
     }
 
     pub fn handle(mut self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
-        let transformation = ControlData::try_confidential_vm_mut(self.confidential_vm_id, |mut confidential_vm| {
+        let transformation = ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id, |mut confidential_vm| {
             self.interrupt_id = self.interrupt_id & confidential_vm.allowed_external_interrupts();
             non_confidential_flow.swap_mscratch();
             let command = ConfidentialHartRemoteCommand::ExternalInterrupt(self);
@@ -46,7 +47,7 @@ impl InjectExternalInterrupt {
 
 impl ConfidentialHartRemoteCommandExecutable for InjectExternalInterrupt {
     fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        confidential_hart.csrs_mut().hvip.save_value(self.interrupt_id);
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.interrupt_id);
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {

@@ -22,14 +22,14 @@ pub struct InterruptController {}
 
 impl<'a> InterruptController {
     /// Constructs the global, unique interrupt controller instance.
-    pub unsafe fn initialize() -> Result<(), Error> {
-        let interrupt_controller = unsafe { Self::new() }?;
+    pub fn initialize() -> Result<(), Error> {
+        let interrupt_controller = Self::new()?;
         ensure_not!(INTERRUPT_CONTROLLER.is_completed(), Error::Reinitialization())?;
         INTERRUPT_CONTROLLER.call_once(|| RwLock::new(interrupt_controller));
         Ok(())
     }
 
-    unsafe fn new() -> Result<Self, Error> {
+    fn new() -> Result<Self, Error> {
         // In future when we do not rely on OpenSBI, this function should parse the flatten device tree, detect type of the hardware
         // interrupt controller and take control over it.
         Ok(Self {})

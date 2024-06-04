@@ -52,7 +52,7 @@ impl HardwareHart {
     pub fn swap_mscratch(&mut self) {
         let previous_mscratch = self.previous_mscratch;
         let current_mscratch = CSR.mscratch.read();
-        CSR.mscratch.set(previous_mscratch);
+        CSR.mscratch.write(previous_mscratch);
         self.previous_mscratch = current_mscratch;
     }
 
