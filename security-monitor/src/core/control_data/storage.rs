@@ -18,8 +18,7 @@ pub struct ControlData {
 }
 
 impl ControlData {
-    const NOT_INITIALIZED_CONTROL_DATA: &'static str =
-        "Bug. Could not access the control data static variable because has not been initialized";
+    const NOT_INITIALIZED_CONTROL_DATA: &'static str = "Bug. Control data has not been initialized";
 
     pub fn new() -> Self {
         Self { confidential_vms: BTreeMap::new() }

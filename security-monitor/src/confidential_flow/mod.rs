@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use apply_to_confidential_vm::ApplyToConfidentialHart;
-use declassify_to_confidential_vm::DeclassifyToConfidentialVm;
+pub use declassify_to_confidential_vm::DeclassifyToConfidentialVm;
 pub use finite_state_machine::ConfidentialFlow;
 
 pub mod handlers;

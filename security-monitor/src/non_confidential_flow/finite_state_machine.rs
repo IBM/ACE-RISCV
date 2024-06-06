@@ -4,7 +4,6 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
 use crate::core::architecture::riscv::sbi::CovhExtension::*;
-use crate::core::architecture::riscv::sbi::CoviExtension::*;
 use crate::core::architecture::riscv::sbi::NaclExtension::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
@@ -15,7 +14,6 @@ use crate::error::Error;
 use crate::non_confidential_flow::handlers::cove_hypervisor_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
-use crate::non_confidential_flow::handlers::cove_interrupt_extension::InjectExternalInterrupt;
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
 use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::InvalidCall;
@@ -71,8 +69,6 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(Covh(TvmVcpuRun)) => RunConfidentialHart::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(DestroyTvm)) => DestroyConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Covi(InjectExternalInterrupt)) => InjectExternalInterrupt::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Covi(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(ProbeFeature)) => NaclProbeFeature::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(SetupSharedMemory)) => NaclSetupSharedMemory::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -86,7 +82,7 @@ impl<'a> NonConfidentialFlow<'a> {
     /// hart are incorrect or cannot be scheduled for execution.
     pub fn into_confidential_flow(
         self, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
-    ) -> Result<ConfidentialFlow<'a>, (NonConfidentialFlow<'a>, Error)> {
+    ) -> Result<(usize, ConfidentialFlow<'a>), (NonConfidentialFlow<'a>, Error)> {
         ConfidentialFlow::enter_from_non_confidential_flow(self.hardware_hart, confidential_vm_id, confidential_hart_id)
             .map_err(|(hardware_hart, error)| (Self::create(hardware_hart), error))
     }

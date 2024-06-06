@@ -299,7 +299,6 @@ impl ConfidentialHart {
             ConfidentialHartRemoteCommand::RemoteSfenceVmaAsid(v) => v.execute_on_confidential_hart(self),
             ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(v) => v.execute_on_confidential_hart(self),
             ConfidentialHartRemoteCommand::ShutdownRequest(_) => self.transition_to_shutdown(),
-            ConfidentialHartRemoteCommand::ExternalInterrupt(v) => v.execute_on_confidential_hart(self),
         }
     }
 }
