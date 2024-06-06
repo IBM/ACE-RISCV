@@ -107,12 +107,13 @@ impl<'a> ConfidentialFlow<'a> {
     /// hart, i.e., the confidential hart does not exist or it has been already assigned another physical hart.
     pub fn enter_from_non_confidential_flow(
         hardware_hart: &'a mut HardwareHart, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
-    ) -> Result<Self, (&'a mut HardwareHart, Error)> {
+    ) -> Result<(usize, Self), (&'a mut HardwareHart, Error)> {
         assert!(hardware_hart.confidential_hart().is_dummy());
         match ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
-            confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)
+            confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
+            Ok(confidential_vm.allowed_external_interrupts())
         }) {
-            Ok(_) => Ok(Self { hardware_hart }),
+            Ok(allowed_external_interrupts) => Ok((allowed_external_interrupts, Self { hardware_hart })),
             Err(error) => Err((hardware_hart, error)),
         }
     }
@@ -121,12 +122,12 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
         // When moving back to the non-confidential flow, we always declassify enabled interrupts and timer configuration. This allows the
         // hypervisor to schedule the confidential VM timer and interrupts. Read the CoVE spec to learn more.
-        let transformation =
+        let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
 
         ControlData::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.return_confidential_hart(self.hardware_hart);
-            Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(transformation))
+            Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier))
         })
         // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
         // the given id exists in the control data.
@@ -160,13 +161,18 @@ impl<'a> ConfidentialFlow<'a> {
         }
     }
 
-    pub fn declassify_and_exit_to_confidential_hart(mut self, declassifier: DeclassifyToConfidentialVm) -> ! {
+    pub fn declassify_to_confidential_hart(mut self, declassifier: DeclassifyToConfidentialVm) -> Self {
         match declassifier {
             DeclassifyToConfidentialVm::SbiResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioLoadResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioStoreResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
+            DeclassifyToConfidentialVm::Resume(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
         }
-        self.exit_to_confidential_hart()
+        self
+    }
+
+    pub fn declassify_and_exit_to_confidential_hart(self, declassifier: DeclassifyToConfidentialVm) -> ! {
+        self.declassify_to_confidential_hart(declassifier).exit_to_confidential_hart()
     }
 
     /// Applies transformation to the confidential hart and passes control to the context switch (assembly) that will

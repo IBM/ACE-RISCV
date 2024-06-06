@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::riscv::sbi::{CovhExtension, CoviExtension, NaclExtension};
+use crate::core::architecture::riscv::sbi::{CovhExtension, NaclExtension};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
 use crate::non_confidential_flow::handlers::opensbi::DelegateToOpensbi;
@@ -23,7 +23,7 @@ impl ProbeSbiExtension {
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match self.extension_id {
-            CovhExtension::EXTID | CoviExtension::EXTID | NaclExtension::EXTID => {
+            CovhExtension::EXTID | NaclExtension::EXTID => {
                 non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(SbiResponse::success_with_code(1)))
             }
             _ => self.handler.handle(non_confidential_flow),
