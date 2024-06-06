@@ -11,6 +11,8 @@ use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 pub struct RunConfidentialHart {
     confidential_vm_id: ConfidentialVmId,
     confidential_hart_id: usize,
+    allowed_external_interrupts: usize,
+    stimecmp: usize,
     hvip: usize,
 }
 
@@ -19,6 +21,8 @@ impl RunConfidentialHart {
         Self {
             confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)),
             confidential_hart_id: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
+            allowed_external_interrupts: 0,
+            stimecmp: hypervisor_hart.csrs().stimecmp.read(),
             hvip: hypervisor_hart.csrs().hvip.read(),
         }
     }
@@ -26,7 +30,7 @@ impl RunConfidentialHart {
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
             Ok((allowed_external_interrupts, confidential_flow)) => {
-                self.hvip &= allowed_external_interrupts;
+                self.allowed_external_interrupts = allowed_external_interrupts;
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
@@ -43,6 +47,13 @@ impl RunConfidentialHart {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        confidential_hart.csrs_mut().hvip.save_value(self.hvip);
+        // Guard against stepping attacks by adding random delay to the timer
+        let delay = 10; // TODO: generate random number
+
+        // We write directly to the CSR because we are after the heavy context switch
+        confidential_hart.csrs_mut().stimecmp.set(self.stimecmp + delay);
+
+        // Inject external interrupts
+        confidential_hart.csrs_mut().hvip.save_value(self.hvip & self.allowed_external_interrupts);
     }
 }
