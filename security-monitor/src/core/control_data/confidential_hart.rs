@@ -180,7 +180,7 @@ impl ConfidentialHart {
             self.csrs().fflags.restore_from_main_memory();
             self.csrs().frm.restore_from_main_memory();
             self.csrs().fcsr.restore_from_main_memory();
-            self.confidential_hart_state.fprs().restore_from_main_memory();
+            self.confidential_hart_state.fprs_mut().restore_from_main_memory();
         }
     }
 

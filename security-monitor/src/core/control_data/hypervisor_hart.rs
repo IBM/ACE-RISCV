@@ -49,7 +49,7 @@ impl HypervisorHart {
     }
 
     /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
-    pub fn restore_from_main_memory(&self) {
+    pub fn restore_from_main_memory(&mut self) {
         self.csrs().restore_from_main_memory();
 
         if Configuration::is_extension_supported(IsaOptionalExtension::FloatingPointExtension) {
@@ -57,7 +57,7 @@ impl HypervisorHart {
             self.csrs().fflags.restore_from_main_memory();
             self.csrs().frm.restore_from_main_memory();
             self.csrs().fcsr.restore_from_main_memory();
-            self.hypervisor_hart_state.fprs().restore_from_main_memory();
+            self.hypervisor_hart_state.fprs_mut().restore_from_main_memory();
         }
     }
 

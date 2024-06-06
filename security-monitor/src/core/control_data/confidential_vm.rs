@@ -130,7 +130,7 @@ impl ConfidentialVm {
         self.confidential_harts[confidential_hart_id].save_in_main_memory();
 
         // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
-        hardware_hart.hypervisor_hart().restore_from_main_memory();
+        hardware_hart.hypervisor_hart_mut().restore_from_main_memory();
 
         // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
         // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
