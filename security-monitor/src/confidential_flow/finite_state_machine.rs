@@ -107,12 +107,13 @@ impl<'a> ConfidentialFlow<'a> {
     /// hart, i.e., the confidential hart does not exist or it has been already assigned another physical hart.
     pub fn enter_from_non_confidential_flow(
         hardware_hart: &'a mut HardwareHart, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
-    ) -> Result<Self, (&'a mut HardwareHart, Error)> {
+    ) -> Result<(usize, Self), (&'a mut HardwareHart, Error)> {
         assert!(hardware_hart.confidential_hart().is_dummy());
         match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
-            confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)
+            confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
+            Ok(confidential_vm.allowed_external_interrupts())
         }) {
-            Ok(_) => Ok(Self { hardware_hart }),
+            Ok(allowed_external_interrupts) => Ok((allowed_external_interrupts, Self { hardware_hart })),
             Err(error) => Err((hardware_hart, error)),
         }
     }
@@ -166,7 +167,7 @@ impl<'a> ConfidentialFlow<'a> {
             DeclassifyToConfidentialVm::SbiResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioLoadResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
             DeclassifyToConfidentialVm::MmioStoreResponse(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
-            DeclassifyToConfidentialVm::SetTimer(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
+            DeclassifyToConfidentialVm::Resume(v) => v.declassify_to_confidential_hart(self.confidential_hart_mut()),
         }
         self
     }

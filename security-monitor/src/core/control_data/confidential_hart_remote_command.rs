@@ -6,7 +6,6 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     Ipi, RemoteFenceI, RemoteHfenceGvmaVmid, RemoteSfenceVma, RemoteSfenceVmaAsid,
 };
 use crate::core::control_data::ConfidentialHart;
-use crate::non_confidential_flow::handlers::cove_interrupt_extension::InjectExternalInterrupt;
 
 /// Represents a command that must be executed on a confidential hart. Typically this is an inter hart request that was sent from one
 /// confidential hart (sender) to another confidential hart (receiver), both sender and receiver belong to the same confidential VM.
@@ -22,7 +21,6 @@ pub enum ConfidentialHartRemoteCommand {
     RemoteSfenceVmaAsid(RemoteSfenceVmaAsid),
     RemoteHfenceGvmaVmid(RemoteHfenceGvmaVmid),
     ShutdownRequest(ShutdownRequest),
-    ExternalInterrupt(InjectExternalInterrupt),
 }
 
 impl ConfidentialHartRemoteCommand {
@@ -34,7 +32,6 @@ impl ConfidentialHartRemoteCommand {
             Self::RemoteSfenceVmaAsid(v) => v.is_hart_selected(confidential_hart_id),
             Self::RemoteHfenceGvmaVmid(v) => v.is_hart_selected(confidential_hart_id),
             Self::ShutdownRequest(v) => v.is_hart_selected(confidential_hart_id),
-            Self::ExternalInterrupt(v) => v.is_hart_selected(confidential_hart_id),
         }
     }
 }

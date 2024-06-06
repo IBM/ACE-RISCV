@@ -10,5 +10,5 @@ pub enum DeclassifyToConfidentialVm {
     SbiResponse(SbiResponse),
     MmioLoadResponse(MmioLoadResponse),
     MmioStoreResponse(MmioStoreResponse),
-    SetTimer(RunConfidentialHart),
+    Resume(RunConfidentialHart),
 }

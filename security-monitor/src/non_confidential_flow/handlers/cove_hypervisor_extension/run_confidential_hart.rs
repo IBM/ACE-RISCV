@@ -11,7 +11,9 @@ use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 pub struct RunConfidentialHart {
     confidential_vm_id: ConfidentialVmId,
     confidential_hart_id: usize,
+    allowed_external_interrupts: usize,
     stimecmp: usize,
+    hvip: usize,
 }
 
 impl RunConfidentialHart {
@@ -19,15 +21,20 @@ impl RunConfidentialHart {
         Self {
             confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)),
             confidential_hart_id: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
+            allowed_external_interrupts: 0,
             stimecmp: hypervisor_hart.csrs().stimecmp.read(),
+            hvip: hypervisor_hart.csrs().hvip.read(),
         }
     }
 
-    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
+    pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
-            Ok(confidential_flow) => confidential_flow
-                .declassify_to_confidential_hart(DeclassifyToConfidentialVm::SetTimer(self))
-                .resume_confidential_hart_execution(),
+            Ok((allowed_external_interrupts, confidential_flow)) => {
+                self.allowed_external_interrupts = allowed_external_interrupts;
+                confidential_flow
+                    .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
+                    .resume_confidential_hart_execution()
+            }
             Err((non_confidential_flow, error)) => {
                 // Properly implemented hypervisor should never let us enter this code. Entering this code means that the
                 // transition into confidential flow failed. This might indicate an error in the hypervisor implementation
@@ -45,5 +52,8 @@ impl RunConfidentialHart {
 
         // We write directly to the CSR because we are after the heavy context switch
         confidential_hart.csrs_mut().stimecmp.write(self.stimecmp + delay);
+
+        // Inject external interrupts
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
     }
 }
