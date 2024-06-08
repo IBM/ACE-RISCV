@@ -42,6 +42,7 @@ impl SharePageRequest {
 
     fn share_page_sbi_request(&self) -> Result<SbiRequest, Error> {
         ensure!(self.address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
+        ensure!(self.size == SharedPage::SIZE.in_bytes(), Error::InvalidParameter())?;
         Ok(SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_SHARE_MEMORY, self.address.usize(), self.size))
     }
 }
