@@ -43,6 +43,7 @@ impl UnsharePageRequest {
 
     fn unmap_shared_page(&self, confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
         ensure!(self.address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
+        ensure!(self.size == SharedPage::SIZE.in_bytes(), Error::InvalidParameter())?;
 
         ControlData::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             let unmapped_page_size = confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
