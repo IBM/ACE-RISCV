@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::fence::fence_wo;
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::{PageSize, CSR};
+use crate::core::architecture::{IsaExtension, PageSize, CSR};
 use crate::core::configuration::Configuration;
 use crate::core::control_data::{ControlDataStorage, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
@@ -88,17 +88,25 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    // Assumption: all harts in the system can run the security monitor and everyone hart implements all required features
+    // All harts in the system can run the security monitor and every hart must implement all required features
     for (hart_id, hart) in fdt.harts().enumerate() {
-        // example riscv,isa value: rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-        ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
-        let extensions = &prop.split('_').collect::<Vec<&str>>();
-        debug!("Hart #{}: {:?}", hart_id, extensions);
-
         Configuration::check_isa_extensions(prop)?;
-        Configuration::add_optional_extensions(prop)?;
     }
+
+    // Enable support for extensions that are implemented by all harts
+    IsaExtension::all().into_iter().for_each(|ext| {
+        let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
+            // example riscv,isa value: rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
+            let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+            let extensions = &prop.split('_').collect::<Vec<&str>>();
+            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+        });
+        if is_extension_supported_by_all_harts {
+            debug!("Enabling support for extension: {:?}", ext);
+            let _ = Configuration::add_extension(ext);
+        }
+    });
 
     // TODO: make sure there are enough PMPs
 

@@ -4,8 +4,9 @@
 #![allow(unused)]
 pub use control_status_registers::{ControlStatusRegister, ControlStatusRegisters, CSR};
 pub use extensions::compressed_instructions::decode_result_register;
-pub use extensions::floating_point::FloatingPointRegisters;
-pub use extensions::IsaOptionalExtension;
+pub use extensions::floating_point_unit::FloatingPointUnit;
+pub use extensions::supervisor_timer_extension::SupervisorTimerExtension;
+pub use extensions::IsaExtension;
 pub use general_purpose_registers::{GeneralPurposeRegister, GeneralPurposeRegisters};
 pub use hart_architectural_state::HartArchitecturalState;
 pub use hart_lifecycle_state::HartLifecycleState;

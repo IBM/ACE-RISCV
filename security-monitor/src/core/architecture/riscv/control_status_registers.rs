@@ -37,7 +37,6 @@ pub struct ControlStatusRegisters {
     pub satp: ReadWriteRiscvCsr<CSR_SATP>,
     // S-mode Debug extension
     pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
-    pub stimecmp: ReadWriteRiscvCsr<CSR_STIMECMP>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -65,12 +64,6 @@ pub struct ControlStatusRegisters {
     pub vscause: ReadWriteRiscvCsr<CSR_VSCAUSE>,
     pub vstval: ReadWriteRiscvCsr<CSR_VSTVAL>,
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
-    // timer-related
-    pub vstimecmp: ReadWriteRiscvCsr<CSR_VSTIMECMP>,
-    // F-extension
-    pub fflags: ReadWriteRiscvCsr<CSR_FFLAGS>,
-    pub frm: ReadWriteRiscvCsr<CSR_FRM>,
-    pub fcsr: ReadWriteRiscvCsr<CSR_FCSR>,
     // V-extension
 }
 
@@ -102,7 +95,6 @@ impl ControlStatusRegisters {
             sip: ReadWriteRiscvCsr::new(),
             satp: ReadWriteRiscvCsr::new(),
             scontext: ReadWriteRiscvCsr::new(),
-            stimecmp: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
@@ -129,15 +121,8 @@ impl ControlStatusRegisters {
             vscause: ReadWriteRiscvCsr::new(),
             vstval: ReadWriteRiscvCsr::new(),
             vsatp: ReadWriteRiscvCsr::new(),
-            // timer-related
-            vstimecmp: ReadWriteRiscvCsr::new(),
-            // F-extension
-            fflags: ReadWriteRiscvCsr::new(),
-            frm: ReadWriteRiscvCsr::new(),
-            fcsr: ReadWriteRiscvCsr::new(),
             // V-extension
         };
-        csrs.vstimecmp.save_value_in_main_memory(usize::MAX - 1);
         csrs
     }
 
@@ -167,8 +152,6 @@ impl ControlStatusRegisters {
         self.satp.save_in_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.save_in_main_memory();
-        // Timer (Sstc) extension is required by the ACE architecture
-        self.stimecmp.save_in_main_memory();
         // HS-mode
         self.hstatus.save_in_main_memory();
         self.hedeleg.save_in_main_memory();
@@ -196,8 +179,6 @@ impl ControlStatusRegisters {
         self.vscause.save_in_main_memory();
         self.vstval.save_in_main_memory();
         self.vsatp.save_in_main_memory();
-        // Timer (Sstc) extension is required by the ACE architecture
-        self.vstimecmp.save_in_main_memory();
     }
 
     pub fn restore_from_main_memory(&self) {
@@ -225,8 +206,6 @@ impl ControlStatusRegisters {
         self.satp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.restore_from_main_memory();
-        // Timer (Sstc) extension is required by the ACE architecture
-        self.stimecmp.restore_from_main_memory();
         // HS-mode
         self.hstatus.restore_from_main_memory();
         self.hedeleg.restore_from_main_memory();
@@ -254,8 +233,6 @@ impl ControlStatusRegisters {
         self.vscause.restore_from_main_memory();
         self.vstval.restore_from_main_memory();
         self.vsatp.restore_from_main_memory();
-        // Timer (Sstc) extension is required by the ACE architecture
-        self.vstimecmp.restore_from_main_memory();
     }
 }
 
@@ -289,6 +266,10 @@ pub struct ReadWriteRiscvCsr<const V: u16>(usize);
 impl<const V: u16> ReadWriteRiscvCsr<V> {
     pub const fn new() -> Self {
         ReadWriteRiscvCsr(0)
+    }
+
+    pub const fn new_with_value(value: usize) -> Self {
+        ReadWriteRiscvCsr(value)
     }
 
     pub fn save_in_main_memory(&mut self) {
