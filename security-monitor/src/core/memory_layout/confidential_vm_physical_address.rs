@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct ConfidentialVmPhysicalAddress(usize);
 
 impl ConfidentialVmPhysicalAddress {

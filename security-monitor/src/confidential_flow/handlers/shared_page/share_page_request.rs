@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::architecture::{GeneralPurposeRegister, SharedPage};
-use crate::core::control_data::{ConfidentialHart, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ResumableOperation};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -31,7 +31,7 @@ impl SharePageRequest {
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match self.share_page_sbi_request() {
             Ok(sbi_request) => confidential_flow
-                .set_pending_request(PendingRequest::SharePage(self))
+                .set_resumable_operation(ResumableOperation::SharePage(self))
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(sbi_request)),
             Err(error) => {

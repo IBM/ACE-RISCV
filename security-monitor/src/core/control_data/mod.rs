@@ -9,8 +9,8 @@ pub use confidential_vm_measurement::ConfidentialVmMeasurement;
 pub use confidential_vm_mmio_region::ConfidentialVmMmioRegion;
 pub use hardware_hart::{HardwareHart, HART_STACK_ADDRESS_OFFSET};
 pub use hypervisor_hart::HypervisorHart;
-pub use pending_request::PendingRequest;
-pub use storage::{ControlData, CONTROL_DATA};
+pub use resumable_operation::ResumableOperation;
+pub use storage::ControlDataStorage;
 
 mod confidential_hart;
 mod confidential_hart_remote_command;
@@ -20,5 +20,5 @@ mod confidential_vm_measurement;
 mod confidential_vm_mmio_region;
 mod hardware_hart;
 mod hypervisor_hart;
-mod pending_request;
+mod resumable_operation;
 mod storage;

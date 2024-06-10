@@ -4,8 +4,9 @@
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::sbi::CovgExtension;
-use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ConfidentialVmMmioRegion, ControlData, PendingRequest};
+use crate::core::architecture::{GeneralPurposeRegister, PageSize};
+use crate::core::control_data::{ConfidentialHart, ConfidentialVmMmioRegion, ControlDataStorage, ResumableOperation};
+use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 pub struct RemoveMmioRegion {
@@ -22,11 +23,13 @@ impl RemoveMmioRegion {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        match ControlData::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            Ok(confidential_vm.remove_mmio_region(&ConfidentialVmMmioRegion::new(self.region_start_address, self.region_length)?))
+        match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+            ensure!(self.region_start_address % PageSize::Size4KiB.in_bytes() == 0, Error::AddressNotAligned())?;
+            ensure!(self.region_length % PageSize::Size4KiB.in_bytes() == 0, Error::AddressNotAligned())?;
+            Ok(confidential_vm.remove_mmio_region(&ConfidentialVmMmioRegion::new(self.region_start_address, self.region_length)))
         }) {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::SbiRequest())
+                .set_resumable_operation(ResumableOperation::SbiRequest())
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_remove_mmio_region())),
             Err(error) => {

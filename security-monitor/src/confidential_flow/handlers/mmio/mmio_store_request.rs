@@ -6,7 +6,7 @@ use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::specification::CAUSE_STORE_ACCESS;
 use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
-use crate::core::control_data::{ConfidentialHart, HypervisorHart, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -47,7 +47,7 @@ impl MmioStoreRequest {
 
         match self.gpr {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::MmioStore(MmioStorePending::new(self.instruction_length)))
+                .set_resumable_operation(ResumableOperation::MmioStore(MmioStorePending::new(self.instruction_length)))
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioStoreRequest(self)),
             Err(error) => {
@@ -59,8 +59,8 @@ impl MmioStoreRequest {
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         use crate::core::architecture::riscv::specification::*;
-        hypervisor_hart.csrs_mut().scause.set(self.mcause);
-        hypervisor_hart.csrs_mut().stval.set(self.mtval);
+        hypervisor_hart.csrs_mut().scause.write(self.mcause);
+        hypervisor_hart.csrs_mut().stval.write(self.mtval);
         hypervisor_hart.shared_memory_mut().write_gpr(*self.gpr.as_ref().unwrap_or(&GeneralPurposeRegister::zero), self.gpr_value);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), self.mtinst);

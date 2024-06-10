@@ -3,19 +3,22 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::specification::SR_FS;
-use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState};
+use crate::core::architecture::specification::SR_FS_DIRTY;
+use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, IsaOptionalExtension};
+use crate::core::configuration::Configuration;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::error::Error;
 
-/// Represents a state of the hypervisor hart at the time the hypervisor called the security monitor.
+/// Represents a state of the hypervisor hart at the time the hypervisor trapped in the security monitor.
 #[repr(C)]
 pub struct HypervisorHart {
-    // Safety: HypervisorHart and ConfidentialHart must both start with the HartArchitecturalState element
-    // because based on this we automatically calculate offsets of registers' and CSRs' for the asm code.
+    // Safety: HypervisorHart and ConfidentialHart must both start with the HartArchitecturalState element because based on this we
+    // automatically calculate offsets of registers' and CSRs' for the asm code.
     hypervisor_hart_state: HartArchitecturalState,
     // Shared memory between the hypervisor and confidential hart is located in non-confidential memory (owned by the hypervisor).
-    // Hypervisor sets this shared memory before creating any confidential VM.
+    // Hypervisor sets this shared memory before creating any confidential VM. This shared memory is used to pass data/arguments of calls
+    // to the security monitor (COVH) or to the hypervisor (COVG).
     shared_memory: NaclSharedMemory,
     // Memory protector that configures the hardware memory isolation component to allow only memory accesses
     // to the memory region owned by the hypervisor.
@@ -34,21 +37,27 @@ impl HypervisorHart {
     /// Saves the state of the hypervisor hart in the main memory. This is part of the heavy context switch.
     pub fn save_in_main_memory(&mut self) {
         self.csrs_mut().save_in_main_memory();
-        if (self.csrs().mstatus.read() & SR_FS) > 0 {
-            self.csrs_mut().fflags.save();
-            self.csrs_mut().frm.save();
-            self.csrs_mut().fcsr.save();
-            self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+
+        if Configuration::is_extension_supported(IsaOptionalExtension::FloatingPointExtension) {
+            if (self.csrs().mstatus.read() & (SR_FS_DIRTY | SR_FS)) > 0 {
+                self.csrs_mut().fflags.save_in_main_memory();
+                self.csrs_mut().frm.save_in_main_memory();
+                self.csrs_mut().fcsr.save_in_main_memory();
+                self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+            }
         }
     }
 
     /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
-    pub fn restore_from_main_memory(&self) {
-        // TODO: currently we might leak F state. Regardless of the configuration, we must always restore F state it, or zeroize it if the F
-        // extension is disabled.
+    pub fn restore_from_main_memory(&mut self) {
         self.csrs().restore_from_main_memory();
-        if (self.csrs().mstatus.read() & SR_FS) > 0 {
-            self.hypervisor_hart_state.fprs().restore_from_main_memory();
+
+        if Configuration::is_extension_supported(IsaOptionalExtension::FloatingPointExtension) {
+            self.csrs().mstatus.read_and_set_bits(SR_FS);
+            self.csrs().fflags.restore_from_main_memory();
+            self.csrs().frm.restore_from_main_memory();
+            self.csrs().fcsr.restore_from_main_memory();
+            self.hypervisor_hart_state.fprs_mut().restore_from_main_memory();
         }
     }
 
@@ -57,7 +66,7 @@ impl HypervisorHart {
     }
 
     pub unsafe fn enable_hypervisor_memory_protector(&self) {
-        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_value())
+        self.hypervisor_memory_protector.enable(self.csrs().hgatp.read_from_main_memory())
     }
 
     pub fn address(&self) -> usize {

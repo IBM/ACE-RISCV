@@ -29,15 +29,13 @@ impl SbiResponse {
     pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         confidential_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
         confidential_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
-        let new_mepc = confidential_hart.csrs().mepc.read_value() + ECALL_INSTRUCTION_LENGTH;
-        confidential_hart.csrs_mut().mepc.save_value(new_mepc);
+        confidential_hart.csrs_mut().mepc.add(ECALL_INSTRUCTION_LENGTH);
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.a0);
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.a1);
-        let new_mepc = hypervisor_hart.csrs().mepc.read_value() + ECALL_INSTRUCTION_LENGTH;
-        hypervisor_hart.csrs_mut().mepc.save_value(new_mepc);
+        hypervisor_hart.csrs_mut().mepc.add(ECALL_INSTRUCTION_LENGTH);
     }
 
     pub fn success() -> Self {

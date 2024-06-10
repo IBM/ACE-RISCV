@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::HsmExtension;
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ControlData, PendingRequest};
+use crate::core::control_data::{ConfidentialHart, ControlDataStorage, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
 /// Handles a request to start a remote confidential hart. This is an implementation of the HartStart function from the HSM extension of
@@ -34,11 +34,11 @@ impl SbiHsmHartStart {
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
-        match ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
             confidential_vm.start_confidential_hart(self.confidential_hart_id, self.start_address, self.opaque)
         }) {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::SbiRequest())
+                .set_resumable_operation(ResumableOperation::SbiRequest())
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_kvm_hsm_hart_start())),
             Err(error) => {

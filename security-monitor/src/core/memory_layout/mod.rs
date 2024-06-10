@@ -14,8 +14,6 @@ mod confidential_memory_address;
 mod confidential_vm_physical_address;
 mod non_confidential_memory_address;
 
-const NOT_INITIALIZED_MEMORY_LAYOUT: &str = "Bug. Could not access MemoryLayout because is has not been initialized";
-
 /// MEMORY_LAYOUT is a static variable (private to this module) that is set during the system boot and never changes
 /// later -- this is guaranteed by Once<>. It stores an instance of the `MemoryLayout`. The only way to get a shared
 /// access to this instance is by calling `MemoryLayout::read()` function.
@@ -39,6 +37,8 @@ unsafe impl Send for MemoryLayout {}
 unsafe impl Sync for MemoryLayout {}
 
 impl MemoryLayout {
+    const NOT_INITIALIZED_MEMORY_LAYOUT: &'static str = "Bug. Could not access MemoryLayout because is has not been initialized";
+
     /// Constructs the `MemoryLayout` where the confidential memory is within the memory range defined by
     /// `confidential_memory_start` and `confidential_memory_end`. Returns the `MemoryLayout` and the first alligned
     /// address in the confidential memory.
@@ -129,7 +129,7 @@ impl MemoryLayout {
     }
 
     pub fn read() -> &'static MemoryLayout {
-        MEMORY_LAYOUT.get().expect(NOT_INITIALIZED_MEMORY_LAYOUT)
+        MEMORY_LAYOUT.get().expect(Self::NOT_INITIALIZED_MEMORY_LAYOUT)
     }
 
     pub fn confidential_memory_boundary(&self) -> (usize, usize) {

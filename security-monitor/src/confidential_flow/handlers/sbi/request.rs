@@ -19,7 +19,7 @@ impl SbiRequest {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        hypervisor_hart.csrs_mut().scause.set(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
+        hypervisor_hart.csrs_mut().scause.write(CAUSE_VIRTUAL_SUPERVISOR_ECALL.into());
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a7, self.extension_id);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a6, self.function_id);
         hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a0, self.a0);

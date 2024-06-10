@@ -51,9 +51,9 @@ impl RunConfidentialHart {
         let delay = 10; // TODO: generate random number
 
         // We write directly to the CSR because we are after the heavy context switch
-        confidential_hart.csrs_mut().stimecmp.set(self.stimecmp + delay);
+        confidential_hart.csrs_mut().stimecmp.write(self.stimecmp + delay);
 
         // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value(self.hvip & self.allowed_external_interrupts);
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
     }
 }

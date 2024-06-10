@@ -36,6 +36,8 @@ pub enum HartLifecycleState {
 }
 
 impl HartLifecycleState {
+    pub const STATES_ALLOWED_TO_EXECUTE: [HartLifecycleState; 2] = [HartLifecycleState::Started, HartLifecycleState::Suspended];
+
     /// Returns the HSM state id, which is a number assigned to a specific state defined by the SBI HSM extension specification.
     pub fn sbi_code(&self) -> usize {
         match self {

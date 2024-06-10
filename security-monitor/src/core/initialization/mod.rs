@@ -2,9 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::fence::fence_wo;
-use crate::core::architecture::riscv::specification::MTVEC_BASE_SHIFT;
+use crate::core::architecture::riscv::specification::*;
 use crate::core::architecture::{PageSize, CSR};
-use crate::core::control_data::{ControlData, HardwareHart, CONTROL_DATA};
+use crate::core::configuration::Configuration;
+use crate::core::control_data::{ControlDataStorage, HardwareHart};
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::HypervisorMemoryProtector;
@@ -14,7 +15,9 @@ use alloc::vec::Vec;
 use core::mem::size_of;
 use flattened_device_tree::FlattenedDeviceTree;
 use pointers_utility::ptr_byte_add_mut;
-use spin::{Mutex, Once, RwLock};
+use spin::{Mutex, Once};
+
+const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
 
 extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
@@ -64,9 +67,14 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
     // Creates page tokens, heap, page allocator
     initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
 
+    // From now on, we can use heap.
+
+    Configuration::initialize()?;
+
+    // make sure harts implement all required extension
     let number_of_harts = verify_harts(&fdt)?;
 
-    // Prepares memory required to store physical hart state
+    // Prepares memory required to store physical harts states during context switches
     prepare_harts(number_of_harts)?;
 
     // TODO: lock access to attestation keys/seed/credentials.
@@ -80,18 +88,16 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    // TODO: check for SSTC_EXTENSION, IFENCEI_EXTENSION
-    use crate::core::architecture::riscv::specification::*;
-    let required_extensions = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
-    // Assumption: all harts in the system can run the security monitor
-    // and thus we expect that everyone hart implements all required features
+    // Assumption: all harts in the system can run the security monitor and everyone hart implements all required features
     for (hart_id, hart) in fdt.harts().enumerate() {
         // example riscv,isa value: rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
-        let isa = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-        let extensions = &isa.split('_').next().unwrap_or(&"")[RISCV_ARCH.len()..];
-        debug!("Hart #{}: {:?}", hart_id, isa);
-        ensure!(isa.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
-        required_extensions.into_iter().try_for_each(|ext| ensure!(extensions.contains(*ext), Error::MissingCpuExtension()))?;
+        let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+        ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
+        let extensions = &prop.split('_').collect::<Vec<&str>>();
+        debug!("Hart #{}: {:?}", hart_id, extensions);
+
+        Configuration::check_isa_extensions(prop)?;
+        Configuration::add_optional_extensions(prop)?;
     }
 
     // TODO: make sure there are enough PMPs
@@ -105,7 +111,7 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
 fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
     // TODO: FDT may contain multiple regions. For now, we assume there is only one region in the FDT.
     // This assumption is fine for the emulated environment (QEMU).
-    //
+
     // Information read from FDT is trusted assuming we are executing as part of a measured and secure boot. So we trust that we read the
     // correct base and size of the memory.
     let fdt_memory_region = fdt.memory()?;
@@ -118,18 +124,18 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     let confidential_memory_size = non_confidential_memory_size;
     let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
-    debug!("Memory {:#?}-{:#?}", memory_start, memory_end);
+    debug!("Memory                      {:#?}-{:#?}", memory_start, memory_end);
 
     // First region of memory is defined as non-confidential memory
     let non_confidential_memory_start = memory_start;
     let non_confidential_memory_end = ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
         .map_err(|_| Error::InvalidMemoryBoundary())?;
-    debug!("Non-confidential memory {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
+    debug!("Non-confidential memory     {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
 
     // Second region of memory is defined as confidential memory
     let confidential_memory_start = non_confidential_memory_end;
     let confidential_memory_end = memory_end;
-    debug!("Confidential memory {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
+    debug!("Confidential memory         {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
 
     let (confidential_memory_address_start, confidential_memory_address_end) = unsafe {
         MemoryLayout::init(non_confidential_memory_start, non_confidential_memory_end, confidential_memory_start, confidential_memory_end)
@@ -144,7 +150,6 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
 fn initalize_security_monitor_state(
     confidential_memory_start: ConfidentialMemoryAddress, confidential_memory_end: *const usize,
 ) -> Result<(), Error> {
-    const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
     // Safety: initialization order is crucial for safety because at some point we
     // start allocating objects on heap, e.g., page tokens. We have to first
     // initialize the global allocator, which permits us to use heap. To initialize heap
@@ -173,9 +178,8 @@ fn initalize_security_monitor_state(
     // It is safe to construct the PageAllocator because we own the corresponding memory region and pass this
     // ownership to the PageAllocator.
     unsafe { PageAllocator::initialize(page_allocator_start_address, page_allocator_end_address)? };
-    unsafe { InterruptController::initialize()? };
-
-    CONTROL_DATA.call_once(|| RwLock::new(ControlData::new()));
+    InterruptController::initialize()?;
+    ControlDataStorage::initialize()?;
 
     Ok(())
 }
@@ -186,7 +190,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
-        debug!("Hart[{}] stack {:x}-{:x}", hart_id, stack.start_address(), stack.end_address());
+        debug!("Hart[{}] stack \t 0x{:x}-0x{:x}", hart_id, stack.start_address(), stack.end_address());
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
@@ -219,18 +223,19 @@ extern "C" fn ace_setup_this_hart() {
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
     hart.swap_mscratch();
     let hart_address = hart.hypervisor_hart().address();
-    hart.hypervisor_hart_mut().csrs_mut().mscratch.set(hart_address);
-    debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart.hypervisor_hart().csrs().mscratch.read());
+    hart.hypervisor_hart_mut().csrs_mut().mscratch.write(hart_address);
+    debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart_address);
 
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
     // the `MemoryLayout` has been already initialized by the boot hart.
     if let Err(_error) = unsafe { HypervisorMemoryProtector::setup() } {
+        // TODO: block access to attestation keys/registers on this hart?
         return;
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
     debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
-    hart.hypervisor_hart_mut().csrs_mut().mtvec.set((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
+    hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }

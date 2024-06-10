@@ -6,7 +6,7 @@ use crate::confidential_flow::handlers::shared_page::SharePageRequest;
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::RemoteHfenceGvmaVmid;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHartRemoteCommand, ControlData, HypervisorHart};
+use crate::core::control_data::{ConfidentialHartRemoteCommand, ControlDataStorage, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
 
@@ -43,7 +43,7 @@ impl SharePageComplete {
         // Security: check that the start address is located in the non-confidential memory
         let hypervisor_address = NonConfidentialMemoryAddress::new(self.hypervisor_page_address as *mut usize)?;
 
-        ControlData::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             let page_size = confidential_vm.memory_protector_mut().map_shared_page(hypervisor_address, self.request.address)?;
             let request = RemoteHfenceGvmaVmid::all_harts(&self.request.address, page_size, confidential_flow.confidential_vm_id());
             confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;

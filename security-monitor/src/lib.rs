@@ -3,22 +3,22 @@
 // SPDX-License-Identifier: Apache-2.0
 #![no_std]
 #![no_main]
-#![crate_type = "staticlib"]
-// used for meaningful panic code
-#![feature(panic_info_message)]
-// used for calculating offsets for assembly
-#![feature(asm_const)]
-// const_mut_ref for LinkedList implementation used in the heap allocator
-#![feature(const_mut_refs)]
-// #![feature(const_refs_to_cell)]
-#![feature(pointer_is_aligned)]
-// #![feature(pointer_is_aligned_to)]
-#![feature(result_option_inspect)]
-#![feature(pointer_byte_offsets)]
-// used for RefinedRust annotations
-#![feature(register_tool)]
+#![feature(
+    // used for meaningful panic code
+    panic_info_message,
+    // used for calculating offsets for assembly
+    asm_const,
+    // const_mut_ref for LinkedList implementation used in the heap allocator
+    const_mut_refs,
+    pointer_is_aligned,
+    // pointer_is_aligned_to,
+    result_option_inspect,
+    pointer_byte_offsets,
+    // used for formal verification framework (RefinedRust annotations)
+    register_tool,
+    custom_inner_attributes,
+)]
 #![register_tool(rr)]
-#![feature(custom_inner_attributes)]
 
 extern crate alloc;
 

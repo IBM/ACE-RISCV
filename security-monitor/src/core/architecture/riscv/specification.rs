@@ -8,6 +8,8 @@
 pub const RISCV_ARCH: &str = "rv64";
 pub const ATOMIC_EXTENSION: &str = "a";
 pub const HYPERVISOR_EXTENSION: &str = "h";
+pub const F_EXTENSION: &str = "f";
+pub const V_EXTENSION: &str = "v";
 pub const SSTC_EXTENSION: &str = "sstc";
 pub const IFENCEI_EXTENSION: &str = "zifencei";
 pub const FDT_RISCV_ISA: &str = "riscv,isa";

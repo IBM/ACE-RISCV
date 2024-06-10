@@ -51,8 +51,8 @@ impl DelegateToOpensbi {
                 t4: hypervisor_hart.gprs().read(GeneralPurposeRegister::t4).try_into().unwrap_or(0),
                 t5: hypervisor_hart.gprs().read(GeneralPurposeRegister::t5).try_into().unwrap_or(0),
                 t6: hypervisor_hart.gprs().read(GeneralPurposeRegister::t6).try_into().unwrap_or(0),
-                mepc: hypervisor_hart.csrs().mepc.read_value().try_into().unwrap_or(0),
-                mstatus: hypervisor_hart.csrs().mstatus.read_value().try_into().unwrap_or(0),
+                mepc: hypervisor_hart.csrs().mepc.read_from_main_memory().try_into().unwrap_or(0),
+                mstatus: hypervisor_hart.csrs().mstatus.read_from_main_memory().try_into().unwrap_or(0),
                 // TODO: mstatusH exists only in rv32. Adjust this in case we want to support rv32
                 mstatusH: 0,
             },
@@ -73,7 +73,7 @@ impl DelegateToOpensbi {
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.trap_regs.a0.try_into().unwrap());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.trap_regs.a1.try_into().unwrap());
-        hypervisor_hart.csrs_mut().mstatus.save_value(self.trap_regs.mstatus.try_into().unwrap());
-        hypervisor_hart.csrs_mut().mepc.save_value(self.trap_regs.mepc.try_into().unwrap());
+        hypervisor_hart.csrs_mut().mstatus.save_value_in_main_memory(self.trap_regs.mstatus.try_into().unwrap());
+        hypervisor_hart.csrs_mut().mepc.save_value_in_main_memory(self.trap_regs.mepc.try_into().unwrap());
     }
 }

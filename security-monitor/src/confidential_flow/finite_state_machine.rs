@@ -27,7 +27,7 @@ use crate::core::architecture::riscv::sbi::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlData, HardwareHart, HypervisorHart, PendingRequest,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart, ResumableOperation,
 };
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
@@ -52,8 +52,8 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
-    const DUMMY_HART_ERROR_MSG: &'static str = "Bug: found dummy hart instead of a confidential hart";
+    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: Invalid argument provided by the assembly context switch";
+    const DUMMY_HART_ERROR_MSG: &'static str = "Bug: Found dummy hart instead of a confidential hart";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
     /// the security monitor from the assembly context switch.
@@ -109,7 +109,7 @@ impl<'a> ConfidentialFlow<'a> {
         hardware_hart: &'a mut HardwareHart, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
     ) -> Result<(usize, Self), (&'a mut HardwareHart, Error)> {
         assert!(hardware_hart.confidential_hart().is_dummy());
-        match ControlData::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
             confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
             Ok(confidential_vm.allowed_external_interrupts())
         }) {
@@ -125,7 +125,8 @@ impl<'a> ConfidentialFlow<'a> {
         let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
 
-        ControlData::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+            // Run heavy context switch when giving back the confidential hart to the confidential VM.
             confidential_vm.return_confidential_hart(self.hardware_hart);
             Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier))
         })
@@ -138,7 +139,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// This is an entry point to the confidential flow from the non-confidential flow.
     pub fn resume_confidential_hart_execution(mut self) -> ! {
         // During the time when this confidential hart was not running, other confidential harts could have sent it
-        // ConfidentialHartRemoteCommands. We must process them before resuming confidential hart's execution.
+        // `remote commands`. We must process them before resuming confidential hart's execution.
         self.process_confidential_hart_remote_commands();
 
         // It might have happened, that this confidential hart has been shutdown when processing an IPI. I.e., there was
@@ -149,9 +150,9 @@ impl<'a> ConfidentialFlow<'a> {
         }
 
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
-        // load) to the hypervisor. We must now handle the response. Otherwise we just resume confidential hart's execution.
-        use crate::core::control_data::PendingRequest::*;
-        match self.confidential_hart_mut().take_request() {
+        // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
+        use crate::core::control_data::ResumableOperation::*;
+        match self.confidential_hart_mut().take_resumable_operation() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
             Some(ResumeHart(v)) => v.handle(self),
             Some(MmioLoad(v)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
@@ -190,10 +191,11 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts = self.confidential_hart().csrs().hvip.read_value() | self.confidential_hart().csrs().vsip.read_value();
+        let interrupts =
+            self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vsip.read_from_main_memory();
         let address = self.confidential_hart_mut().address();
-        self.confidential_hart().csrs().hvip.set(interrupts);
-        self.confidential_hart().csrs().sscratch.set(address);
+        self.confidential_hart().csrs().hvip.write(interrupts);
+        self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }
 }
@@ -203,7 +205,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
     pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
-        ControlData::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
             // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
             // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
             // that knows the original value of the mscratch expected by OpenSBI.
@@ -221,7 +223,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// This function must only be called when the hypervisor requested resume of confidential hart's execution or when
     /// a hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
     fn process_confidential_hart_remote_commands(&mut self) {
-        ControlData::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
@@ -269,10 +271,8 @@ impl<'a> ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    pub fn set_pending_request(mut self, request: PendingRequest) -> Self {
-        if let Err(error) = self.confidential_hart_mut().set_pending_request(request) {
-            self.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)));
-        }
+    pub fn set_resumable_operation(mut self, request: ResumableOperation) -> Self {
+        self.confidential_hart_mut().set_resumable_operation(request);
         self
     }
 

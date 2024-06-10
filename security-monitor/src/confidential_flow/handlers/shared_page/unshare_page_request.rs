@@ -6,7 +6,9 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::RemoteHfenc
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::architecture::{GeneralPurposeRegister, SharedPage};
-use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlData, PendingRequest};
+use crate::core::control_data::{
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlDataStorage, ResumableOperation,
+};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -28,7 +30,7 @@ impl UnsharePageRequest {
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         match self.unmap_shared_page(confidential_flow.confidential_vm_id()) {
             Ok(_) => confidential_flow
-                .set_pending_request(PendingRequest::SbiRequest())
+                .set_resumable_operation(ResumableOperation::SbiRequest())
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.unshare_page_sbi_request())),
             Err(error) => {
@@ -45,7 +47,7 @@ impl UnsharePageRequest {
         ensure!(self.address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
         ensure!(self.size == SharedPage::SIZE.in_bytes(), Error::InvalidParameter())?;
 
-        ControlData::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             let unmapped_page_size = confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
             let request = RemoteHfenceGvmaVmid::all_harts(&self.address, unmapped_page_size, confidential_vm_id);
             confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;

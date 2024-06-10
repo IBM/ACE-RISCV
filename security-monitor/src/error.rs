@@ -93,8 +93,6 @@ pub enum Error {
     OutOfMemory(),
     #[error("Not enough memory to allocate a page")]
     OutOfPages(),
-    #[error("There is a pending request")]
-    PendingRequest(),
     #[error("Reached max number of remote hart requests")]
     ReachedMaxNumberOfRemoteHartRequests(),
     #[error("Reached max number of registered MMIO regions")]
