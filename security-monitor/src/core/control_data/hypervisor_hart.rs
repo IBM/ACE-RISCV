@@ -5,9 +5,9 @@ use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::specification::SR_FS;
 use crate::core::architecture::specification::SR_FS_DIRTY;
 use crate::core::architecture::{
-    ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, IsaExtension, SupervisorTimerExtension,
+    ControlStatusRegisters, GeneralPurposeRegisters, HardwareExtension, HartArchitecturalState, SupervisorTimerExtension,
 };
-use crate::core::configuration::Configuration;
+use crate::core::hardware_setup::HardwareSetup;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::error::Error;
@@ -44,7 +44,7 @@ impl HypervisorHart {
             self.sstc_mut().save_in_main_memory();
         }
 
-        if Configuration::is_extension_supported(IsaExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             if (self.csrs().mstatus.read() & (SR_FS_DIRTY | SR_FS)) > 0 {
                 // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
                 unsafe {
@@ -60,7 +60,7 @@ impl HypervisorHart {
         // below unsafe is ok because we ensured during the initialization that Sstc extension is present.
         unsafe { self.sstc().restore_from_main_memory() };
 
-        if Configuration::is_extension_supported(IsaExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             self.csrs().mstatus.read_and_set_bits(SR_FS);
             // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
             unsafe { self.hypervisor_hart_state.fprs_mut().restore_from_main_memory() };

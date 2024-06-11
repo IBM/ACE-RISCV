@@ -35,8 +35,8 @@ pub struct ControlStatusRegisters {
     pub stval: ReadWriteRiscvCsr<CSR_STVAL>,
     pub sip: ReadWriteRiscvCsr<CSR_SIP>,
     pub satp: ReadWriteRiscvCsr<CSR_SATP>,
-    // S-mode Debug extension
-    pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
+    // S-mode Debug extension should never be present due to security concerns
+    // pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -64,7 +64,6 @@ pub struct ControlStatusRegisters {
     pub vscause: ReadWriteRiscvCsr<CSR_VSCAUSE>,
     pub vstval: ReadWriteRiscvCsr<CSR_VSTVAL>,
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
-    // V-extension
 }
 
 impl ControlStatusRegisters {
@@ -94,7 +93,7 @@ impl ControlStatusRegisters {
             stval: ReadWriteRiscvCsr::new(),
             sip: ReadWriteRiscvCsr::new(),
             satp: ReadWriteRiscvCsr::new(),
-            scontext: ReadWriteRiscvCsr::new(),
+            // scontext: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
@@ -121,7 +120,6 @@ impl ControlStatusRegisters {
             vscause: ReadWriteRiscvCsr::new(),
             vstval: ReadWriteRiscvCsr::new(),
             vsatp: ReadWriteRiscvCsr::new(),
-            // V-extension
         };
         csrs
     }

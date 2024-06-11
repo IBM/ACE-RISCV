@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::riscv::sbi::cove::{SecurityMonitorInfo, SecurityMonitorState};
+use crate::core::architecture::riscv::sbi::{SecurityMonitorInfo, SecurityMonitorState};
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialVm, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;

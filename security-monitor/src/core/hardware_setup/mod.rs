@@ -2,26 +2,26 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::IsaExtension;
+use crate::core::architecture::HardwareExtension;
 use crate::error::Error;
 use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-static CONFIGURATION: Once<RwLock<Configuration>> = Once::new();
+static HARDWARE_SETUP: Once<RwLock<HardwareSetup>> = Once::new();
 
-pub struct Configuration {
-    isa_extensions: Vec<IsaExtension>,
+pub struct HardwareSetup {
+    isa_extensions: Vec<HardwareExtension>,
 }
 
-impl Configuration {
-    const NOT_INITIALIZED: &'static str = "Bug: Configuration not initialized";
+impl HardwareSetup {
+    const NOT_INITIALIZED: &'static str = "Bug: Hardware configuration setup not initialized";
     const REQUIRED_BASE_EXTENSIONS: &'static [&'static str] = &[ATOMIC_EXTENSION, HYPERVISOR_EXTENSION];
     const REQUIRED_EXTENSIONS: &'static [&'static str] = &[SSTC_EXTENSION, IFENCEI_EXTENSION];
 
     pub fn initialize() -> Result<(), Error> {
-        let configuration = Self { isa_extensions: Vec::new() };
-        ensure_not!(CONFIGURATION.is_completed(), Error::Reinitialization())?;
-        CONFIGURATION.call_once(|| RwLock::new(configuration));
+        let hardware_setup = Self { isa_extensions: Vec::new() };
+        ensure_not!(HARDWARE_SETUP.is_completed(), Error::Reinitialization())?;
+        HARDWARE_SETUP.call_once(|| RwLock::new(hardware_setup));
         Ok(())
     }
 
@@ -38,21 +38,21 @@ impl Configuration {
         Ok(())
     }
 
-    pub fn add_extension(extension: IsaExtension) -> Result<(), Error> {
-        Self::try_write(|configuration| Ok(configuration.isa_extensions.push(extension)))
+    pub fn add_extension(extension: HardwareExtension) -> Result<(), Error> {
+        Self::try_write(|hardware_setup| Ok(hardware_setup.isa_extensions.push(extension)))
     }
 
-    pub fn is_extension_supported(extension: IsaExtension) -> bool {
-        Self::try_read(|configuration| Ok(configuration.isa_extensions.contains(&extension))).unwrap_or(false)
+    pub fn is_extension_supported(extension: HardwareExtension) -> bool {
+        Self::try_read(|hardware_setup| Ok(hardware_setup.isa_extensions.contains(&extension))).unwrap_or(false)
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>
-    where O: FnOnce(&RwLockReadGuard<'_, Configuration>) -> Result<F, Error> {
-        op(&CONFIGURATION.get().expect(Self::NOT_INITIALIZED).read())
+    where O: FnOnce(&RwLockReadGuard<'_, Self>) -> Result<F, Error> {
+        op(&HARDWARE_SETUP.get().expect(Self::NOT_INITIALIZED).read())
     }
 
     fn try_write<F, O>(op: O) -> Result<F, Error>
-    where O: FnOnce(&mut RwLockWriteGuard<'static, Configuration>) -> Result<F, Error> {
-        op(&mut CONFIGURATION.get().expect(Self::NOT_INITIALIZED).write())
+    where O: FnOnce(&mut RwLockWriteGuard<'static, Self>) -> Result<F, Error> {
+        op(&mut HARDWARE_SETUP.get().expect(Self::NOT_INITIALIZED).write())
     }
 }

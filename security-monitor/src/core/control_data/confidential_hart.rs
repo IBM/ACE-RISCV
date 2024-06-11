@@ -4,12 +4,12 @@
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::specification::*;
 use crate::core::architecture::{
-    ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HartArchitecturalState, HartLifecycleState, IsaExtension,
+    ControlStatusRegisters, GeneralPurposeRegister, GeneralPurposeRegisters, HardwareExtension, HartArchitecturalState, HartLifecycleState,
     SupervisorTimerExtension,
 };
-use crate::core::configuration::Configuration;
 use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
 use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, ResumableOperation};
+use crate::core::hardware_setup::HardwareSetup;
 use crate::error::Error;
 
 extern "C" {
@@ -93,9 +93,6 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
         confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK);
-        // Set the initial timer to infinity to prevent direct trap
-        confidential_hart_state.sstc_mut().vstimecmp.save_value_in_main_memory(SupervisorTimerExtension::TIMER_INFINITY);
-        confidential_hart_state.sstc_mut().stimecmp.save_in_main_memory();
         confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);
@@ -109,7 +106,11 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().hcounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
         confidential_hart_state.csrs_mut().scounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
 
-        if Configuration::is_extension_supported(IsaExtension::FloatingPointExtension) {
+        assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
+        // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
+        confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
+
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_FS_INITIAL);
         }
 
@@ -148,9 +149,7 @@ impl ConfidentialHart {
     pub fn save_in_main_memory(&mut self) {
         self.csrs_mut().save_in_main_memory();
         // below unsafe is ok because we ensured during the initialization that Sstc extension is present.
-        unsafe {
-            self.sstc_mut().save_in_main_memory();
-        }
+        unsafe { self.sstc_mut().save_in_main_memory() };
 
         // If only hardware supports F extension, we must always switch its context.
         // One reason is time side channel (attacker can infer from the duration of the context switch whether the F registers were dirty
@@ -158,14 +157,12 @@ impl ConfidentialHart {
         // Even if it looks like F extension is disabled, a security domain might enable it and then access F registers. We must
         // guarantee that these F registers do not disclose information from other security domains. The same is true for all other
         // extensions, e.g., V extension.
-        if Configuration::is_extension_supported(IsaExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             // Enable F extension to access F registers. The lightweight context switch will eventually recover valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);
             // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
-            unsafe {
-                self.confidential_hart_state.fprs_mut().save_in_main_memory();
-            }
+            unsafe { self.confidential_hart_state.fprs_mut().save_in_main_memory() };
             self.csrs_mut().vsstatus.disable_bits_on_saved_value(SR_FS_DIRTY);
             self.csrs_mut().vsstatus.enable_bits_on_saved_value(SR_FS_CLEAN);
         }
@@ -177,7 +174,7 @@ impl ConfidentialHart {
         // below unsafe is ok because we ensured during the initialization that Sstc extension is present.
         unsafe { self.sstc().restore_from_main_memory() };
 
-        if Configuration::is_extension_supported(IsaExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             // Enable F extension to access F registers. The lightweight context switch will eventually recover valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);

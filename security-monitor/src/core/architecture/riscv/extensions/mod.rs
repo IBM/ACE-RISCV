@@ -9,13 +9,13 @@ pub mod supervisor_timer_extension;
 pub mod vector_unit;
 
 #[derive(PartialEq, Debug)]
-pub enum IsaExtension {
+pub enum HardwareExtension {
     FloatingPointExtension,
     VectorExtension,
     SupervisorTimerExtension,
 }
 
-impl IsaExtension {
+impl HardwareExtension {
     pub fn code(&self) -> &str {
         match self {
             Self::FloatingPointExtension => F_EXTENSION,
@@ -24,7 +24,7 @@ impl IsaExtension {
         }
     }
 
-    pub fn all() -> [IsaExtension; 3] {
+    pub fn all() -> [HardwareExtension; 3] {
         [Self::FloatingPointExtension, Self::VectorExtension, Self::SupervisorTimerExtension]
     }
 }

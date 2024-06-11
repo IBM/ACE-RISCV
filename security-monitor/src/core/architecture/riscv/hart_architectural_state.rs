@@ -5,13 +5,9 @@ use crate::core::architecture::riscv::extensions::supervisor_timer_extension::Su
 use crate::core::architecture::riscv::specification::*;
 use crate::core::architecture::riscv::{ControlStatusRegisters, FloatingPointUnit, GeneralPurposeRegister, GeneralPurposeRegisters};
 
-/// HartArchitecturalState is the dump state of the processor's core (hart).
-/// It might represent the state of of software executing on real hardware hart, for example, architectural state of the hypervisor's thread
-/// or confidential VM's thread.
+/// Defines the state of a processor's core (hart) when stored in main memory.
 #[repr(C)]
 pub struct HartArchitecturalState {
-    // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
-    // address in the memory. This address is used by the assembly code.
     gprs: GeneralPurposeRegisters,
     csrs: ControlStatusRegisters,
     fprs: FloatingPointUnit,
