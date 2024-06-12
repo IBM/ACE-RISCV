@@ -21,7 +21,7 @@ index 582feb1c6c8d..db4a99549cb2 100644
 +	int rc = 0;
 +	unsigned long tap_addr = 0;
 +
-+	if (strstr(boot_command_line, "promote_to_tvm")) {
++	if (strstr(boot_command_line, "promote_to_cove_guest")) {
 +		ret = sbi_ecall(SBI_EXT_COVH, SBI_EXT_COVH_PROMOTE_TO_TVM, fdt_address,
 +					tap_addr, 0, 0, 0, 0);
 +		if (ret.error) {

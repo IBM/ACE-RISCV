@@ -7,7 +7,7 @@ pub mod memory_layout;
 pub mod memory_protector;
 pub mod page_allocator;
 
-mod configuration;
+mod hardware_setup;
 mod heap_allocator;
 mod initialization;
 mod interrupt_controller;

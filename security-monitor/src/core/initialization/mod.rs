@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::fence::fence_wo;
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::{PageSize, CSR};
-use crate::core::configuration::Configuration;
+use crate::core::architecture::{HardwareExtension, PageSize, CSR};
 use crate::core::control_data::{ControlDataStorage, HardwareHart};
+use crate::core::hardware_setup::HardwareSetup;
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::HypervisorMemoryProtector;
@@ -66,12 +66,9 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 
     // Creates page tokens, heap, page allocator
     initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
-
     // From now on, we can use heap.
 
-    Configuration::initialize()?;
-
-    // make sure harts implement all required extension
+    // Make sure harts implement all required extension
     let number_of_harts = verify_harts(&fdt)?;
 
     // Prepares memory required to store physical harts states during context switches
@@ -88,24 +85,34 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// harts support extensions required by ACE. Error is returned if FDT is incorrectly structured or exist a hart that
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
-    // Assumption: all harts in the system can run the security monitor and everyone hart implements all required features
-    for (hart_id, hart) in fdt.harts().enumerate() {
-        // example riscv,isa value: rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
+    // All harts in the system can run the security monitor and every hart must implement all required features
+    fdt.harts().try_for_each(|ref hart| {
         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-        ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
-        let extensions = &prop.split('_').collect::<Vec<&str>>();
-        debug!("Hart #{}: {:?}", hart_id, extensions);
+        HardwareSetup::check_isa_extensions(prop)
+    })?;
 
-        Configuration::check_isa_extensions(prop)?;
-        Configuration::add_optional_extensions(prop)?;
-    }
+    // Enable support for extensions that are implemented by all harts
+    HardwareExtension::all().into_iter().for_each(|ext| {
+        let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
+            let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+            let extensions = &prop.split('_').collect::<Vec<&str>>();
+            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+        });
+        if is_extension_supported_by_all_harts {
+            debug!("Enabling support for extension: {:?}", ext);
+            let _ = HardwareSetup::add_extension(ext);
+        }
+    });
 
     // TODO: make sure there are enough PMPs
 
     Ok(fdt.harts().count())
 }
 
-/// Guarantees
+/// Reads the layout of physical memory from the flattened device tree (FDT), splitting it (logically) into confidential and
+/// non-confidential memory region. The FDT content is trusted.
+///
+/// # Guarantees
 ///
 /// The end of the confidential memory is not lower than the start of the confidential memory
 fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMemoryAddress, *const usize), Error> {
@@ -124,24 +131,22 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     let confidential_memory_size = non_confidential_memory_size;
     let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
-    debug!("Memory                      {:#?}-{:#?}", memory_start, memory_end);
+    debug!("Memory 0x{:#?}-0x{:#?}", memory_start, memory_end);
 
     // First region of memory is defined as non-confidential memory
     let non_confidential_memory_start = memory_start;
     let non_confidential_memory_end = ptr_byte_add_mut(non_confidential_memory_start, non_confidential_memory_size, memory_end)
         .map_err(|_| Error::InvalidMemoryBoundary())?;
-    debug!("Non-confidential memory     {:#?}-{:#?}", non_confidential_memory_start, non_confidential_memory_end);
+    debug!("Non-confidential memory 0x{:#?}-0x{:#?}", non_confidential_memory_start, non_confidential_memory_end);
 
     // Second region of memory is defined as confidential memory
     let confidential_memory_start = non_confidential_memory_end;
     let confidential_memory_end = memory_end;
-    debug!("Confidential memory         {:#?}-{:#?}", confidential_memory_start, confidential_memory_end);
+    debug!("Confidential memory 0x{:#?}-0x{:#?}", confidential_memory_start, confidential_memory_end);
 
-    let (confidential_memory_address_start, confidential_memory_address_end) = unsafe {
+    unsafe {
         MemoryLayout::init(non_confidential_memory_start, non_confidential_memory_end, confidential_memory_start, confidential_memory_end)
-    }?;
-
-    Ok((confidential_memory_address_start, confidential_memory_address_end))
+    }
 }
 
 /// This function is called only once during the initialization of the security
@@ -157,8 +162,9 @@ fn initalize_security_monitor_state(
     // into regions owned by heap allocator and page allocator.
     let confidential_memory_size = confidential_memory_start.offset_from(confidential_memory_end);
     assert!(confidential_memory_size > 0);
+
     let number_of_pages = confidential_memory_size as usize / PageSize::smallest().in_bytes();
-    // calculate if we have enough memory in the system to store page tokens. In the worst case we
+    // Calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
     let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
@@ -178,8 +184,10 @@ fn initalize_security_monitor_state(
     // It is safe to construct the PageAllocator because we own the corresponding memory region and pass this
     // ownership to the PageAllocator.
     unsafe { PageAllocator::initialize(page_allocator_start_address, page_allocator_end_address)? };
+
     InterruptController::initialize()?;
     ControlDataStorage::initialize()?;
+    HardwareSetup::initialize()?;
 
     Ok(())
 }
@@ -199,7 +207,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 }
 
 /// Enables entry points to the security monitor by taking control over some interrupts and protecting confidential
-/// memory region using hardware isolation mechanisms.
+/// memory region using hardware isolation mechanisms. This function executes on every single physical hart.
 #[no_mangle]
 extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
@@ -229,7 +237,8 @@ extern "C" fn ace_setup_this_hart() {
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
     // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
     // the `MemoryLayout` has been already initialized by the boot hart.
-    if let Err(_error) = unsafe { HypervisorMemoryProtector::setup() } {
+    if let Err(error) = unsafe { HypervisorMemoryProtector::setup() } {
+        debug!("Failed to setup hypervisor memory protector: {:?}", error);
         // TODO: block access to attestation keys/registers on this hart?
         return;
     }

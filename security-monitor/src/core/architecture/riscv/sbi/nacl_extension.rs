@@ -1,9 +1,40 @@
-// SPDX-FileCopyrightText: 2023 IBM Corporation
+// SPDX-FileCopyrightText: 2024 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::{GeneralPurposeRegister, GeneralPurposeRegisters};
 use crate::core::memory_layout::{MemoryLayout, NonConfidentialMemoryAddress};
 use crate::error::Error;
+
+#[derive(Debug)]
+pub enum NaclExtension {
+    ProbeFeature,
+    SetupSharedMemory,
+    SyncCsr,
+    Unknown(usize, usize),
+}
+
+impl NaclExtension {
+    pub const EXTID: usize = 0x4E41434C;
+    pub const SBI_EXT_NACL_PROBE_FEATURE: usize = 0x0;
+    pub const SBI_EXT_NACL_SETUP_SHMEM: usize = 0x1;
+    pub const SBI_EXT_NACL_SYNC_CSR: usize = 0x2;
+    pub const SBI_EXT_NACL_SYNC_HFENCE: usize = 0x3;
+    pub const SBI_EXT_NACL_SYNC_SRET: usize = 0x4;
+
+    pub const SBI_NACL_FEAT_SYNC_CSR: usize = 0;
+    pub const SBI_NACL_FEAT_SYNC_HFENCE: usize = 1;
+    pub const SBI_NACL_FEAT_SYNC_SRET: usize = 2;
+    pub const SBI_NACL_FEAT_AUTOSWAP_CSR: usize = 3;
+
+    pub fn from_function_id(function_id: usize) -> Self {
+        match function_id {
+            Self::SBI_EXT_NACL_PROBE_FEATURE => Self::ProbeFeature,
+            Self::SBI_EXT_NACL_SETUP_SHMEM => Self::SetupSharedMemory,
+            Self::SBI_EXT_NACL_SYNC_CSR => Self::SyncCsr,
+            _ => Self::Unknown(Self::EXTID, function_id),
+        }
+    }
+}
 
 /// Represents the memory region shared between the hypervisor and the security monitor. The content of this memory region is structured
 /// according to the RISC-V SBI NACL extension. The hypervisor and the security monitor use this memory region to exchange content of the

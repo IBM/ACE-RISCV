@@ -4,8 +4,10 @@
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::specification::SR_FS;
 use crate::core::architecture::specification::SR_FS_DIRTY;
-use crate::core::architecture::{ControlStatusRegisters, GeneralPurposeRegisters, HartArchitecturalState, IsaOptionalExtension};
-use crate::core::configuration::Configuration;
+use crate::core::architecture::{
+    ControlStatusRegisters, GeneralPurposeRegisters, HardwareExtension, HartArchitecturalState, SupervisorTimerExtension,
+};
+use crate::core::hardware_setup::HardwareSetup;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::error::Error;
@@ -37,13 +39,17 @@ impl HypervisorHart {
     /// Saves the state of the hypervisor hart in the main memory. This is part of the heavy context switch.
     pub fn save_in_main_memory(&mut self) {
         self.csrs_mut().save_in_main_memory();
+        // below unsafe is ok because we ensured during the initialization that Sstc extension is present.
+        unsafe {
+            self.sstc_mut().save_in_main_memory();
+        }
 
-        if Configuration::is_extension_supported(IsaOptionalExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             if (self.csrs().mstatus.read() & (SR_FS_DIRTY | SR_FS)) > 0 {
-                self.csrs_mut().fflags.save_in_main_memory();
-                self.csrs_mut().frm.save_in_main_memory();
-                self.csrs_mut().fcsr.save_in_main_memory();
-                self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+                // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
+                unsafe {
+                    self.hypervisor_hart_state.fprs_mut().save_in_main_memory();
+                }
             }
         }
     }
@@ -51,13 +57,13 @@ impl HypervisorHart {
     /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
     pub fn restore_from_main_memory(&mut self) {
         self.csrs().restore_from_main_memory();
+        // below unsafe is ok because we ensured during the initialization that Sstc extension is present.
+        unsafe { self.sstc().restore_from_main_memory() };
 
-        if Configuration::is_extension_supported(IsaOptionalExtension::FloatingPointExtension) {
+        if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             self.csrs().mstatus.read_and_set_bits(SR_FS);
-            self.csrs().fflags.restore_from_main_memory();
-            self.csrs().frm.restore_from_main_memory();
-            self.csrs().fcsr.restore_from_main_memory();
-            self.hypervisor_hart_state.fprs_mut().restore_from_main_memory();
+            // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
+            unsafe { self.hypervisor_hart_state.fprs_mut().restore_from_main_memory() };
         }
     }
 
@@ -87,6 +93,14 @@ impl HypervisorHart {
 
     pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
         self.hypervisor_hart_state.csrs_mut()
+    }
+
+    pub fn sstc(&self) -> &SupervisorTimerExtension {
+        self.hypervisor_hart_state.sstc()
+    }
+
+    pub fn sstc_mut(&mut self) -> &mut SupervisorTimerExtension {
+        self.hypervisor_hart_state.sstc_mut()
     }
 
     pub fn hypervisor_hart_state(&self) -> &HartArchitecturalState {

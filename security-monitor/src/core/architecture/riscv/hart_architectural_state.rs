@@ -1,24 +1,27 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::riscv::extensions::supervisor_timer_extension::SupervisorTimerExtension;
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::riscv::{ControlStatusRegisters, FloatingPointRegisters, GeneralPurposeRegister, GeneralPurposeRegisters};
+use crate::core::architecture::riscv::{ControlStatusRegisters, FloatingPointUnit, GeneralPurposeRegister, GeneralPurposeRegisters};
 
-/// HartArchitecturalState is the dump state of the processor's core (hart).
-/// It might represent the state of of software executing on real hardware hart, for example, architectural state of the hypervisor's thread
-/// or confidential VM's thread.
+/// Defines the state of a processor's core (hart) when stored in main memory.
 #[repr(C)]
 pub struct HartArchitecturalState {
-    // gprs must be the first element in this structure because it is used to calculate the HartArchitecturalState
-    // address in the memory. This address is used by the assembly code.
     gprs: GeneralPurposeRegisters,
     csrs: ControlStatusRegisters,
-    fprs: FloatingPointRegisters,
+    fprs: FloatingPointUnit,
+    sstc: SupervisorTimerExtension,
 }
 
 impl HartArchitecturalState {
     pub fn empty() -> Self {
-        Self { gprs: GeneralPurposeRegisters::empty(), csrs: ControlStatusRegisters::empty(), fprs: FloatingPointRegisters::empty() }
+        Self {
+            gprs: GeneralPurposeRegisters::empty(),
+            csrs: ControlStatusRegisters::empty(),
+            fprs: FloatingPointUnit::empty(),
+            sstc: SupervisorTimerExtension::empty(),
+        }
     }
 
     pub fn set_gprs(&mut self, gprs: GeneralPurposeRegisters) {
@@ -33,11 +36,11 @@ impl HartArchitecturalState {
         &mut self.gprs
     }
 
-    pub fn fprs(&self) -> &FloatingPointRegisters {
+    pub fn fprs(&self) -> &FloatingPointUnit {
         &self.fprs
     }
 
-    pub fn fprs_mut(&mut self) -> &mut FloatingPointRegisters {
+    pub fn fprs_mut(&mut self) -> &mut FloatingPointUnit {
         &mut self.fprs
     }
 
@@ -47,6 +50,14 @@ impl HartArchitecturalState {
 
     pub fn csrs_mut(&mut self) -> &mut ControlStatusRegisters {
         &mut self.csrs
+    }
+
+    pub fn sstc(&self) -> &SupervisorTimerExtension {
+        &self.sstc
+    }
+
+    pub fn sstc_mut(&mut self) -> &mut SupervisorTimerExtension {
+        &mut self.sstc
     }
 }
 
