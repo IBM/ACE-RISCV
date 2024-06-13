@@ -8,6 +8,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::Range;
+use sha2::digest::crypto_common::generic_array::GenericArray;
 
 pub trait PageState {}
 
@@ -168,6 +169,17 @@ impl<T: PageState> Page<T> {
             pointer.write_volatile(value);
         };
         Ok(())
+    }
+
+    pub fn measure(
+        &self, digest: &mut GenericArray<u8, <sha2::Sha384 as sha2::digest::OutputSizeUser>::OutputSize>, guest_physical_address: usize,
+    ) {
+        use sha2::{Digest, Sha384};
+        let slice = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
+        let mut hasher = Sha384::new_with_prefix(digest.clone());
+        hasher.update(guest_physical_address.to_le_bytes());
+        hasher.update(&slice);
+        hasher.finalize_into(digest);
     }
 
     /// Returns all usize-aligned offsets within the page.

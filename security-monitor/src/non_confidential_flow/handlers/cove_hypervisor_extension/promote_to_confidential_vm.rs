@@ -79,7 +79,10 @@ impl PromoteToConfidentialVm {
             })
             .collect();
 
-        // TODO: measure the confidential VM
+        // Measure content of the VM's memory including permissions to individual pages
+        let measurement = memory_protector.measure()?;
+        // TODO: Measure boot processor state
+        debug!("VM hash: {:02X?}", measurement);
         let measurements = [ConfidentialVmMeasurement::empty(); 4];
 
         self.authenticate_and_authorize_vm(&memory_protector, &measurements)?;

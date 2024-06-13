@@ -27,6 +27,9 @@ riscv-decode = "0.2"
 # The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
+# Used to measure confidential VM, required for attestation
+sha2 = { version = "0.10", default-features = false }
+
 # provides macros that help removing boilerplate code in the rust error handling
 thiserror-no-std = "2.0" 
 

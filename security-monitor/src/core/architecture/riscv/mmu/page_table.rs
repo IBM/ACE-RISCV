@@ -13,6 +13,7 @@ use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use sha2::digest::crypto_common::generic_array::GenericArray;
 
 /// Represents an architectural 2nd level page table that defines the guest physical to real address translation. The security monitor fully
 /// controls these mappings for confidential VMs. These page tables are stored in confidential memory (use `Page<Allocated>`).
@@ -175,6 +176,22 @@ impl PageTable {
             }
             _ => Err(Error::AddressTranslationFailed()),
         }
+    }
+
+    /// Measures integrity of the page table configuration and leaf data pages. This is a recursive function.
+    pub fn measure(
+        &self, digest: &mut GenericArray<u8, <sha2::Sha384 as sha2::digest::OutputSizeUser>::OutputSize>, address: usize,
+    ) -> Result<(), Error> {
+        use sha2::{Digest, Sha384};
+        self.logical_representation.iter().enumerate().try_for_each(|(i, entry)| {
+            let guest_physical_address = address + i * self.paging_system.page_size(self.level).in_bytes();
+            match entry {
+                PageTableEntry::PointerToNextPageTable(next_page_table, _) => next_page_table.measure(digest, guest_physical_address),
+                PageTableEntry::PageWithConfidentialVmData(page, _, permission) => Ok(page.measure(digest, guest_physical_address)),
+                PageTableEntry::PageSharedWithHypervisor(_) => Err(Error::PageTableConfiguration()),
+                PageTableEntry::NotValid => Ok(()),
+            }
+        })
     }
 
     /// Returns the physical address in confidential memory of the page table configuration.

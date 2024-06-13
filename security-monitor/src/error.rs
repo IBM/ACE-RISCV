@@ -99,6 +99,8 @@ pub enum Error {
     ReachedMaxNumberOfMmioRegions(),
     #[error("Could not send an IPI, error code: {0}")]
     InterruptSendingError(usize),
+    #[error("Slice to array conversion error")]
+    HashingError(#[from] core::array::TryFromSliceError),
 }
 
 impl Error {

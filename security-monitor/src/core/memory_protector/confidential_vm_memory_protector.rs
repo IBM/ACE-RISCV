@@ -68,6 +68,13 @@ impl ConfidentialVmMemoryProtector {
         self.root_page_table.translate(address)
     }
 
+    pub fn measure(&self) -> Result<[u8; 48], Error> {
+        let mut initial_digest = sha2::digest::crypto_common::generic_array::GenericArray::default();
+        let initial_address = 0;
+        self.root_page_table.measure(&mut initial_digest, initial_address)?;
+        Ok(initial_digest.into())
+    }
+
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the
     /// confidential VM and deny access to all other memory regions.
     ///

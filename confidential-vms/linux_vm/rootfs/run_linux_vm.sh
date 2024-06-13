@@ -53,8 +53,9 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     --enable-kvm \
     -machine virt -cpu rv64,f=true -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
+    -seed 0 \
     -global virtio-mmio.force-legacy=false \
-    -append "console=ttyS0 ro root=/dev/vda swiotlb=mmnn,force nosplash debug promote_to_cove_guest" \
+    -append "console=ttyS0 ro inst.text root=/dev/vda swiotlb=mmnn,force random.trust_cpu=0 random.trust_bootloader=off promote_to_cove_guest" \
     -device virtio-blk-pci,drive=hd0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -drive if=none,format=raw,file=${DRIVE},id=hd0 \
     -device virtio-net-pci,netdev=net0,iommu_platform=on,disable-legacy=on,disable-modern=off \
