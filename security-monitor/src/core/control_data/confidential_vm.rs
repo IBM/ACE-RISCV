@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::HartLifecycleState;
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMeasurement, ConfidentialVmMmioRegion, HardwareHart,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ConfidentialVmMmioRegion, HardwareHart, StaticMeasurements,
 };
 use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
@@ -14,7 +14,7 @@ use spin::{Mutex, MutexGuard};
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
-    measurements: [ConfidentialVmMeasurement; 4],
+    measurements: StaticMeasurements,
     confidential_harts: Vec<ConfidentialHart>,
     confidential_hart_remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     memory_protector: ConfidentialVmMemoryProtector,
@@ -37,7 +37,7 @@ impl ConfidentialVm {
     ///
     /// The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: [ConfidentialVmMeasurement; 4],
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: StaticMeasurements,
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);

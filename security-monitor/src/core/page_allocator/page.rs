@@ -2,13 +2,13 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::PageSize;
+use crate::core::control_data::{DigestType, MeasurementDigest};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout, NonConfidentialMemoryAddress};
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use core::mem;
 use core::ops::Range;
-use sha2::digest::crypto_common::generic_array::GenericArray;
 
 pub trait PageState {}
 
@@ -171,12 +171,10 @@ impl<T: PageState> Page<T> {
         Ok(())
     }
 
-    pub fn measure(
-        &self, digest: &mut GenericArray<u8, <sha2::Sha384 as sha2::digest::OutputSizeUser>::OutputSize>, guest_physical_address: usize,
-    ) {
-        use sha2::{Digest, Sha384};
+    pub fn measure(&self, digest: &mut MeasurementDigest, guest_physical_address: usize) {
+        use sha2::Digest;
         let slice = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
-        let mut hasher = Sha384::new_with_prefix(digest.clone());
+        let mut hasher = DigestType::new_with_prefix(digest.clone());
         hasher.update(guest_physical_address.to_le_bytes());
         hasher.update(&slice);
         hasher.finalize_into(digest);

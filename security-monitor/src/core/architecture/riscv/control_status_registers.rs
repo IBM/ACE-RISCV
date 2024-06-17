@@ -7,6 +7,7 @@
 #![allow(unused)]
 use super::specification::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
+use crate::core::control_data::{DigestType, MeasurementDigest};
 use core::arch::asm;
 
 /// Represents all control status registers (CSRs) accessible to modes less privileged than M-mode.
@@ -36,7 +37,7 @@ pub struct ControlStatusRegisters {
     pub sip: ReadWriteRiscvCsr<CSR_SIP>,
     pub satp: ReadWriteRiscvCsr<CSR_SATP>,
     // S-mode Debug extension should never be present due to security concerns
-    // pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
+    pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -93,7 +94,7 @@ impl ControlStatusRegisters {
             stval: ReadWriteRiscvCsr::new(),
             sip: ReadWriteRiscvCsr::new(),
             satp: ReadWriteRiscvCsr::new(),
-            // scontext: ReadWriteRiscvCsr::new(),
+            scontext: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
@@ -231,6 +232,62 @@ impl ControlStatusRegisters {
         self.vscause.restore_from_main_memory();
         self.vstval.restore_from_main_memory();
         self.vsatp.restore_from_main_memory();
+    }
+
+    /// Extends the measurement digest with the context of all CSRs.
+    pub fn measure(&self, digest: &mut MeasurementDigest) {
+        use sha2::Digest;
+        let mut hasher = DigestType::new_with_prefix(digest.clone());
+        hasher.update(self.mepc.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mcause.read_from_main_memory().to_le_bytes());
+        hasher.update(self.medeleg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mideleg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mie.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mstatus.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mtinst.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mtval.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mtval2.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mtvec.read_from_main_memory().to_le_bytes());
+        // S-mode
+        hasher.update(self.sstatus.read_from_main_memory().to_le_bytes());
+        hasher.update(self.sie.read_from_main_memory().to_le_bytes());
+        hasher.update(self.stvec.read_from_main_memory().to_le_bytes());
+        hasher.update(self.scounteren.read_from_main_memory().to_le_bytes());
+        hasher.update(self.senvcfg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.sscratch.read_from_main_memory().to_le_bytes());
+        hasher.update(self.sepc.read_from_main_memory().to_le_bytes());
+        hasher.update(self.scause.read_from_main_memory().to_le_bytes());
+        hasher.update(self.stval.read_from_main_memory().to_le_bytes());
+        hasher.update(self.sip.read_from_main_memory().to_le_bytes());
+        hasher.update(self.satp.read_from_main_memory().to_le_bytes());
+        hasher.update(self.scontext.read_from_main_memory().to_le_bytes());
+        // HS-mode
+        hasher.update(self.hstatus.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hedeleg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hideleg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hie.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hcounteren.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hgeie.read_from_main_memory().to_le_bytes());
+        hasher.update(self.htval.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hip.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hvip.read_from_main_memory().to_le_bytes());
+        hasher.update(self.htinst.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hgeip.read_from_main_memory().to_le_bytes());
+        hasher.update(self.henvcfg.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hgatp.read_from_main_memory().to_le_bytes());
+        hasher.update(self.hcontext.read_from_main_memory().to_le_bytes());
+        hasher.update(self.htimedelta.read_from_main_memory().to_le_bytes());
+        // VS-mode
+        hasher.update(self.vsstatus.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vsie.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vsip.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vstvec.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vsscratch.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vsepc.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vscause.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vstval.read_from_main_memory().to_le_bytes());
+        hasher.update(self.vsatp.read_from_main_memory().to_le_bytes());
+        hasher.finalize_into(digest);
     }
 }
 

@@ -4,7 +4,7 @@
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
 use crate::core::architecture::{PageSize, SharedPage};
-use crate::core::control_data::ConfidentialVmId;
+use crate::core::control_data::{ConfidentialVmId, MeasurementDigest};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::error::Error;
 
@@ -68,11 +68,10 @@ impl ConfidentialVmMemoryProtector {
         self.root_page_table.translate(address)
     }
 
-    pub fn measure(&self) -> Result<[u8; 48], Error> {
-        let mut initial_digest = sha2::digest::crypto_common::generic_array::GenericArray::default();
-        let initial_address = 0;
-        self.root_page_table.measure(&mut initial_digest, initial_address)?;
-        Ok(initial_digest.into())
+    pub fn measure(&self) -> Result<MeasurementDigest, Error> {
+        let mut initial_digest = MeasurementDigest::default();
+        self.root_page_table.measure(&mut initial_digest, 0)?;
+        Ok(initial_digest)
     }
 
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the

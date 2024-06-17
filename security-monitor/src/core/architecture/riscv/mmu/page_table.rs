@@ -8,6 +8,7 @@ use crate::core::architecture::mmu::page_table_level::PageTableLevel;
 use crate::core::architecture::mmu::paging_system::PagingSystem;
 use crate::core::architecture::mmu::HgatpMode;
 use crate::core::architecture::{PageSize, SharedPage};
+use crate::core::control_data::MeasurementDigest;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
@@ -179,10 +180,8 @@ impl PageTable {
     }
 
     /// Measures integrity of the page table configuration and leaf data pages. This is a recursive function.
-    pub fn measure(
-        &self, digest: &mut GenericArray<u8, <sha2::Sha384 as sha2::digest::OutputSizeUser>::OutputSize>, address: usize,
-    ) -> Result<(), Error> {
-        use sha2::{Digest, Sha384};
+    pub fn measure(&self, digest: &mut MeasurementDigest, address: usize) -> Result<(), Error> {
+        use sha2::Digest;
         self.logical_representation.iter().enumerate().try_for_each(|(i, entry)| {
             let guest_physical_address = address + i * self.paging_system.page_size(self.level).in_bytes();
             match entry {
