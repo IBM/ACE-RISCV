@@ -4,9 +4,9 @@
 use super::specification::*;
 
 #[repr(usize)]
-#[derive(Clone, Copy, Debug)]
+/// Represents the mode implemented by the MMU for the G-stage address translation
 pub enum HgatpMode {
-    Sv57x4 = 10,
+    Sv57x4 = HGATP_MODE_SV57X4,
 }
 
 impl HgatpMode {
@@ -16,13 +16,13 @@ impl HgatpMode {
 
     fn from_code(code: usize) -> Option<Self> {
         match code {
-            10 => Some(HgatpMode::Sv57x4),
+            HGATP_MODE_SV57X4 => Some(HgatpMode::Sv57x4),
             _ => None,
         }
     }
 }
 
-#[derive(PartialEq)]
+/// Represents the CSR that configures the G-stage address translation protocol.
 pub struct Hgatp(usize);
 
 impl Hgatp {
