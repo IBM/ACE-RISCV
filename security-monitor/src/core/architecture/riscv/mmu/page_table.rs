@@ -172,7 +172,8 @@ impl PageTable {
         }
     }
 
-    /// Recursively extends measurements of all data pages in the order from the page with the lowest to the highest guest physical address. Returns error if the page table is malformed, i.e., there is a shared page mapping. 
+    /// Recursively extends measurements of all data pages in the order from the page with the lowest to the highest guest physical address.
+    /// Returns error if the page table is malformed, i.e., there is a shared page mapping.
     pub fn measure(&self, digest: &mut MeasurementDigest, address: usize) -> Result<(), Error> {
         use sha2::Digest;
         self.logical_representation.iter().enumerate().try_for_each(|(i, entry)| {
