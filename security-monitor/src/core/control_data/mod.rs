@@ -5,7 +5,7 @@ pub use confidential_hart::ConfidentialHart;
 pub use confidential_hart_remote_command::{ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable};
 pub use confidential_vm::ConfidentialVm;
 pub use confidential_vm_id::ConfidentialVmId;
-pub use confidential_vm_measurement::ConfidentialVmMeasurement;
+pub use confidential_vm_measurement::{DigestType, MeasurementDigest, StaticMeasurements};
 pub use confidential_vm_mmio_region::ConfidentialVmMmioRegion;
 pub use hardware_hart::{HardwareHart, HART_STACK_ADDRESS_OFFSET};
 pub use hypervisor_hart::HypervisorHart;

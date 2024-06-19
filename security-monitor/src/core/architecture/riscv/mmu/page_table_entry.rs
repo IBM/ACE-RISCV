@@ -1,156 +1,68 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use super::specification::*;
 use crate::core::architecture::mmu::page_table::PageTable;
 use crate::core::architecture::SharedPage;
+use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::page_allocator::{Allocated, Page};
+use crate::error::Error;
 use alloc::boxed::Box;
 
-pub(super) enum PageTableEntry {
-    PointerToNextPageTable(Box<PageTable>, PageTableConfiguration),
-    PageWithConfidentialVmData(Box<Page<Allocated>>, PageTableConfiguration, PageTablePermission),
+/// Logical page table entry contains variants specific to the security monitor architecture. These new variants distinguish among certain
+/// types (e.g., shared page, confidential data page) that are not covered by the general RISC-V specification.
+pub(super) enum LogicalPageTableEntry {
+    PointerToNextPageTable(Box<PageTable>),
+    PageWithConfidentialVmData(Box<Page<Allocated>>),
     PageSharedWithHypervisor(SharedPage),
-    NotValid,
+    NotMapped,
+}
+
+impl LogicalPageTableEntry {
+    pub fn serialize(&self) -> usize {
+        match self {
+            Self::PointerToNextPageTable(page_table) => {
+                page_table.address() >> ADDRESS_SHIFT
+                    | PAGE_TABLE_ENTRY_EMPTY_CONF
+                    | PAGE_TABLE_ENTRY_NO_PERMISSIONS
+                    | PAGE_TABLE_ENTRY_VALID_MASK
+            }
+            Self::PageWithConfidentialVmData(page) => {
+                page.start_address() >> ADDRESS_SHIFT
+                    | PAGE_TABLE_ENTRY_UAD_CONF_MASK
+                    | PAGE_TABLE_ENTRY_RWX_PERMISSIONS
+                    | PAGE_TABLE_ENTRY_VALID_MASK
+            }
+            Self::PageSharedWithHypervisor(shared_page) => {
+                shared_page.hypervisor_address.usize() >> ADDRESS_SHIFT
+                    | PAGE_TABLE_ENTRY_UAD_CONF_MASK
+                    | PAGE_TABLE_ENTRY_RW_PERMISSIONS
+                    | PAGE_TABLE_ENTRY_VALID_MASK
+            }
+            Self::NotMapped => PAGE_TABLE_ENTRY_NOT_MAPPED,
+        }
+    }
+}
+
+/// Page table entry corresponds to entires defined by the RISC-V spec.
+pub(super) enum PageTableEntry {
+    NotMapped,
+    PointerToNextPageTable(*mut usize),
+    PointerToDataPage(*mut usize),
 }
 
 impl PageTableEntry {
-    pub fn encode(&self) -> usize {
-        match self {
-            PageTableEntry::PointerToNextPageTable(page_table, configuration) => {
-                PageTableBits::Valid.mask() | PageTableAddress::encode(page_table.address()) | configuration.encode()
-            }
-            PageTableEntry::PageWithConfidentialVmData(page, configuration, permissions) => {
-                PageTableBits::Valid.mask() | PageTableAddress::encode(page.start_address()) | configuration.encode() | permissions.encode()
-            }
-            PageTableEntry::PageSharedWithHypervisor(shared_page) => {
-                PageTableBits::Valid.mask()
-                    | PageTableAddress::encode(shared_page.hypervisor_address.usize())
-                    | PageTableConfiguration::shared_page_configuration().encode()
-                    | PageTablePermission::read_write_permissions().encode()
-            }
-            PageTableEntry::NotValid => 0,
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub(super) enum PageTableBits {
-    Valid = 0,
-    Read = 1,
-    Write = 2,
-    Execute = 3,
-    User = 4,
-    Global = 5,
-    Accessed = 6,
-    Dirty = 7,
-}
-
-impl PageTableBits {
-    pub const fn mask(&self) -> usize {
-        1 << (*self as usize)
-    }
-
-    pub const fn is_set(&self, raw_entry: usize) -> bool {
-        raw_entry & self.mask() != 0
-    }
-
-    pub const fn is_valid(raw_entry: usize) -> bool {
-        Self::Valid.is_set(raw_entry)
-    }
-
-    pub const fn is_leaf(raw_entry: usize) -> bool {
-        Self::Read.is_set(raw_entry) || Self::Write.is_set(raw_entry) || Self::Execute.is_set(raw_entry)
-    }
-}
-
-pub(super) struct PageTableAddress();
-
-impl PageTableAddress {
-    const CONFIGURATION_BIT_MASK: usize = 0x3ff; // first 10 bits
-    const ADDRESS_SHIFT: usize = 2;
-
-    pub const fn decode(raw_entry: usize) -> *mut usize {
-        ((raw_entry & !Self::CONFIGURATION_BIT_MASK) << Self::ADDRESS_SHIFT) as *mut usize
-    }
-
-    pub fn encode(address: usize) -> usize {
-        address >> Self::ADDRESS_SHIFT
-    }
-}
-
-pub(super) struct PageTablePermission {
-    can_read: bool,
-    can_write: bool,
-    can_execute: bool,
-}
-
-impl PageTablePermission {
-    pub fn read_write_permissions() -> Self {
-        Self { can_read: true, can_write: true, can_execute: false }
-    }
-
-    pub fn decode(raw_entry: usize) -> Self {
-        Self {
-            can_read: PageTableBits::Read.is_set(raw_entry),
-            can_write: PageTableBits::Write.is_set(raw_entry),
-            can_execute: PageTableBits::Execute.is_set(raw_entry),
+    pub fn deserialize(serialized_entry: usize) -> Self {
+        match serialized_entry & PAGE_TABLE_ENTRY_TYPE_MASK {
+            PAGE_TABLE_ENTRY_NOT_MAPPED => Self::NotMapped,
+            PAGE_TABLE_ENTRY_POINTER => Self::PointerToNextPageTable(Self::decode_pointer(serialized_entry)),
+            _ => Self::PointerToDataPage(Self::decode_pointer(serialized_entry)),
         }
     }
 
-    pub fn encode(&self) -> usize {
-        let mut encoded_value = 0;
-        if self.can_read {
-            encoded_value = encoded_value | PageTableBits::Read.mask();
-        }
-        if self.can_write {
-            encoded_value = encoded_value | PageTableBits::Write.mask();
-        }
-        if self.can_execute {
-            encoded_value = encoded_value | PageTableBits::Execute.mask();
-        }
-        encoded_value
-    }
-}
-
-pub(super) struct PageTableConfiguration {
-    is_accessible_to_user: bool,
-    was_accessed: bool,
-    is_global_mapping: bool,
-    is_dirty: bool,
-}
-
-impl PageTableConfiguration {
-    pub fn empty() -> Self {
-        Self { is_accessible_to_user: false, was_accessed: false, is_global_mapping: false, is_dirty: false }
-    }
-
-    pub fn shared_page_configuration() -> Self {
-        Self { is_accessible_to_user: true, was_accessed: true, is_global_mapping: false, is_dirty: true }
-    }
-
-    pub fn decode(raw_entry: usize) -> Self {
-        Self {
-            is_accessible_to_user: PageTableBits::User.is_set(raw_entry),
-            was_accessed: PageTableBits::Accessed.is_set(raw_entry),
-            is_global_mapping: PageTableBits::Global.is_set(raw_entry),
-            is_dirty: PageTableBits::Dirty.is_set(raw_entry),
-        }
-    }
-
-    pub fn encode(&self) -> usize {
-        let mut encoded_value = 0;
-        if self.is_accessible_to_user {
-            encoded_value = encoded_value | PageTableBits::User.mask();
-        }
-        if self.was_accessed {
-            encoded_value = encoded_value | PageTableBits::Accessed.mask();
-        }
-        if self.is_global_mapping {
-            encoded_value = encoded_value | PageTableBits::Global.mask();
-        }
-        if self.is_dirty {
-            encoded_value = encoded_value | PageTableBits::Dirty.mask();
-        }
-        encoded_value
+    /// Decodes a raw pointer from the page table entry. It is up to the user to decide how to deal with this pointer and check if it is
+    /// valid and is in confidential or non-confidential memory.
+    pub fn decode_pointer(raw_entry: usize) -> *mut usize {
+        ((raw_entry & !CONFIGURATION_BIT_MASK) << ADDRESS_SHIFT) as *mut usize
     }
 }

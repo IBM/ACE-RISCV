@@ -4,7 +4,7 @@
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
 use crate::core::architecture::{PageSize, SharedPage};
-use crate::core::control_data::ConfidentialVmId;
+use crate::core::control_data::{ConfidentialVmId, MeasurementDigest};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::error::Error;
 
@@ -14,7 +14,7 @@ pub struct ConfidentialVmMemoryProtector {
     // Stores the page table configuration of the confidential VM.
     root_page_table: PageTable,
     // Stores the value of the hypervisor G-stage address translation protocol register.
-    hgatp: usize,
+    hgatp: Hgatp,
 }
 
 impl ConfidentialVmMemoryProtector {
@@ -27,13 +27,12 @@ impl ConfidentialVmMemoryProtector {
     ///   * the configuration of the memory isolation component (MMU) is invalid.
     pub fn from_vm_state(hgatp: &Hgatp) -> Result<Self, Error> {
         let root_page_table = mmu::copy_mmu_configuration_from_non_confidential_memory(hgatp)?;
-        Ok(Self { root_page_table, hgatp: 0 })
+        Ok(Self { root_page_table, hgatp: Hgatp::disabled() })
     }
 
     pub fn set_confidential_vm_id(&mut self, id: ConfidentialVmId) {
-        assert!(self.hgatp == 0);
-        let hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.hgatp_mode(), id.usize());
-        self.hgatp = hgatp.bits();
+        assert!(self.hgatp.is_empty());
+        self.hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.hgatp_mode(), id.usize());
     }
 
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
@@ -68,6 +67,12 @@ impl ConfidentialVmMemoryProtector {
         self.root_page_table.translate(address)
     }
 
+    pub fn measure(&self) -> Result<MeasurementDigest, Error> {
+        let mut initial_digest = MeasurementDigest::default();
+        self.root_page_table.measure(&mut initial_digest, 0)?;
+        Ok(initial_digest)
+    }
+
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the
     /// confidential VM and deny access to all other memory regions.
     ///
@@ -77,9 +82,9 @@ impl ConfidentialVmMemoryProtector {
     /// flow` and that the hgatp argument contains the correct id and the root page table address of the confidential VM
     /// that will be executed next.
     pub unsafe fn enable(&self) {
-        assert!(self.hgatp != 0);
+        assert!(!self.hgatp.is_empty());
         pmp::open_access_to_confidential_memory();
-        mmu::enable_address_translation_and_protection(self.hgatp);
+        mmu::enable_address_translation_and_protection(&self.hgatp);
         tlb::clear_hart_tlbs();
     }
 

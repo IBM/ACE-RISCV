@@ -4,7 +4,7 @@
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::{GeneralPurposeRegister, Hgatp, PageSize};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMeasurement, ControlDataStorage, HypervisorHart,
+    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HypervisorHart, StaticMeasurements,
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
@@ -12,6 +12,7 @@ use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
+use alloc::vec::Vec;
 use flattened_device_tree::FlattenedDeviceTree;
 
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
@@ -34,6 +35,7 @@ pub struct PromoteToConfidentialVm {
 impl PromoteToConfidentialVm {
     const FDT_ALIGNMENT_IN_BYTES: usize = 8;
     const TAP_ALIGNMENT_IN_BYTES: usize = 8;
+    const BOOT_HART_ID: usize = 0;
 
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         let fdt_address = ConfidentialVmPhysicalAddress::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0));
@@ -71,16 +73,19 @@ impl PromoteToConfidentialVm {
 
         // TODO: generate htimedelta
         let htimedelta = 0;
+
         // We create a fixed number of harts (all but the boot hart are in the reset state).
-        let confidential_harts = (0..number_of_confidential_harts)
+        let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {
-                0 => ConfidentialHart::from_vm_hart(confidential_hart_id, self.program_counter, htimedelta, shared_memory),
+                Self::BOOT_HART_ID => ConfidentialHart::from_vm_hart(confidential_hart_id, self.program_counter, htimedelta, shared_memory),
                 _ => ConfidentialHart::from_vm_hart_reset(confidential_hart_id, htimedelta, shared_memory),
             })
             .collect();
 
-        // TODO: measure the confidential VM
-        let measurements = [ConfidentialVmMeasurement::empty(); 4];
+        let measured_pages_digest = memory_protector.measure()?;
+        let confidential_hart_digest = confidential_harts[Self::BOOT_HART_ID].measure();
+        let measurements = StaticMeasurements::new(measured_pages_digest, confidential_hart_digest);
+        debug!("VM measurements: {:?}", measurements);
 
         self.authenticate_and_authorize_vm(&memory_protector, &measurements)?;
 
@@ -125,9 +130,10 @@ impl PromoteToConfidentialVm {
     /// Performs local attestation. It decides if the VM can be promote into a confidential VM and decrypts the attestation secret intended
     /// for this confidential VM.
     fn authenticate_and_authorize_vm(
-        &self, memory_protector: &ConfidentialVmMemoryProtector, _measurements: &[ConfidentialVmMeasurement; 4],
+        &self, memory_protector: &ConfidentialVmMemoryProtector, _measurements: &StaticMeasurements,
     ) -> Result<(), Error> {
         if let Some(blob_address) = self.auth_blob_address {
+            debug!("Performing local attestation");
             let address_in_confidential_memory = memory_protector.translate_address(&blob_address)?;
             // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
             // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).

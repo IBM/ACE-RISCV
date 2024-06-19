@@ -8,7 +8,7 @@ use crate::core::architecture::{
     SupervisorTimerExtension,
 };
 use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
-use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, ResumableOperation};
+use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, MeasurementDigest, ResumableOperation};
 use crate::core::hardware_setup::HardwareSetup;
 use crate::error::Error;
 
@@ -175,12 +175,19 @@ impl ConfidentialHart {
         unsafe { self.sstc().restore_from_main_memory() };
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
-            // Enable F extension to access F registers. The lightweight context switch will eventually recover valid F configuration in
+            // Enable F extension to access F registers. The lightweight context switch will eventually recover the valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);
             // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
             unsafe { self.confidential_hart_state.fprs_mut().restore_from_main_memory() };
         }
+    }
+
+    pub fn measure(&self) -> MeasurementDigest {
+        let mut measurement = MeasurementDigest::default();
+        self.confidential_hart_state.gprs().measure(&mut measurement);
+        self.confidential_hart_state.csrs().measure(&mut measurement);
+        measurement
     }
 
     pub fn address(&self) -> usize {

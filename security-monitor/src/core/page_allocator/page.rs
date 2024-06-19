@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::PageSize;
+use crate::core::control_data::{DigestType, MeasurementDigest};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout, NonConfidentialMemoryAddress};
 use crate::error::Error;
 use alloc::vec::Vec;
@@ -24,13 +25,6 @@ pub struct Page<S: PageState> {
     _marker: PhantomData<S>,
 }
 
-// We declare Send+Sync on the `Page` because it stores internally a raw pointer, which is
-// not safe to pass in a multi-threaded program. But in the case of the `Page` it is safe
-// because the `Page` owns the memory associated with pointer and never exposes the raw pointer
-// to the outside.
-unsafe impl<S> Send for Page<S> where S: PageState {}
-unsafe impl<S> Sync for Page<S> where S: PageState {}
-
 impl Page<UnAllocated> {
     /// Creates a page token at the given address in the confidential memory.
     ///
@@ -51,7 +45,9 @@ impl Page<UnAllocated> {
     /// content of a page located in the non-confidential memory.
     pub fn copy_from_non_confidential_memory(mut self, mut address: NonConfidentialMemoryAddress) -> Result<Page<Allocated>, Error> {
         self.offsets().into_iter().try_for_each(|offset_in_bytes| {
-            let non_confidential_address = MemoryLayout::read().non_confidential_address_at_offset(&mut address, offset_in_bytes)?;
+            let non_confidential_address = MemoryLayout::read()
+                .non_confidential_address_at_offset(&mut address, offset_in_bytes)
+                .map_err(|_| Error::AddressNotInNonConfidentialMemory())?;
             // TODO: describe why below unsafe block is safe in this invocation.
             let data_to_copy = unsafe { non_confidential_address.read() };
             self.write(offset_in_bytes, data_to_copy)?;
@@ -170,6 +166,18 @@ impl<T: PageState> Page<T> {
         Ok(())
     }
 
+    /// Extends the digest with the guest physical address and the content of the page.
+    pub fn measure(&self, digest: &mut MeasurementDigest, guest_physical_address: usize) {
+        use sha2::Digest;
+        let mut hasher = DigestType::new_with_prefix(digest.clone());
+        hasher.update(guest_physical_address.to_le_bytes());
+        // below unsafe is ok because the page has been initialized and it owns the entire memory region.
+        // We are creating a slice of bytes, so the number of elements in the slice is the same as the size of the page.
+        let slice: &[u8] = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
+        hasher.update(&slice);
+        hasher.finalize_into(digest);
+    }
+
     /// Returns all usize-aligned offsets within the page.
     pub fn offsets(&self) -> core::iter::StepBy<Range<usize>> {
         (0..self.size.in_bytes()).step_by(Self::ENTRY_SIZE)
@@ -185,3 +193,10 @@ impl<T: PageState> Page<T> {
         self.offsets().for_each(|offset_in_bytes| self.write(offset_in_bytes, 0).unwrap());
     }
 }
+
+// We declare Send+Sync on the `Page` because it stores internally a raw pointer, which is
+// not safe to pass in a multi-threaded program. But in the case of the `Page` it is safe
+// because the `Page` owns the memory associated with pointer and never exposes the raw pointer
+// to the outside.
+unsafe impl<S> Send for Page<S> where S: PageState {}
+unsafe impl<S> Sync for Page<S> where S: PageState {}
