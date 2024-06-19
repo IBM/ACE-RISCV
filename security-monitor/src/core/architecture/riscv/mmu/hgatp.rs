@@ -1,38 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-
-pub struct Hgatp {
-    bits: usize,
-}
-
-impl Hgatp {
-    const HGATP64_MODE_SHIFT: usize = 60;
-    const HGATP64_VMID_SHIFT: usize = 44;
-    const PAGE_SHIFT: usize = 12;
-    const HGATP_PPN_MASK: usize = 0x0000FFFFFFFFFFF;
-
-    pub fn from(bits: usize) -> Self {
-        Self { bits }
-    }
-
-    pub fn bits(&self) -> usize {
-        self.bits
-    }
-
-    pub fn address(&self) -> usize {
-        (self.bits & Self::HGATP_PPN_MASK) << Self::PAGE_SHIFT
-    }
-
-    pub fn mode(&self) -> Option<HgatpMode> {
-        HgatpMode::from_code((self.bits >> Self::HGATP64_MODE_SHIFT) & 0b1111)
-    }
-
-    pub fn new(address: usize, mode: HgatpMode, vmid: usize) -> Self {
-        let ppn = (address >> Self::PAGE_SHIFT) & Self::HGATP_PPN_MASK;
-        Self { bits: (vmid << Self::HGATP64_VMID_SHIFT) | (mode.code() << Self::HGATP64_MODE_SHIFT) | ppn }
-    }
-}
+use super::specification::*;
 
 #[repr(usize)]
 #[derive(Clone, Copy, Debug)]
@@ -50,5 +19,38 @@ impl HgatpMode {
             10 => Some(HgatpMode::Sv57x4),
             _ => None,
         }
+    }
+}
+
+#[derive(PartialEq)]
+pub struct Hgatp(usize);
+
+impl Hgatp {
+    pub fn new(address: usize, mode: HgatpMode, vmid: usize) -> Self {
+        Self((vmid << HGATP64_VMID_SHIFT) | (mode.code() << HGATP64_MODE_SHIFT) | (address >> HGATP_PAGE_SHIFT) & HGATP_PPN_MASK)
+    }
+
+    pub fn disabled() -> Self {
+        Self::from(0)
+    }
+
+    pub fn from(bits: usize) -> Self {
+        Self(bits)
+    }
+
+    pub fn bits(&self) -> usize {
+        self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn root_page_table_pointer(&self) -> *mut usize {
+        ((self.0 & HGATP_PPN_MASK) << HGATP_PAGE_SHIFT) as *mut usize
+    }
+
+    pub fn mode(&self) -> Option<HgatpMode> {
+        HgatpMode::from_code((self.0 >> HGATP64_MODE_SHIFT) & 0b1111)
     }
 }

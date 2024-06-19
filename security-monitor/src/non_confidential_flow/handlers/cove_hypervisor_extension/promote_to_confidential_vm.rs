@@ -75,14 +75,16 @@ impl PromoteToConfidentialVm {
         let htimedelta = 0;
 
         // We create a fixed number of harts (all but the boot hart are in the reset state).
-        let confidential_harts = (0..number_of_confidential_harts)
+        let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {
                 Self::BOOT_HART_ID => ConfidentialHart::from_vm_hart(confidential_hart_id, self.program_counter, htimedelta, shared_memory),
                 _ => ConfidentialHart::from_vm_hart_reset(confidential_hart_id, htimedelta, shared_memory),
             })
             .collect();
 
-        let measurements = self.measure(&memory_protector, &confidential_harts)?;
+        let measured_pages_digest = memory_protector.measure()?;
+        let confidential_hart_digest = confidential_harts[Self::BOOT_HART_ID].measure();
+        let measurements = StaticMeasurements::new(measured_pages_digest, confidential_hart_digest);
         debug!("VM measurements: {:?}", measurements);
 
         self.authenticate_and_authorize_vm(&memory_protector, &measurements)?;
@@ -93,15 +95,6 @@ impl PromoteToConfidentialVm {
             let id = control_data.unique_id()?;
             control_data.insert_confidential_vm(ConfidentialVm::new(id, confidential_harts, measurements, memory_protector))
         })
-    }
-
-    /// Measures content of the initial confidential VM's state
-    fn measure(
-        &self, memory_protector: &ConfidentialVmMemoryProtector, confidential_harts: &Vec<ConfidentialHart>,
-    ) -> Result<StaticMeasurements, Error> {
-        let measured_pages_digest = memory_protector.measure()?;
-        let configuration_digest = confidential_harts[Self::BOOT_HART_ID].measure();
-        Ok(StaticMeasurements::new(measured_pages_digest, configuration_digest))
     }
 
     fn process_device_tree(&self, memory_protector: &ConfidentialVmMemoryProtector) -> Result<usize, Error> {
@@ -140,6 +133,7 @@ impl PromoteToConfidentialVm {
         &self, memory_protector: &ConfidentialVmMemoryProtector, _measurements: &StaticMeasurements,
     ) -> Result<(), Error> {
         if let Some(blob_address) = self.auth_blob_address {
+            debug!("Performing local attestation");
             let address_in_confidential_memory = memory_protector.translate_address(&blob_address)?;
             // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
             // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).

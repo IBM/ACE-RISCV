@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::{iopmp, mmu, pmp, tlb};
+use crate::core::architecture::Hgatp;
 use crate::core::memory_layout::MemoryLayout;
 use crate::error::Error;
 
@@ -42,7 +43,7 @@ impl HypervisorMemoryProtector {
     ///
     /// Caller must guarantee that the security monitor will transition in the finite state machine to the
     /// `non-confidential flow` and eventually to the hypervisor code.
-    pub unsafe fn enable(&self, hgatp: usize) {
+    pub unsafe fn enable(&self, hgatp: &Hgatp) {
         pmp::close_access_to_confidential_memory();
         mmu::enable_address_translation_and_protection(hgatp);
         tlb::clear_hart_tlbs();

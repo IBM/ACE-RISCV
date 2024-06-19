@@ -16,13 +16,8 @@ pub struct SharedPage {
     pub confidential_vm_address: ConfidentialVmPhysicalAddress,
 }
 
-/// It is safe to implement Send+Sync on the SharedPage type because it encapsulates the raw pointer
-/// to non-confidential memory which is never dereferenced inside the security monitor. Its address is
-/// used only to map a page located in the non-confidential memory to the address space of a confidential VM.
-unsafe impl Send for SharedPage {}
-unsafe impl Sync for SharedPage {}
-
 impl SharedPage {
+    // CoVE spec defines that the size of a shared page is always 4KiB.
     pub const SIZE: PageSize = PageSize::Size4KiB;
 
     pub fn new(
@@ -37,3 +32,9 @@ impl SharedPage {
         Self::SIZE
     }
 }
+
+/// It is safe to implement Send+Sync on the SharedPage type because it encapsulates the raw pointer
+/// to non-confidential memory which is never dereferenced inside the security monitor. Its address is
+/// used only to map a page located in the non-confidential memory to the address space of a confidential VM.
+unsafe impl Send for SharedPage {}
+unsafe impl Sync for SharedPage {}

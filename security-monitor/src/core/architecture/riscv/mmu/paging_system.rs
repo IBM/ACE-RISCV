@@ -75,7 +75,7 @@ impl PagingSystem {
         vpn_to_rewrite | page_offset
     }
 
-    pub fn page_size(&self, level: PageTableLevel) -> PageSize {
+    pub fn data_page_size(&self, level: PageTableLevel) -> PageSize {
         match level {
             PageTableLevel::Level5 => PageSize::Size128TiB,
             PageTableLevel::Level4 => PageSize::Size512GiB,
