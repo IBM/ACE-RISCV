@@ -206,6 +206,11 @@ impl ConfidentialHart {
         self.id
     }
 
+    // Returns the id of the hardware hart executing the confidential hart.
+    pub fn hardware_hart_id(&self) -> Option<usize> {
+        self.confidential_vm_id.map_or_else(|| Some(self.id), |_| None)
+    }
+
     pub fn gprs(&self) -> &GeneralPurposeRegisters {
         self.confidential_hart_state.gprs()
     }
@@ -280,11 +285,8 @@ impl ConfidentialHart {
     pub fn transition_from_stopped_to_started(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
         ensure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
         ensure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
-        let confidential_hart_id = self.id;
-
         // Let's set up the confidential hart initial state so that it can be run
         self.lifecycle_state = HartLifecycleState::Started;
-
         // Following the SBI documentation of the function `hart start` in the HSM extension, only vsatp, vsstatus.SIE,
         // a0, a1 have defined values, all other registers are in an undefined state. The hart will start
         // executing in the supervisor mode with disabled MMU (vsatp=0).
@@ -292,9 +294,8 @@ impl ConfidentialHart {
         // start the new confidential hart with interrupts disabled
         self.confidential_hart_state.csrs_mut().mstatus.disable_bit_on_saved_value(CSR_MSTATUS_SPIE);
         self.confidential_hart_state.csrs_mut().mstatus.disable_bit_on_saved_value(CSR_MSTATUS_MPIE);
-
         self.confidential_hart_state.csrs_mut().vsstatus.disable_bit_on_saved_value(CSR_STATUS_SIE);
-        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, confidential_hart_id);
+        self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, self.id);
         self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, opaque);
         self.confidential_hart_state.csrs_mut().mepc.save_value_in_main_memory(start_address);
         Ok(())

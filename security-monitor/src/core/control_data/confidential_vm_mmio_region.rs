@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
-/// Defines a range of confidential VM physical address space used for emulated MMIO by the hypervisor.
+/// Defines a range of guest physical addresses that the security monitor interprets as MMIO address and expose load/store operations to the
+/// hypervisor. The hypervisor can then emulate them to provide access to virtual devices.
+///
+/// Confidential VM defines MMIO regions, check COVG ABI for more details.
 pub struct ConfidentialVmMmioRegion {
     pub base_address: ConfidentialVmPhysicalAddress,
     pub one_past_the_end_address: ConfidentialVmPhysicalAddress,

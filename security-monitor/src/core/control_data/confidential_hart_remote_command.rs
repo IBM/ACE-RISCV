@@ -10,8 +10,8 @@ use crate::core::control_data::ConfidentialHart;
 /// Represents a command that must be executed on a confidential hart. Typically this is an inter hart request that was sent from one
 /// confidential hart (sender) to another confidential hart (receiver), both sender and receiver belong to the same confidential VM.
 /// However, there might also be commands that are originating from the hypervisor (e.g., injection of an external interrupt). All these
-/// command preserve the same semantics: they originate from the outside of the hart, the receiver might be currently running or not. If the
-/// receiver hart is running, it is interrupted (IPI) and executes the command. If the hart is not running, the command is buffered and
+/// command preserve the same semantics: they originate from the outside of the hart and the receiver might be currently running or not. If
+/// the receiver hart is running, it is interrupted (IPI) and executes the command. If the hart is not running, the command is buffered and
 /// executed on the next time the receiver is scheduled to run.
 #[derive(Clone)]
 pub enum ConfidentialHartRemoteCommand {

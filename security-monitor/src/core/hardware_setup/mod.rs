@@ -7,6 +7,8 @@ use crate::error::Error;
 use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+/// Global static description of hardware setup. It is created during the system initiization and used in runtime to perform operations that
+/// depend on the presence of specific hardware features, like, for example, floating point unit extension.
 static HARDWARE_SETUP: Once<RwLock<HardwareSetup>> = Once::new();
 
 pub struct HardwareSetup {
@@ -27,14 +29,13 @@ impl HardwareSetup {
 
     pub fn check_isa_extensions(prop: &str) -> Result<(), Error> {
         // example prop value rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
+        debug!("{}", prop);
         ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
         let extensions = &prop.split('_').collect::<Vec<&str>>();
-
         Self::REQUIRED_BASE_EXTENSIONS
             .into_iter()
             .try_for_each(|ext| ensure!(extensions[0].contains(*ext), Error::MissingCpuExtension()))?;
         Self::REQUIRED_EXTENSIONS.into_iter().try_for_each(|ext| ensure!(extensions.contains(ext), Error::MissingCpuExtension()))?;
-
         Ok(())
     }
 

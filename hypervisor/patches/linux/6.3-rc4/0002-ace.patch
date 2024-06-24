@@ -614,10 +614,10 @@ index 44a3b06d0593..42f3571361a0 100644
  		}
 diff --git a/arch/riscv/kvm/vcpu_sbi_covh.c b/arch/riscv/kvm/vcpu_sbi_covh.c
 new file mode 100644
-index 000000000000..84be3d509c1e
+index 000000000000..17e8331bb404
 --- /dev/null
 +++ b/arch/riscv/kvm/vcpu_sbi_covh.c
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,85 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 IBM.
@@ -667,18 +667,12 @@ index 000000000000..84be3d509c1e
 +static int kvm_riscv_cove_promote_to_tvm(struct kvm_vcpu *vcpu, 
 +					 unsigned long fdt_address,
 +					 unsigned long tap_addr) {
-+	struct kvm_memory_slot *memslot;
 +	int rc;
 +
 +	preload_pages(vcpu);
 +	rc = kvm_riscv_cove_vm_single_step_init(vcpu, fdt_address, tap_addr);
 +	if (rc)
 +		goto done;
-+
-+	memslot = search_memslots(kvm_memslots(vcpu->kvm),
-+				  kernel_map.phys_addr, true);
-+	if (memslot)
-+	    kvm_arch_flush_shadow_memslot(vcpu->kvm, memslot);
 +
 +	vcpu->kvm->arch.vm_type = KVM_VM_TYPE_RISCV_COVE;
 +done:

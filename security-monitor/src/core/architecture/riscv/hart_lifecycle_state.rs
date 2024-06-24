@@ -12,23 +12,7 @@
 pub enum HartLifecycleState {
     Started,
     Stopped,
-    // StartPending is never used because the security monitor starts the hart directly and only informs a hypervisor
-    // about it for the bookkeeping purposes.
-    // StartPending,
-    //
-    // StopPending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping purposes.
-    // StopPending,
     Suspended,
-    //
-    // SuspendPending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping purposes.
-    // SuspendPending,
-    //
-    // ResumePending is never used because the security monitor stops the hart directly and only informs a hypervisor
-    // about it for the bookkeeping purposes.
-    // ResumePending,
-    //
     // PoweredOff state does not exist in the SBI's HSM extension. We use it to represent a confidential hart that has
     // been shutdown and cannot be used anymore. When all confidential harts are powered off the confidential VM can be
     // removed from the control data.
