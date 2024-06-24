@@ -94,13 +94,15 @@ pub enum Error {
     #[error("Not enough memory to allocate a page")]
     OutOfPages(),
     #[error("Reached max number of remote hart requests")]
-    ReachedMaxNumberOfRemoteHartRequests(),
+    ReachedMaxNumberOfRemoteCommands(),
     #[error("Reached max number of registered MMIO regions")]
     ReachedMaxNumberOfMmioRegions(),
     #[error("Could not send an IPI, error code: {0}")]
     InterruptSendingError(usize),
     #[error("Slice to array conversion error")]
     HashingError(#[from] core::array::TryFromSliceError),
+    #[error("Invalid id of a general purpouse register")]
+    InvalidGprId(),
 }
 
 impl Error {

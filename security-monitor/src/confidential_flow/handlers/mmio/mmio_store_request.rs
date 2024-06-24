@@ -28,7 +28,8 @@ impl MmioStoreRequest {
         let mtval = confidential_hart.csrs().mtval.read();
         let mtval2 = confidential_hart.csrs().mtval2.read();
 
-        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
+        // According to the RISC-V privilege spec, mtinst encodes faulted instruction when bit 0 is 1.
+        // Otherwise it is a pseudo instruction.
         assert!(mtinst & 0x1 > 0);
         let instruction = mtinst | 0x3;
         let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };

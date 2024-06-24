@@ -23,10 +23,12 @@ pub const STVEC_MODE_VECTORED: usize = 0b11;
 pub const CSR_FFLAGS: u16 = 0x1;
 pub const CSR_FRM: u16 = 0x2;
 pub const CSR_FCSR: u16 = 0x3;
+
 pub const CSR_VSTART: u16 = 0x8;
 pub const CSR_VXSAT: u16 = 0x9;
 pub const CSR_VXRM: u16 = 0xa;
 pub const CSR_VCSR: u16 = 0xf;
+
 pub const CSR_SEED: u16 = 0x15;
 pub const CSR_CYCLE: u16 = 0xc00;
 pub const CSR_TIME: u16 = 0xc01;
@@ -342,6 +344,7 @@ pub const CSR_MHPMCOUNTER28H: u16 = 0xb9c;
 pub const CSR_MHPMCOUNTER29H: u16 = 0xb9d;
 pub const CSR_MHPMCOUNTER30H: u16 = 0xb9e;
 pub const CSR_MHPMCOUNTER31H: u16 = 0xb9f;
+
 pub const CAUSE_MISALIGNED_FETCH: u8 = 0x0;
 pub const CAUSE_FETCH_ACCESS: u8 = 0x1;
 pub const CAUSE_ILLEGAL_INSTRUCTION: u8 = 0x2;

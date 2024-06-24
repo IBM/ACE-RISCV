@@ -7,10 +7,5 @@ pub mod riscv;
 
 #[inline]
 pub fn is_bit_enabled(register_value: usize, bit_index: usize) -> bool {
-    are_bits_enabled(register_value, 1 << bit_index)
-}
-
-#[inline]
-pub fn are_bits_enabled(register_value: usize, bit_mask: usize) -> bool {
-    register_value & bit_mask > 0
+    register_value & (1 << bit_index) > 0
 }

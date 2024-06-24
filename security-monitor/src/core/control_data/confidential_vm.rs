@@ -16,7 +16,7 @@ pub struct ConfidentialVm {
     id: ConfidentialVmId,
     measurements: StaticMeasurements,
     confidential_harts: Vec<ConfidentialHart>,
-    confidential_hart_remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
+    remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     memory_protector: ConfidentialVmMemoryProtector,
     allowed_external_interrupts: usize,
     mmio_regions: Vec<ConfidentialVmMmioRegion>,
@@ -25,9 +25,9 @@ pub struct ConfidentialVm {
 impl ConfidentialVm {
     pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
     /// An average number of inter hart requests that can be buffered before being processed.
-    const AVG_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 3;
+    const AVG_NUMBER_OF_COMMANDS: usize = 3;
     /// A maximum number of inter hart requests that can be buffered.
-    const MAX_NUMBER_OF_REMOTE_HART_REQUESTS: usize = 64;
+    const MAX_NUMBER_OF_COMMANDS: usize = 64;
     /// A maximum number of MMIO regions that a confidential VM can register
     const MAX_NUMBER_OF_MMIO_REGIONS: usize = 1024;
 
@@ -41,22 +41,21 @@ impl ConfidentialVm {
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
-        let confidential_hart_remote_commands = confidential_harts
+        let remote_commands = confidential_harts
             .iter_mut()
             .map(|confidential_hart| {
                 confidential_hart.set_confidential_vm_id(id);
-                (confidential_hart.confidential_hart_id(), Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_REMOTE_HART_REQUESTS)))
+                (confidential_hart.confidential_hart_id(), Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_COMMANDS)))
             })
             .collect();
-        let mmio_regions = Vec::with_capacity(8);
         Self {
             id,
             measurements,
             confidential_harts,
             memory_protector,
-            confidential_hart_remote_commands,
+            remote_commands,
             allowed_external_interrupts: 0,
-            mmio_regions,
+            mmio_regions: Vec::with_capacity(8),
         }
     }
 
@@ -147,18 +146,17 @@ impl ConfidentialVm {
         self.allowed_external_interrupts
     }
 
-    pub fn set_allowed_external_interrupts(&mut self, allowed_external_interrupts: usize) {
-        self.allowed_external_interrupts |= allowed_external_interrupts;
+    pub fn allow_external_interrupt(&mut self, external_interrupt: usize) {
+        self.allowed_external_interrupts |= external_interrupt;
     }
 }
 
-/* Management of untrusted MMIO regions */
+/* Management of MMIO regions */
 impl ConfidentialVm {
     pub fn add_mmio_region(&mut self, region: ConfidentialVmMmioRegion) -> Result<(), Error> {
         ensure!(self.mmio_regions.len() < Self::MAX_NUMBER_OF_MMIO_REGIONS, Error::ReachedMaxNumberOfMmioRegions())?;
         ensure!(!self.mmio_regions.iter().any(|x| x.overlaps(&region)), Error::OverlappingMmioRegion())?;
-        self.mmio_regions.push(region);
-        Ok(())
+        Ok(self.mmio_regions.push(region))
     }
 
     pub fn remove_mmio_region(&mut self, region: &ConfidentialVmMmioRegion) {
@@ -198,41 +196,35 @@ impl ConfidentialVm {
     ///
     /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
-    pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
+    pub fn broadcast_remote_command(&mut self, remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
         (0..self.confidential_harts.len())
-            .filter(|confidential_hart_id| confidential_hart_remote_command.is_hart_selected(*confidential_hart_id))
+            .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
             .try_for_each(|confidential_hart_id| {
-                let is_assigned_to_hardware_hart = self.confidential_harts[confidential_hart_id].is_dummy();
-                if !is_assigned_to_hardware_hart {
-                    // The confidential hart that should receive the ConfidentialHartRemoteCommand is not running on any hardware
-                    // hart. Thus, we can excute the ConfidentialHartRemoteCommand directly.
-                    self.confidential_harts[confidential_hart_id].execute(&confidential_hart_remote_command);
-                } else {
-                    // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
-                    // hart. We add the ConfidentialHartRemoteCommand to a per confidential hart queue and then interrupt that
-                    // hardware hart with IPI. Consequently, the hardware hart running the target confidential hart will
-                    // trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the targetted
-                    // confidential hart.
-                    self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut confidential_hart_remote_commands| {
-                        ensure!(
-                            confidential_hart_remote_commands.len() < Self::MAX_NUMBER_OF_REMOTE_HART_REQUESTS,
-                            Error::ReachedMaxNumberOfRemoteHartRequests()
-                        )?;
-                        confidential_hart_remote_commands.push(confidential_hart_remote_command.clone());
+                match self.confidential_harts[confidential_hart_id].hardware_hart_id() {
+                    Some(id_of_hardware_hart_running_confidential_hart) => {
+                        // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
+                        // hart. We add the ConfidentialHartRemoteCommand to a per confidential hart queue and then interrupt that
+                        // hardware hart with IPI. Consequently, the hardware hart running the target confidential hart will
+                        // trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the targetted
+                        // confidential hart.
+                        self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
+                            ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
+                            Ok(remote_commands.push(remote_command.clone()))
+                        })?;
+                        InterruptController::try_read(|controller| controller.send_ipi(id_of_hardware_hart_running_confidential_hart))
+                    }
+                    None => {
+                        // The confidential hart that should receive the ConfidentialHartRemoteCommand is not running on any hardware
+                        // hart. Thus, we can excute the ConfidentialHartRemoteCommand directly.
+                        self.confidential_harts[confidential_hart_id].execute(&remote_command);
                         Ok(())
-                    })?;
-                    let confidential_hart = &self.confidential_harts[confidential_hart_id];
-                    let id_of_hardware_hart_running_confidential_hart = confidential_hart.confidential_hart_id();
-                    InterruptController::try_read(|interrupt_controller| {
-                        interrupt_controller.send_ipi(id_of_hardware_hart_running_confidential_hart)
-                    })?;
+                    }
                 }
-                Ok(())
             })
     }
 
     pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand>>) -> Result<F, Error> {
-        op(self.confidential_hart_remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
+        op(self.remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
 }

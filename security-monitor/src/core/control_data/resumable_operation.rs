@@ -11,15 +11,15 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::SbiHsmHartR
 /// The security monitor uses information persisted in this structure to complete the operation, which was initiated by the confidential
 /// hart.
 pub enum ResumableOperation {
+    /// The confidential hart performed an SBI call (hypercall) and now is waiting for the hypervisor to perform handle this operation.
     SbiRequest(),
-    /// Indicates that the confidential hart is suspended and must be resumed once the confidential hart is run again, see hart lifecycle
-    /// states.
+    /// The confidential hart requested to be suspended and expects to be reset on next resume, see hart lifecycle states.
     ResumeHart(SbiHsmHartResume),
-    /// The confidential hart waits for a shared page to be mapped into its address space. The hypervisor must allocate a shared page in
-    /// the non-confidential memory.
+    /// The confidential hart requested to share memory range with the hypervisor and now is waiting for a shared page to be mapped into
+    /// its address space.
     SharePage(SharePageRequest),
-    /// The confidential hart waits for the data it tried to load from the MMIO address. MMIO load is emulated by the hypervisor.
+    /// The confidential hart requested to load data from a MMIO address and is waiting for the hypervisor to emulate this operation.
     MmioLoad(MmioLoadPending),
-    /// The confidential hart waits for the data to be stored in the MMIO address. MMIO store is emulated by the hypervisor.
+    /// The confidential hart requested to store data in a MMIO address and now is waiting for the hypervisor to emulate this operation.
     MmioStore(MmioStorePending),
 }

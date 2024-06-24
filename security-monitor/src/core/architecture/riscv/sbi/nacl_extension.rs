@@ -82,18 +82,18 @@ impl NaclSharedMemory {
         self.write_at_offset(Self::SCRATCH_SPACE_SIZE + Self::csr_index(csr_code) * core::mem::size_of::<usize>(), value);
     }
 
-    pub fn gpr(&self, gpr: GeneralPurposeRegister) -> usize {
-        self.read_at_offset(core::mem::size_of::<usize>() * gpr.index())
+    pub fn gpr(&self, register: GeneralPurposeRegister) -> usize {
+        self.read_at_offset(core::mem::size_of::<usize>() * Into::<usize>::into(register))
     }
 
-    pub fn write_gpr(&self, gpr: GeneralPurposeRegister, value: usize) {
-        self.write_at_offset(core::mem::size_of::<usize>() * gpr.index(), value);
+    pub fn write_gpr(&self, register: GeneralPurposeRegister, value: usize) {
+        self.write_at_offset(core::mem::size_of::<usize>() * Into::<usize>::into(register), value);
     }
 
     pub fn gprs(&self) -> GeneralPurposeRegisters {
         let mut gprs = GeneralPurposeRegisters::empty();
         GeneralPurposeRegisters::iter().for_each(|index| {
-            let gpr = GeneralPurposeRegister::from_index(index).unwrap();
+            let gpr = GeneralPurposeRegister::try_from(index).unwrap();
             let value = self.gpr(gpr);
             gprs.write(gpr, value);
         });

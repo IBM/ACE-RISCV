@@ -84,6 +84,6 @@ pub fn decode_result_register(mtinst: usize) -> Result<GeneralPurposeRegister, E
                 Err(Error::InvalidCompressedRiscvInstruction(mtinst))
             }
         }
-    }?;
-    Ok(GeneralPurposeRegister::from_index(register_index as usize).ok_or(Error::InvalidCompressedRiscvInstruction(mtinst))?)
+    }? as usize;
+    Ok(GeneralPurposeRegister::try_from(register_index).map_err(|_| Error::InvalidCompressedRiscvInstruction(mtinst))?)
 }
