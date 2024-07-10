@@ -17,11 +17,10 @@
     // used for formal verification framework (RefinedRust annotations)
     register_tool,
     custom_inner_attributes,
+    stmt_expr_attributes,
 )]
 // RefinedRust configuration
 #![register_tool(rr)]
-#![feature(custom_inner_attributes)]
-#![feature(stmt_expr_attributes)]
 #![rr::coq_prefix("sm")]
 #![rr::include("spin")]
 #![rr::include("alloc")]

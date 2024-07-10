@@ -56,13 +56,6 @@ pub struct Page<S: PageState> {
     _marker: PhantomData<S>,
 }
 
-// We declare Send+Sync on the `Page` because it stores internally a raw pointer, which is
-// not safe to pass in a multi-threaded program. But in the case of the `Page` it is safe
-// because the `Page` owns the memory associated with pointer and never exposes the raw pointer
-// to the outside.
-unsafe impl<S> Send for Page<S> where S: PageState {}
-unsafe impl<S> Sync for Page<S> where S: PageState {}
-
 #[rr::context("onceG Σ memory_layout")]
 #[rr::context("onceG Σ gname")]
 impl Page<UnAllocated> {
