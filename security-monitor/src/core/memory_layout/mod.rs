@@ -193,7 +193,7 @@ impl MemoryLayout {
         });
     }
 
-    #[rr::trust_me]
+    #[rr::only_spec]
     #[rr::params("x")]
     #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some x)")]
     #[rr::returns("#x")]

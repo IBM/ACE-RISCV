@@ -245,6 +245,7 @@ impl<T: PageState> Page<T> {
     /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     /// Specification:
+    #[rr::only_spec]
     #[rr::params("p", "off")]
     #[rr::args("#p", "off")]
     /// Precondition: the offset needs to be divisible by the size of usize.
@@ -282,7 +283,7 @@ impl<T: PageState> Page<T> {
     /// will be written to the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     /// Specification:
-    #[rr::trust_me]
+    #[rr::only_spec]
     #[rr::params("p", "off", "γ", "v2")]
     #[rr::args("(#p, γ)", "off", "v2")]
     /// Precondition: the offset needs to be divisible by the size of usize.
