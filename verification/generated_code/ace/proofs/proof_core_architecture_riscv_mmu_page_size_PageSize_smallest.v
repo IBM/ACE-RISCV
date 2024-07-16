@@ -1,16 +1,16 @@
 From caesium Require Import lang notation.
 From refinedrust Require Import typing shims.
-From sm.ace.generated Require Import generated_code_ace generated_specs_ace.
-From sm.ace.generated Require Import generated_template_core_page_allocator_page_Page_T_address.
+From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_architecture_riscv_mmu_page_size_PageSize_smallest.
 
 Set Default Proof Using "Type".
 
 Section proof.
 Context `{!refinedrustGS Σ}.
-Lemma core_page_allocator_page_Page_T_address_proof (π : thread_id) :
-  core_page_allocator_page_Page_T_address_lemma π.
+
+Lemma core_architecture_riscv_mmu_page_size_PageSize_smallest_proof (π : thread_id) :
+  core_architecture_riscv_mmu_page_size_PageSize_smallest_lemma π.
 Proof.
-  core_page_allocator_page_Page_T_address_prelude.
+  core_architecture_riscv_mmu_page_size_PageSize_smallest_prelude.
 
   repeat liRStep; liShow.
 

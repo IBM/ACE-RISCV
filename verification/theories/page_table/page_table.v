@@ -276,7 +276,18 @@ Inductive page_table_level :=
   | PTLevel1.
 
 Global Instance page_table_level_eqdec : EqDecision page_table_level.
-Proof. solve_decision. Qed.
+Proof. solve_decision. Defined.
+Global Instance page_table_level_inhabited : Inhabited page_table_level.
+Proof. exact (populate PTLevel1). Qed.
+
+Definition page_table_level_lower (pt : page_table_level) : option page_table_level :=
+  match pt with
+  | PTLevel5 => Some PTLevel4
+  | PTLevel4 => Some PTLevel3
+  | PTLevel3 => Some PTLevel2
+  | PTLevel2 => Some PTLevel1
+  | PTLevel1 => None
+  end.
 
 Definition paging_system_highest_level (system : paging_system) : page_table_level :=
   match system with
@@ -287,7 +298,7 @@ Definition number_of_page_table_entries (system : paging_system) (level : page_t
   if decide (level = paging_system_highest_level system) then 2048%nat else 512%nat.
 
 (* Can we avoid mutual inductives? *)
-Inductive page_table_entry : Type :=
+Inductive logical_page_table_entry : Type :=
   | PointerToNextPageTable
       (next : page_table_tree)
       (conf : page_table_config)
@@ -308,7 +319,7 @@ with page_table_tree :=
   | PageTableTree
       (system : paging_system)
       (serialized_addr : Z)
-      (entries : list page_table_entry)
+      (entries : list logical_page_table_entry)
       (level : page_table_level)
 .
 
@@ -322,7 +333,7 @@ Definition pt_get_level (pt : page_table_tree) : page_table_level :=
   | PageTableTree _ _ _ level => level
   end.
 
-Definition pt_get_entries (pt : page_table_tree) : list page_table_entry :=
+Definition pt_get_entries (pt : page_table_tree) : list logical_page_table_entry :=
   match pt with
   | PageTableTree _ _ entries _ => entries
   end.
@@ -340,9 +351,9 @@ Definition pt_number_of_entries (pt : page_table_tree) : nat :=
 (*Fixpoint page_table_levels_decreasing (p : page_table_tree) :=*)
   (*match p with*)
   (*| PageTableTree entries level =>*)
-      (*Forall page_table_entry_levels_decreasing entries ∧*)
+      (*Forall logical_page_table_entry_levels_decreasing entries ∧*)
       (*max_list (fmap *)
-(*with page_table_entry_levels_decreasing (pt : page_table_entry) :=*)
+(*with logical_page_table_entry_levels_decreasing (pt : logical_page_table_entry) :=*)
   (*match pt with*)
   (*| PointerToNextPageTable next conf =>*)
 
@@ -350,9 +361,9 @@ Fixpoint page_table_tree_has_system (system : paging_system) (pt : page_table_tr
   match pt with
   | PageTableTree system' _ entries _ =>
       system = system' ∧
-      Forall_cb (page_table_entry_has_system system) entries
+      Forall_cb (logical_page_table_entry_has_system system) entries
   end
-with page_table_entry_has_system (system : paging_system) (pte : page_table_entry) :=
+with logical_page_table_entry_has_system (system : paging_system) (pte : logical_page_table_entry) :=
   match pte with
   | PointerToNextPageTable pt _ =>
       page_table_tree_has_system system pt
@@ -377,7 +388,7 @@ Definition make_empty_page_tree (system : paging_system) (level : page_table_lev
   PageTableTree system loc [] level.
 
 (** Encoding *)
-Definition encode_page_table_entry_bv (pte : page_table_entry) : bv 64 :=
+Definition encode_logical_page_table_entry_bv (pte : logical_page_table_entry) : bv 64 :=
   match pte with
   | PointerToNextPageTable pt ptc =>
       (* This is not a leaf *)
@@ -390,10 +401,10 @@ Definition encode_page_table_entry_bv (pte : page_table_entry) : bv 64 :=
       encode_pte 0 pte_flags_invalid
   end
 .
-Definition encode_page_table_entry (pte : page_table_entry) : Z :=
-  bv_unsigned $ encode_page_table_entry_bv pte.
-Definition encode_page_table_entries (entries : list page_table_entry) : list Z :=
-  encode_page_table_entry <$> entries
+Definition encode_logical_page_table_entry (pte : logical_page_table_entry) : Z :=
+  bv_unsigned $ encode_logical_page_table_entry_bv pte.
+Definition encode_page_table_entries (entries : list logical_page_table_entry) : list Z :=
+  encode_logical_page_table_entry <$> entries
 .
 
 (** Relation that states that [pt_byte] is a valid byte-level representation of [pt_logical]'s entries. *)
@@ -411,7 +422,7 @@ Definition is_byte_level_representation (pt_logical : page_table_tree) (pt_byte 
 
 
 (** Operations modifying the page table *)
-Definition pt_set_entry (pt : page_table_tree) (index : nat) (entry : page_table_entry) : page_table_tree :=
+Definition pt_set_entry (pt : page_table_tree) (index : nat) (entry : logical_page_table_entry) : page_table_tree :=
   match pt with
   | PageTableTree system serialized_addr entries level =>
       PageTableTree system serialized_addr (<[index := entry]> entries) level

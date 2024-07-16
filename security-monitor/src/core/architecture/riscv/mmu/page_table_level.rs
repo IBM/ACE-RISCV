@@ -3,15 +3,25 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[rr::refined_by("page_table_level")]
 pub enum PageTableLevel {
+    #[rr::pattern("PTLevel5")]
     Level5,
+    #[rr::pattern("PTLevel4")]
     Level4,
+    #[rr::pattern("PTLevel3")]
     Level3,
+    #[rr::pattern("PTLevel2")]
     Level2,
+    #[rr::pattern("PTLevel1")]
     Level1,
 }
 
 impl PageTableLevel {
+    #[rr::trust_me]
+    #[rr::params("x")]
+    #[rr::args("#x")]
+    #[rr::returns("<#>@{option} (page_table_level_lower x)")]
     pub fn lower(&self) -> Option<Self> {
         match self {
             Self::Level5 => Some(Self::Level4),

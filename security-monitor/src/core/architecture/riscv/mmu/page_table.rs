@@ -15,8 +15,6 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use sha2::digest::crypto_common::generic_array::GenericArray;
 
-// TODO: rename Page -> PageToken ?
-// Consider: make generic over PageTableLevel
 /// Represents an architectural 2nd level page table that defines the guest physical to real address translation. The security monitor fully
 /// controls these mappings for confidential VMs. These page tables are stored in confidential memory (use `Page<Allocated>`).
 ///
@@ -29,7 +27,12 @@ use sha2::digest::crypto_common::generic_array::GenericArray;
 ///
 /// During the execution of a confidential hart, MMU might traverse the serialized representation. Our changes to this representation must
 /// be atomic, so that MMU always reads a valid configuration.
+///
+/// Model: We model the page table by a `page_table_tree` which captures the inherent tree
+/// structure.
 #[rr::refined_by("pt_logical" : "page_table_tree")]
+/// Invariant: We assert that there exists a serialized byte-level representation of the page table
+/// tree in the form of a page.
 #[rr::exists("pt_byte" : "page")]
 #[rr::invariant("is_byte_level_representation pt_logical p_byte")]
 pub struct PageTable {
@@ -46,12 +49,11 @@ pub struct PageTable {
     logical_representation: Vec<LogicalPageTableEntry>,
 }
 
-// What do we want to prove?
-// - good structure according to hw spec
-// - page table has unique ownership over all "reachable" memory
-// - copy from non-confidential memory only reads from non-confidential memory
-// - if input to copy_.. is not a valid page table, fail correctly
-
+/// Verification: what do we want to prove?
+/// - the page table is structured according to RISC-V spec
+/// - the page table has unique ownership over all "reachable" memory
+/// - copying a page table from non-confidential memory only reads from non-confidential memory
+/// - if input to copy_.. is not a valid page table, fail correctly
 #[rr::skip]
 impl PageTable {
     /// This functions copies recursively page table structure from non-confidential memory to confidential memory. It
@@ -60,6 +62,12 @@ impl PageTable {
     ///
     /// If the input page table configuration has two page table entries that point to the same page, then the copied page table
     /// configuration will have two page table entries pointing to different pages of the same content.
+    ///
+    /// # Safety
+    ///
+    /// This function expects a page table structure at the given `address` and will dereference
+    /// this pointer and further pointers parsed from the page table structure, as long as they are
+    /// in non-confidential memory.
     ///
     /// # Guarantees
     ///
@@ -74,11 +82,6 @@ impl PageTable {
     // output:
     //
     // Need to make sure that we only copy from non-confidential memory.
-    //
-    // NOTE: Attestation happens after this function.
-    // - measure in order of guest-physical addresses
-    // - if hypervisor switches around order of guest-physical addresses, attestation will
-    // fail
     //
     // NOTE: Does not support COW. The hypervisor cannot map zeroed pages to the same address (this function will create multiple copies and
     // create a static image). Every entry in the page table will get its own physical page.
@@ -107,7 +110,7 @@ impl PageTable {
     #[rr::requires(#iris "address_has_valid_page_table l_nonconf pt")]
     #[rr::exists("pt'")]
     #[rr::ensures("related_page_tables pt pt'")]
-    #[rr::returns("#Ok(pt')")]   // TODO or out of memory
+    #[rr::returns("#Ok(pt')")]   // (or out of memory)
     */
     pub fn copy_from_non_confidential_memory(
         address: NonConfidentialMemoryAddress, paging_system: PagingSystem, level: PageTableLevel,
@@ -276,6 +279,8 @@ impl PageTable {
     }
 
     /// Recursively clears the entire page table configuration, releasing all pages to the PageAllocator.
+    #[rr::params("x")]
+    #[rr::args("x")]
     pub fn deallocate(mut self) {
         let mut pages = Vec::with_capacity(self.logical_representation.len() + 1);
         pages.push(self.serialized_representation.deallocate());

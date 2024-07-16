@@ -360,7 +360,6 @@ impl PageStorageTreeNode {
     pub fn acquire_page_token(
         &mut self, this_node_base_address: usize, this_node_page_size: PageSize, page_size_to_acquire: PageSize,
     ) -> Result<Page<UnAllocated>, Error> {
-        //assert!(self.max_allocable_page_size >= Some(page_size_to_acquire));
         ensure!(self.max_allocable_page_size >= Some(page_size_to_acquire), Error::OutOfPages())?;
         if &this_node_page_size == &page_size_to_acquire {
             // End of recursion, we found the node from which we acquire a page token.
@@ -459,7 +458,9 @@ impl PageStorageTreeNode {
     /// Invariant: After returning, every child can allocate a page token of smaller size than the original page token.
     #[rr::params("node", "γ", "smaller_size")]
     #[rr::args("(#node, γ)", "node.(base_address)", "node.(max_node_size)")]
+    /// Precondition: The children should be initialized.
     #[rr::requires("node.(children_initialized)")]
+    /// Precondition: A token is available in the current node.
     #[rr::requires("node.(allocation_state) = PageTokenAvailable")]
     /// Precondition: We assume there is a smaller node size.
     #[rr::requires("page_size_smaller node.(max_node_size) = Some smaller_size")]

@@ -34,7 +34,7 @@ impl PageState for Allocated {}
 #[rr::invariant("page_wf p")]
 
 /// We require the page to be in this bounded memory region.
-//#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
+#[rr::invariant("(page_end_loc p).2 ≤ MAX_PAGE_ADDR")]
 
 /// We require the memory layout to have been initialized.
 #[rr::context("onceG Σ memory_layout")]
@@ -79,7 +79,7 @@ impl Page<UnAllocated> {
     #[rr::requires("l `aligned_to` (page_size_align sz)")]
 
     /// Precondition: The page is located in a bounded memory region.
-    //#[rr::requires("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
+    #[rr::requires("l.2 + page_size_in_bytes_Z sz ≤ MAX_PAGE_ADDR")]
 
     /// Precondition: The memory layout is initialized.
     #[rr::requires(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
@@ -117,10 +117,9 @@ impl Page<UnAllocated> {
     #[rr::requires(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
     /// Postcondition: We return ownership over the memory region.
     #[rr::ensures(#type "l2" : "<#> v2" @ "array_t (int usize_t) (page_size_in_words_nat p.(page_sz))")]
+    /// Postcondition: We get a correctly initialized page token with the copied contents.
     #[rr::returns("Ok(#(mk_page p.(page_loc) p.(page_sz) v2))")]
     pub fn copy_from_non_confidential_memory(mut self, mut address: NonConfidentialMemoryAddress) -> Result<Page<Allocated>, Error> {
-        // NOTE: here we get the offsets. We need to prove that the address is still in bounds of non-confidential memory.
-        //
         self.offsets().into_iter().try_for_each(|offset_in_bytes| {
             let non_confidential_address = MemoryLayout::read()
                 .non_confidential_address_at_offset(&mut address, offset_in_bytes)
@@ -141,6 +140,7 @@ impl Page<UnAllocated> {
     #[rr::args("p")]
     /// Precondition: The memory layout needs to have been initialized.
     #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some x)")]
+    /// Postcondition: We get the subdivided pages.
     #[rr::returns("<#> subdivide_page p")]
     pub fn divide(mut self) -> Vec<Page<UnAllocated>> {
         let smaller_page_size = self.size.smaller().unwrap_or(self.size);
@@ -245,7 +245,6 @@ impl<T: PageState> Page<T> {
     /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be
     /// within the page address range, otherwise an Error is returned.
     /// Specification:
-    #[rr::only_spec]
     #[rr::params("p", "off")]
     #[rr::args("#p", "off")]
     /// Precondition: the offset needs to be divisible by the size of usize.
@@ -296,19 +295,6 @@ impl<T: PageState> Page<T> {
     /// Postcondition: self has been updated to contain the value `v2` at offset `off`
     #[rr::observe("γ": "mk_page p.(page_loc) p.(page_sz) (<[Z.to_nat off' := v2]> p.(page_val))")]
     #[rr::returns("Ok(#())")]
-    /*
-    /// Precondition: the offset needs to be divisible by the size of usize.
-    #[rr::requires("(ly_size usize_t | {offset_in_bytes})%Z")]
-    /// Precondition: we need to be able to fit a usize at the offset and not exceed the page bounds
-    #[rr::requires("({offset_in_bytes} + ly_size usize_t ≤ page_size_in_bytes_Z {self.cur.2})%Z")]
-    #[rr::exists("off'" : "Z")]
-    /// Postcondition: off is a multiple of usize
-    #[rr::ensures("{offset_in_bytes} = (off' * ly_size usize_t)%Z")]
-    /// Postcondition: self has been updated to contain the value `v2` at offset `off`
-    //#[rr::observe("self": "({self.cur.1}, {self.cur.2}, <[Z.to_nat off' := {value}]> {self.cur.3})")]
-    #[rr::observe("self.3": "<[Z.to_nat off' := {value}]> {self.cur.3}")]
-    #[rr::returns("Ok(#())")]
-    */
     pub fn write(&mut self, offset_in_bytes: usize, value: usize) -> Result<(), Error> {
         ensure!(offset_in_bytes % Self::ENTRY_SIZE == 0, Error::AddressNotAligned())?;
         unsafe {
@@ -347,21 +333,22 @@ impl<T: PageState> Page<T> {
     #[rr::only_spec]
     #[rr::params("p", "γ")]
     #[rr::args("(#p, γ)")]
+    /// Postcondition: The page has been zeroized.
     #[rr::observe("γ": "mk_page p.(page_loc) p.(page_sz) (zero_page p.(page_sz))")]
     fn clear(&mut self) {
         // Safety: below unwrap() is fine because we iterate over page's offsets and thus always
         // request a write to an offset within the page.
         self.offsets().for_each(
-            #[rr::skip]
-            #[rr::params("off", "v" : "list Z", "l", "sz")]
+            #[rr::trust_me]
+            #[rr::params("off", "p")]
             #[rr::args("off")]
             // this should be dispatched by knowing that each argument is an element of the
             // iterator, i.e. be implied by what for_each can guarantee
             #[rr::requires("(ly_size usize_t | off)%Z")]
-            #[rr::requires("(off + ly_size usize_t ≤ page_size_in_bytes_Z sz)%Z")]
+            #[rr::requires("(off + ly_size usize_t ≤ page_size_in_bytes_Z p.(page_sz))%Z")]
             #[rr::exists("off'")]
             #[rr::ensures("off = (off' * ly_size usize_t)%Z")]
-            #[rr::capture("self" : "(l, sz, v)" -> "(l, sz, <[Z.to_nat off' := 0]> v)")]
+            #[rr::capture("self" : "p" -> "mk_page p.(page_loc) p.(page_sz) (<[Z.to_nat off' := 0]> p.(page_val))")]
             |offset_in_bytes| self.write(offset_in_bytes, 0).unwrap(),
         );
     }

@@ -76,8 +76,13 @@ Proof.
 Qed.
 
 (** The maximum address at which a page may be located (one-past-the-end address) *)
-Definition MAX_PAGE_ADDR : Z := 
+(* Sealed because it is big and will slow down Coq *)
+Definition MAX_PAGE_ADDR_def : Z :=
   page_size_in_bytes_Z Size128TiB.
+Definition MAX_PAGE_ADDR_aux : seal MAX_PAGE_ADDR_def. Proof. by eexists. Qed.
+Definition MAX_PAGE_ADDR := unseal MAX_PAGE_ADDR_aux.
+Definition MAX_PAGE_ADDR_unfold : MAX_PAGE_ADDR = MAX_PAGE_ADDR_def :=
+  seal_eq MAX_PAGE_ADDR_aux.
 
 (** * Pages *)
 Definition zero_page (sz : page_size) : list Z :=

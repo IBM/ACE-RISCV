@@ -75,6 +75,10 @@ impl PageSize {
         }
     }
 
+    #[rr::trust_me]
+    #[rr::params("x")]
+    #[rr::args("#x")]
+    #[rr::returns("page_size_multiplier x")]
     pub fn number_of_smaller_pages(&self) -> usize {
         match self {
             PageSize::Size128TiB => 256,
