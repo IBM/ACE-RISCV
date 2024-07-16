@@ -15,7 +15,7 @@ This is initiated by running `make verify` in the root directory of the reposito
 The generated Coq code is placed in the [`verification/generated_code/ace`](/verification/generated_code/ace) folder.
 It is split into two subfolders, [`generated`](/verification/generated_code/ace/generated) and [`proofs`](/verification/generated_code/ace/proofs).
 The [`generated`](/verification/generated_code/ace/generated) subfolder contains the automatically generated model of the Rust code, the translated specifications, and proof templates.
-It is re-generated on every run of `make verify` and thus should not be modified.
+It is re-generated on every run of `make verify` and thus should not be modified manually.
 The [`proofs`](/verification/generated_code/ace/proofs) subfolder contains the proofs for the individual functions.
 These files may be modified, as they are not touched by RefinedRust after their initial creation, and may contain partially manual proofs.
 
@@ -58,7 +58,7 @@ Here are some pointers to get you started with verifying more code in our setup:
 
 ## Status
 
-The following table documents the rough status of the verification of important individual modules.
+The following table documents the verification status of the security monitor's individual modules.
 Some less interesting support modules are not included.
 
 The Rust source path is relative to [`security_monitor/src`](/security_monitor/src/).
@@ -72,8 +72,8 @@ The Rust source path is relative to [`security_monitor/src`](/security_monitor/s
 | Initialization             | [`core/initialization`](/security-monitor/src/core/initialization)            | Specified, partly verified |         |
 | VM Interactions            |             | Unspecified                |         |
 | \|- Interface              | [`core/control_data`](/security-monitor/src/core/control_data)            |                            |         |
-| \|- Confidential flows     | [`confidential_flow`](/security-monitor/src/confidential_flow)            |                            |         |
-| \|- Non-confidential flows | [`non_confidential_flow`](/security-monitor/src/non_confidential_flow)            |                            |         |
+| \|- Confidential flow      | [`confidential_flow`](/security-monitor/src/confidential_flow)            |                            |         |
+| \|- Non-confidential flow | [`non_confidential_flow`](/security-monitor/src/non_confidential_flow)            |                            |         |
 
 ### RefinedRust proof annotations
 
@@ -82,12 +82,13 @@ If a function is annotated, the function is verified against that specification,
 - `#[rr::only_spec]`: only the specification is generated, but the code is not translated and not verified
 - `#[rr::trust_me]`: the specification and code are generated, but the code is not verified against the specification
 
+These opt-out annotations help to progressively cover code with specification and delay the work on the verification itself. Eventually, a fully verified security monitor would not use any of the opt-out annotations and RefinedRust will verify that.
 
 ## Guarantees
 
 ### Verification goal
 
-Currently, we aim to verify memory safety (i.e., the absence of null dereferences, data races, use-after-free, etc.) and functional correctness (i.e., the code does something useful) of the security monitor code.
+Currently, we aim to verify memory safety (i.e., the absence of null dereferences, data races, use-after-free, etc.) and functional correctness (i.e., the code does what it is functionally intended to) of the security monitor implementation.
 
 In the future, we plan to verify (relaxed) non-interference, in order to show that confidential VMs are correctly isolated from each other and the hypervisor.
 This will build on and directly integrate with our current verification of memory safety and functional correctness.
@@ -100,11 +101,13 @@ There are several efforts which are complementary to the aims of this project:
 
 **Software**
 * Hypervisor verification: While our security monitor architecture can ensure confidentiality of VMs without trusting the hypervisor, VMs may still need to communicate with the hypervisor (e.g. for IO). One may want to prove that the hypervisor is still trustworthy or that it responds correctly to hypercalls.
-* VM verification: In order to actually run a secure workload end-to-end, one would have to verify the code of VMs run by the security monitor.
+  Our architecture assumes that the hypervisor retains control over threads scheduling, so it is in control over the availability of confidential VMs. One might try to prove the correctness of the hypervisor in order to get availability guarantees.
+* VM verification: In order to actually run a secure workload end-to-end, one would have to verify the code of confidential VMs protected by the security monitor.
 * Low-level firmware/bootloader verification: Our security monitor currently builds on OpenSBI, which we trust.
+  In future work, we would like to deprivilege firmware (see discussions in the RISC-V community on M-mode partitioning or M-mode lightweight isolation) or reimplement and prove the minimal set of required functionalities of the M-mode firmware (e.g., OpenSBI).
 
 **Hardware**
-* verification of ISA security: Our security monitor relies on mechanisms such as PMP. We have to trust that these mechanisms provided by the RISC-V ISA are actually secure and do not allow unintentional information flow when correctly configured.
+* verification of ISA security: Our security monitor relies on hardware components, such as RISC-V physical memory protection (PMP) or the memory management unit (MMU). We have to trust that these mechanisms provided by the RISC-V ISA are actually secure and do not allow unintentional information flow when correctly configured.
 * microarchitectural verification: We need to rely on the hardware correctly implementing the ISA, and that the hardware has no side-channels that allow information flow beyond what is specified in the ISA.
 * designing secure hardware
 
@@ -121,7 +124,7 @@ The most important limitations of RefinedRust's model include following aspects 
 - weak memory semantics (i.e., RefinedRust assumes sequential consistency)
 
 ### Assembly semantics
-In the current stage of the project, we do not yet verify the inline Assembly semantics and specifics of the Risc-V core (e.g. when switching execution between a VM and the security monitor).
+In the current stage of the project, we do not yet verify the inline Assembly semantics and specifics of the RISC-V core (e.g. when switching execution between a VM and the security monitor).
 Accurate verification of multi-language programs and verification of system software against authoritative ISA semantics are an open research problem under active research.
 
 ### Trusted Computing Base
