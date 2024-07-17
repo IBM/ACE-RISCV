@@ -86,7 +86,7 @@ Definition pte_is_ptr (flags : pte_flags) : bool :=
 
 (* Check if PTE is valid *)
 Definition pte_is_invalid (flags : pte_flags) : bool :=
-  (negb flags.(PTEValid)) 
+  (negb flags.(PTEValid))
   (* TODO: security monitor does not have to check for it *)
   || (flags.(PTEWrite) && negb flags.(PTERead))
 .
@@ -125,7 +125,7 @@ Definition encode_physical_address_to_ppn (addr : Z) : bv pte_ppn_length :=
 
 (** A valid physical address should fit into 64 bits. The highest 8 bits should replicate the 56th bit. *)
 Definition is_valid_physical_address (addr : Z) :=
-  ∃ bv_addr, 
+  ∃ bv_addr,
     Z_to_bv_checked 64 addr = Some bv_addr ∧
     Forall (λ x, bv_to_bit (N.to_nat physical_address_length) bv_addr = x) (drop (N.to_nat physical_address_length) (bv_to_bits bv_addr)).
 
@@ -139,61 +139,11 @@ Definition encode_pte
     $ pte_encode_flags flags (* flags *)
 .
 
-(* 
-  ∀ guest_physical_address, 
-    memory_isolation_translate (some_hw_config) serialized_page_table guest_phyiscal_address = Some real_address →
-   real_address belongs to this VM
-
-
-   (* TODO: does it suffice to prove a weaker property? *)
-
-   is_byte_level_logical_representation logical physical →
-
-   we also need to require that the hardware actually does an exception if the translation fails.
-
-
-
-   What is the right way to formalize this?
-   Probably we need a logical version and a physical version.
-
-   The physical version is used by the semantics, and it requires access to the whole state in order to follow pointers
-   The logical version should be used in our spec, and correspond to the physical version, in that it translates to the same things.
-
-
- *)
-
-    
-
-(* Notes:
-  all of RWX are zero => pointer to next level
-  otherwise a leaf
-
-  W implies R
-
-  SUM bit determines whether supervisor can access user mode pages
-
-  G exists in all address spaces. 
-
-  leaves contain A D U; for non-leafs, they have to be cleared
-
-
-  How does the shape of the page table relate between the one for guest translation and supervisor translation? 
-   Sv57x4 is for guest physical to supervisor physical
-  So does the hypervisor also go through this scheme, or is that using Sv57?
-   => It's using Sv57. But the hypervisor page table is not managed by the security monitor.
-    It's setup by the hypervisor boot process.
-   The security monitor only cares about correctly backing up and restoring the satp config.
-
-
-  Steps for formalization:
-   - convert bit sequence to integer
-   - stuff to concatenate bit sequences
-
- *)
-
+(** Translate an address according to the page table located at [pt_addr] in [σ]. *)
 Definition translate_address (pt_addr : Z) (σ : state) (addr : Z) : option Z :=
+  (* TODO *)
   None
-. 
+.
 
 
 (** * Logical representation *)
@@ -230,24 +180,6 @@ Definition to_pte_flags (valid : bool) (ptc : page_table_config) (ptp : page_tab
   PTEDirty := ptc.(pt_is_dirty);
 |}.
 
-(** 
-  How do we decode things? 
-  Should we take an integer or another type? 
-   Idea: define a bitvector type that at least requires that it's in the given bitwidth. 
-   But I guess this is already given by the integer type itself.
-   I could represent it as a list of bits, instead. 
-   But encoding/decoding should anyways be reversible. So it wouldn't change much.
-    decode (encode bits) = Some bits
-    decode i = Some bits → encode bits = i
-
-  I guess the main advantage is that it's easier to do stuff with masking etc. 
-   
-  Especially with or-ing stuff. 
-   that will be difficult to do otherwise. 
-
-*)
-(*Definition *)
-
 (** The valid PTE flag bits. *)
 Inductive pte_flags_bits :=
   | PTValid
@@ -262,12 +194,19 @@ Inductive pte_flags_bits :=
 
 (*Definition pte_flags_bits_mask *)
 
+(** Physical page table entries *)
+Inductive page_table_entry :=
+  | UnmappedPTE
+  | NextPTE (l : loc)
+  | DataPTE (l : loc)
+.
 
 Record shared_page : Type := {
   shared_page_hv_address : Z;
   shared_page_sz : page_size;
 }.
 
+(** Level of page tables *)
 Inductive page_table_level :=
   | PTLevel5
   | PTLevel4
@@ -289,6 +228,7 @@ Definition page_table_level_lower (pt : page_table_level) : option page_table_le
   | PTLevel1 => None
   end.
 
+(** The highest level for this paging system *)
 Definition paging_system_highest_level (system : paging_system) : page_table_level :=
   match system with
   | Sv57x4 => PTLevel5
@@ -297,7 +237,7 @@ Definition paging_system_highest_level (system : paging_system) : page_table_lev
 Definition number_of_page_table_entries (system : paging_system) (level : page_table_level) : nat :=
   if decide (level = paging_system_highest_level system) then 2048%nat else 512%nat.
 
-(* Can we avoid mutual inductives? *)
+(** Logical page table entries defined mutually inductively with page table trees *)
 Inductive logical_page_table_entry : Type :=
   | PointerToNextPageTable
       (next : page_table_tree)
@@ -310,7 +250,7 @@ Inductive logical_page_table_entry : Type :=
 
   | PageSharedWithHypervisor
       (sp : shared_page)
-      (conf : page_table_config) 
+      (conf : page_table_config)
       (perm : page_table_permission)
 
   | NotValid
@@ -348,15 +288,22 @@ Definition pt_number_of_entries (pt : page_table_tree) : nat :=
   | PageTableTree system _ _ level => number_of_page_table_entries system level
   end.
 
-(*Fixpoint page_table_levels_decreasing (p : page_table_tree) :=*)
-  (*match p with*)
-  (*| PageTableTree entries level =>*)
-      (*Forall logical_page_table_entry_levels_decreasing entries ∧*)
-      (*max_list (fmap *)
-(*with logical_page_table_entry_levels_decreasing (pt : logical_page_table_entry) :=*)
-  (*match pt with*)
-  (*| PointerToNextPageTable next conf =>*)
+(** Asserts that that the level of a logical page table/page table entry is given by [l], and it is properly decreasing for children. *)
+Fixpoint page_table_level_is (l : option page_table_level) (p : page_table_tree) {struct p} :=
+  match p with
+  | PageTableTree sys addr entries level =>
+      Some level = l ∧
+      Forall_cb (logical_page_table_entry_level_is (page_table_level_lower level)) entries
+  end
+with logical_page_table_entry_level_is (l : option page_table_level) (pt : logical_page_table_entry) {struct pt} :=
+  match pt with
+  | PointerToNextPageTable next conf =>
+      page_table_level_is l next
+  | _ =>
+      True
+  end.
 
+(** Predicate specifying that this entry/tree has a particular paging system *)
 Fixpoint page_table_tree_has_system (system : paging_system) (pt : page_table_tree) :=
   match pt with
   | PageTableTree system' _ entries _ =>
@@ -367,27 +314,43 @@ with logical_page_table_entry_has_system (system : paging_system) (pte : logical
   match pte with
   | PointerToNextPageTable pt _ =>
       page_table_tree_has_system system pt
-  | _ => 
+  | _ =>
       True
   end.
 
 
+(** Well-formedness of page table trees *)
 (* TODO: maybe make this intrinsic using dependent type *)
 Definition page_table_wf (pt : page_table_tree) :=
   (* number of page table entries is determined by the level *)
   number_of_page_table_entries (pt_get_system pt) (pt_get_level pt) = length (pt_get_entries pt) ∧
   (* ensure that levels are decreasing *)
-  (* TODO *)
+  page_table_level_is (Some $ pt_get_level pt) pt ∧
   (* ensure that the system is the same across the whole page table *)
   page_table_tree_has_system (pt_get_system pt) pt
 .
 (* TODO: ensure everything is in confidential memory *)
 
+Definition page_table_is_first_level (pt : page_table_tree) :=
+  pt_get_level pt = paging_system_highest_level (pt_get_system pt).
 
-Definition make_empty_page_tree (system : paging_system) (level : page_table_level) (loc : Z) := 
-  PageTableTree system loc [] level.
 
-(** Encoding *)
+(** Empty page table tree *)
+Definition make_empty_page_tree (system : paging_system) (level : page_table_level) (loc : Z) :=
+  PageTableTree system loc (replicate (number_of_page_table_entries system level) NotValid) level.
+
+Lemma make_empty_page_tree_wf system level loc :
+  page_table_wf (make_empty_page_tree system level loc).
+Proof.
+  split_and!; simpl.
+  - rewrite replicate_length//.
+  - split; first done. apply Forall_Forall_cb.
+    apply Forall_replicate. done.
+  - split; first done. apply Forall_Forall_cb.
+    apply Forall_replicate. done.
+Qed.
+
+(** * Encoding of logical page table trees into the physical byte-level representation *)
 Definition encode_logical_page_table_entry_bv (pte : logical_page_table_entry) : bv 64 :=
   match pte with
   | PointerToNextPageTable pt ptc =>
@@ -416,10 +379,8 @@ Definition is_byte_level_representation (pt_logical : page_table_tree) (pt_byte 
   (* We have a 16KiB page for Level 5, and 4KiB pages otherwise *)
   (if pt_get_level pt_logical is PTLevel5 then pt_byte.(page_sz) = Size16KiB else pt_byte.(page_sz) = Size4KiB) ∧
   (* The encoding of the entries matches the physical content of the pages *)
-  (* NOTE: if the list of entries is [], this should be trivial. *)
   pt_byte.(page_val) = encode_page_table_entries (pt_get_entries pt_logical)
 .
-
 
 (** Operations modifying the page table *)
 Definition pt_set_entry (pt : page_table_tree) (index : nat) (entry : logical_page_table_entry) : page_table_tree :=
@@ -427,9 +388,45 @@ Definition pt_set_entry (pt : page_table_tree) (index : nat) (entry : logical_pa
   | PageTableTree system serialized_addr entries level =>
       PageTableTree system serialized_addr (<[index := entry]> entries) level
   end.
+Lemma pt_set_entry_system pt i en :
+  pt_get_system (pt_set_entry pt i en) = pt_get_system pt.
+Proof. destruct pt; done. Qed.
+Lemma pt_set_entry_addr pt i en :
+  pt_get_serialized_addr (pt_set_entry pt i en) = pt_get_serialized_addr pt.
+Proof. destruct pt; done. Qed.
+Lemma pt_set_entry_level pt i en :
+  pt_get_level (pt_set_entry pt i en) = pt_get_level pt.
+Proof. destruct pt; done. Qed.
+Lemma pt_set_entry_entries pt i en :
+  pt_get_entries (pt_set_entry pt i en) = <[i := en]> (pt_get_entries pt).
+Proof. destruct pt; done. Qed.
 
-(*Lemma pt_set_entry_wf : *)
-  (*pt_set*)
+(** Preservation of well-formedness when setting an entry *)
+Lemma pt_set_entry_wf pt pt' i en :
+  pt_set_entry pt i en = pt' →
+  logical_page_table_entry_level_is (page_table_level_lower $ pt_get_level pt) en →
+  logical_page_table_entry_has_system (pt_get_system pt) en →
+  page_table_wf pt →
+  page_table_wf pt'.
+Proof.
+  intros <- Hlevel Hsystem.
+  intros (Hlen & Hlv & Hsys).
+  split_and!.
+  - rewrite pt_set_entry_system pt_set_entry_level.
+    rewrite pt_set_entry_entries insert_length//.
+  - rewrite pt_set_entry_level.
+    destruct pt; simpl in *. split; first done.
+    apply Forall_Forall_cb. apply Forall_insert.
+    { destruct Hlv as [_ Ha]. apply Forall_Forall_cb. done. }
+    { done. }
+  - rewrite pt_set_entry_system.
+    destruct pt; simpl in *.
+    split; first done.
+    apply Forall_Forall_cb.
+    apply Forall_insert.
+    { destruct Hsys as [_ Hsys]. apply Forall_Forall_cb; done. }
+    { done. }
+Qed.
 
 (** ** Using a page table *)
 (** Translate an address according to the logical page table representation *)
@@ -442,15 +439,14 @@ Definition pt_represented_at (σ : state) (pt : page_table_tree) (pt_addr : Z) :
   False.
 
 (** Address translation should be consistent between the logical and physical version *)
-Lemma page_table_translate_address_consistent_1 (pt : page_table_tree) addr pt_addr σ translated_addr : 
+Lemma page_table_translate_address_consistent_1 (pt : page_table_tree) addr pt_addr σ translated_addr :
   pt_represented_at σ pt pt_addr →
   page_table_translate_address pt addr = Some translated_addr →
-  translate_address pt_addr σ addr = Some translated_addr
-.
+  translate_address pt_addr σ addr = Some translated_addr.
 Proof.
 Abort.
 
-Lemma page_table_translate_address_consistent_2 pt addr pt_addr σ translated_addr : 
+Lemma page_table_translate_address_consistent_2 pt addr pt_addr σ translated_addr :
   pt_represented_at σ pt pt_addr →
   translate_address pt_addr σ addr = Some translated_addr →
   page_table_translate_address pt addr = Some translated_addr

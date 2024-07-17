@@ -32,8 +32,8 @@ Proof.
     | 0 => Some Size4KiB
     | 1 => Some Size16KiB
     | 2 => Some Size2MiB
-    | 3 => Some Size1GiB 
-    | 4 => Some Size512GiB 
+    | 3 => Some Size1GiB
+    | 4 => Some Size512GiB
     | 5 => Some Size128TiB
     | _ => None
     end) _).
@@ -77,7 +77,7 @@ Definition page_size_larger (sz : page_size) : option page_size :=
   | Size128TiB => None
   end.
 
-(** Pages should be aligned to the size of the page; 
+(** Pages should be aligned to the size of the page;
   compute the log2 of this page's alignment *)
 Definition page_size_align_log (sz : page_size) : nat :=
   match sz with

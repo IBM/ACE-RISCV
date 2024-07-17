@@ -78,22 +78,12 @@ impl PageTable {
     ///   * all `pointer` page table entries point to another page table belonging to the same page table configuration.
     ///
     /// This is a recursive function, which deepest execution is not larger than the number of paging system levels.
-    // input: page table to copy
-    // output:
-    //
-    // Need to make sure that we only copy from non-confidential memory.
-    //
-    // NOTE: Does not support COW. The hypervisor cannot map zeroed pages to the same address (this function will create multiple copies and
-    // create a static image). Every entry in the page table will get its own physical page.
-    //
-    // Implicit property of this specification: We do not copy from confidential memory, as we do
-    // not get memory permission for that.
-    // SPEC 1:
-    // For security (not trusting the hypervisor):
     #[rr::params("l_nonconf", "ps", "level")]
     #[rr::args("l_nonconf", "ps", "level")]
+    /// Precondition: We require the permission to copy from arbitrary non-confidential memory.
+    /// Note that this implicitly specifies that we do not read from confidential memory.
+    /// TODO: might need atomicity?
     #[rr::requires(#iris "permission_to_read_from_nonconfidential_mem")]
-    // might need atomicity?
     // TODO: want to prove eventually
     //#[rr::ensures("value_has_security_level Hypervisor x")]
     // eventually: promote x from Hypervisor to confidential_vm_{new_id}
@@ -264,11 +254,11 @@ impl PageTable {
     }
 
     /// Set a new page table entry at the given index, replacing whatever was there before.
-    // TODO: this requires the representation to be fully initialized, which is not true for empty() page tables.
-    // (or we need to reflect this in pt_number_of_entries accordingly)
     #[rr::params("pt", "γ", "vpn", "pte")]
     #[rr::args("(#pt, γ)", "vpn", "pte")]
+    /// Precondition: The vpn is valid for the number of entries of this page table.
     #[rr::requires("vpn < pt_number_of_entries pt")]
+    /// Postcondition: The entry has been set correctly.
     #[rr::oberve("γ": "pt_set_entry pt vpn pte")]
     fn set_entry(&mut self, virtual_page_number: usize, entry: LogicalPageTableEntry) {
         self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.serialize()).unwrap();
