@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-#![rr::import("ace.theories.result", "result")]
 use crate::error::Error;
 use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 

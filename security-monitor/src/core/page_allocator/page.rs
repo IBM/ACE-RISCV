@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-#![rr::import("ace.theories.page", "page_extra")]
+#![rr::import("ace.theories.page_allocator", "page")]
 use crate::core::architecture::PageSize;
 use crate::core::control_data::{DigestType, MeasurementDigest};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout, NonConfidentialMemoryAddress};

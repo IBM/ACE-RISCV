@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-#![rr::import("ace.theories.page", "page_extra")]
+#![rr::import("ace.theories.page_allocator", "page")]
 #![rr::include("option")]
 
 // The order of page size in this enum must follow the increasing sizes of page to guarantee that the Ord/PartialOrd are correctly derived

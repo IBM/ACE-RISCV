@@ -1,6 +1,6 @@
 From refinedrust Require Import typing.
 From refinedrust Require Import ghost_var_dfrac.
-From ace.theories.page Require Import page_extra.
+From ace.theories.page_allocator Require Import page.
 
 (** * Page allocator ghost state *)
 Record memory_region := {

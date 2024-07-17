@@ -1,5 +1,7 @@
 From refinedrust Require Import typing.
 
+(** * Additional definitions for the security monitor's global memory layout *)
+
 Record memory_layout : Type := mk_memory_layout {
   conf_start : loc;
   conf_end : loc;

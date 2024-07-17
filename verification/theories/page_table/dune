@@ -3,4 +3,4 @@
  (package ace)
  (flags -w -notation-overridden -w -redundant-canonical-projection)
  (synopsis "Manual proofs for ACE Security Monitor page table")
- (theories stdpp iris Ltac2 caesium lithium lrust RecordUpdate Equations refinedrust ace.theories.page))
+ (theories stdpp iris Ltac2 caesium lithium lrust RecordUpdate Equations refinedrust ace.theories.page_allocator))

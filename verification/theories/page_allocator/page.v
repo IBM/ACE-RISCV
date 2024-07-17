@@ -1,7 +1,9 @@
 From refinedrust Require Import typing.
+From ace.theories.base Require Import base.
 
+(** * Extra theories for page sizes and pages *)
 
-(* This reflects the page sizes in [core/mmu/page_size.rs] *)
+(* This reflects the page sizes in [core/architecture/riscv/mmu/page_size.rs] *)
 Inductive page_size : Set :=
   | Size4KiB
   | Size16KiB
@@ -16,9 +18,29 @@ Global Instance page_size_eqdec : EqDecision page_size.
 Proof. solve_decision. Defined.
 Global Instance page_size_countable : Countable page_size.
 Proof.
-  (* TODO *)
-Admitted.
+  refine (inj_countable (λ sz,
+    match sz with
+    | Size4KiB => 0
+    | Size16KiB => 1
+    | Size2MiB => 2
+    | Size1GiB => 3
+    | Size512GiB => 4
+    | Size128TiB => 5
+    end)
+    (λ a,
+    match a with
+    | 0 => Some Size4KiB
+    | 1 => Some Size16KiB
+    | 2 => Some Size2MiB
+    | 3 => Some Size1GiB 
+    | 4 => Some Size512GiB 
+    | 5 => Some Size128TiB
+    | _ => None
+    end) _).
+  intros []; naive_solver.
+Qed.
 
+(** Number of 64-bit machine words in a page size *)
 Definition page_size_in_words_nat (sz : page_size) : nat :=
   match sz with
   | Size4KiB => 512
@@ -34,7 +56,7 @@ Definition page_size_in_bytes_nat (sz : page_size) : nat :=
 Definition page_size_in_bytes_Z (sz : page_size) : Z :=
   page_size_in_bytes_nat sz.
 
-
+(** The next smaller page size *)
 Definition page_size_smaller (sz : page_size) : option page_size :=
   match sz with
   | Size4KiB => None
@@ -44,6 +66,7 @@ Definition page_size_smaller (sz : page_size) : option page_size :=
   | Size512GiB => Some Size1GiB
   | Size128TiB => Some Size512GiB
   end.
+(** The next larger page size *)
 Definition page_size_larger (sz : page_size) : option page_size :=
   match sz with
   | Size4KiB => Some Size16KiB
@@ -54,7 +77,8 @@ Definition page_size_larger (sz : page_size) : option page_size :=
   | Size128TiB => None
   end.
 
-(* Pages should be aligned to the size of the page *)
+(** Pages should be aligned to the size of the page; 
+  compute the log2 of this page's alignment *)
 Definition page_size_align_log (sz : page_size) : nat :=
   match sz with
   | Size4KiB => 12
@@ -85,9 +109,14 @@ Definition MAX_PAGE_ADDR_unfold : MAX_PAGE_ADDR = MAX_PAGE_ADDR_def :=
   seal_eq MAX_PAGE_ADDR_aux.
 
 (** * Pages *)
+(** Page containing zeroes *)
 Definition zero_page (sz : page_size) : list Z :=
   replicate (page_size_in_words_nat sz) 0.
 
+(** Logical representation of a page, consisting of:
+   - its location in memory
+   - its size
+   - its list of words, represented as integers *)
 Record page : Type := mk_page {
   page_loc : loc;
   page_sz : page_size;
@@ -99,9 +128,12 @@ Global Instance page_eqdec : EqDecision page.
 Proof. solve_decision. Defined.
 Global Instance page_countable : Countable page.
 Proof.
-  (* TODO *)
-Admitted.
+  refine (inj_countable' (λ p, (p.(page_loc), p.(page_sz), p.(page_val)))
+    (λ p, mk_page p.1.1 p.1.2 p.2) _).
+  intros []; done.
+Qed.
 
+(** One-past-the-end location of this page *)
 Definition page_end_loc (p : page) : loc :=
   p.(page_loc) +ₗ (page_size_in_bytes_Z p.(page_sz)).
 
@@ -114,7 +146,9 @@ Infix "≤ₚ" := page_size_le (at level 50).
 
 (** Well-formedness of a page *)
 Definition page_wf (p : page) : Prop :=
+  (** The value has the right size *)
   page_size_in_words_nat p.(page_sz) = length p.(page_val) ∧
+  (** The location has the right alignment *)
   p.(page_loc) `aligned_to` page_size_align p.(page_sz).
 
 (** The list of [pages] forms a contiguous region of memory, one page after another. *)
@@ -143,7 +177,7 @@ Proof.
 Qed.
 
 
-(* How many pages of the next smaller page size are there in this page size? *)
+(** How many pages of the next smaller page size are there in this page size? *)
 Definition page_size_multiplier_log (sz : page_size) : nat :=
   match sz with
   | Size4KiB => 0
@@ -183,7 +217,7 @@ Proof.
   f_equiv. by apply page_size_multiplier_align_log.
 Qed.
 
-(* Divide a page into pages of the next smaller page size *)
+(** Divide a page into pages of the next smaller page size *)
 Definition subdivide_page (p : page) : list page :=
   match page_size_smaller p.(page_sz) with
   | None => [p]
@@ -223,16 +257,6 @@ Proof.
   rewrite drop_drop.
   replace (start * words + words)%nat with ((S start) * words)%nat by lia.
   apply (IH (S start)).
-Qed.
-
-(* TODO move *)
-Lemma aligned_to_mul_inv l al num :
-  l `aligned_to` al * num →
-  l `aligned_to` al.
-Proof.
-  rewrite /aligned_to.
-  destruct caesium_config.enforce_alignment; last done.
-  intros (k & Heq). intros. exists (k * num). lia.
 Qed.
 
 Lemma subdivide_page_wf p :

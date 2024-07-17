@@ -6,7 +6,7 @@
 #![rr::include("btreemap")]
 #![rr::include("vec")]
 #![rr::include("spin")]
-#![rr::import("ace.theories.page_allocator", "page_allocator_extra")]
+#![rr::import("ace.theories.page_allocator", "page_allocator")]
 use super::page::{Page, UnAllocated};
 use crate::core::architecture::PageSize;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};

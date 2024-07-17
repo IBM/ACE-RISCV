@@ -1,6 +1,6 @@
 (coq.theory
- (name ace.theories.result)
+ (name ace.theories.base)
  (package ace)
  (flags -w -notation-overridden -w -redundant-canonical-projection)
- (synopsis "core::result::Result")
+ (synopsis "Basic lemmas")
  (theories stdpp iris Ltac2 caesium lithium lrust RecordUpdate Equations refinedrust))

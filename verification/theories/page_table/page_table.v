@@ -1,5 +1,5 @@
 From refinedrust Require Import typing.
-From ace.theories.page Require Import page_extra.
+From ace.theories.page_allocator Require Import page.
 From stdpp Require Import bitvector.
 
 (* Based on Release riscv-isa-release-7b8ddc9-2024-05-07 *)
