@@ -3,5 +3,5 @@ _build
 log 
 rustc-ice-*
 refinedrust
-generated_code
 generated_code.bak
+_CoqProject

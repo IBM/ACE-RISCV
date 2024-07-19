@@ -9,7 +9,9 @@ use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page
 // tables.
 #[derive(Debug, Copy, Clone)]
+#[rr::refined_by("paging_system")]
 pub enum PagingSystem {
+    #[rr::pattern("Sv57x4")]
     Sv57x4,
 }
 
@@ -26,6 +28,10 @@ impl PagingSystem {
         }
     }
 
+    #[rr::skip]
+    #[rr::params("system")]
+    #[rr::args("#system")]
+    #[rr::returns("paging_system_highest_level system")]
     pub fn levels(&self) -> PageTableLevel {
         match self {
             PagingSystem::Sv57x4 => PageTableLevel::Level5,

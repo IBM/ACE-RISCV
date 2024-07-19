@@ -1,5 +1,10 @@
 dump_borrowck_info=false
-output_dir="./generated_code"
 log_dir = "./log"
+output_dir = "./rust_proofs"
 shims = "rr_shims.json"
 run_check = false
+admit_proofs = true
+skip_unsupported_features = false
+extra_specs = "./extra_specs.v"
+generate_dune_project = false
+lib_load_paths = ["./refinedrust/stdlib/"]

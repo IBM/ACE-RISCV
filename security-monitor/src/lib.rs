@@ -17,8 +17,16 @@
     // used for formal verification framework (RefinedRust annotations)
     register_tool,
     custom_inner_attributes,
+    stmt_expr_attributes,
 )]
+// RefinedRust configuration
 #![register_tool(rr)]
+#![rr::coq_prefix("sm")]
+#![rr::include("spin")]
+#![rr::include("alloc")]
+#![rr::include("vec")]
+#![rr::include("option")]
+#![rr::include("result")]
 
 extern crate alloc;
 
