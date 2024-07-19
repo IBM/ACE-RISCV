@@ -25,12 +25,13 @@ static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
 /// confidential or non-confidential memory.
 ///
 /// Model: A Coq `memory_layout` record containing the memory ranges for confidential and
-/// non-confidential memory. 
+/// non-confidential memory.
 #[rr::refined_by("ml" : "memory_layout")]
 /// Invariant: The starts of the region have addresses less-or-equal-to the ends of the regions.
 #[rr::invariant("ml.(non_conf_start).2 ≤ ml.(non_conf_end).2")]
 #[rr::invariant("ml.(conf_start).2 ≤ ml.(conf_end).2")]
 /// Invariant: the non-confidential memory region comes before the confidential memory region.
+// TODO: this could be generalized to the regions being disjoint
 #[rr::invariant("ml.(non_conf_end).2 ≤ ml.(conf_start).2")]
 /// Invariant: the bounds of the confidential memory region are aligned to 4KiB pages
 #[rr::invariant("ml.(conf_start) `aligned_to` (page_size_in_bytes_nat Size4KiB)")]

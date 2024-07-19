@@ -6,18 +6,19 @@ Currently, the verification is in early stages.
 We use the tool [RefinedRust](https://plv.mpi-sws.org/refinedrust/) in the [Coq proof assistant](https://coq.inria.fr/) for verification.
 
 ## Architecture
-We annotate the Rust source code of the security monitor with verification annotations.
+Our approach to proving code in the security monitor is to add verification annotations to the Rust source code.
 These include invariants as well as pre- and postconditions.
 
-Afterwards, we use RefinedRust to translate the Rust source code and annotations into a representation in the Coq proof assistant.
+Afterwards, RefinedRust translates the Rust source code and annotations into a representation in the Coq proof assistant.
 This is initiated by running `make verify` in the root directory of the repository.
 
-The generated Coq code is placed in the [`verification/generated_code/ace`](/verification/generated_code/ace) folder.
-It is split into two subfolders, [`generated`](/verification/generated_code/ace/generated) and [`proofs`](/verification/generated_code/ace/proofs).
-The [`generated`](/verification/generated_code/ace/generated) subfolder contains the automatically generated model of the Rust code, the translated specifications, and proof templates.
+The generated Coq code is placed in the [`verification/rust_proofs/ace`](/verification/rust_proofs/ace) folder.
+There are two subfolders, [`generated`](/verification/rust_proofs/ace/generated) and [`proofs`](/verification/rust_proofs/ace/proofs).
+The [`generated`](/verification/rust_proofs/ace/generated) subfolder contains the automatically generated model of the Rust code, the translated specifications, and proof templates.
 It is re-generated on every run of `make verify` and thus should not be modified manually.
-The [`proofs`](/verification/generated_code/ace/proofs) subfolder contains the proofs for the individual functions.
-These files may be modified, as they are not touched by RefinedRust after their initial creation, and may contain partially manual proofs.
+The [`proofs`](/verification/rust_proofs/ace/proofs) subfolder contains the proofs for the individual functions.
+These files can be modified because they are not touched by RefinedRust after their initial creation.
+If the default RefinedRust proof automation does not succeed in completing the proof, (correct) manual proof steps will need to be added to complete the proof of the function.
 
 In addition to the files managed by RefinedRust, the [`verification/theories`](/verification/theories) folder contains definitions and lemmas that are useful for specifying the Rust code.
 These files are manually created and written, and imported into RefinedRust through annotations on the Rust code.
@@ -29,9 +30,9 @@ These files are manually created and written, and imported into RefinedRust thro
 | Rust source file    | [`security_monitor/src/core/page_allocator/page.rs`](/security-monitor/src/core/page_allocator/page.rs)         |
 | Extra Coq theories  | [`verification/theories/memory_tracker/page/page_extra.v`](/verification/theories/memory_tracker/page/page_extra.v)        |
 | Generated files     |          |
-| \|- generated code  | [`verification/generated_code/ace/generated/generated_code_ace.v`](/verification/generated_code/ace/generated/generated_code_ace.v)         |
-| \|- generated specs | [`verification/generated_code/ace/generated/generated_specs_ace.v`](/verification/generated_code/ace/generated/generated_specs_ace.v)        |
-| \|- proofs          | [`verification/generated_code/ace/proofs`](/verification/generated_code/ace/proofs)        |
+| \|- generated code  | [`verification/rust_proofs/ace/generated/rust_proofs_ace.v`](/verification/rust_proofs/ace/generated/rust_proofs_ace.v)         |
+| \|- generated specs | [`verification/rust_proofs/ace/generated/generated_specs_ace.v`](/verification/rust_proofs/ace/generated/generated_specs_ace.v)        |
+| \|- proofs          | [`verification/rust_proofs/ace/proofs`](/verification/rust_proofs/ace/proofs)        |
 
 As a more concrete example, let us consider the `Page` structure and the `Page::init` function.
 
@@ -43,8 +44,8 @@ The definition of the invariant on `Page` uses some extra (manually written) Coq
 For the `Page::read` function, RefinedRust generates the following code:
 1. in generated code: the definition `core_page_allocator_page_Page_core_page_allocator_page_T_read_def` containing the source code of the function translated into RefinedRust's operational model Radium
 2. in generated specs: the definition `type_of_core_page_allocator_page_Page_core_page_allocator_page_T_read` contains the annotated specification of the function translated into RefinedRust's refinement type system
-3. the file `generated_template_core_page_allocator_page_Page_core_page_allocator_page_T_read.v` in [`verification/generated_code/ace/generated/`](/verification/generated_code/ace/generated) contains the lemma statement that RefinedRust will prove for the function and a proof script for function-specific parts of the proof.
-4. the file [`proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v`](/verification/generated_code/ace/proofs/proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v) in [`verification/generated_code/ace/proofs/`](/verification/generated_code/ace/proofs) contains the proof of the lemma for the function.
+3. the file `generated_template_core_page_allocator_page_Page_core_page_allocator_page_T_read.v` in [`verification/rust_proofs/ace/generated/`](/verification/rust_proofs/ace/generated) contains the lemma statement that RefinedRust will prove for the function and a proof script for function-specific parts of the proof.
+4. the file [`proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v`](/verification/rust_proofs/ace/proofs/proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v) in [`verification/rust_proofs/ace/proofs/`](/verification/rust_proofs/ace/proofs) contains the proof of the lemma for the function.
   The default proof that RefinedRust generates will use the proof script from step 3 and then call into RefinedRust's generic automation.
 
 ## Getting Started
@@ -82,7 +83,7 @@ If a function is annotated, the function is verified against that specification,
 - `#[rr::only_spec]`: only the specification is generated, but the code is not translated and not verified
 - `#[rr::trust_me]`: the specification and code are generated, but the code is not verified against the specification
 
-These opt-out annotations help to progressively cover code with specification and delay the work on the verification itself. Eventually, a fully verified security monitor would not use any of the opt-out annotations and RefinedRust will verify that.
+These opt-out annotations help to progressively cover code with specification and delay the work on the verification itself. Eventually, a fully verified security monitor would not have any of the opt-out annotations and RefinedRust will verify that.
 
 ## Guarantees
 
@@ -96,7 +97,7 @@ This will build on and directly integrate with our current verification of memor
 
 ### Non-goals
 
-On the journey to getting a fully verified virtualization stack, this project just considers a part of the necessary components (albeit an important one).
+A fully verified virtualization stack required a number of components, this project is focused on only one of those necessary components.
 There are several efforts which are complementary to the aims of this project:
 
 **Software**
