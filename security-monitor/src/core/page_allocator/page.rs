@@ -192,6 +192,43 @@ impl Page<Allocated> {
         self.clear();
         Page { address: self.address, size: self.size, _marker: PhantomData }
     }
+
+    /// Reads data of size `size_of::<usize>` from a page at a given offset. Error is returned
+    /// when an offset that exceeds page size is passed as an argument.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data
+    /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be
+    /// within the page address range, otherwise an Error is returned.
+    /// Specification:
+    #[rr::params("p", "off")]
+    #[rr::args("#p", "off")]
+    /// Precondition: the offset needs to be divisible by the size of usize.
+    #[rr::requires("H_off" : "(ly_size usize_t | off)%Z")]
+    /// Precondition: we need to be able to fit a usize at the offset and not exceed the page bounds
+    #[rr::requires("H_sz" : "(off + ly_size usize_t ≤ page_size_in_bytes_Z p.(page_sz))%Z")]
+    /// Postcondition: there exists some value `x`...
+    #[rr::exists("x" : "Z", "off'" : "nat")]
+    /// ...where off is a multiple of usize
+    #[rr::ensures("(off = off' * ly_size usize_t)%Z")]
+    /// ...that has been read from the byte sequence `v` at offset `off`
+    #[rr::ensures("p.(page_val) !! off' = Some x")]
+    /// ...and we return an Ok containing the value `x`
+    #[rr::returns("Ok(#x)")]
+    pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
+        assert!(offset_in_bytes % Self::ENTRY_SIZE == 0);
+        let data = unsafe {
+            // Safety: below add results in a valid confidential memory address because
+            // we ensure that it is within the page boundary and page is guaranteed to
+            // be entirely inside the confidential memory.
+            let pointer = self.address.add(offset_in_bytes, self.end_address_ptr()).unwrap();
+            // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
+
+            pointer.read_volatile()
+        };
+        Ok(data)
+    }
 }
 
 #[rr::context("onceG Σ memory_layout")]
@@ -234,43 +271,6 @@ impl<T: PageState> Page<T> {
     #[rr::returns("#(p.(page_sz))")]
     pub fn size(&self) -> &PageSize {
         &self.size
-    }
-
-    /// Reads data of size `size_of::<usize>` from a page at a given offset. Error is returned
-    /// when an offset that exceeds page size is passed as an argument.
-    ///
-    /// # Arguments
-    ///
-    /// * `offset_in_bytes` is an offset from the beginning of the page to which a chunk of data
-    /// will be read from the memory. This offset must be a multiply of size_of::(usize) and be
-    /// within the page address range, otherwise an Error is returned.
-    /// Specification:
-    #[rr::params("p", "off")]
-    #[rr::args("#p", "off")]
-    /// Precondition: the offset needs to be divisible by the size of usize.
-    #[rr::requires("H_off" : "(ly_size usize_t | off)%Z")]
-    /// Precondition: we need to be able to fit a usize at the offset and not exceed the page bounds
-    #[rr::requires("H_sz" : "(off + ly_size usize_t ≤ page_size_in_bytes_Z p.(page_sz))%Z")]
-    /// Postcondition: there exists some value `x`...
-    #[rr::exists("x" : "Z", "off'" : "nat")]
-    /// ...where off is a multiple of usize
-    #[rr::ensures("(off = off' * ly_size usize_t)%Z")]
-    /// ...that has been read from the byte sequence `v` at offset `off`
-    #[rr::ensures("p.(page_val) !! off' = Some x")]
-    /// ...and we return an Ok containing the value `x`
-    #[rr::returns("Ok(#x)")]
-    pub fn read(&self, offset_in_bytes: usize) -> Result<usize, Error> {
-        assert!(offset_in_bytes % Self::ENTRY_SIZE == 0);
-        let data = unsafe {
-            // Safety: below add results in a valid confidential memory address because
-            // we ensure that it is within the page boundary and page is guaranteed to
-            // be entirely inside the confidential memory.
-            let pointer = self.address.add(offset_in_bytes, self.end_address_ptr()).unwrap();
-            // pointer is guaranteed to be in the range <0;self.size()-size_of::(usize)>
-
-            pointer.read_volatile()
-        };
-        Ok(data)
     }
 
     /// Writes data to a page at a given offset. Error is returned if an invalid offset was passed

@@ -1,7 +1,7 @@
 From caesium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace.
-From sm.ace.generated Require Import generated_template_core_page_allocator_page_Page_T_read.
+From sm.ace.generated Require Import generated_template_core_page_allocator_page_Page_core_page_allocator_page_Allocated_read.
 
 Set Default Proof Using "Type".
 
@@ -11,17 +11,20 @@ Proof. done. Qed.
 
 Section proof.
 Context `{!refinedrustGS Σ}.
-Lemma core_page_allocator_page_Page_T_read_proof (π : thread_id) :
-  core_page_allocator_page_Page_T_read_lemma π.
+Lemma core_page_allocator_page_Page_core_page_allocator_page_Allocated_read_proof (π : thread_id) :
+  core_page_allocator_page_Page_core_page_allocator_page_Allocated_read_lemma π.
 Proof.
-  core_page_allocator_page_Page_T_read_prelude.
+  core_page_allocator_page_Page_core_page_allocator_page_Allocated_read_prelude.
 
   rep <-! liRStep; liShow.
   { (* accessing the element of the array for the read requires manual reasoning *)
     destruct H_off as (off' & ->).
 
     apply_update (updateable_typed_array_access p.(page_loc) off' (IntSynType usize_t)).
-    rep liRStep; liShow. }
+    rep liRStep; liShow.
+    liInst Hevar1 (Allocated_ty).
+    rep liRStep; liShow.
+  }
   { rep liRStep; liShow. }
 
   all: print_remaining_goal.
