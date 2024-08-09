@@ -11,10 +11,7 @@ This file documents the basic verification setup.
 For using the RefinedRust toolchain and checking the verified parts of the code, you need to install both the Coq proof assistant and RefinedRust Coq libraries as well as the RefinedRust frontend.
 
 First of all, open a terminal and navigate to the directory containing this file.
-Then, clone the RefinedRust repository into a subdirectory:
-```
-git clone https://gitlab.mpi-sws.org/lgaeher/refinedrust-dev.git refinedrust
-```
+Make sure that there is a subdirectory called `refinedrust` that is up-to-date.
 
 ### Installing Coq and the RefinedRust Coq libraries
 
