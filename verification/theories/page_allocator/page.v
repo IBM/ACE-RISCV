@@ -11,6 +11,7 @@ Inductive page_size : Set :=
   | Size1GiB
   | Size512GiB
   | Size128TiB.
+Canonical Structure page_sizeRT := directRT page_size.
 
 Global Instance page_size_inh : Inhabited page_size.
 Proof. exact (populate Size4KiB). Qed.
@@ -56,6 +57,28 @@ Definition page_size_in_bytes_nat (sz : page_size) : nat :=
 Definition page_size_in_bytes_Z (sz : page_size) : Z :=
   page_size_in_bytes_nat sz.
 
+Lemma page_size_in_bytes_div_8 sz :
+  (8 | page_size_in_bytes_nat sz).
+Proof.
+  unfold page_size_in_bytes_nat.
+  exists (page_size_in_words_nat sz).
+  rewrite bytes_per_addr_eq. lia.
+Qed.
+Lemma page_size_in_words_nat_ge sz :
+  page_size_in_words_nat sz ≥ 512.
+Proof.
+  unfold page_size_in_words_nat.
+  destruct sz; lia.
+Qed.
+Lemma page_size_in_bytes_nat_ge sz :
+  page_size_in_bytes_nat sz ≥ 4096.
+Proof.
+  unfold page_size_in_bytes_nat.
+  rewrite bytes_per_addr_eq.
+  specialize (page_size_in_words_nat_ge sz).
+  lia.
+Qed.
+
 (** The next smaller page size *)
 Definition page_size_smaller (sz : page_size) : option page_size :=
   match sz with
@@ -66,6 +89,11 @@ Definition page_size_smaller (sz : page_size) : option page_size :=
   | Size512GiB => Some Size1GiB
   | Size128TiB => Some Size512GiB
   end.
+
+Lemma page_size_smaller_None sz :
+  page_size_smaller sz = None ↔ sz = Size4KiB.
+Proof. destruct sz; done. Qed.
+
 (** The next larger page size *)
 Definition page_size_larger (sz : page_size) : option page_size :=
   match sz with
@@ -76,6 +104,9 @@ Definition page_size_larger (sz : page_size) : option page_size :=
   | Size512GiB => Some Size128TiB
   | Size128TiB => None
   end.
+Lemma page_size_larger_None sz :
+  page_size_larger sz = None ↔ sz = Size128TiB.
+Proof. destruct sz; done. Qed.
 
 (** Pages should be aligned to the size of the page;
   compute the log2 of this page's alignment *)
@@ -122,6 +153,11 @@ Record page : Type := mk_page {
   page_sz : page_size;
   page_val : list Z
 }.
+Canonical Structure pageRT := directRT page.
+Global Instance loc_eqdec : EqDecision loc.
+Proof. solve_decision. Defined.
+Global Instance loc_countable : Countable loc.
+Proof. unfold loc. apply prod_countable. Qed.
 Global Instance page_inh : Inhabited page.
 Proof. exact (populate (mk_page inhabitant inhabitant inhabitant)). Qed.
 Global Instance page_eqdec : EqDecision page.
@@ -190,14 +226,30 @@ Definition page_size_multiplier_log (sz : page_size) : nat :=
 Definition page_size_multiplier (sz : page_size) : nat :=
   2^(page_size_multiplier_log sz).
 
+(** The above is not correct for the smallest page size *)
+Definition number_of_smaller_pages (sz : page_size) : nat :=
+  match page_size_smaller sz with
+  | Some _ => page_size_multiplier sz
+  | _ => 0
+  end.
+
 Lemma page_size_multiplier_size_in_words sz sz' :
-  page_size_smaller sz = Some sz' →
+  sz' = (match page_size_smaller sz with Some sz' => sz' | _ => sz end) →
   page_size_in_words_nat sz = (page_size_in_words_nat sz' * page_size_multiplier sz)%nat.
 Proof.
-  destruct sz; first done.
-  all: unfold page_size_smaller; intros ?; simplify_eq.
+  intros ->.
+  destruct sz; simpl.
+  all: unfold page_size_smaller; simplify_eq.
   all: unfold page_size_in_words_nat, page_size_multiplier, page_size_multiplier_log.
   all: cbn [Nat.pow]; lia.
+Qed.
+Lemma page_size_multiplier_size_in_bytes sz sz' :
+  sz' = (match page_size_smaller sz with Some sz' => sz' | _ => sz end) →
+  page_size_in_bytes_nat sz = (page_size_in_bytes_nat sz' * page_size_multiplier sz)%nat.
+Proof.
+  intros Heq.
+  unfold page_size_in_bytes_nat. erewrite (page_size_multiplier_size_in_words _ sz'); last done.
+  lia.
 Qed.
 Lemma page_size_multiplier_align_log sz sz' :
   page_size_smaller sz = Some sz' →
@@ -217,7 +269,57 @@ Proof.
   f_equiv. by apply page_size_multiplier_align_log.
 Qed.
 
+Lemma page_size_multiplier_quot sz smaller_sz :
+  smaller_sz = default sz (page_size_smaller sz) →
+  page_size_multiplier sz = Z.to_nat (page_size_in_bytes_Z sz `quot` page_size_in_bytes_Z smaller_sz).
+Proof.
+  intros Hsz.
+  rewrite /page_size_in_bytes_Z.
+  rewrite (page_size_multiplier_size_in_bytes _ smaller_sz); last done.
+  rewrite Nat.mul_comm.
+  rewrite Nat2Z.inj_mul.
+  rewrite Z.quot_mul; first lia.
+  specialize (page_size_in_bytes_nat_ge smaller_sz). lia.
+Qed.
+Lemma page_size_multiplier_quot_Z sz smaller_sz :
+  smaller_sz = default sz (page_size_smaller sz) →
+  page_size_in_bytes_Z sz `quot` page_size_in_bytes_Z smaller_sz = page_size_multiplier sz.
+Proof.
+  intros ?.
+  rewrite (page_size_multiplier_quot _ smaller_sz); last done.
+  rewrite /page_size_in_bytes_Z.
+  rewrite Z2Nat.id; first done.
+  apply Z.quot_pos.
+  - specialize (page_size_in_bytes_nat_ge sz). lia.
+  -  specialize (page_size_in_bytes_nat_ge smaller_sz). lia.
+Qed.
+
+Lemma page_size_multiplier_in_usize sz :
+  (Z.of_nat $ page_size_multiplier sz) ∈ usize.
+Proof.
+  unfold page_size_multiplier.
+  destruct sz; simpl.
+  all: split.
+  all: unsafe_unfold_common_caesium_defs; simpl.
+  all: lia.
+Qed.
+
 (** Divide a page into pages of the next smaller page size *)
+(** Relational specification *)
+Definition subdivided_pages (p : page) (ps : list page) : Prop :=
+  let smaller_sz :=
+    match page_size_smaller p.(page_sz) with
+    | None => p.(page_sz)
+    | Some sz' => sz'
+    end
+  in
+  let num_pages := page_size_multiplier p.(page_sz) in
+  length ps = num_pages ∧
+  (∀ (i : nat) p', ps !! i = Some p' →
+    p'.(page_loc) = p.(page_loc) offset{usize}ₗ (i * page_size_in_words_nat smaller_sz) ∧
+    p'.(page_sz) = smaller_sz).
+
+(** Stronger functional specification *)
 Definition subdivide_page (p : page) : list page :=
   match page_size_smaller p.(page_sz) with
   | None => [p]
@@ -268,8 +370,10 @@ Proof.
   destruct (page_size_smaller sz) as [ sz' | ] eqn:Heq; simpl; first last.
   { econstructor; eauto. }
 
-  specialize (page_size_multiplier_size_in_words _ _ Heq).
+  opose proof (page_size_multiplier_size_in_words sz _ _) as Hmul.
+  { rewrite Heq. done. }
   specialize (page_size_multiplier_align _ _ Heq).
+  revert Hmul.
   set (num := (page_size_multiplier sz)%nat).
   rewrite /page_wf/= => -> ->.
   generalize num. clear Heq num sz.
@@ -285,7 +389,7 @@ Proof.
   Arguments Nat.mul : simpl never. simpl.
   econstructor.
   - simpl. split.
-    { rewrite take_length -Hlen. lia. }
+    { rewrite length_take -Hlen. lia. }
     { subst words. eapply aligned_to_offset; first done.
       rewrite page_size_align_is_size /page_size_in_bytes_nat.
       rewrite Nat2Z.divide. apply Nat.divide_factor_l. }
@@ -293,7 +397,7 @@ Proof.
     replace (start * words + words)%nat with ((S start) * words)%nat by lia.
     apply (IH (S start)); last done.
     rewrite Nat.mul_succ_l.
-    rewrite -drop_drop drop_length -Hlen.
+    rewrite -drop_drop length_drop -Hlen.
     lia.
 Qed.
 
@@ -328,4 +432,20 @@ Proof.
     rewrite shift_loc_assoc.
     f_equiv.
     rewrite /page_size_in_bytes_nat. lia.
+Qed.
+
+
+(** Lithium automation *)
+Global Instance simpl_exist_page Q :
+  SimplExist page Q (∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+    Q (mk_page page_loc page_sz page_val)).
+Proof.
+  intros (? & ? & ? & ?). eexists (mk_page _ _ _). done.
+Qed.
+
+Global Instance simpl_forall_page Q :
+  SimplForall page 3 Q (∀ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+    Q (mk_page page_loc page_sz page_val)).
+Proof.
+  intros ?. intros []. done.
 Qed.

@@ -26,7 +26,7 @@ export LINUX_IMAGE						?= $(HYPERVISOR_WORK_DIR)/buildroot/images/Image
 export TOOLS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/tools
 export TOOLS_WORK_DIR					?= $(ACE_DIR)/tools
 
-export CROSS_COMPILE					= riscv64-unknown-linux-gnu-
+export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
 export PLATFORM_RISCV_XLEN				= 64
 export PLATFORM_RISCV_ISA				= rv64gc
 export PLATFORM_RISCV_ABI				= lp64d

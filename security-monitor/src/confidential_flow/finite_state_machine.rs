@@ -315,11 +315,11 @@ impl<'a> ConfidentialFlow<'a> {
         self
     }
 
-    pub fn confidential_vm_id(&'a self) -> ConfidentialVmId {
+    pub fn confidential_vm_id(&self) -> ConfidentialVmId {
         self.confidential_hart().confidential_vm_id().expect(Self::DUMMY_HART_ERROR_MSG)
     }
 
-    fn confidential_hart_id(&'a self) -> usize {
+    fn confidential_hart_id(&self) -> usize {
         self.confidential_hart().confidential_hart_id()
     }
 
@@ -327,11 +327,11 @@ impl<'a> ConfidentialFlow<'a> {
         self.hardware_hart.confidential_hart_mut()
     }
 
-    fn confidential_hart(&'a self) -> &ConfidentialHart {
+    fn confidential_hart(&self) -> &ConfidentialHart {
         self.hardware_hart.confidential_hart()
     }
 
-    fn hypervisor_hart(&'a self) -> &HypervisorHart {
+    fn hypervisor_hart(&self) -> &HypervisorHart {
         &self.hardware_hart.hypervisor_hart()
     }
 }

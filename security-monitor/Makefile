@@ -38,7 +38,7 @@ build: opensbi_bindings fmt
 refinedrust: opensbi_bindings
 	echo "Generating RefinedRust translation" ;\
 	mkdir -p $(SM_WORK_DIR) ; \
-	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) refinedrust $(RELEASE) $(TARGET) --features verbose ; \
+	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) refinedrust -- $(RELEASE) $(TARGET) --features verbose; \
 	rm -rf $(OPENSBI_WORK_DIR)/
 
 debug: opensbi_bindings

@@ -3,10 +3,9 @@
 /target/
 build/*
 target/*
+**/target
 
-tools/cove_tap_tool/target
 qemu/
-security-monitor/target
 
 configurations/overlay/root/harness/baremetal
 confidential-vms/linux_vm/configurations/package_override.dev
