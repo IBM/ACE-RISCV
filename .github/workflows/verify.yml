@@ -24,14 +24,10 @@ jobs:
       run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
     - name: Install coq
       run: eval $(opam env) && opam update && opam pin add coq 8.17.1 -y
-    #- name: Fix permissions
-      #run: chown -R 1000 .
     - name: ls
       run: ls -la .
     - name: Install openssl dependency
       run: sudo apt update && sudo apt install libssl-dev -y
-    - name: Pull RefinedRust
-      run: git clone https://gitlab.mpi-sws.org/lgaeher/refinedrust-dev.git verification/refinedrust
     - name: Install rustup
       run: curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | bash /dev/stdin "-y"
     - name: Setup Rust toolchain

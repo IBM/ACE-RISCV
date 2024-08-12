@@ -7,3 +7,6 @@
 [submodule "security-monitor/opensbi"]
 	path = security-monitor/opensbi
 	url = https://github.com/riscv-software-src/opensbi.git
+[submodule "verification/refinedrust"]
+	path = verification/refinedrust
+	url = https://gitlab.mpi-sws.org/lgaeher/refinedrust-dev.git
