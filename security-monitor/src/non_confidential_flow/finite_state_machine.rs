@@ -11,7 +11,7 @@ use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
-use crate::non_confidential_flow::handlers::cove_hypervisor_extension::{
+use crate::non_confidential_flow::handlers::cove_host_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
