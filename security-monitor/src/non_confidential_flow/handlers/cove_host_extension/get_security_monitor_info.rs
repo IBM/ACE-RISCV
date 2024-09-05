@@ -41,7 +41,7 @@ impl GetSecurityMonitorInfo {
             tsm_state: TsmInfo::COVE_TSM_STATE_READY,
             tsm_impl_id: TsmInfo::COVE_TSM_IMPL_ACE,
             tsm_version: self.get_version(),
-            tsm_capabilities: TsmInfo::COVE_TSM_CAP_ATTESTATION_LOCAL_MASK,
+            tsm_capabilities: TsmInfo::COVE_TSM_CAP_PROMOTE_TVM | TsmInfo::COVE_TSM_CAP_ATTESTATION_LOCAL_MASK,
             state_pages: 0,
             max_vcpus: u64::try_from(ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM).unwrap_or(0),
             vcpu_state_pages: 0,
