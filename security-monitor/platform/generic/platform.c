@@ -16,7 +16,6 @@
 #include <sbi/sbi_platform.h>
 #include <sbi/sbi_string.h>
 #include <sbi/sbi_system.h>
-#include <sbi/sbi_console.h>
 #include <sbi/sbi_tlb.h>
 #include <sbi_utils/fdt/fdt_domain.h>
 #include <sbi_utils/fdt/fdt_fixup.h>
@@ -293,7 +292,7 @@ static int generic_domains_init(void)
 		if (offset >= 0 &&
 		    fdt_get_property(fdt, offset, "system-suspend-test", NULL))
 			sbi_system_suspend_test_enable();
-	}	
+	}
 
 	return 0;
 }
