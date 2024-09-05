@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::riscv::sbi::{SecurityMonitorInfo, SecurityMonitorState};
+use crate::core::architecture::riscv::sbi::TsmInfo;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialVm, HypervisorHart};
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
@@ -37,22 +37,24 @@ impl GetSecurityMonitorInfo {
     }
 
     fn fill_tsm_info_state(&self) -> Result<usize, Error> {
-        let info = SecurityMonitorInfo {
-            security_monitor_state: SecurityMonitorState::Ready,
-            security_monitor_version: self.get_version(),
+        let info = TsmInfo {
+            tsm_state: TsmInfo::COVE_TSM_STATE_READY,
+            tsm_impl_id: TsmInfo::COVE_TSM_IMPL_ACE,
+            tsm_version: self.get_version(),
+            tsm_capabilities: TsmInfo::COVE_TSM_CAP_ATTESTATION_LOCAL_MASK,
             state_pages: 0,
             max_vcpus: u64::try_from(ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM).unwrap_or(0),
             vcpu_state_pages: 0,
         };
         // Check that the input arguments define a memory region in non-confidential memory that is large enough to store the
-        // `SecurityMonitorInfo` structure.
+        // `TsmInfo` structure.
         let ptr = NonConfidentialMemoryAddress::new(self.tsm_info_address as *mut usize)?;
         NonConfidentialMemoryAddress::new((self.tsm_info_address + self.tsm_info_len) as *mut usize)?;
-        ensure!(self.tsm_info_len >= core::mem::size_of::<SecurityMonitorInfo>(), Error::InvalidParameter())?;
+        ensure!(self.tsm_info_len >= core::mem::size_of::<TsmInfo>(), Error::InvalidParameter())?;
         // below unsafe operation is ok because pointer is a valid address in non-confidential memory, and we have enough space to write the
         // reponse.
-        unsafe { (ptr.as_ptr() as *mut SecurityMonitorInfo).write(info) };
-        Ok(core::mem::size_of::<SecurityMonitorInfo>())
+        unsafe { (ptr.as_ptr() as *mut TsmInfo).write(info) };
+        Ok(core::mem::size_of::<TsmInfo>())
     }
 
     fn get_version(&self) -> u32 {
