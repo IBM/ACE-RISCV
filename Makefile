@@ -79,7 +79,9 @@ emulator: setup devtools
 
 tools: setup
 	mkdir -p $(TOOLS_WORK_DIR)
-	cp -rf $(TOOLS_SOURCE_DIR)/* $(TOOLS_WORK_DIR)
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C tools/local_attestation build
+	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/
+	cp -rf $(TOOLS_SOURCE_DIR)/ace $(TOOLS_WORK_DIR)/
 
 verify:
 	rm -rf $(ACE_DIR)/security_monitor/verify/

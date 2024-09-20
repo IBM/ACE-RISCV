@@ -8,7 +8,7 @@ pub const ACE_TAP_MAGIC: u32 = 0xACEACE00;
 pub enum TapDigestEntryType {
     Kernel,
     KernelCommandLine,
-    Initramfs
+    Initramfs,
 }
 
 #[repr(u8)]
@@ -19,7 +19,7 @@ pub enum TapDigestAlgorithm {
 impl TapDigestAlgorithm {
     pub fn digest_size(&self) -> u16 {
         match self {
-            &Self::Sha512 => 512/8,
+            &Self::Sha512 => 512 / 8,
         }
     }
 }

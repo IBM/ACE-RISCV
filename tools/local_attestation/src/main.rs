@@ -1,19 +1,19 @@
 // SPDX-FileCopyrightText: 2024 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use clap::{Parser, Subcommand};
 use crate::error::Error;
+use clap::{Parser, Subcommand};
 
-mod error;
-mod constants;
-mod generate;
 mod append;
+mod constants;
+mod error;
+mod generate;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[command(subcommand)]
-    cmd: Commands
+    cmd: Commands,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -27,9 +27,9 @@ enum Commands {
         output_file: Option<String>,
     },
     Generate {
-        #[arg(short='k', long)]
+        #[arg(short = 'k', long)]
         kernel_file: String,
-        #[arg(short='b', long)]
+        #[arg(short = 'b', long)]
         kernel_commandline: String,
         #[arg(short, long)]
         initramfs_file: String,
@@ -39,11 +39,13 @@ enum Commands {
         tee_public_keys_files: Vec<String>,
         #[arg(short, long)]
         output_file: String,
-    }
+    },
 }
 
 /// Parse a single key-value pair
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
+fn parse_key_val<T, U>(
+    s: &str,
+) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
 where
     T: std::str::FromStr,
     T::Err: std::error::Error + Send + Sync + 'static,
@@ -58,8 +60,25 @@ where
 
 fn main() -> Result<(), Error> {
     Ok(match Args::parse().cmd {
-        Commands::Append {input_file, tap_file, output_file} => append::append_tap(input_file, tap_file, output_file),
-        Commands::Generate {kernel_file, kernel_commandline, initramfs_file, confidential_vm_secrets, tee_public_keys_files, output_file} => generate::generate_tap(kernel_file, kernel_commandline, initramfs_file, confidential_vm_secrets, tee_public_keys_files, output_file),
+        Commands::Append {
+            input_file,
+            tap_file,
+            output_file,
+        } => append::append_tap(input_file, tap_file, output_file),
+        Commands::Generate {
+            kernel_file,
+            kernel_commandline,
+            initramfs_file,
+            confidential_vm_secrets,
+            tee_public_keys_files,
+            output_file,
+        } => generate::generate_tap(
+            kernel_file,
+            kernel_commandline,
+            initramfs_file,
+            confidential_vm_secrets,
+            tee_public_keys_files,
+            output_file,
+        ),
     }?)
 }
-

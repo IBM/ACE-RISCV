@@ -20,5 +20,5 @@ pub enum Error {
     InvalidSizeOfSymmetricKey(),
 
     #[error("Cannot open file {0}")]
-    CannotOpenFile(String)
+    CannotOpenFile(String),
 }
