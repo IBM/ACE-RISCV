@@ -65,6 +65,7 @@ impl TsmInfo {
     pub const COVE_TSM_STATE_LOADED: u32 = 1;
     pub const COVE_TSM_STATE_READY: u32 = 2;
     pub const COVE_TSM_IMPL_ACE: u32 = 2;
+    pub const COVE_TSM_CAP_PROMOTE_TVM: u64 = 1 << 0;
     pub const COVE_TSM_CAP_ATTESTATION_LOCAL_MASK: u64 = 1 << 1;
     pub const COVE_TSM_CAP_ATTESTATION_REMOTE_MASK: u64 = 1 << 2;
     pub const COVE_TSM_CAP_AIA_MASK: u64 = 1 << 3;
