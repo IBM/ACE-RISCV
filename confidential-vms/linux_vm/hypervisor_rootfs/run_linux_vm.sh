@@ -6,6 +6,7 @@
 QEMU_CMD=qemu-system-riscv64
 KERNEL=/root/linux_vm/Image
 DRIVE=/root/linux_vm/rootfs.ext2
+INITRAMFS=/root/linux_vm/rootfs.cpio
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
@@ -54,8 +55,9 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -machine virt -cpu rv64,f=true -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
     -seed 0 \
+    -initrd ${INITRAMFS} \
     -global virtio-mmio.force-legacy=false \
-    -append "console=ttyS0 ro root=/dev/vda swiotlb=mmnn,force promote_to_cove_guest" \
+    -append "console=ttyS0 ro swiotlb=mmnn,force promote_to_cove_guest" \
     -device virtio-blk-pci,drive=hd0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -drive if=none,format=raw,file=${DRIVE},id=hd0 \
     -device virtio-net-pci,netdev=net0,iommu_platform=on,disable-legacy=on,disable-modern=off \

@@ -5,7 +5,6 @@ use crate::error::Error;
 use clap::{Parser, Subcommand};
 
 mod append;
-mod constants;
 mod error;
 mod generate;
 

@@ -4,6 +4,7 @@
 build/*
 target/*
 
+tools/local_attestation/target
 security-monitor/target
 
 configurations/overlay/root/harness/baremetal

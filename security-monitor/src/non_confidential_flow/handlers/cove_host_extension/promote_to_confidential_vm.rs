@@ -34,7 +34,7 @@ pub struct PromoteToConfidentialVm {
 
 impl PromoteToConfidentialVm {
     const FDT_ALIGNMENT_IN_BYTES: usize = 8;
-    const TAP_ALIGNMENT_IN_BYTES: usize = 8;
+    const TAP_ALIGNMENT_IN_BYTES: usize = 4;
     const BOOT_HART_ID: usize = 0;
 
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
@@ -64,6 +64,7 @@ impl PromoteToConfidentialVm {
 
     fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory) -> Result<ConfidentialVmId, Error> {
         debug!("Promoting a VM into a confidential VM");
+        debug!("Auth blob: {:?}", self.auth_blob_address);
         // Copy the entire VM's state to the confidential memory, recreating the MMU configuration.
         let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hgatp)?;
 
@@ -101,7 +102,7 @@ impl PromoteToConfidentialVm {
         let address_in_confidential_memory = memory_protector.translate_address(&self.fdt_address)?;
         // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
         // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).
-        ensure!(address_in_confidential_memory.is_aligned_to(Self::FDT_ALIGNMENT_IN_BYTES), Error::AuthBlobNotAlignedTo64Bits())?;
+        ensure!(address_in_confidential_memory.is_aligned_to(Self::FDT_ALIGNMENT_IN_BYTES), Error::FdtNotAlignedTo64Bits())?;
         // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the not-yet-created
         // confidential VM's and (2) there is only one physical hart executing this code.
         let fdt_total_size = unsafe { FlattenedDeviceTree::total_size(address_in_confidential_memory.to_ptr())? };
@@ -132,21 +133,34 @@ impl PromoteToConfidentialVm {
     fn authenticate_and_authorize_vm(
         &self, memory_protector: &ConfidentialVmMemoryProtector, _measurements: &StaticMeasurements,
     ) -> Result<(), Error> {
+        use tap::TeeAttestationPayloadParser;
         if let Some(blob_address) = self.auth_blob_address {
             debug!("Performing local attestation");
             let address_in_confidential_memory = memory_protector.translate_address(&blob_address)?;
             // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
             // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).
-            ensure!(address_in_confidential_memory.is_aligned_to(Self::TAP_ALIGNMENT_IN_BYTES), Error::AuthBlobNotAlignedTo64Bits())?;
+            ensure!(address_in_confidential_memory.is_aligned_to(Self::TAP_ALIGNMENT_IN_BYTES), Error::AuthBlobNotAlignedTo32Bits())?;
             // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the not-yet-created
             // confidential VM's and (2) there is only one physical hart executing this code.
-            let magic_and_size: usize = unsafe { address_in_confidential_memory.read_volatile() };
-            let auth_blob_total_size: usize = u32::from_be((magic_and_size >> 32) as u32) as usize;
+            let header: u64 =
+                unsafe { address_in_confidential_memory.read_volatile().try_into().map_err(|_| Error::AuthBlobNotAlignedTo32Bits())? };
+            let total_size = ((header >> 16) & 0xFFFF) as usize;
             // To work with the authentication blob, we must have it as a continous chunk of memory. We accept only authentication blobs
             // that fit within 2MiB
-            ensure!(auth_blob_total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
-            let large_page = Self::relocate(memory_protector, &blob_address, auth_blob_total_size)?;
+            ensure!(total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
+            let large_page = Self::relocate(memory_protector, &blob_address, total_size)?;
+            let mut parser = unsafe { TeeAttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)? };
+            let tap = parser.parse_and_verify()?;
 
+            debug!("TAP contains {} lockboxes", tap.lockboxes.len());
+            debug!("TAP contains {} secrets", tap.secrets.len());
+            for digest in tap.digests.iter() {
+                use crate::alloc::string::ToString;
+                use alloc::format;
+                use alloc::string::String;
+                let hex: String = digest.value.iter().map(|b| format!("{:02x}", b).to_string()).collect::<Vec<String>>().join(" ");
+                debug!("TAP digest: {:?} {:?} {}", digest.entry_type, digest.algorithm, hex);
+            }
             // TODO: local attestation should occure here, i.e., we should verify the authentication blob signature
             // TODO: compare measurements to the one signed in the authentication blob
 
