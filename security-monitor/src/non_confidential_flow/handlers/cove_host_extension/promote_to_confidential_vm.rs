@@ -171,19 +171,17 @@ impl PromoteToConfidentialVm {
     fn authenticate_and_authorize_vm(
         &self, tee_attestation_payload: Option<TeeAttestationPayload>, measurements: &StaticMeasurements,
     ) -> Result<Vec<TapSecret>, Error> {
+        use crate::core::control_data::MeasurementDigest;
         match tee_attestation_payload {
             Some(tee_attestation_payload) => {
                 debug!("Authenticating and authorizing the confidential VM using read TAP");
-                debug!("TAP contains {} lockboxes", tee_attestation_payload.lockboxes.len());
-                debug!("TAP contains {} secrets", tee_attestation_payload.secrets.len());
                 for digest in tee_attestation_payload.digests.iter() {
-                    debug!("TAP digest: {:?} {:?} {}", digest.entry_type, digest.algorithm, digest.value_in_hex());
+                    debug!("Reference measurement: {:?} {:?} {}", digest.entry_type, digest.algorithm, digest.value_in_hex());
                     // TODO: make sure we compare digests of the same algorithm...
-                    use crate::core::control_data::MeasurementDigest;
                     let pcr_value = MeasurementDigest::clone_from_slice(&digest.value);
                     ensure!(measurements.compare(digest.entry_type.to_u16() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }
-                debug!("Attestation successful");
+                debug!("Attestation successful, read {} secrets", tee_attestation_payload.secrets.len());
                 Ok(tee_attestation_payload.secrets)
             }
             None => Ok(alloc::vec![]),

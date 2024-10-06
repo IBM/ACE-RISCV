@@ -85,7 +85,7 @@ impl ConfidentialMemoryAddress {
     /// # Safety
     ///
     /// The caller must ensure that the address at given offset is still within the confidential memory region.
-    // TODO: can we require the offset to be a multiple of usize?
+    // TODO: can we require the offset to be a multiple of usize? (woz: yes we can)
     #[rr::only_spec]
     #[rr::params("l", "off", "lmax", "MEMORY_CONFIG")]
     #[rr::args("#l", "off", "lmax")]
