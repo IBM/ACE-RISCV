@@ -39,7 +39,7 @@ impl TapLockboxAlgorithm {
 }
 
 pub struct TapDigest {
-    pub entry_type: TapDigestEntryType,
+    pub pcr_id: u16,
     pub algorithm: TapDigestAlgorithm,
     pub value: Vec<u8>,
 }
@@ -49,29 +49,9 @@ impl TapDigest {
         use crate::alloc::string::ToString;
         self.value.iter().map(|b| alloc::format!("{:02x}", b).to_string()).collect::<Vec<alloc::string::String>>().join("")
     }
-}
 
-#[repr(u16)]
-#[derive(Debug)]
-pub enum TapDigestEntryType {
-    VmCodeAndData = 4,
-    VmBootHart = 5,
-}
-
-impl TapDigestEntryType {
-    pub fn from_u16(value: u16) -> Result<Self, TapError> {
-        match value {
-            4 => Ok(Self::VmCodeAndData),
-            5 => Ok(Self::VmBootHart),
-            v => Err(TapError::UnsupportedTapDigestEntryType(v)),
-        }
-    }
-
-    pub fn to_u16(&self) -> u16 {
-        match self {
-            Self::VmCodeAndData => 4,
-            Self::VmBootHart => 5,
-        }
+    pub fn pcr_id(&self) -> u16 {
+        self.pcr_id
     }
 }
 

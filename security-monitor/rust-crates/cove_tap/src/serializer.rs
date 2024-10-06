@@ -55,7 +55,7 @@ impl TeeAttestationPayloadSerializer {
         for mut digest in payload.digests.drain(..) {
             let entry_size = digest.value.len() + 2 + 2;
             result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
-            result.append(&mut (digest.entry_type as u16).to_le_bytes().to_vec());
+            result.append(&mut (digest.pcr_id).to_le_bytes().to_vec());
             result.append(&mut (digest.algorithm as u16).to_le_bytes().to_vec());
             result.append(&mut digest.value);
         }

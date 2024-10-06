@@ -53,11 +53,11 @@ impl TeeAttestationPayloadParser {
         let mut digests = vec![];
         for _ in 0..number_of_digests {
             let size = self.read_u16()? as usize;
-            let entry_type = TapDigestEntryType::from_u16(self.read_u16()?)?;
+            let pcr_id = self.read_u16()?;
             let algorithm = TapDigestAlgorithm::from_u16(self.read_u16()?)?;
             let value = self.read_exact(size-4)?;
             digests.push(TapDigest {
-                entry_type,
+                pcr_id,
                 algorithm,
                 value
             });

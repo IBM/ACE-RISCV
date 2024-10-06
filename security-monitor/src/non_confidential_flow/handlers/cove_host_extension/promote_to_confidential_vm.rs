@@ -65,7 +65,7 @@ impl PromoteToConfidentialVm {
 
     fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory) -> Result<ConfidentialVmId, Error> {
         debug!("Promoting a VM to a confidential VM");
-        debug!("Copying the entire VM's state to the confidential memory, recreating the MMU configuration");
+        // Copying the entire VM's state to the confidential memory, recreating the MMU configuration
         let memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hgatp)?;
 
         // The pointer to the flattened device tree (FDT) as well as the entire FDT must be treated as an untrusted input, which measurement
@@ -76,7 +76,6 @@ impl PromoteToConfidentialVm {
         let htimedelta = 0;
 
         // We create a fixed number of harts (all but the boot hart are in the reset state).
-        debug!("Copying boot hart's state");
         let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {
                 Self::BOOT_HART_ID => ConfidentialHart::from_vm_hart(confidential_hart_id, self.program_counter, htimedelta, shared_memory),
@@ -174,12 +173,12 @@ impl PromoteToConfidentialVm {
         use crate::core::control_data::MeasurementDigest;
         match tee_attestation_payload {
             Some(tee_attestation_payload) => {
-                debug!("Authenticating and authorizing the confidential VM using read TAP");
+                debug!("Authenticating and authorizing the confidential VM");
                 for digest in tee_attestation_payload.digests.iter() {
-                    debug!("Reference measurement: {:?} {:?} {}", digest.entry_type, digest.algorithm, digest.value_in_hex());
+                    debug!("Reference measurement: {:?}={:?}=0x{}", digest.pcr_id, digest.algorithm, digest.value_in_hex());
                     // TODO: make sure we compare digests of the same algorithm...
                     let pcr_value = MeasurementDigest::clone_from_slice(&digest.value);
-                    ensure!(measurements.compare(digest.entry_type.to_u16() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
+                    ensure!(measurements.compare(digest.pcr_id() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }
                 debug!("Attestation successful, read {} secrets", tee_attestation_payload.secrets.len());
                 Ok(tee_attestation_payload.secrets)

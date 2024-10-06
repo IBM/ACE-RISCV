@@ -5,11 +5,9 @@ use crate::ensure;
 use crate::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
-
 use tap::Lockbox;
 use tap::TapDigest;
 use tap::TapDigestAlgorithm;
-use tap::TapDigestEntryType;
 use tap::TapLockboxAlgorithm;
 use tap::TapSecret;
 use tap::TeeAttestationPayload;
@@ -40,13 +38,13 @@ pub fn generate_tap(
     });
 
     let mut digests = vec![];
-    for (pcr_number, pcr_value) in pcrs.into_iter() {
+    for (pcr_id, pcr_value) in pcrs.into_iter() {
         let tap_digest = TapDigest {
-            entry_type: TapDigestEntryType::from_u16(pcr_number)?,
+            pcr_id,
             algorithm: TapDigestAlgorithm::Sha512,
             value: pcr_value,
         };
-        println!("Writing PCR{}={}", pcr_number, tap_digest.value_in_hex());
+        println!("Writing PCR{}={}", pcr_id, tap_digest.value_in_hex());
         digests.push(tap_digest);
     }
 
@@ -87,11 +85,7 @@ pub fn generate_tap(
     )?;
     let tap = parser.parse_and_verify()?;
     for digest in tap.digests.iter() {
-        println!(
-            "Read PCR{}={}",
-            digest.entry_type.to_u16(),
-            digest.value_in_hex()
-        );
+        println!("Read PCR{}={}", digest.pcr_id, digest.value_in_hex());
     }
 
     Ok(())
