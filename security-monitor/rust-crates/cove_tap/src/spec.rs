@@ -44,21 +44,33 @@ pub struct TapDigest {
     pub value: Vec<u8>,
 }
 
+impl TapDigest {
+    pub fn value_in_hex(&self) -> alloc::string::String {
+        use crate::alloc::string::ToString;
+        self.value.iter().map(|b| alloc::format!("{:02x}", b).to_string()).collect::<Vec<alloc::string::String>>().join("")
+    }
+}
+
 #[repr(u16)]
 #[derive(Debug)]
 pub enum TapDigestEntryType {
-    Kernel = 0,
-    KernelCommandLine = 1,
-    Initramfs = 2,
+    VmCodeAndData = 4,
+    VmBootHart = 5,
 }
 
 impl TapDigestEntryType {
     pub fn from_u16(value: u16) -> Result<Self, TapError> {
         match value {
-            0 => Ok(Self::Kernel),
-            1 => Ok(Self::KernelCommandLine),
-            2 => Ok(Self::Initramfs),
+            4 => Ok(Self::VmCodeAndData),
+            5 => Ok(Self::VmBootHart),
             v => Err(TapError::UnsupportedTapDigestEntryType(v)),
+        }
+    }
+
+    pub fn to_u16(&self) -> u16 {
+        match self {
+            Self::VmCodeAndData => 4,
+            Self::VmBootHart => 5,
         }
     }
 }

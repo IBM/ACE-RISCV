@@ -15,6 +15,6 @@ rsa = "0.9" # to create lockboxes: encrypt symetric key using public keys of tar
 rand = "0.8" # to generate symmetric key used to encrypted payload
 aes-gcm = "0.10.3" # for symmetric encryption of payload
 
-tap = {path="../../security-monitor/rust-crates/cove_tap", features=["serializer"]}
+tap = {path="../../security-monitor/rust-crates/cove_tap", features=["parser", "serializer"]}
 
 thiserror = "1.0"  # provides macros that help removing boilerplate code in the rust error handling

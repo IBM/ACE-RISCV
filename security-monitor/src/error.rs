@@ -47,6 +47,8 @@ pub enum Error {
     AuthBlobInvalidSize(),
     #[error("Error when parsing TEE attestation payload: {0}")]
     AttestationPayloadParsingError(#[from] tap::TapError),
+    #[error("Local attestation failed. Invalid measurements")]
+    LocalAttestationFailed(),
 
     /* SBI invalid address */
     #[error("Address is not aligned")]

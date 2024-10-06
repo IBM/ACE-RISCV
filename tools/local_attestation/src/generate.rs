@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::ensure;
 use crate::error::Error;
-use sha2::Digest;
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -17,10 +16,8 @@ use tap::TeeAttestationPayload;
 use tap::TeeAttestationPayloadSerializer;
 
 pub fn generate_tap(
-    kernel_file: String,
-    kernel_commandline: String,
-    initramfs_file: String,
-    confidential_vm_secrets: Vec<(usize, String)>,
+    pcrs: Vec<(u16, Vec<u8>)>,
+    confidential_vm_secrets: Vec<(usize, Vec<u8>)>,
     tee_public_keys_files: Vec<String>,
     output_file: String,
 ) -> Result<(), Error> {
@@ -43,21 +40,15 @@ pub fn generate_tap(
     });
 
     let mut digests = vec![];
-    digests.push(TapDigest {
-        entry_type: TapDigestEntryType::Kernel,
-        algorithm: TapDigestAlgorithm::Sha512,
-        value: measure_file_integrity(kernel_file)?,
-    });
-    digests.push(TapDigest {
-        entry_type: TapDigestEntryType::KernelCommandLine,
-        algorithm: TapDigestAlgorithm::Sha512,
-        value: measure_string_integrity(kernel_commandline)?,
-    });
-    digests.push(TapDigest {
-        entry_type: TapDigestEntryType::Initramfs,
-        algorithm: TapDigestAlgorithm::Sha512,
-        value: measure_file_integrity(initramfs_file)?,
-    });
+    for (pcr_number, pcr_value) in pcrs.into_iter() {
+        let tap_digest = TapDigest {
+            entry_type: TapDigestEntryType::from_u16(pcr_number)?,
+            algorithm: TapDigestAlgorithm::Sha512,
+            value: pcr_value,
+        };
+        println!("Writing PCR{}={}", pcr_number, tap_digest.value_in_hex());
+        digests.push(tap_digest);
+    }
 
     let mut secrets = vec![];
     secrets.push(TapSecret {
@@ -77,27 +68,31 @@ pub fn generate_tap(
     // write the entire TAP to the output file
     let mut output = OpenOptions::new()
         .create_new(true)
+        .read(true)
         .write(true)
         .append(false)
         .open(output_file.clone())
-        .map_err(|_| Error::CannotOpenFile(output_file))?;
+        .map_err(|_| Error::CannotOpenFile(output_file.clone()))?;
     output.write(&serialized)?;
 
+    // test if everything went well
+    use std::io::Read;
+    use std::io::{Seek, SeekFrom};
+    output.seek(SeekFrom::End(-1 * (serialized.len() as i64)))?;
+    let mut test_data: Vec<u8> = vec![0u8; serialized.len()];
+    output.read_exact(&mut test_data)?;
+    let mut parser = tap::TeeAttestationPayloadParser::from_raw_pointer(
+        test_data.as_mut_ptr() as *const u8,
+        test_data.len() - 4,
+    )?;
+    let tap = parser.parse_and_verify()?;
+    for digest in tap.digests.iter() {
+        println!(
+            "Read PCR{}={}",
+            digest.entry_type.to_u16(),
+            digest.value_in_hex()
+        );
+    }
+
     Ok(())
-}
-
-fn measure_file_integrity(file: String) -> Result<Vec<u8>, Error> {
-    let mut hasher = sha2::Sha512::new();
-    let mut file =
-        std::fs::File::open(file.clone()).map_err(|_| Error::CannotOpenFile(file.clone()))?;
-    std::io::copy(&mut file, &mut hasher)?;
-    let digest = hasher.finalize();
-    println!("Measured file {:?}, digest={:?}", file, digest);
-    Ok(digest.to_vec())
-}
-
-fn measure_string_integrity(value: String) -> Result<Vec<u8>, Error> {
-    let mut hasher = sha2::Sha512::new();
-    hasher.update(value.as_bytes());
-    Ok(hasher.finalize().to_vec())
 }

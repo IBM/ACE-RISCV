@@ -8,7 +8,6 @@ extern crate alloc;
 mod error;
 #[cfg(feature = "parser")]
 mod parser;
-mod spec;
 #[cfg(feature = "serializer")]
 mod serializer;
 
@@ -20,3 +19,4 @@ pub use serializer::TeeAttestationPayloadSerializer;
 
 pub use spec::*;
 pub use error::*;
+pub mod spec;

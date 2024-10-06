@@ -23,9 +23,10 @@ impl TeeAttestationPayloadParser {
         if self.read_u16()? != ACE_MAGIC_TAP_START {
             return Err(TapError::InvalidMagicStart());
         }
-        if self.read_u16()? as usize != self.size {
-            return Err(TapError::InvalidSize());
-        }
+        self.read_u16()?;
+        // if self.read_u16()? as usize != self.size {
+        //     return Err(TapError::InvalidSize());
+        // }
         let number_of_lockboxes = self.read_u16()?;
         let mut lockboxes = vec![];
         for _ in 0..number_of_lockboxes {

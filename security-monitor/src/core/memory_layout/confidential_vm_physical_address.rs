@@ -21,6 +21,6 @@ impl ConfidentialVmPhysicalAddress {
 
 impl core::fmt::Debug for ConfidentialVmPhysicalAddress {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Confidential VM physical address={:x}", self.0)
+        write!(f, "0x{:x}", self.0)
     }
 }

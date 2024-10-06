@@ -2,9 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 
-// use thiserror_no_std::Error;
-// #[derive(Error, Debug)]
-
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("IO Error")]
@@ -21,6 +18,8 @@ pub enum Error {
     TryFromIntErr(#[from] std::num::TryFromIntError),
     #[error("Cannot open file {0}")]
     CannotOpenFile(String),
+    #[error("Could not parse int")]
+    IntParseError(#[from] core::num::ParseIntError),
 }
 
 impl From<tap::TapError> for Error {

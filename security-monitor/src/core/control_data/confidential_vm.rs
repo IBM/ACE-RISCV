@@ -11,11 +11,13 @@ use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard};
+use tap::TapSecret;
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
-    measurements: StaticMeasurements,
     confidential_harts: Vec<ConfidentialHart>,
+    measurements: StaticMeasurements,
+    secrets: Vec<TapSecret>,
     remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     memory_protector: ConfidentialVmMemoryProtector,
     allowed_external_interrupts: usize,
@@ -37,7 +39,7 @@ impl ConfidentialVm {
     ///
     /// The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: StaticMeasurements,
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, measurements: StaticMeasurements, secrets: Vec<TapSecret>,
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
@@ -50,10 +52,11 @@ impl ConfidentialVm {
             .collect();
         Self {
             id,
-            measurements,
             confidential_harts,
-            memory_protector,
+            measurements,
+            secrets,
             remote_commands,
+            memory_protector,
             allowed_external_interrupts: 0,
             mmio_regions: Vec::with_capacity(8),
         }
