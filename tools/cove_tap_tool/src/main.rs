@@ -4,7 +4,7 @@
 use crate::error::Error;
 use clap::{Parser, Subcommand};
 
-mod append;
+mod attach;
 mod error;
 mod generate;
 
@@ -17,7 +17,7 @@ struct Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
-    Append {
+    Attach {
         #[arg(short, long)]
         input_file: String,
         #[arg(short, long)]
@@ -28,8 +28,8 @@ enum Commands {
     Generate {
         #[arg(short='p', long="pcrs", value_parser = parse_key_val::<u16, String>, value_delimiter = ',', required=true)]
         pcrs: Vec<(u16, Vec<u8>)>,
-        #[arg(long="secrets", value_parser = parse_key_val::<usize, String>, value_delimiter = ',')]
-        confidential_vm_secrets: Vec<(usize, Vec<u8>)>,
+        #[arg(long="secrets", value_parser = parse_key_val::<u64, String>, value_delimiter = ',')]
+        confidential_vm_secrets: Vec<(u64, Vec<u8>)>,
         #[clap(short, long, value_delimiter = ' ', num_args = 1..)]
         tee_public_keys_files: Vec<String>,
         #[arg(short, long)]
@@ -69,11 +69,11 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 
 fn main() -> Result<(), Error> {
     Ok(match Args::parse().cmd {
-        Commands::Append {
+        Commands::Attach {
             input_file,
             tap_file,
             output_file,
-        } => append::append_tap(input_file, tap_file, output_file),
+        } => attach::attach_tap(input_file, tap_file, output_file),
         Commands::Generate {
             pcrs,
             confidential_vm_secrets,

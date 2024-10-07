@@ -7,21 +7,21 @@ RELEASE = --release
 CHAIN=riscv64gc-unknown-linux-gnu
 TARGET = --target=$(CHAIN)
 RUSTFLAGS = -C linker=riscv64-unknown-linux-gnu-gcc
-EXEC_NAME = ace-tap
+EXEC_NAME = cove-tap-tool
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 ACE_DIR := $(if $(ACE_DIR),$(ACE_DIR),$(MAKEFILE_SOURCE_DIR)../build/target/)
 
-WORK_DIR=$(ACE_DIR)/local_attestation
+WORK_DIR=$(ACE_DIR)/cove_tap_tool
 TOOLS_DIR=$(ACE_DIR)/tools
 
-PLATFORM_RISCV_ABI ?= lp64d 
+PLATFORM_RISCV_ABI ?= lp64d
 PLATFORM_RISCV_ISA ?= rv64gc
-PLATFORM_RISCV_XLEN ?= 64 
+PLATFORM_RISCV_XLEN ?= 64
 CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 
-all: build 
+all: build
 
 build: fmt
 	echo "Building Local Attestation utility" ;\

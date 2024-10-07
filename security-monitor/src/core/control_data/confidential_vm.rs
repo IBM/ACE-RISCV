@@ -11,13 +11,13 @@ use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard};
-use tap::TapSecret;
+use tap::Secret;
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
     confidential_harts: Vec<ConfidentialHart>,
     _measurements: StaticMeasurements,
-    secrets: Vec<TapSecret>,
+    secrets: Vec<Secret>,
     remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
     memory_protector: ConfidentialVmMemoryProtector,
     allowed_external_interrupts: usize,
@@ -39,7 +39,7 @@ impl ConfidentialVm {
     ///
     /// The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, _measurements: StaticMeasurements, secrets: Vec<TapSecret>,
+        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, _measurements: StaticMeasurements, secrets: Vec<Secret>,
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Self {
         memory_protector.set_confidential_vm_id(id);
@@ -74,8 +74,13 @@ impl ConfidentialVm {
         &mut self.memory_protector
     }
 
-    pub fn secret(&self, secret_id: usize) -> Vec<u8> {
-        self.secrets.iter().find(|&s| s.name == secret_id as u64).and_then(|s| Some(s.value.to_vec())).unwrap_or(alloc::vec![])
+    pub fn secret(&self, secret_id: usize) -> Result<Vec<u8>, Error> {
+        for secret in self.secrets.iter() {
+            if secret.name == secret_id as u64 {
+                return Ok(secret.value.to_vec());
+            }
+        }
+        Err(Error::InvalidParameter())
     }
 
     pub(super) fn deallocate(self) {

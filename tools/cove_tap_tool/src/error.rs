@@ -20,6 +20,8 @@ pub enum Error {
     CannotOpenFile(String),
     #[error("Could not parse int")]
     IntParseError(#[from] core::num::ParseIntError),
+    #[error("Placeholder error")]
+    PlaceholderError(),
 }
 
 impl From<tap::TapError> for Error {

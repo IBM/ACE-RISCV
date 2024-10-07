@@ -14,7 +14,7 @@ use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResp
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 use alloc::vec::Vec;
 use flattened_device_tree::FlattenedDeviceTree;
-use tap::{TapSecret, TeeAttestationPayload, TeeAttestationPayloadParser};
+use tap::{AttestationPayload, AttestationPayloadParser, Secret};
 
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
 /// specification. With this call, the hypervisor presents a state of a virtual machine, requesting the security monitor to promote it to a
@@ -28,7 +28,7 @@ use tap::{TapSecret, TeeAttestationPayload, TeeAttestationPayloadParser};
 /// * The address of the authentication blob must be either `0` or aligned to 8 bytes.
 pub struct PromoteToConfidentialVm {
     fdt_address: ConfidentialVmPhysicalAddress,
-    tee_attestation_payload_address: Option<ConfidentialVmPhysicalAddress>,
+    attestation_payload_address: Option<ConfidentialVmPhysicalAddress>,
     program_counter: usize,
     hgatp: Hgatp,
 }
@@ -40,13 +40,13 @@ impl PromoteToConfidentialVm {
 
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         let fdt_address = ConfidentialVmPhysicalAddress::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0));
-        let tee_attestation_payload_address = match hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) {
+        let attestation_payload_address = match hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) {
             0 => None,
             address => Some(ConfidentialVmPhysicalAddress::new(address)),
         };
         let program_counter = hypervisor_hart.gprs().read(GeneralPurposeRegister::a2);
         let hgatp = Hgatp::from(hypervisor_hart.csrs().hgatp.read());
-        Self { fdt_address, tee_attestation_payload_address, program_counter, hgatp }
+        Self { fdt_address, attestation_payload_address, program_counter, hgatp }
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
@@ -83,14 +83,11 @@ impl PromoteToConfidentialVm {
             })
             .collect();
 
-        let tee_attestation_payload = self.read_tee_attestation_payload(&memory_protector)?;
-
-        let measured_pages_digest = memory_protector.measure()?;
-        let confidential_hart_digest = confidential_harts[Self::BOOT_HART_ID].measure();
-        let measurements = StaticMeasurements::new(measured_pages_digest, confidential_hart_digest);
+        let attestation_payload = self.read_attestation_payload(&memory_protector).unwrap_or(None);
+        let measurements = StaticMeasurements::new(memory_protector.measure()?, confidential_harts[Self::BOOT_HART_ID].measure());
         debug!("VM measurements: {:?}", measurements);
 
-        let secrets = self.authenticate_and_authorize_vm(tee_attestation_payload, &measurements)?;
+        let secrets = self.authenticate_and_authorize_vm(attestation_payload, &measurements).unwrap_or(alloc::vec![]);
 
         ControlDataStorage::try_write(|control_data| {
             // We have a write lock on the entire control data! Spend here as little time as possible because we are
@@ -101,7 +98,7 @@ impl PromoteToConfidentialVm {
     }
 
     fn process_device_tree(&self, memory_protector: &ConfidentialVmMemoryProtector) -> Result<usize, Error> {
-        debug!("Reading flatten device tree (FDT) at memory address 0x{:?}", self.fdt_address);
+        debug!("Reading flatten device tree (FDT) at memory address {:?}", self.fdt_address);
         let address_in_confidential_memory = memory_protector.translate_address(&self.fdt_address)?;
         // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
         // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).
@@ -131,35 +128,30 @@ impl PromoteToConfidentialVm {
         Ok(number_of_confidential_harts)
     }
 
-    fn read_tee_attestation_payload(
-        &self, memory_protector: &ConfidentialVmMemoryProtector,
-    ) -> Result<Option<TeeAttestationPayload>, Error> {
-        match self.tee_attestation_payload_address {
-            Some(tee_attestation_payload_address) => {
-                debug!("Reading TEE attestation payload (TAP) at memory address {:?}", tee_attestation_payload_address);
-                let address_in_confidential_memory = memory_protector.translate_address(&tee_attestation_payload_address)?;
+    fn read_attestation_payload(&self, memory_protector: &ConfidentialVmMemoryProtector) -> Result<Option<AttestationPayload>, Error> {
+        match self.attestation_payload_address {
+            Some(attestation_payload_address) => {
+                debug!("Reading TEE attestation payload (TAP) at memory address {:?}", attestation_payload_address);
+                let address_in_confidential_memory = memory_protector.translate_address(&attestation_payload_address)?;
                 // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be
-                // within the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4
+                // within the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 2
                 // bytes).
                 ensure!(address_in_confidential_memory.is_aligned_to(Self::TAP_ALIGNMENT_IN_BYTES), Error::AuthBlobNotAlignedTo32Bits())?;
                 // Below use of unsafe is ok because (1) the security monitor owns the memory region containing the data of the
                 // not-yet-created confidential VM's and (2) there is only one physical hart executing this code.
                 let header: u64 =
                     unsafe { address_in_confidential_memory.read_volatile().try_into().map_err(|_| Error::AuthBlobNotAlignedTo32Bits())? };
-                let total_size = ((header >> 16) & 0xFFFF) as usize + tap::ACE_HEADER_SIZE;
+                let total_size = tap::ACE_HEADER_SIZE + ((header >> 32) & 0xFFFF) as usize;
                 // To work with the authentication blob, we must have it as a continous chunk of memory. We accept only authentication blobs
                 // that fit within 2MiB
                 ensure!(total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
-                let large_page = Self::relocate(memory_protector, &tee_attestation_payload_address, total_size, true)?;
-
+                let large_page = Self::relocate(memory_protector, &attestation_payload_address, total_size, true)?;
                 // TODO: we should parse to the blob key that will allow to unlock the lockbox.
-                let mut parser = unsafe { TeeAttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)? };
-                let tee_attestation_payload = parser.parse_and_verify()?;
-
+                let mut parser = unsafe { AttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)? };
+                let attestation_payload = parser.parse_and_verify()?;
                 // Clean up, deallocate pages
                 PageAllocator::release_pages(alloc::vec![large_page.deallocate()]);
-
-                Ok(Some(tee_attestation_payload))
+                Ok(Some(attestation_payload))
             }
             None => Ok(None),
         }
@@ -168,20 +160,20 @@ impl PromoteToConfidentialVm {
     /// Performs local attestation. It decides if the VM can be promote into a confidential VM and decrypts the attestation secret intended
     /// for this confidential VM.
     fn authenticate_and_authorize_vm(
-        &self, tee_attestation_payload: Option<TeeAttestationPayload>, measurements: &StaticMeasurements,
-    ) -> Result<Vec<TapSecret>, Error> {
+        &self, attestation_payload: Option<AttestationPayload>, measurements: &StaticMeasurements,
+    ) -> Result<Vec<Secret>, Error> {
         use crate::core::control_data::MeasurementDigest;
-        match tee_attestation_payload {
-            Some(tee_attestation_payload) => {
-                debug!("Authenticating and authorizing the confidential VM");
-                for digest in tee_attestation_payload.digests.iter() {
-                    debug!("Reference measurement: {:?}={:?}=0x{}", digest.pcr_id, digest.algorithm, digest.value_in_hex());
-                    // TODO: make sure we compare digests of the same algorithm...
+        match attestation_payload {
+            Some(attestation_payload) => {
+                ensure!(attestation_payload.digests.len() > 1, Error::LocalAttestationFailed())?;
+                for digest in attestation_payload.digests.iter() {
+                    debug!("Reference PCR{:?}={:?}=0x{}", digest.pcr_id, digest.algorithm, digest.value_in_hex());
+                    ensure!(digest.algorithm == tap::DigestAlgorithm::Sha512, Error::LocalAttestationNotSupportedDigest())?;
                     let pcr_value = MeasurementDigest::clone_from_slice(&digest.value);
                     ensure!(measurements.compare(digest.pcr_id() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }
-                debug!("Attestation successful, read {} secrets", tee_attestation_payload.secrets.len());
-                Ok(tee_attestation_payload.secrets)
+                debug!("Attestation succeeded, read {} secrets", attestation_payload.secrets.len());
+                Ok(attestation_payload.secrets)
             }
             None => Ok(alloc::vec![]),
         }

@@ -49,6 +49,8 @@ pub enum Error {
     AttestationPayloadParsingError(#[from] tap::TapError),
     #[error("Local attestation failed. Invalid measurements")]
     LocalAttestationFailed(),
+    #[error("Local attestation failed. Not supported digest type")]
+    LocalAttestationNotSupportedDigest(),
 
     /* SBI invalid address */
     #[error("Address is not aligned")]

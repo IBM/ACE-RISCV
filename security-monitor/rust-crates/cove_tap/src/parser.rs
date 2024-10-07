@@ -7,20 +7,20 @@ use alloc::vec::Vec;
 use alloc::vec;
 use crate::spec::*;
 
-pub struct TeeAttestationPayloadParser {
+pub struct AttestationPayloadParser {
     pub pointer: *const u8,
     pub size: usize,
 }
 
-impl TeeAttestationPayloadParser {
+impl AttestationPayloadParser {
     pub fn from_raw_pointer(pointer: *const u8, size: usize) -> Result<Self, TapError> {
         Ok(Self {
             pointer, size
         })
     }
 
-    pub fn parse_and_verify(&mut self) -> Result<TeeAttestationPayload, TapError> {
-        if self.read_u16()? != ACE_MAGIC_TAP_START {
+    pub fn parse_and_verify(&mut self) -> Result<AttestationPayload, TapError> {
+        if self.read_u32()? != ACE_MAGIC_TAP_START {
             return Err(TapError::InvalidMagicStart());
         }
         self.read_u16()?;
@@ -32,7 +32,7 @@ impl TeeAttestationPayloadParser {
         for _ in 0..number_of_lockboxes {
             let size = self.read_u16()? as usize;
             let name = self.read_u64()?;
-            let algorithm = TapLockboxAlgorithm::from_u16(self.read_u16()?)?;
+            let algorithm = LockboxAlgorithm::from_u16(self.read_u16()?)?;
             let value = self.read_exact(size-10)?;
             lockboxes.push(Lockbox {
                 name,
@@ -43,10 +43,10 @@ impl TeeAttestationPayloadParser {
         // TODO: recover symmetric key
         let symmetric_key = [0u8; 32];
 
-        let payload_encryption_algorithm = TapPayloadEncryptionAlgorithm::from_u16(self.read_u16()?)?;
+        let payload_encryption_algorithm = PayloadEncryptionAlgorithm::from_u16(self.read_u16()?)?;
         match payload_encryption_algorithm {
-            TapPayloadEncryptionAlgorithm::Debug => {},
-            TapPayloadEncryptionAlgorithm::AesGcm256 => self.decrypt_aes_gcm_256(symmetric_key)?,
+            PayloadEncryptionAlgorithm::Debug => {},
+            PayloadEncryptionAlgorithm::AesGcm256 => self.decrypt_aes_gcm_256(symmetric_key)?,
         }
 
         let number_of_digests = self.read_u16()?;
@@ -54,9 +54,9 @@ impl TeeAttestationPayloadParser {
         for _ in 0..number_of_digests {
             let size = self.read_u16()? as usize;
             let pcr_id = self.read_u16()?;
-            let algorithm = TapDigestAlgorithm::from_u16(self.read_u16()?)?;
+            let algorithm = DigestAlgorithm::from_u16(self.read_u16()?)?;
             let value = self.read_exact(size-4)?;
-            digests.push(TapDigest {
+            digests.push(Digest {
                 pcr_id,
                 algorithm,
                 value
@@ -69,10 +69,10 @@ impl TeeAttestationPayloadParser {
             let size = self.read_u16()? as usize;
             let name = self.read_u64()? as u64;
             let value = self.read_exact(size-10)?;
-            secrets.push(TapSecret { name, value });
+            secrets.push(Secret { name, value });
         }
 
-        Ok(TeeAttestationPayload {
+        Ok(AttestationPayload {
             lockboxes,
             digests,
             secrets,
@@ -91,7 +91,7 @@ impl TeeAttestationPayloadParser {
         let key: Key<Aes256Gcm> = symmetric_key.into();
         let cipher = Aes256Gcm::new(&key);
         let nonce = Nonce::from_slice(&nonce);
-        let tag = Tag::from_slice(&tag); 
+        let tag = Tag::from_slice(&tag);
         let mut data_slice = unsafe{ core::slice::from_raw_parts_mut(self.pointer as *mut u8, payload_size) };
         cipher.decrypt_in_place_detached(nonce, b"", &mut data_slice, &tag)?;
         Ok(())
@@ -100,6 +100,12 @@ impl TeeAttestationPayloadParser {
     fn read_u16(&mut self) -> Result<u16, TapError> {
         let value = unsafe { (self.pointer as *const u16).read_volatile() };
         self.pointer = self.pointer.wrapping_add(2);
+        Ok(value)
+    }
+
+    fn read_u32(&mut self) -> Result<u32, TapError> {
+        let value = unsafe { (self.pointer as *const u32).read_volatile() };
+        self.pointer = self.pointer.wrapping_add(4);
         Ok(value)
     }
 

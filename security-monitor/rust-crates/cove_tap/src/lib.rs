@@ -12,10 +12,10 @@ mod parser;
 mod serializer;
 
 #[cfg(feature = "parser")]
-pub use parser::TeeAttestationPayloadParser;
+pub use parser::AttestationPayloadParser;
 
 #[cfg(feature = "serializer")]
-pub use serializer::TeeAttestationPayloadSerializer;
+pub use serializer::AttestationPayloadSerializer;
 
 pub use spec::*;
 pub use error::*;

@@ -5,17 +5,17 @@ use crate::ensure;
 use crate::error::Error;
 use std::fs::OpenOptions;
 use std::io::Write;
+use tap::AttestationPayload;
+use tap::AttestationPayloadSerializer;
+use tap::Digest;
+use tap::DigestAlgorithm;
 use tap::Lockbox;
-use tap::TapDigest;
-use tap::TapDigestAlgorithm;
-use tap::TapLockboxAlgorithm;
-use tap::TapSecret;
-use tap::TeeAttestationPayload;
-use tap::TeeAttestationPayloadSerializer;
+use tap::LockboxAlgorithm;
+use tap::Secret;
 
 pub fn generate_tap(
     pcrs: Vec<(u16, Vec<u8>)>,
-    confidential_vm_secrets: Vec<(usize, Vec<u8>)>,
+    confidential_vm_secrets: Vec<(u64, Vec<u8>)>,
     tee_public_keys_files: Vec<String>,
     output_file: String,
 ) -> Result<(), Error> {
@@ -25,7 +25,7 @@ pub fn generate_tap(
     )?;
     ensure!(
         tee_public_keys_files.len() < 1024,
-        Error::InvalidParameter(format!("Confidential VM TAP support max 1024 lockboxes"))
+        Error::InvalidParameter(format!("Confidential VM TAP supports max 1024 lockboxes"))
     )?;
 
     // let symmetric_key = [0u8; 32];
@@ -33,15 +33,15 @@ pub fn generate_tap(
     let mut lockboxes = vec![];
     lockboxes.push(Lockbox {
         name: 0u64,
-        algorithm: TapLockboxAlgorithm::Debug,
+        algorithm: LockboxAlgorithm::Debug,
         value: [0xFF; 16].to_vec(),
     });
 
     let mut digests = vec![];
     for (pcr_id, pcr_value) in pcrs.into_iter() {
-        let tap_digest = TapDigest {
+        let tap_digest = Digest {
             pcr_id,
-            algorithm: TapDigestAlgorithm::Sha512,
+            algorithm: DigestAlgorithm::Sha512,
             value: pcr_value,
         };
         println!("Writing PCR{}={}", pcr_id, tap_digest.value_in_hex());
@@ -49,18 +49,22 @@ pub fn generate_tap(
     }
 
     let mut secrets = vec![];
-    secrets.push(TapSecret {
-        name: 0,
-        value: [0xFF; 16].to_vec(),
-    });
+    for (secret_name, secret_value) in confidential_vm_secrets.into_iter() {
+        let secret = Secret {
+            name: secret_name,
+            value: secret_value,
+        };
+        println!("Writing secret {}", secret_name);
+        secrets.push(secret);
+    }
 
-    let tap = TeeAttestationPayload {
+    let tap = AttestationPayload {
         lockboxes,
         digests,
         secrets,
     };
 
-    let serializer = TeeAttestationPayloadSerializer::new();
+    let serializer = AttestationPayloadSerializer::new();
     let serialized = serializer.serialize(tap)?;
 
     // write the entire TAP to the output file
@@ -72,21 +76,6 @@ pub fn generate_tap(
         .open(output_file.clone())
         .map_err(|_| Error::CannotOpenFile(output_file.clone()))?;
     output.write(&serialized)?;
-
-    // test if everything went well
-    use std::io::Read;
-    use std::io::{Seek, SeekFrom};
-    output.seek(SeekFrom::End(-1 * (serialized.len() as i64)))?;
-    let mut test_data: Vec<u8> = vec![0u8; serialized.len()];
-    output.read_exact(&mut test_data)?;
-    let mut parser = tap::TeeAttestationPayloadParser::from_raw_pointer(
-        test_data.as_mut_ptr() as *const u8,
-        test_data.len() - 4,
-    )?;
-    let tap = parser.parse_and_verify()?;
-    for digest in tap.digests.iter() {
-        println!("Read PCR{}={}", digest.pcr_id, digest.value_in_hex());
-    }
 
     Ok(())
 }

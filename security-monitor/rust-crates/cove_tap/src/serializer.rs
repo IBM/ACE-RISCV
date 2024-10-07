@@ -6,35 +6,35 @@ use alloc::vec;
 use crate::spec::*;
 use alloc::vec::Vec;
 
-pub struct TeeAttestationPayloadSerializer {
+pub struct AttestationPayloadSerializer {
 
 }
 
-impl TeeAttestationPayloadSerializer {
+impl AttestationPayloadSerializer {
     pub fn new() -> Self {
         Self {}
     }
 
-    pub fn serialize(&self, mut payload: TeeAttestationPayload) -> Result<Vec<u8>, TapError> {
+    pub fn serialize(&self, mut payload: AttestationPayload) -> Result<Vec<u8>, TapError> {
         let digests = self.serialize_digests(&mut payload)?;
         let secrets = self.serialize_secrets(&mut payload)?;
         let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
         let mut lockboxes = self.serialize_lockboxes(&mut payload)?;
 
-        let total_size = lockboxes.len() + encrypted_part.len() + ACE_FOOTER_SIZE; // 4 bytes for footer
+        let total_size = lockboxes.len() + encrypted_part.len();
 
         let mut result = vec![];
         result.append(&mut ACE_MAGIC_TAP_START.to_le_bytes().to_vec());
         result.append(&mut (total_size as u16).to_le_bytes().to_vec());
         result.append(&mut lockboxes);
         result.append(&mut encrypted_part);
-        result.append(&mut ACE_MAGIC_TAP_END.to_le_bytes().to_vec());
-        result.append(&mut ((total_size + ACE_HEADER_SIZE) as u16).to_le_bytes().to_vec());
+        // result.append(&mut ACE_MAGIC_TAP_END.to_le_bytes().to_vec());
+        // result.append(&mut ((total_size + ACE_HEADER_SIZE) as u16).to_le_bytes().to_vec());
 
         Ok(result)
     }
 
-    fn serialize_lockboxes(&self, payload: &mut TeeAttestationPayload) -> Result<Vec<u8>, TapError> {
+    fn serialize_lockboxes(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
         // TODO: sanity check: lockboxes < 1024
         let mut result = vec![];
         result.append(&mut (payload.lockboxes.len() as u16).to_le_bytes().to_vec());
@@ -48,7 +48,7 @@ impl TeeAttestationPayloadSerializer {
         Ok(result)
     }
 
-    fn serialize_digests(&self, payload: &mut TeeAttestationPayload) -> Result<Vec<u8>, TapError> {
+    fn serialize_digests(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
         // TODO: sanity check: digests < 1024
         let mut result = vec![];
         result.append(&mut (payload.digests.len() as u16).to_le_bytes().to_vec());
@@ -62,7 +62,7 @@ impl TeeAttestationPayloadSerializer {
         Ok(result)
     }
 
-    fn serialize_secrets(&self, payload: &mut TeeAttestationPayload) -> Result<Vec<u8>, TapError> {
+    fn serialize_secrets(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
         // TODO: sanity check: secrets < 1024
         let mut result = vec![];
         result.append(&mut (payload.secrets.len() as u16).to_le_bytes().to_vec());
@@ -96,7 +96,7 @@ impl TeeAttestationPayloadSerializer {
             .unwrap();
 
         let mut result = vec![];
-        result.append(&mut (TapPayloadEncryptionAlgorithm::AesGcm256 as u16).to_le_bytes().to_vec());
+        result.append(&mut (PayloadEncryptionAlgorithm::AesGcm256 as u16).to_le_bytes().to_vec());
         result.append(&mut (nonce.as_slice().len() as u16).to_le_bytes().to_vec());
         result.append(&mut nonce.as_slice().to_vec());
         result.append(&mut (tag.as_slice().len() as u16).to_le_bytes().to_vec());

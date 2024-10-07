@@ -25,22 +25,20 @@ impl RetrieveSecretRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let transformation = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
-            ensure!(self.output_buffer_address.is_aligned_to(PageSize::Size4KiB.in_bytes()), Error::AddressNotAligned())?;
+            // ensure!(self.output_buffer_address.is_aligned_to(PageSize::Size4KiB.in_bytes()), Error::AddressNotAligned())?;
             ensure!(self.output_buffer_size <= PageSize::Size4KiB.in_bytes(), Error::AddressNotAligned())?;
-            let secret = confidential_vm.secret(0);
+            let secret = confidential_vm.secret(0)?;
             ensure!(secret.len() <= self.output_buffer_size, Error::AddressNotAligned())?;
-
-            let number_of_usize_elements = secret.len().div_ceil(8);
-            for offset in 0..number_of_usize_elements {
+            let mut buffer = [0u8; 8];
+            for offset in 0..secret.len().div_ceil(8) {
                 let end_boundary = core::cmp::min(secret.len(), offset + 8);
-                let mut bytes: [u8; 8] = secret[offset..end_boundary].to_vec().try_into().unwrap();
-                (end_boundary..8).for_each(|i| bytes[i] = 0u8);
-                let value = usize::from_le_bytes(bytes);
+                (0..end_boundary).for_each(|i| buffer[i] = secret[offset + i]);
+                (end_boundary..8).for_each(|i| buffer[i] = 0u8);
                 let confidential_memory_address =
                     confidential_vm.memory_protector().translate_address(&self.output_buffer_address.add(offset))?;
-                unsafe { confidential_memory_address.write_volatile(value) };
+                unsafe { confidential_memory_address.write_volatile(usize::from_le_bytes(buffer)) };
             }
-            Ok(SbiResponse::success())
+            Ok(SbiResponse::success_with_code(secret.len()))
         })
         .unwrap_or_else(|error| SbiResponse::error(error));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))

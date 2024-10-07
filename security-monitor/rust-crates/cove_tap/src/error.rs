@@ -6,13 +6,13 @@ use thiserror_no_std::Error;
 #[derive(Error, Debug)]
 pub enum TapError {
     #[error("Unsupported TAP Lockbox algorithm {0}")]
-    UnsupportedTapLockboxAlgorithm(u16),
+    UnsupportedLockboxAlgorithm(u16),
     #[error("Unsupported TAP digest entry type {0}")]
-    UnsupportedTapDigestEntryType(u16),
+    UnsupportedDigestEntryType(u16),
     #[error("Unsupported TAP digest algorithm {0}")]
-    UnsupportedTapDigestAlgorithm(u16),
+    UnsupportedDigestAlgorithm(u16),
     #[error("Unsupported TAP payload encryption algorithm {0}")]
-    UnsupportedTapPayloadEncryptionAlgorithm(u16),
+    UnsupportedPayloadEncryptionAlgorithm(u16),
     #[error("Invalid magic in the beginning of TAP")]
     InvalidMagicStart(),
     #[error("Invalid size of the TAP")]

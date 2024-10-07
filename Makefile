@@ -51,11 +51,11 @@ hypervisor: setup devtools
 
 confidential_vms: setup devtools hypervisor tools
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" RELEASE="" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/baremetal/ ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
+	# PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ rootfs ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
-hypervisor_dev: 
+hypervisor_dev:
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
 
 dev: tools
@@ -79,7 +79,7 @@ emulator: setup devtools
 
 tools: setup
 	mkdir -p $(TOOLS_WORK_DIR)
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C tools/local_attestation build
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) $(MAKE) -C tools/cove_tap_tool build
 	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/
 	cp -rf $(TOOLS_SOURCE_DIR)/ace $(TOOLS_WORK_DIR)/
 

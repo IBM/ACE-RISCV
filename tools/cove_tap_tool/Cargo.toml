@@ -1,8 +1,8 @@
 [package]
-name = "ace-tap"
+name = "cove-tap-tool"
 version = "0.1.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
-description = "Tool to create TEE attestation payload for a confidential VM"
+description = "Tool to create TVM attestation payload for CoVE's confidential VM"
 edition = "2021"
 
 [dependencies]

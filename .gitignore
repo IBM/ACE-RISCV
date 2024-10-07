@@ -4,7 +4,7 @@
 build/*
 target/*
 
-tools/local_attestation/target
+tools/cove_tap_tool/target
 security-monitor/target
 
 configurations/overlay/root/harness/baremetal
