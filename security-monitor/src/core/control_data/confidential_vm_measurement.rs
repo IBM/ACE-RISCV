@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::error::Error;
 use sha2::digest::crypto_common::generic_array::GenericArray;
 
 pub type DigestType = sha2::Sha384;
@@ -21,6 +22,11 @@ impl StaticMeasurements {
         measurements.0[TVM_CODE_AND_STATIC_DATA_REGISTER_ID] = measured_pages;
         measurements.0[TVM_CONFIGURATION_REGISTER_ID] = configuration;
         measurements
+    }
+
+    pub fn compare(&self, pcr_id: usize, digest: MeasurementDigest) -> Result<bool, Error> {
+        ensure!(pcr_id < NUMBER_OF_REGISTERS, Error::InvalidParameter())?;
+        Ok(self.0[pcr_id] == digest)
     }
 }
 

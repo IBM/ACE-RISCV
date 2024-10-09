@@ -10,6 +10,7 @@ pub enum CovgExtension {
     UnshareMemory,
     AllowExternalInterrupt,
     DenyExternalInterrupt,
+    RetrieveSecret,
     Unknown(usize, usize),
 }
 
@@ -21,6 +22,7 @@ impl CovgExtension {
     pub const SBI_EXT_COVG_UNSHARE_MEMORY: usize = 3;
     pub const SBI_EXT_COVG_ALLOW_EXT_INTERRUPT: usize = 4;
     pub const SBI_EXT_COVG_DENY_EXT_INTERRUPT: usize = 5;
+    pub const SBI_EXT_COVG_RETRIEVE_SECRET: usize = 9;
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
@@ -30,6 +32,7 @@ impl CovgExtension {
             Self::SBI_EXT_COVG_UNSHARE_MEMORY => Self::UnshareMemory,
             Self::SBI_EXT_COVG_ALLOW_EXT_INTERRUPT => Self::AllowExternalInterrupt,
             Self::SBI_EXT_COVG_DENY_EXT_INTERRUPT => Self::DenyExternalInterrupt,
+            Self::SBI_EXT_COVG_RETRIEVE_SECRET => Self::RetrieveSecret,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }

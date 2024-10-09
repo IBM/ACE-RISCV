@@ -6,6 +6,7 @@
 QEMU_CMD=qemu-system-riscv64
 KERNEL=/root/linux_vm/Image
 DRIVE=/root/linux_vm/rootfs.ext2
+INITRAMFS=/root/linux_vm/rootfs.cpio
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
@@ -31,7 +32,7 @@ for i in "$@"; do
     -m=*|--memory=*)
       MEMORY="${i#*=}"
       shift
-      ;;      
+      ;;
     --daemonize*)
       INTERACTIVE="-daemonize"
       shift
@@ -60,4 +61,4 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -drive if=none,format=raw,file=${DRIVE},id=hd0 \
     -device virtio-net-pci,netdev=net0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22 \
-    -nographic 
+    -nographic

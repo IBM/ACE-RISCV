@@ -1,0 +1,20 @@
+[package]
+name = "tap"
+version = "0.1.0"
+authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
+description = "Library to parse the CoVE's TEE attestation payload"
+edition = "2021"
+
+[dependencies]
+#rsa = "0.9" # to create lockboxes: encrypt symetric key using public keys of target TEEs
+#rand = "0.8" # to generate symmetric key used to encrypted payload
+
+# for symmetric encryption of payload
+aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc"]} 
+
+# provides macros that help removing boilerplate code in rust error handling
+thiserror-no-std = "2.0"  
+
+[features]
+parser = []
+serializer = []
