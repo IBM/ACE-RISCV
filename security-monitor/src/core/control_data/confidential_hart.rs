@@ -186,11 +186,9 @@ impl ConfidentialHart {
         }
     }
 
-    pub fn measure(&self) -> MeasurementDigest {
-        let mut measurement = MeasurementDigest::default();
-        self.confidential_hart_state.gprs().measure(&mut measurement);
-        self.confidential_hart_state.csrs().measure(&mut measurement);
-        measurement
+    pub fn measure(&self, digest: &mut MeasurementDigest) {
+        self.confidential_hart_state.gprs().measure(digest);
+        self.confidential_hart_state.csrs().measure(digest);
     }
 
     pub fn address(&self) -> usize {

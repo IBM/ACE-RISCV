@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 mod attach;
 mod error;
 mod generate;
+mod measure;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -34,6 +35,10 @@ enum Commands {
         tee_public_keys_files: Vec<String>,
         #[arg(short, long)]
         output_file: String,
+    },
+    Measure {
+        #[arg(short, long)]
+        kernel_file: String,
     },
 }
 
@@ -85,5 +90,6 @@ fn main() -> Result<(), Error> {
             tee_public_keys_files,
             output_file,
         ),
+        Commands::Measure { kernel_file } => measure::measure(kernel_file),
     }?)
 }
