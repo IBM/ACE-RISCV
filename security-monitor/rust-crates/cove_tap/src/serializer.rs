@@ -28,8 +28,6 @@ impl AttestationPayloadSerializer {
         result.append(&mut (total_size as u16).to_le_bytes().to_vec());
         result.append(&mut lockboxes);
         result.append(&mut encrypted_part);
-        // result.append(&mut ACE_MAGIC_TAP_END.to_le_bytes().to_vec());
-        // result.append(&mut ((total_size + ACE_HEADER_SIZE) as u16).to_le_bytes().to_vec());
 
         Ok(result)
     }

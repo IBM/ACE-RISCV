@@ -128,11 +128,11 @@ impl PromoteToConfidentialVm {
         let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(large_page.address().to_ptr()) }?;
 
         let number_of_confidential_harts = device_tree.harts().count();
-        let ram_memory = device_tree.memory().and_then(|r| r.into_range())?;
+        let mut kernel = device_tree.memory().and_then(|r| r.into_range())?;
         let initrd = device_tree.initrd().ok();
 
         let vm_memory_layout =
-            ConfidentialVmMemoryLayout::new(ram_memory, (self.fdt_address.usize(), self.fdt_address.usize() + fdt_total_size), initrd);
+            ConfidentialVmMemoryLayout::new(kernel, (self.fdt_address.usize(), self.fdt_address.usize() + fdt_total_size), initrd);
         debug!("Virtual machine's memory layout: {:?}", vm_memory_layout);
 
         // Clean up, deallocate pages
