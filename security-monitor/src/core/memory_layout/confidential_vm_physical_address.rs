@@ -17,10 +17,14 @@ impl ConfidentialVmPhysicalAddress {
     pub fn usize(&self) -> usize {
         self.0
     }
+
+    pub fn is_aligned_to(&self, align: usize) -> bool {
+        self.0 % align == 0
+    }
 }
 
 impl core::fmt::Debug for ConfidentialVmPhysicalAddress {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Confidential VM physical address={:x}", self.0)
+        write!(f, "0x{:x}", self.0)
     }
 }

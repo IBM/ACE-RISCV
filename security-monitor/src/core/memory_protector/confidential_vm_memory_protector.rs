@@ -4,8 +4,9 @@
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
 use crate::core::architecture::{PageSize, SharedPage};
-use crate::core::control_data::{ConfidentialVmId, MeasurementDigest};
+use crate::core::control_data::{ConfidentialVmId, MeasurementDigest, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
+use crate::core::memory_protector::ConfidentialVmMemoryLayout;
 use crate::error::Error;
 
 /// Exposes an interface to configure the hardware memory isolation component in a way that
@@ -67,10 +68,8 @@ impl ConfidentialVmMemoryProtector {
         self.root_page_table.translate(address)
     }
 
-    pub fn measure(&self) -> Result<MeasurementDigest, Error> {
-        let mut initial_digest = MeasurementDigest::default();
-        self.root_page_table.measure(&mut initial_digest, 0)?;
-        Ok(initial_digest)
+    pub fn finalize(&mut self, measurements: &mut StaticMeasurements, vm_memory_layout: &ConfidentialVmMemoryLayout) -> Result<(), Error> {
+        Ok(self.root_page_table.finalize(measurements, vm_memory_layout, 0)?)
     }
 
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the

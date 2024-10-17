@@ -130,6 +130,9 @@ impl ConfidentialHart {
         let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory);
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
         confidential_hart_state.set_gprs(shared_memory.gprs());
+        // this register is cleared as it can contain undeterministic address of TEE Attestation Payload that would destroy integrity
+        // measurements
+        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, 0);
         confidential_hart_state.csrs_mut().vsstatus.save_nacl_value_in_main_memory(&shared_memory);
         confidential_hart_state.csrs_mut().vsie.save_nacl_value_in_main_memory(&shared_memory);
         confidential_hart_state.csrs_mut().vstvec.save_nacl_value_in_main_memory(&shared_memory);
@@ -183,11 +186,9 @@ impl ConfidentialHart {
         }
     }
 
-    pub fn measure(&self) -> MeasurementDigest {
-        let mut measurement = MeasurementDigest::default();
-        self.confidential_hart_state.gprs().measure(&mut measurement);
-        self.confidential_hart_state.csrs().measure(&mut measurement);
-        measurement
+    pub fn measure(&self, digest: &mut MeasurementDigest) {
+        self.confidential_hart_state.gprs().measure(digest);
+        self.confidential_hart_state.csrs().measure(digest);
     }
 
     pub fn address(&self) -> usize {

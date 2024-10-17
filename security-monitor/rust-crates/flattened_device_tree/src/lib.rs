@@ -21,7 +21,7 @@ pub struct FlattenedDeviceTree<'a> {
 
 impl<'a> FlattenedDeviceTree<'a> {
     pub const FDT_HEADER_SIZE: usize = 40;
-    
+
     /// Creates an instance of a wrapper over the library that parses the flattened device tree (FDT). Returns error if address is not a 8-bytes aligned pointer to the valid flattened device tree (FDT).
     ///
     /// # Safety
@@ -69,12 +69,30 @@ impl<'a> FlattenedDeviceTree<'a> {
 
         Ok(FdtMemoryRegion { base: reg_prop.u64(0)?, size: reg_prop.u64(1)? })
     }
+
+    pub fn initrd(&self) -> Result<(usize, usize), FdtError>  {
+        let initrd_start_prop = self.inner.props()
+            .find(|p| Ok(p.name()?.starts_with("linux,initrd-start")))?
+            .ok_or_else(|| FdtError::NoMemoryNode())?;
+
+        let initrd_end_prop = self.inner.props()
+            .find(|p| Ok(p.name()?.starts_with("linux,initrd-end")))?
+            .ok_or_else(|| FdtError::NoMemoryNode())?;
+
+        Ok((initrd_start_prop.u64(0)? as usize, initrd_end_prop.u64(0)? as usize ))
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FdtMemoryRegion {
     pub base: u64,
     pub size: u64,
+}
+
+impl FdtMemoryRegion {
+    pub fn into_range(&self) -> Result<(usize, usize), FdtError> {
+        Ok((usize::try_from(self.base)?, usize::try_from(self.base.checked_add(self.size).ok_or(FdtError::FdtInvalidIntegerValue())?)?))
+    }
 }
 
 #[derive(Clone)]

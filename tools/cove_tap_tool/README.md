@@ -1,0 +1,3 @@
+# Usage
+
+Generate symmetric key

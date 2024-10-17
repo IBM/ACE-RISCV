@@ -316,8 +316,10 @@ impl<T: PageState> Page<T> {
         // below unsafe is ok because the page has been initialized and it owns the entire memory region.
         // We are creating a slice of bytes, so the number of elements in the slice is the same as the size of the page.
         let slice: &[u8] = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
-        hasher.update(&slice);
-        hasher.finalize_into(digest);
+        if slice.iter().find(|b| **b != 0).is_some() {
+            hasher.update(&slice);
+            hasher.finalize_into(digest);
+        }
     }
 
     /// Returns all usize-aligned offsets within the page.
@@ -335,7 +337,7 @@ impl<T: PageState> Page<T> {
     #[rr::args("(#p, γ)")]
     /// Postcondition: The page has been zeroized.
     #[rr::observe("γ": "mk_page p.(page_loc) p.(page_sz) (zero_page p.(page_sz))")]
-    fn clear(&mut self) {
+    pub fn clear(&mut self) {
         // Safety: below unwrap() is fine because we iterate over page's offsets and thus always
         // request a write to an offset within the page.
         self.offsets().for_each(
