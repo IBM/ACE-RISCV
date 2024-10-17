@@ -33,13 +33,13 @@ pub fn measure(kernel_file: String) -> Result<(), Error> {
             hasher.update(address.to_le_bytes());
             hasher.update(&buffer);
             hasher.finalize_into(&mut digest);
-            println!("Page 0x{:x} {:100x}", address, digest);
+            // println!("Page 0x{:x} {:100x}", address, digest);
         } else {
             // println!("Page 0x{:x} empty", address);
         }
         address += 4096;
         (0..4096).for_each(|i| buffer[i] = 0);
     }
-    println!("Digest {:100x}", digest);
+    println!("Digest 0x{:100x}", digest);
     Ok(())
 }
