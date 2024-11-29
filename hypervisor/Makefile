@@ -22,7 +22,7 @@ HYPERVISOR_LINUX_PATCH				?= $(HYPERVISOR_PATCHES_DIR)/linux/6.3-rc4/
 
 BUILDROOT_WORK_DIR					?= $(HYPERVISOR_WORK_DIR)/buildroot
 RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
-export PATH 						:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)
+export PATH 						:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)
 
 CROSS_COMPILE						?= riscv64-unknown-linux-gnu-
 
