@@ -10,9 +10,11 @@ export ACE_DIR 							?= $(MAKEFILE_SOURCE_DIR)/build/
 export QEMU_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/qemu/
 export QEMU_WORK_DIR					?= $(ACE_DIR)/qemu/
 export QEMU_RISCV_WORK_DIR				?= $(ACE_DIR)/qemu-riscv/
+export QEMU_VERSION						?= 8.2.1
 # Riscv toolchain
 export RISCV_GNU_TOOLCHAIN_SOURCE_DIR	?= $(MAKEFILE_SOURCE_DIR)/riscv-gnu-toolchain/
 export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
+export RISCV_GNU_TOOLCHAIN_VERSION	    ?= riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly
 # Confidential VMs
 export CONFIDENTIAL_VMS_SOURCE_DIR		?= $(MAKEFILE_SOURCE_DIR)/confidential-vms
 # Hypervisor
@@ -40,25 +42,24 @@ devtools: setup
 	if [ ! -f "${RISCV_GNU_TOOLCHAIN_WORK_DIR}/bin/${CROSS_COMPILE}gcc" ]; then \
 		rm -rf $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
 		mkdir -p $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
-		wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.09.27/riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly.tar.gz ; \
-		tar -zxf riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly.tar.gz --directory ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
+		wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.09.27/$(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
+		tar -zxf $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz --directory ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
 		mv ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/riscv/* ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
-		rm -f riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly.tar.gz ; \
+		rm -f $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
 	fi
 
 hypervisor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor
 
+hypervisor_dev:
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
+
 confidential_vms: setup devtools hypervisor tools
-	BIN_DIR="$(OVERLAY_ROOT_DIR)/" RELEASE="" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/baremetal/ ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay rootfs ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
-hypervisor_dev:
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
-
-dev: tools
+confidential_vms_dev: tools
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ dev ;\
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
@@ -75,9 +76,9 @@ emulator: setup devtools
 		rm -rf $(QEMU_SOURCE_DIR); \
 		mkdir -p $(QEMU_SOURCE_DIR); \
 		cd $(QEMU_SOURCE_DIR); \
-		wget https://download.qemu.org/qemu-8.2.1.tar.xz; \
-		tar xJf qemu-8.2.1.tar.xz; \
-		mv qemu-8.2.1/* $(QEMU_SOURCE_DIR)/; \
+		wget https://download.qemu.org/qemu-$(QEMU_VERSION).tar.xz; \
+		tar xJf qemu-$(QEMU_VERSION).tar.xz; \
+		mv qemu-$(QEMU_VERSION)/* $(QEMU_SOURCE_DIR)/; \
 		./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu,riscv64-linux-user; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) >/dev/null; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) install; \
