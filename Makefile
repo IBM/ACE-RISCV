@@ -24,7 +24,7 @@ export LINUX_IMAGE						?= $(HYPERVISOR_WORK_DIR)/buildroot/images/Image
 export TOOLS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/tools
 export TOOLS_WORK_DIR					?= $(ACE_DIR)/tools
 
-export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
+export CROSS_COMPILE					= riscv64-unknown-linux-gnu-
 export PLATFORM_RISCV_XLEN				= 64
 export PLATFORM_RISCV_ISA				= rv64gc
 export PLATFORM_RISCV_ABI				= lp64d
@@ -72,7 +72,13 @@ firmware: setup devtools hypervisor
 emulator: setup devtools
 	if [ ! -f "${QEMU_WORK_DIR}/bin/qemu-system-riscv64" ]; then \
 		mkdir -p $(QEMU_WORK_DIR); \
-		cd $(QEMU_SOURCE_DIR); ./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu,riscv64-linux-user; \
+		rm -rf $(QEMU_SOURCE_DIR); \
+		mkdir -p $(QEMU_SOURCE_DIR); \
+		cd $(QEMU_SOURCE_DIR); \
+		wget https://download.qemu.org/qemu-8.2.1.tar.xz; \
+		tar xJf qemu-8.2.1.tar.xz; \
+		mv qemu-8.2.1/* $(QEMU_SOURCE_DIR)/; \
+		./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu,riscv64-linux-user; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) >/dev/null; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) install; \
 	fi

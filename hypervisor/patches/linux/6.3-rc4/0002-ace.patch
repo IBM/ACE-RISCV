@@ -5,7 +5,7 @@ index 2ca9e01ad0e8..317e0f41ac9b 100644
 @@ -526,6 +526,13 @@ config RISCV_COVE_GUEST
  	help
  	  Enables support for running TVMs on platforms supporting CoVE.
- 
+
 +config RISCV_COVE_GUEST_PROMOTE
 +	bool "Automatic promotion of VM to TVM for Confidential VM Extension(CoVE)"
 +	default n
@@ -14,7 +14,7 @@ index 2ca9e01ad0e8..317e0f41ac9b 100644
 +	  VM requests promotion to TVM during early boot on platforms supporting CoVE.
 +
  endmenu # "Confidential VM Extension(CoVE) Support"
- 
+
  endmenu # "Platform type"
 diff --git a/arch/riscv/cove/core.c b/arch/riscv/cove/core.c
 index 582feb1c6c8d..16d607113366 100644
@@ -23,11 +23,11 @@ index 582feb1c6c8d..16d607113366 100644
 @@ -13,6 +13,8 @@
  #include <asm/sbi.h>
  #include <asm/cove.h>
- 
+
 +extern char __cove_tap_start[];
 +
  static bool is_tvm;
- 
+
  bool is_cove_guest(void)
 diff --git a/arch/riscv/include/asm/cove_promote.h b/arch/riscv/include/asm/cove_promote.h
 new file mode 100644
@@ -61,7 +61,7 @@ index afaea7c621bb..f9ce258dfab8 100644
 @@ -19,6 +19,13 @@
  #include <asm/csr.h>
  #include <asm/sbi.h>
- 
+
 +#define KVM_COVE_TSM_CAP_PROMOTE_TVM         0x0
 +#define KVM_COVE_TSM_CAP_ATTESTATION_LOCAL   0x1
 +#define KVM_COVE_TSM_CAP_ATTESTATION_REMOTE  0x2
@@ -74,19 +74,19 @@ index afaea7c621bb..f9ce258dfab8 100644
  #define KVM_COVE_PAGE_SIZE_1GB	(1UL << 30)
 @@ -126,11 +133,15 @@ static inline bool is_cove_vcpu(struct kvm_vcpu *vcpu)
  #ifdef CONFIG_RISCV_COVE_HOST
- 
+
  bool kvm_riscv_cove_enabled(void);
 +bool kvm_riscv_cove_capability(unsigned long cap);
  int kvm_riscv_cove_init(void);
- 
+
  /* TVM related functions */
  void kvm_riscv_cove_vm_destroy(struct kvm *kvm);
 -int kvm_riscv_cove_vm_init(struct kvm *kvm);
-+int kvm_riscv_cove_vm_single_step_init(struct kvm_vcpu *vcpu, 
++int kvm_riscv_cove_vm_single_step_init(struct kvm_vcpu *vcpu,
 +				       unsigned long fdt_address,
 +				       unsigned long tap_addr);
 +int kvm_riscv_cove_vm_multi_step_init(struct kvm *kvm);
- 
+
  /* TVM VCPU related functions */
  void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu);
 @@ -158,13 +169,20 @@ int kvm_riscv_cove_aia_convert_imsic(struct kvm_vcpu *vcpu, phys_addr_t imsic_pa
@@ -97,18 +97,18 @@ index afaea7c621bb..f9ce258dfab8 100644
  static inline int kvm_riscv_cove_init(void) { return -1; }
  static inline void kvm_riscv_cove_hardware_disable(void) {}
  static inline int kvm_riscv_cove_hardware_enable(void) {return 0; }
- 
+
  /* TVM related functions */
  static inline void kvm_riscv_cove_vm_destroy(struct kvm *kvm) {}
 -static inline int kvm_riscv_cove_vm_init(struct kvm *kvm) {return -1; }
 +static inline int kvm_riscv_cove_vm_single_step_init(struct kvm_vcpu *vcpu,
 +						     unsigned long fdt_address,
-+						     unsigned long tap_addr) 
-+{ 
-+	return -1; 
++						     unsigned long tap_addr)
++{
++	return -1;
 +}
 +static inline int kvm_riscv_cove_vm_multi_step_init(struct kvm *kvm) {return -1; }
- 
+
  /* TVM VCPU related functions */
  static inline void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu) {}
 diff --git a/arch/riscv/include/asm/kvm_cove_sbi.h b/arch/riscv/include/asm/kvm_cove_sbi.h
@@ -123,7 +123,7 @@ index c9302650adc8..1314227adfad 100644
 +				  unsigned long tap_addr,
 +				  unsigned long sepc,
 +				  unsigned long *tvmid);
- 
+
  /* Functions related to CoVE Interrupt Management(COVI) Extension */
  int sbi_covi_tvm_aia_init(unsigned long tvm_gid, struct sbi_cove_tvm_aia_params *tvm_aia_params);
 diff --git a/arch/riscv/include/asm/kvm_vcpu_sbi.h b/arch/riscv/include/asm/kvm_vcpu_sbi.h
@@ -136,7 +136,7 @@ index 5b37a12337b1..763a931407f3 100644
  extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_covg;
 +extern const struct kvm_vcpu_sbi_extension vcpu_sbi_ext_covh;
  #endif
- 
+
  #endif /* __RISCV_KVM_VCPU_SBI_H__ */
 diff --git a/arch/riscv/include/asm/sbi.h b/arch/riscv/include/asm/sbi.h
 index 03b0cc871242..01e9e5b1d7a2 100644
@@ -148,24 +148,24 @@ index 03b0cc871242..01e9e5b1d7a2 100644
  	SBI_EXT_COVH_TVM_REMOVE_PAGES,
 +	SBI_EXT_COVH_PROMOTE_TO_TVM,
  };
- 
+
  enum sbi_ext_covi_fid {
 @@ -410,9 +411,15 @@ struct sbi_cove_tsm_info {
  	/* Current state of the TSM */
  	enum sbi_cove_tsm_state tstate;
- 
+
 +	/* TSM implementation identifier */
 +	uint32_t impl_id;
 +
  	/* Version of the loaded TSM */
  	uint32_t version;
- 
+
 +	/* Capabilities of the TSM */
 +	unsigned long capabilities;
 +
  	/* Number of 4K pages required per TVM */
  	unsigned long tvm_pages_needed;
- 
+
 diff --git a/arch/riscv/include/uapi/asm/kvm.h b/arch/riscv/include/uapi/asm/kvm.h
 index 2a2434136e39..679a6727a143 100644
 --- a/arch/riscv/include/uapi/asm/kvm.h
@@ -177,7 +177,7 @@ index 2a2434136e39..679a6727a143 100644
 +	KVM_RISCV_SBI_EXT_COVH,
  	KVM_RISCV_SBI_EXT_MAX,
  };
- 
+
 diff --git a/arch/riscv/kernel/head.S b/arch/riscv/kernel/head.S
 index 4bf6c449d78b..bc7b9aacea51 100644
 --- a/arch/riscv/kernel/head.S
@@ -188,12 +188,12 @@ index 4bf6c449d78b..bc7b9aacea51 100644
  #include <asm/xip_fixup.h>
 +#include <asm/cove_promote.h>
  #include "efi-header.S"
- 
+
  __HEAD
 @@ -198,6 +199,18 @@ ENTRY(_start_kernel)
  	csrw CSR_IE, zero
  	csrw CSR_IP, zero
- 
+
 +#ifdef CONFIG_RISCV_COVE_GUEST_PROMOTE
 +	mv s1, a0
 +	mv s2, a1
@@ -216,7 +216,7 @@ index eab9edc3b631..e8b14457d2be 100644
 @@ -58,6 +58,17 @@ SECTIONS
  	}
  	_exiprom = .;			/* End of XIP ROM area */
- 
+
 +#ifdef CONFIG_RISCV_COVE_GUEST
 +	. = ALIGN(4096);
 +	.cove_tvm_attestation_payload : {
@@ -228,7 +228,7 @@ index eab9edc3b631..e8b14457d2be 100644
 +		__cove_tap_end =  .;
 +	}
 +#endif
- 
+
  /*
   * From this point, stuff is considered writable and will be copied to RAM
 diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
@@ -238,7 +238,7 @@ index 53a8ad65b255..a2af65f95034 100644
 @@ -113,6 +113,18 @@ SECTIONS
  	}
  	__init_end = .;
- 
+
 +#ifdef CONFIG_RISCV_COVE_GUEST
 +	. = ALIGN(4096);
 +	.cove_tvm_attestation_payload : {
@@ -271,7 +271,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 @@ -150,6 +150,11 @@ __always_inline bool kvm_riscv_cove_enabled(void)
  	return riscv_cove_enabled;
  }
- 
+
 +__always_inline bool kvm_riscv_cove_capability(unsigned long cap)
 +{
 +	return tinfo.capabilities & BIT(cap);
@@ -281,7 +281,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
  {
  	int rc;
 @@ -589,9 +594,9 @@ void noinstr kvm_riscv_cove_vcpu_switchto(struct kvm_vcpu *vcpu, struct kvm_cpu_
- 
+
  	/*
  	 * Bind the vsfile here instead during the new vsfile allocation because
 -	 * COVH bind call requires the TVM to be in finalized state.
@@ -293,7 +293,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
  		rc = kvm_riscv_cove_vcpu_imsic_bind(vcpu, BIT(tvcpuc->imsic.vsfile_hgei));
  		if (rc) {
 @@ -628,12 +633,12 @@ void kvm_riscv_cove_vcpu_destroy(struct kvm_vcpu *vcpu)
- 
+
  int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
  {
 -	int rc;
@@ -305,13 +305,13 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 +	struct page *vcpus_page;
 +	struct kvm *kvm;
 +	int rc;
- 
+
  	if (!vcpu)
  		return -EINVAL;
 @@ -654,15 +659,20 @@ int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
  	if (!tvcpuc)
  		return -ENOMEM;
- 
+
 -	vcpus_page = alloc_pages(GFP_KERNEL | __GFP_ZERO,
 +	tvcpuc->vcpu = vcpu;
 +	tvcpuc->vcpu_state.npages = tinfo.tvcpu_pages_needed;
@@ -321,7 +321,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 +		return 0;
 +	}
 +
-+	vcpus_page = alloc_pages(GFP_KERNEL | __GFP_ZERO, 
++	vcpus_page = alloc_pages(GFP_KERNEL | __GFP_ZERO,
  				 get_order_num_pages(tinfo.tvcpu_pages_needed));
  	if (!vcpus_page) {
  		rc = -ENOMEM;
@@ -332,19 +332,19 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 -	tvcpuc->vcpu_state.npages = tinfo.tvcpu_pages_needed;
  	tvcpuc->vcpu_state.page = vcpus_page;
  	vcpus_phys_addr = page_to_phys(vcpus_page);
- 
+
 @@ -674,8 +684,6 @@ int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
  	if (rc)
  		goto vcpu_create_failed;
- 
+
 -	vcpu->arch.tc = tvcpuc;
 -
  	return 0;
- 
+
  vcpu_create_failed:
 @@ -686,6 +694,7 @@ int kvm_riscv_cove_vcpu_init(struct kvm_vcpu *vcpu)
  	__free_pages(vcpus_page, get_order_num_pages(tinfo.tvcpu_pages_needed));
- 
+
  alloc_page_failed:
 +	vcpu->arch.tc = NULL;
  	kfree(tvcpuc);
@@ -353,7 +353,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 @@ -877,7 +886,7 @@ void kvm_riscv_cove_vm_destroy(struct kvm *kvm)
  	kvm_err("Memory reclaim failed with rc %d\n", rc);
  }
- 
+
 -int kvm_riscv_cove_vm_init(struct kvm *kvm)
 +int kvm_riscv_cove_vm_multi_step_init(struct kvm *kvm)
  {
@@ -362,7 +362,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 @@ -885,6 +894,10 @@ int kvm_riscv_cove_vm_init(struct kvm *kvm)
  	unsigned long gstage_pgd_size = kvm_riscv_gstage_pgd_size();
  	int rc = 0;
- 
+
 +	// Multi-step TVM creation requires TSM that supports dynamic page conversion
 +	if (!kvm_riscv_cove_capability(KVM_COVE_TSM_CAP_MEMORY_ALLOCATION))
 +		return -EOPNOTSUPP;
@@ -373,7 +373,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 @@ -980,6 +993,65 @@ int kvm_riscv_cove_vm_init(struct kvm *kvm)
  	return rc;
  }
- 
+
 +int kvm_riscv_cove_vm_single_step_init(struct kvm_vcpu *vcpu, unsigned long fdt_address,
 +				unsigned long tap_addr)
 +{
@@ -394,7 +394,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 +
 +	for (gpr_id = 1; gpr_id < 32; gpr_id++) {
 +		offset = KVM_ARCH_GUEST_ZERO + gpr_id * sizeof(unsigned long);
-+		nacl_shmem_gpr_write_cove(nshmem, offset, 
++		nacl_shmem_gpr_write_cove(nshmem, offset,
 +					  ((unsigned long *)cp)[gpr_id]);
 +	}
 +	kvm_arch_vcpu_load(vcpu, smp_processor_id());
@@ -441,7 +441,7 @@ index 4759b4920226..2325ee0f2a15 100644
 --- a/arch/riscv/kvm/cove_sbi.c
 +++ b/arch/riscv/kvm/cove_sbi.c
 @@ -488,3 +488,23 @@ int sbi_covh_tvm_remove_pages(unsigned long tvmid,
- 
+
  	return 0;
  }
 +
@@ -470,20 +470,20 @@ index a05941420307..bb5562ecc97c 100644
 +++ b/arch/riscv/kvm/main.c
 @@ -31,12 +31,11 @@ int kvm_arch_hardware_enable(void)
  		return rc;
- 
+
  	/*
 -	 * We just need to invoke aia enable for CoVE if host is in VS mode
 -	 * However, if the host is running in HS mode, we need to initialize
 -	 * other CSRs as well for legacy VMs.
 -	 * TODO: Handle host in HS mode use case.
 +	 * We just need to invoke aia enable for CoVE if host is in VS mode and TSM
-+	 * supports AIA (COVI extension). However, if the host is running in HS 
++	 * supports AIA (COVI extension). However, if the host is running in HS
 +	 * mode, we need to initialize other CSRs as well for legacy VMs.
  	 */
 -	if (unlikely(kvm_riscv_cove_enabled()))
 +	if (unlikely(kvm_riscv_cove_enabled()) && kvm_riscv_cove_capability(KVM_COVE_TSM_CAP_AIA))
  		goto enable_aia;
- 
+
  	hedeleg = 0;
 diff --git a/arch/riscv/kvm/tlb.c b/arch/riscv/kvm/tlb.c
 index b007c027baed..5a3ef6ea01e9 100644
@@ -492,7 +492,7 @@ index b007c027baed..5a3ef6ea01e9 100644
 @@ -199,7 +199,7 @@ void kvm_riscv_hfence_gvma_vmid_all_process(struct kvm_vcpu *vcpu)
  	struct kvm_vmid *v = &vcpu->kvm->arch.vmid;
  	unsigned long vmid = READ_ONCE(v->vmid);
- 
+
 -	if (kvm_riscv_nacl_available())
 +	if (kvm_riscv_nacl_sync_hfence_available())
  		nacl_shmem_hfence_gvma_vmid_all(nacl_shmem(), vmid);
@@ -501,7 +501,7 @@ index b007c027baed..5a3ef6ea01e9 100644
 @@ -210,7 +210,7 @@ void kvm_riscv_hfence_vvma_all_process(struct kvm_vcpu *vcpu)
  	struct kvm_vmid *v = &vcpu->kvm->arch.vmid;
  	unsigned long vmid = READ_ONCE(v->vmid);
- 
+
 -	if (kvm_riscv_nacl_available())
 +	if (kvm_riscv_nacl_sync_hfence_available())
  		nacl_shmem_hfence_vvma_all(nacl_shmem(), vmid);
@@ -548,7 +548,7 @@ index 005c7c93536d..62153d6ca579 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
 @@ -730,8 +730,8 @@ long kvm_arch_vcpu_async_ioctl(struct file *filp,
- 
+
  	if (ioctl == KVM_INTERRUPT) {
  		struct kvm_interrupt irq;
 -		/* We do not support user space emulated IRQCHIP for TVMs yet */
@@ -556,21 +556,21 @@ index 005c7c93536d..62153d6ca579 100644
 +		/* We do not support user space emulated IRQCHIP for TVMs that utilize AIA yet */
 +		if (is_cove_vcpu(vcpu) && kvm_riscv_cove_capability(KVM_COVE_TSM_CAP_AIA))
  			return -ENXIO;
- 
+
  		if (copy_from_user(&irq, argp, sizeof(irq)))
 @@ -997,7 +997,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
  		goto skip_load;
  	}
- 
+
 -	if (kvm_riscv_nacl_sync_csr_available()) {
 +	if (unlikely(kvm_riscv_cove_enabled()) || kvm_riscv_nacl_sync_csr_available()) {
  		nshmem = nacl_shmem();
  		nacl_shmem_csr_write(nshmem, CSR_VSSTATUS, csr->vsstatus);
  		nacl_shmem_csr_write(nshmem, CSR_VSIE, csr->vsie);
 @@ -1061,7 +1061,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
- 
+
  	kvm_riscv_vcpu_timer_save(vcpu);
- 
+
 -	if (kvm_riscv_nacl_available()) {
 +	if (kvm_riscv_nacl_sync_csr_available()) {
  		/**
@@ -579,7 +579,7 @@ index 005c7c93536d..62153d6ca579 100644
 @@ -1325,8 +1325,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
  		 */
  		kvm_riscv_vcpu_flush_interrupts(vcpu);
- 
+
 -		/* Update HVIP CSR for current CPU only for non TVMs */
 -		if (!is_cove_vcpu(vcpu))
 +		/*
@@ -588,7 +588,7 @@ index 005c7c93536d..62153d6ca579 100644
 +		*/
 +		if (!is_cove_vcpu(vcpu) || !kvm_riscv_cove_capability(KVM_COVE_TSM_CAP_AIA))
  			kvm_riscv_update_hvip(vcpu);
- 
+
  		if (ret <= 0 ||
 diff --git a/arch/riscv/kvm/vcpu_sbi.c b/arch/riscv/kvm/vcpu_sbi.c
 index 8bc7d7398349..9399cf5a3062 100644
@@ -604,7 +604,7 @@ index 8bc7d7398349..9399cf5a3062 100644
 +	.handler = NULL,
 +};
  #endif
- 
+
  struct kvm_riscv_sbi_extension_entry {
 @@ -96,6 +101,10 @@ static const struct kvm_riscv_sbi_extension_entry sbi_ext[] = {
  		.dis_idx = KVM_RISCV_SBI_EXT_COVG,
@@ -615,7 +615,7 @@ index 8bc7d7398349..9399cf5a3062 100644
 +		.ext_ptr = &vcpu_sbi_ext_covh,
 +	},
  };
- 
+
  void kvm_riscv_vcpu_sbi_forward(struct kvm_vcpu *vcpu, struct kvm_run *run)
 diff --git a/arch/riscv/kvm/vcpu_sbi_covg.c b/arch/riscv/kvm/vcpu_sbi_covg.c
 index 44a3b06d0593..42f3571361a0 100644
@@ -623,7 +623,7 @@ index 44a3b06d0593..42f3571361a0 100644
 +++ b/arch/riscv/kvm/vcpu_sbi_covg.c
 @@ -55,7 +55,7 @@ static int cove_share_converted_page(struct kvm_vcpu *vcpu, gpa_t gpa,
  }
- 
+
  static int cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
 -			   unsigned long *sbi_err)
 +			   struct kvm_vcpu_sbi_return *retdata)
@@ -631,25 +631,25 @@ index 44a3b06d0593..42f3571361a0 100644
  	unsigned long hva = gfn_to_hva(vcpu->kvm, gpa >> PAGE_SHIFT);
  	struct kvm_cove_tvm_context *tvmc = vcpu->kvm->arch.tvmc;
 @@ -66,7 +66,7 @@ static int cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
- 
+
  	if (kvm_is_error_hva(hva)) {
  		/* Address is out of the guest ram memory region. */
 -		*sbi_err = SBI_ERR_INVALID_PARAM;
 +		retdata->err_val = SBI_ERR_INVALID_PARAM;
  		return 0;
  	}
- 
+
 @@ -95,6 +95,7 @@ static int cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
  	list_add(&tpage->link, &tvmc->shared_pages);
  	spin_unlock(&vcpu->kvm->mmu_lock);
- 
+
 +	retdata->out_val = page_to_phys(tpage->page);
  	return 0;
- 
+
  free_tpage:
 @@ -104,7 +105,7 @@ static int cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
  }
- 
+
  static int kvm_riscv_cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
 -				     unsigned long *sbi_err)
 +				     struct kvm_vcpu_sbi_return *retdata)
@@ -659,11 +659,11 @@ index 44a3b06d0593..42f3571361a0 100644
 @@ -129,7 +130,7 @@ static int kvm_riscv_cove_share_page(struct kvm_vcpu *vcpu, gpa_t gpa,
  	if (converted)
  		return cove_share_converted_page(vcpu, gpa, tpage);
- 
+
 -	return cove_share_page(vcpu, gpa, sbi_err);
 +	return cove_share_page(vcpu, gpa, retdata);
  }
- 
+
  static int kvm_riscv_cove_unshare_page(struct kvm_vcpu *vcpu, gpa_t gpa)
 @@ -189,7 +190,7 @@ static int kvm_sbi_ext_covg_handler(struct kvm_vcpu *vcpu, struct kvm_run *run,
  	case SBI_EXT_COVG_SHARE_MEMORY:
@@ -769,14 +769,14 @@ index 8a1460dba76c..6df73ea8e16f 100644
 --- a/arch/riscv/kvm/vm.c
 +++ b/arch/riscv/kvm/vm.c
 @@ -44,15 +44,15 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
- 
+
  	if (unlikely(type == KVM_VM_TYPE_RISCV_COVE)) {
  		if (!kvm_riscv_cove_enabled()) {
 -			kvm_err("Unable to init CoVE VM because cove is not enabled\n");
 +			kvm_err("Unable to init CoVE VM because CoVE extension is not enabled\n");
  			return -EPERM;
  		}
- 
+
 -		r = kvm_riscv_cove_vm_init(kvm);
 +		r = kvm_riscv_cove_vm_multi_step_init(kvm);
  		if (r)
@@ -785,24 +785,24 @@ index 8a1460dba76c..6df73ea8e16f 100644
 -		kvm_info("Trusted VM instance init successful\n");
 +		kvm_info("CoVE VM instance init successful\n");
  	}
- 
+
  	kvm_riscv_aia_init_vm(kvm);
 diff --git a/arch/riscv/mm/mem_encrypt.c b/arch/riscv/mm/mem_encrypt.c
 index 8523c508c3a5..498fbf5c6c9b 100644
 --- a/arch/riscv/mm/mem_encrypt.c
 +++ b/arch/riscv/mm/mem_encrypt.c
 @@ -25,25 +25,44 @@ bool force_dma_unencrypted(struct device *dev)
- 
+
  int set_memory_encrypted(unsigned long addr, int numpages)
  {
 +	int i, rc;
 +
  	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
  		return 0;
- 
+
  	if (!PAGE_ALIGNED(addr))
  		return -EINVAL;
- 
+
 -	return sbi_covg_unshare_memory(__pa(addr), numpages * PAGE_SIZE);
 +	rc = sbi_covg_unshare_memory(__pa(addr), numpages * PAGE_SIZE);
 +	if (rc) {
@@ -814,17 +814,17 @@ index 8523c508c3a5..498fbf5c6c9b 100644
 +	return rc;
  }
  EXPORT_SYMBOL_GPL(set_memory_encrypted);
- 
+
  int set_memory_decrypted(unsigned long addr, int numpages)
  {
 +	int i, rc;
 +
  	if (!cc_platform_has(CC_ATTR_MEM_ENCRYPT))
  		return 0;
- 
+
  	if (!PAGE_ALIGNED(addr))
  		return -EINVAL;
- 
+
 -	return sbi_covg_share_memory(__pa(addr), numpages * PAGE_SIZE);
 +	rc = sbi_covg_share_memory(__pa(addr), numpages * PAGE_SIZE);
 +	if (rc) {
@@ -837,7 +837,7 @@ index 8523c508c3a5..498fbf5c6c9b 100644
 +	return rc;
  }
  EXPORT_SYMBOL_GPL(set_memory_decrypted);
- 
+
 diff --git a/drivers/of/fdt.c b/drivers/of/fdt.c
 index d1a68b6d03b3..46e2ce22c729 100644
 --- a/drivers/of/fdt.c
@@ -845,7 +845,7 @@ index d1a68b6d03b3..46e2ce22c729 100644
 @@ -1167,6 +1167,7 @@ int __init early_init_dt_scan_chosen(char *cmdline)
  	early_init_dt_check_for_initrd(node);
  	early_init_dt_check_for_elfcorehdr(node);
- 
+
 +#ifndef CONFIG_RISCV_COVE_GUEST
  	rng_seed = of_get_flat_dt_prop(node, "rng-seed", &l);
  	if (rng_seed && l > 0) {
@@ -855,6 +855,6 @@ index d1a68b6d03b3..46e2ce22c729 100644
  				fdt_totalsize(initial_boot_params));
  	}
 +#endif
- 
+
  	/* Retrieve command line */
  	p = of_get_flat_dt_prop(node, "bootargs", &l);

@@ -14,7 +14,7 @@ DRIVE=${ACE_DIR}/hypervisor/buildroot/images/rootfs.ext4
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=4
+SMP=2
 MEMORY=8G
 
 for i in "$@"; do
@@ -36,7 +36,7 @@ for i in "$@"; do
     -m=*|--memory=*)
       MEMORY="${i#*=}"
       shift
-      ;;      
+      ;;
     --daemonize*)
       INTERACTIVE="-daemonize"
       shift
