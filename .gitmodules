@@ -1,9 +1,6 @@
 [submodule "hypervisor/buildroot"]
 	path = hypervisor/buildroot
 	url = https://github.com/buildroot/buildroot.git
-[submodule "qemu"]
-	path = qemu
-	url = https://github.com/qemu/qemu.git
 [submodule "security-monitor/opensbi"]
 	path = security-monitor/opensbi
 	url = https://github.com/riscv-software-src/opensbi.git
