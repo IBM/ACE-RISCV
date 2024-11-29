@@ -47,21 +47,28 @@ impl CovhExtension {
     }
 }
 
-/// State of the security monitor communicated to the hypervisor. This structure is defined in CoVE specification.
-#[repr(u32)]
-pub enum SecurityMonitorState {
-    NotLoaded = 0,
-    Loaded = 1,
-    Ready = 2,
-}
-
 /// Information written by the security monitor to the hypervisor memory, representing the state of the security monitor. This structure is
 /// defined in CoVE specification.
 #[repr(C)]
-pub struct SecurityMonitorInfo {
-    pub security_monitor_state: SecurityMonitorState,
-    pub security_monitor_version: u32,
+pub struct TsmInfo {
+    pub tsm_state: u32,
+    pub tsm_impl_id: u32,
+    pub tsm_version: u32,
+    pub tsm_capabilities: u64,
     pub state_pages: u64,
     pub max_vcpus: u64,
     pub vcpu_state_pages: u64,
+}
+
+impl TsmInfo {
+    pub const COVE_TSM_STATE_NOT_LOADED: u32 = 0;
+    pub const COVE_TSM_STATE_LOADED: u32 = 1;
+    pub const COVE_TSM_STATE_READY: u32 = 2;
+    pub const COVE_TSM_IMPL_ACE: u32 = 2;
+    pub const COVE_TSM_CAP_PROMOTE_TVM: u64 = 1 << 0;
+    pub const COVE_TSM_CAP_ATTESTATION_LOCAL_MASK: u64 = 1 << 1;
+    pub const COVE_TSM_CAP_ATTESTATION_REMOTE_MASK: u64 = 1 << 2;
+    pub const COVE_TSM_CAP_AIA_MASK: u64 = 1 << 3;
+    pub const COVE_TSM_CAP_MRIF_MASK: u64 = 1 << 4;
+    pub const COVE_TSM_CAP_MEMORY_ALLOCATION_MASK: u64 = 1 << 5;
 }
