@@ -398,7 +398,7 @@ index ba596b7f2240..ed7dc0fbf08b 100644
 +					  ((unsigned long *)cp)[gpr_id]);
 +	}
 +	kvm_arch_vcpu_load(vcpu, smp_processor_id());
-+	rc = sbi_covh_tsm_promote_to_tvm(fdt_address, tap_addr, cp->sepc, &tvm_gid);
++	rc = sbi_covh_tsm_promote_to_tvm(fdt_address, tap_addr, cp->sepc+4, &tvm_gid);
 +	if (rc)
 +		goto done;
 +
