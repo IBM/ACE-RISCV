@@ -6,7 +6,7 @@ CARGO = cargo
 RELEASE = --release
 CHAIN=riscv64gc-unknown-none-elf
 TARGET = --target=$(CHAIN)
-RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie #-Ccode-model=medium 
+RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie #-Ccode-model=medium
 EXEC_NAME = libace.a
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -20,9 +20,9 @@ OPENSBI_WORK_DIR=$(SM_WORK_DIR)/opensbi
 OPENSBI_SYS_WORK_DIR=$(SM_WORK_DIR)/opensbi_bindings
 OPENSBI_PATCH = $(PLATFORM_SOURCE_DIR)/opensbi_v1.4.patch
 
-PLATFORM_RISCV_ABI ?= lp64d 
+PLATFORM_RISCV_ABI ?= lp64d
 PLATFORM_RISCV_ISA ?= rv64gc
-PLATFORM_RISCV_XLEN ?= 64 
+PLATFORM_RISCV_XLEN ?= 64
 CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 
 all: audit opensbi_bindings build

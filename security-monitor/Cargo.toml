@@ -10,7 +10,7 @@ edition = "2021"
 # and when promoting a VM to a confidential VM.
 flattened_device_tree = {path = "rust-crates/flattened_device_tree"}
 
-# Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by 
+# Memoffset automatize calculating offsets to internal fields of Rust structures. These offsets are used then by
 # assembly code in the context switch implementation.
 memoffset = { version = "0.9", default-features = false, features = ["unstable_const"] }
 
@@ -22,19 +22,19 @@ opensbi-sys = {path = "rust-crates/opensbi-sys"}
 pointers_utility = {path = "rust-crates/pointers_utility"}
 
 # This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
-riscv-decode = "0.2" 
+riscv-decode = "0.2"
 
 # The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
-# This crates provides functionality to parse TEE attestation payload.
-tap = {path = "rust-crates/cove_tap", features = ["parser"]}
+# This crates provides functionality to parse TVM attestation payload (TAP).
+riscv_cove_tap = {path = "rust-crates/riscv_cove_tap", features = ["parser"]}
 
 # Used to measure confidential VM, required for attestation
 sha2 = { version = "0.10", default-features = false }
 
 # provides macros that help removing boilerplate code in the rust error handling
-thiserror-no-std = "2.0" 
+thiserror-no-std = "2.0"
 
 [lib]
 name="ace"

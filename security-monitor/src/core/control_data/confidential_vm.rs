@@ -10,8 +10,8 @@ use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use riscv_cove_tap::Secret;
 use spin::{Mutex, MutexGuard};
-use tap::Secret;
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,

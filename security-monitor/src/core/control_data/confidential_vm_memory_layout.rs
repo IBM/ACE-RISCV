@@ -25,8 +25,4 @@ impl ConfidentialVmMemoryLayout {
     pub fn is_initrd(&self, address: usize) -> bool {
         self.initrd.and_then(|o| Some(o.0 <= address && address < o.1)).unwrap_or(false)
     }
-
-    pub fn is_in_vm_address_space(&self, address: usize) -> bool {
-        self.is_kernel(address) || self.is_fdt(address) || self.is_initrd(address)
-    }
 }

@@ -5,8 +5,7 @@ use crate::core::architecture::CSR;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::error::Error;
 
-use crate::core::control_data::MeasurementDigest;
-use crate::core::memory_protector::ConfidentialVmMemoryLayout;
+use crate::core::control_data::{ConfidentialVmMemoryLayout, MeasurementDigest};
 pub use hgatp::{Hgatp, HgatpMode};
 pub use page_size::PageSize;
 pub use page_table::PageTable;

@@ -26,7 +26,7 @@ pub fn attach_tap(
     // clear the placeholder
     let mut output_file = OpenOptions::new().write(true).open(output_file_name)?;
     output_file.seek(SeekFrom::Start(offset))?;
-    (tap::ACE_HEADER_SIZE..tap::ACE_MAX_TAP_SIZE).try_for_each(|_| output_file.write_u8(0u8))?;
+    (riscv_cove_tap::ACE_HEADER_SIZE..riscv_cove_tap::ACE_MAX_TAP_SIZE).try_for_each(|_| output_file.write_u8(0u8))?;
     // write expected TAP from the beginning of the offset
     output_file.seek(SeekFrom::Start(offset))?;
     let mut tap_file = OpenOptions::new().read(true).open(tap_file_name)?;
@@ -44,7 +44,7 @@ fn find_placehoder(output_file_name: &str) -> Result<u64, Error> {
         if bytes_read == 0 {
             break;
         }
-        if u32::from_le_bytes(buffer) == tap::ACE_MAGIC_TAP_START {
+        if u32::from_le_bytes(buffer) == riscv_cove_tap::ACE_MAGIC_TAP_START {
             println!("Found TAP placeholder at offset: {:x}", offset);
             return Ok(offset);
         }

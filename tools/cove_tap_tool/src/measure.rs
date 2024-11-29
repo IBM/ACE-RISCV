@@ -24,7 +24,7 @@ pub fn measure(kernel_file: String) -> Result<(), Error> {
             break;
         }
         let header = [buffer[0], buffer[1], buffer[2], buffer[3]];
-        if u32::from_le_bytes(header) == tap::ACE_MAGIC_TAP_START {
+        if u32::from_le_bytes(header) == riscv_cove_tap::ACE_MAGIC_TAP_START {
             (0..4096).for_each(|i| buffer[i] = 0); // security monitor will clear it
         }
         if buffer.iter().find(|b| **b != 0).is_some() {

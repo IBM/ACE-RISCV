@@ -17,8 +17,6 @@ pub enum TapError {
     InvalidMagicStart(),
     #[error("Invalid size of the TAP")]
     InvalidSize(),
-
     #[error("Aes error {0}")]
     AesError(#[from] aes_gcm::Error)
-
 }

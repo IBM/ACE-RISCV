@@ -4,17 +4,17 @@
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::{GeneralPurposeRegister, Hgatp, PageSize};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HypervisorHart, StaticMeasurements,
+    ConfidentialHart, ConfidentialVm, ConfidentialVmId, ConfidentialVmMemoryLayout, ControlDataStorage, HypervisorHart, StaticMeasurements,
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
-use crate::core::memory_protector::{ConfidentialVmMemoryLayout, ConfidentialVmMemoryProtector};
+use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 use alloc::vec::Vec;
 use flattened_device_tree::FlattenedDeviceTree;
-use tap::{AttestationPayload, AttestationPayloadParser, Secret};
+use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
 
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
 /// specification. With this call, the hypervisor presents a state of a virtual machine, requesting the security monitor to promote it to a
@@ -83,10 +83,14 @@ impl PromoteToConfidentialVm {
             })
             .collect();
 
-        let attestation_payload = self.read_attestation_payload(&memory_protector).unwrap_or(None);
+        let attestation_payload =
+            self.read_attestation_payload(&memory_protector).inspect_err(|e| debug!("TAP reading failed: {:?}", e)).unwrap_or(None);
         let measurements = self.measure(&mut memory_protector, &vm_memory_layout, &confidential_harts)?;
 
-        let secrets = self.authenticate_and_authorize_vm(attestation_payload, &measurements).unwrap_or(alloc::vec![]);
+        let secrets = self
+            .authenticate_and_authorize_vm(attestation_payload, &measurements)
+            .inspect_err(|e| debug!("Local attestation failed: {:?}", e))
+            .unwrap_or(alloc::vec![]);
 
         ControlDataStorage::try_write(|control_data| {
             // We have a write lock on the entire control data! Spend here as little time as possible because we are
@@ -118,7 +122,7 @@ impl PromoteToConfidentialVm {
         let fdt_total_size = unsafe { FlattenedDeviceTree::total_size(address_in_confidential_memory.to_ptr())? };
         ensure!(fdt_total_size >= FlattenedDeviceTree::FDT_HEADER_SIZE, Error::FdtInvalidSize())?;
 
-        // To work with FDT, we must have it as a continous chunk of memory. We accept only FDTs that fit within 2MiB
+        // To work with FDT, we must have it as a continous chunk of memory. We accept only FDTs that fit within 2 MiB
         ensure!(fdt_total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::FdtInvalidSize())?;
         let large_page = Self::relocate(memory_protector, &self.fdt_address, fdt_total_size, false)?;
 
@@ -128,7 +132,7 @@ impl PromoteToConfidentialVm {
         let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(large_page.address().to_ptr()) }?;
 
         let number_of_confidential_harts = device_tree.harts().count();
-        let mut kernel = device_tree.memory().and_then(|r| r.into_range())?;
+        let kernel = device_tree.memory().and_then(|r| r.into_range())?;
         let initrd = device_tree.initrd().ok();
 
         let vm_memory_layout =
@@ -157,7 +161,7 @@ impl PromoteToConfidentialVm {
                 // not-yet-created confidential VM's and (2) there is only one physical hart executing this code.
                 let header: u64 =
                     unsafe { address_in_confidential_memory.read_volatile().try_into().map_err(|_| Error::AuthBlobNotAlignedTo32Bits())? };
-                let total_size = tap::ACE_HEADER_SIZE + ((header >> 32) & 0xFFFF) as usize;
+                let total_size = riscv_cove_tap::ACE_HEADER_SIZE + ((header >> 32) & 0xFFFF) as usize;
                 // To work with the authentication blob, we must have it as a continous chunk of memory. We accept only authentication blobs
                 // that fit within 2MiB
                 ensure!(total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
@@ -181,10 +185,10 @@ impl PromoteToConfidentialVm {
         use crate::core::control_data::MeasurementDigest;
         match attestation_payload {
             Some(attestation_payload) => {
-                ensure!(attestation_payload.digests.len() > 1, Error::LocalAttestationFailed())?;
+                ensure!(attestation_payload.digests.len() > 0, Error::LocalAttestationFailed())?;
                 for digest in attestation_payload.digests.iter() {
                     debug!("Reference PCR{:?}={:?}=0x{}", digest.pcr_id, digest.algorithm, digest.value_in_hex());
-                    ensure!(digest.algorithm == tap::DigestAlgorithm::Sha512, Error::LocalAttestationNotSupportedDigest())?;
+                    ensure!(digest.algorithm == riscv_cove_tap::DigestAlgorithm::Sha512, Error::LocalAttestationNotSupportedDigest())?;
                     let pcr_value = MeasurementDigest::clone_from_slice(&digest.value);
                     ensure!(measurements.compare(digest.pcr_id() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }

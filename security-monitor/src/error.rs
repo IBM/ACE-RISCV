@@ -46,7 +46,7 @@ pub enum Error {
     #[error("Authentication payload size is invalid.")]
     AuthBlobInvalidSize(),
     #[error("Error when parsing TEE attestation payload: {0}")]
-    AttestationPayloadParsingError(#[from] tap::TapError),
+    AttestationPayloadParsingError(#[from] riscv_cove_tap::TapError),
     #[error("Local attestation failed. Invalid measurements")]
     LocalAttestationFailed(),
     #[error("Local attestation failed. Not supported digest type")]

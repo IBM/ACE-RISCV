@@ -13,7 +13,7 @@ pub enum Error {
     #[error("Invalid parameter")]
     InvalidParameter(String),
     #[error("Tap Error")]
-    TapSerializerError(tap::TapError),
+    TapSerializerError(riscv_cove_tap::TapError),
     #[error("Int casting Error")]
     TryFromIntErr(#[from] std::num::TryFromIntError),
     #[error("Cannot open file {0}")]
@@ -24,8 +24,8 @@ pub enum Error {
     PlaceholderError(),
 }
 
-impl From<tap::TapError> for Error {
-    fn from(err: tap::TapError) -> Self {
+impl From<riscv_cove_tap::TapError> for Error {
+    fn from(err: riscv_cove_tap::TapError) -> Self {
         Error::TapSerializerError(err)
     }
 }

@@ -1,8 +1,8 @@
 [package]
-name = "tap"
+name = "riscv_cove_tap"
 version = "0.1.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
-description = "Library to parse the CoVE's TEE attestation payload"
+description = "Library to parse the RISC-V CoVE's TEE attestation payload"
 edition = "2021"
 
 [dependencies]
@@ -10,10 +10,10 @@ edition = "2021"
 #rand = "0.8" # to generate symmetric key used to encrypted payload
 
 # for symmetric encryption of payload
-aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc"]} 
+aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc"]}
 
 # provides macros that help removing boilerplate code in rust error handling
-thiserror-no-std = "2.0"  
+thiserror-no-std = "2.0"
 
 [features]
 parser = []
