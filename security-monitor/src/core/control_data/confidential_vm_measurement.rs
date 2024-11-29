@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::error::Error;
 use sha2::digest::crypto_common::generic_array::GenericArray;
 
 pub type DigestType = sha2::Sha384;
@@ -9,18 +10,40 @@ pub type MeasurementDigest = GenericArray<u8, <DigestType as sha2::digest::Outpu
 /// Number of registers storing boottime integrity measurements. CoVE spec requires at least 1 and maximum 8.
 const NUMBER_OF_REGISTERS: usize = 8;
 /// The number of the register that stores the measurement of confidential VM code and static data
-const TVM_CODE_AND_STATIC_DATA_REGISTER_ID: usize = 4;
+const KERNEL_PCR_ID: usize = 4;
+/// The number of the register that stores the measurement of confidential VM code and static data
+const INITRD_PCR_ID: usize = 5;
+/// The number of the register that stores the measurement of confidential VM code and static data
+const FDT_PCR_ID: usize = 6;
 /// The number of the register that stores the measurement of confidential boot hart state
-const TVM_CONFIGURATION_REGISTER_ID: usize = 5;
+const BOOT_HART_PCR_ID: usize = 7;
 
 pub struct StaticMeasurements([MeasurementDigest; NUMBER_OF_REGISTERS]);
 
 impl StaticMeasurements {
-    pub fn new(measured_pages: MeasurementDigest, configuration: MeasurementDigest) -> Self {
-        let mut measurements = Self([MeasurementDigest::default(); NUMBER_OF_REGISTERS]);
-        measurements.0[TVM_CODE_AND_STATIC_DATA_REGISTER_ID] = measured_pages;
-        measurements.0[TVM_CONFIGURATION_REGISTER_ID] = configuration;
-        measurements
+    pub fn default() -> Self {
+        Self([MeasurementDigest::default(); NUMBER_OF_REGISTERS])
+    }
+
+    pub fn compare(&self, pcr_id: usize, digest: MeasurementDigest) -> Result<bool, Error> {
+        ensure!(pcr_id < NUMBER_OF_REGISTERS, Error::InvalidParameter())?;
+        Ok(self.0[pcr_id] == digest)
+    }
+
+    pub fn pcr_kernel_mut(&mut self) -> &mut MeasurementDigest {
+        &mut self.0[KERNEL_PCR_ID]
+    }
+
+    pub fn pcr_initrd_mut(&mut self) -> &mut MeasurementDigest {
+        &mut self.0[INITRD_PCR_ID]
+    }
+
+    pub fn pcr_fdt_mut(&mut self) -> &mut MeasurementDigest {
+        &mut self.0[FDT_PCR_ID]
+    }
+
+    pub fn pcr_boot_hart_mut(&mut self) -> &mut MeasurementDigest {
+        &mut self.0[BOOT_HART_PCR_ID]
     }
 }
 

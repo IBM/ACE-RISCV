@@ -49,16 +49,16 @@ devtools: setup
 hypervisor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor
 
-confidential_vms: setup devtools hypervisor
+confidential_vms: setup devtools hypervisor tools
 	BIN_DIR="$(OVERLAY_ROOT_DIR)/" RELEASE="" $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/baremetal/ ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay rootfs ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
 hypervisor_dev:
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
 
-dev:
+dev: tools
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ dev ;\
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
@@ -85,7 +85,8 @@ emulator: setup devtools
 
 tools: setup
 	mkdir -p $(TOOLS_WORK_DIR)
-	cp -rf $(TOOLS_SOURCE_DIR)/* $(TOOLS_WORK_DIR)
+	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/
+	cp -rf $(TOOLS_SOURCE_DIR)/ace $(TOOLS_WORK_DIR)/
 
 verify:
 	rm -rf $(ACE_DIR)/security_monitor/verify/

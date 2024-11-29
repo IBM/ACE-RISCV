@@ -4,7 +4,7 @@
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
 use crate::core::architecture::{PageSize, SharedPage};
-use crate::core::control_data::{ConfidentialVmId, MeasurementDigest};
+use crate::core::control_data::{ConfidentialVmId, ConfidentialVmMemoryLayout, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::error::Error;
 
@@ -67,10 +67,11 @@ impl ConfidentialVmMemoryProtector {
         self.root_page_table.translate(address)
     }
 
-    pub fn measure(&self) -> Result<MeasurementDigest, Error> {
-        let mut initial_digest = MeasurementDigest::default();
-        self.root_page_table.measure(&mut initial_digest, 0)?;
-        Ok(initial_digest)
+    /// Cryptographically measures the confidential VM's memory. This function should be called during the confidential VM creation
+    /// procedure when the confidential VM's memory image creation has completed. These measurements will be used during attestation to
+    /// verify confidential VM's integrity and authenticity.
+    pub fn finalize(&mut self, measurements: &mut StaticMeasurements, vm_memory_layout: &ConfidentialVmMemoryLayout) -> Result<(), Error> {
+        Ok(self.root_page_table.finalize(measurements, vm_memory_layout, 0)?)
     }
 
     /// Reconfigures hardware to enable access initiated from this physical hart to memory regions owned by the

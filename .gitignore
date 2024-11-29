@@ -3,6 +3,8 @@
 /target/
 build/*
 target/*
+
+tools/cove_tap_tool/target
 qemu/
 security-monitor/target
 

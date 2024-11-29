@@ -12,4 +12,8 @@ pub enum FdtError {
     FdtErrorParsing(#[from] DevTreeError),
     #[error("No memory node")]
     NoMemoryNode(),
+    #[error("Error when casting integers")]
+    FdtIntegerCasting(#[from] core::num::TryFromIntError),
+    #[error("Invalid integer value")]
+    FdtInvalidIntegerValue(),
 }

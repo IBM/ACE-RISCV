@@ -7,7 +7,7 @@ use crate::core::architecture::mmu::page_table_level::PageTableLevel;
 use crate::core::architecture::mmu::paging_system::PagingSystem;
 use crate::core::architecture::mmu::HgatpMode;
 use crate::core::architecture::{PageSize, SharedPage};
-use crate::core::control_data::MeasurementDigest;
+use crate::core::control_data::{ConfidentialVmMemoryLayout, MeasurementDigest, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
 use crate::error::Error;
@@ -228,13 +228,25 @@ impl PageTable {
 
     /// Recursively extends measurements of all data pages in the order from the page with the lowest to the highest guest physical address.
     /// Returns error if the page table is malformed, i.e., there is a shared page mapping.
-    pub fn measure(&self, digest: &mut MeasurementDigest, address: usize) -> Result<(), Error> {
+    pub fn finalize(
+        &mut self, measurements: &mut StaticMeasurements, vm_memory_layout: &ConfidentialVmMemoryLayout, address: usize,
+    ) -> Result<(), Error> {
         use sha2::Digest;
-        self.logical_representation.iter().enumerate().try_for_each(|(i, entry)| {
+        self.logical_representation.iter_mut().enumerate().try_for_each(|(i, entry)| {
             let guest_physical_address = address + i * self.paging_system.data_page_size(self.level).in_bytes();
             match entry {
-                LogicalPageTableEntry::PointerToNextPageTable(next_page_table) => next_page_table.measure(digest, guest_physical_address),
-                LogicalPageTableEntry::PageWithConfidentialVmData(page) => Ok(page.measure(digest, guest_physical_address)),
+                LogicalPageTableEntry::PointerToNextPageTable(next_page_table) => {
+                    next_page_table.finalize(measurements, vm_memory_layout, guest_physical_address)
+                }
+                LogicalPageTableEntry::PageWithConfidentialVmData(page) => Ok(if vm_memory_layout.is_fdt(guest_physical_address) {
+                    page.measure(measurements.pcr_fdt_mut(), guest_physical_address)
+                } else if vm_memory_layout.is_initrd(guest_physical_address) {
+                    page.measure(measurements.pcr_initrd_mut(), guest_physical_address)
+                } else if vm_memory_layout.is_kernel(guest_physical_address) {
+                    page.measure(measurements.pcr_kernel_mut(), guest_physical_address)
+                } else {
+                    page.clear()
+                }),
                 LogicalPageTableEntry::PageSharedWithHypervisor(_) => Err(Error::PageTableConfiguration()),
                 LogicalPageTableEntry::NotMapped => Ok(()),
             }

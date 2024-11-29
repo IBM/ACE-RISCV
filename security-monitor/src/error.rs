@@ -35,14 +35,22 @@ pub enum Error {
     TooManyConfidentialVms(),
     #[error("Unsupported paging mode")]
     UnsupportedPagingMode(),
+    #[error("Incorrectly aligned FDT")]
+    FdtNotAlignedTo64Bits(),
     #[error("FDT size is invalid. Expecting at least 40 bytes and maximum 40960 bytes")]
     FdtInvalidSize(),
     #[error("Exceeded the max number of harts per VM")]
     InvalidNumberOfHartsInFdt(),
-    #[error("Incorrectly aligned authentication blob")]
-    AuthBlobNotAlignedTo64Bits(),
-    #[error("Authentication blob size is invalid.")]
+    #[error("Incorrectly aligned authentication payload")]
+    AuthBlobNotAlignedTo32Bits(),
+    #[error("Authentication payload size is invalid.")]
     AuthBlobInvalidSize(),
+    #[error("Error when parsing TEE attestation payload: {0}")]
+    AttestationPayloadParsingError(#[from] riscv_cove_tap::TapError),
+    #[error("Local attestation failed. Invalid measurements")]
+    LocalAttestationFailed(),
+    #[error("Local attestation failed. Not supported digest type")]
+    LocalAttestationNotSupportedDigest(),
 
     /* SBI invalid address */
     #[error("Address is not aligned")]
@@ -122,9 +130,10 @@ impl Error {
             Self::InvalidCall(_, _) => SBI_ERR_INVALID_PARAM as usize,
             Self::PageTableCorrupted() => SBI_ERR_INVALID_PARAM as usize,
             Self::UnsupportedPagingMode() => SBI_ERR_INVALID_PARAM as usize,
+            Self::FdtNotAlignedTo64Bits() => SBI_ERR_INVALID_PARAM as usize,
             Self::FdtInvalidSize() => SBI_ERR_INVALID_PARAM as usize,
             Self::InvalidNumberOfHartsInFdt() => SBI_ERR_INVALID_PARAM as usize,
-            Self::AuthBlobNotAlignedTo64Bits() => SBI_ERR_INVALID_PARAM as usize,
+            Self::AuthBlobNotAlignedTo32Bits() => SBI_ERR_INVALID_PARAM as usize,
             Self::AuthBlobInvalidSize() => SBI_ERR_INVALID_PARAM as usize,
             Self::DeviceTreeError(_) => SBI_ERR_INVALID_PARAM as usize,
 
