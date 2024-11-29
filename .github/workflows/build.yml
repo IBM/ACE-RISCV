@@ -18,7 +18,7 @@ jobs:
     - name: install OpenSBI dependencies
       run: sudo apt -qq -y install clang
     - name: install Qemu dependencies
-      run: sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev
+      run: sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev xz-utils
     - name: install Buildroot dependencies
       run: sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
     - name: install utilities

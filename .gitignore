@@ -3,7 +3,7 @@
 /target/
 build/*
 target/*
-
+qemu/
 security-monitor/target
 
 configurations/overlay/root/harness/baremetal

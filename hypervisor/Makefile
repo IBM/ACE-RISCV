@@ -60,7 +60,7 @@ dev:
 
 rootfs: overlay
 	echo "Generating hypervisor's root filesystem" ;\
-	$(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) rootfs-ext2 
+	$(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) rootfs-ext2
 
 clean:
 	rm -rf $(HYPERVISOR_WORK_DIR)

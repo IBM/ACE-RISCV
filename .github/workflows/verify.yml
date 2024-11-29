@@ -47,7 +47,7 @@ jobs:
     - name: Exclude RefinedRust from dune build
       run: echo "(dirs :standard \ generated_code.bak refinedrust)" > verification/dune
     - name: install build dependencies
-      run: sudo apt -qq -y install wget autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
+      run: sudo apt -qq -y install wget autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev xz-utils
     - name: install OpenSBI dependencies
       run: sudo apt -qq -y install clang
     - name: install Buildroot dependencies
