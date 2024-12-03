@@ -5,7 +5,7 @@
 
 ACE-RISCV is an open-source project, whose goal is to deliver a confidential computing framework with a formally proven security monitor. It is based on the [canonical architecture](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) and targets RISC-V with the goal of being portable to other architectures. The formal verification efforts focus on the [security monitor implementation](security-monitor/). We invite collaborators to work with us to push the boundaries of provable confidential computing technology.
 
-This project implements the RISC-V CoVE spec's deployment model 3 referenced in [Appendix D](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/). The formal specification is embedded in the security monitor's source code and the proofs are in [verification/ folder](verification/). Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
+This project implements the RISC-V CoVE spec's deployment model 3 referenced in [Appendix D](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/). The formal specification is embedded in the security monitor's source code and the proofs are in the [verification/](verification/) folder. Please read our [paper](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
 
 ## Hardware requirements
 We are currently building on RISC-V 64-bit with integer (I), atomic (A) and hypervisor extentions (H), physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc).
@@ -53,7 +53,7 @@ cargo install cargo-binutils
 ```
 
 ### Sources
-Checkout this repository with submodules (this takes a long time!):
+Checkout this repository with submodules:
 ```
 git clone --recurse-submodules git@github.com:IBM/ACE-RISCV.git
 ```
@@ -126,6 +126,55 @@ To run the sample Linux OS as a confidential VM (login: root, password: passwd) 
 ```
 ./run_linux_vm.sh
 ```
+
+## Local attestation
+Local attestation allows you to expose secrets (e.g., dm-crypt/LUKS key, TLS pre-shared key, etc) to your confidential VM in a secure way.
+
+Collect reference measurements of your virtual machines, like kernel, initrd, initial boot hart state.
+Below as, an example, we just collect kernel measurement:
+```
+cove-tap-tool measure --kernel-file $ACE_DIR/confidential_vms/linux_vm/buildroot/images/Image
+# Example output:
+# Digest 0x86774eec200ca6552cbc50211e4b32e7a4ba815c190d56b11ffabc8df1ebb6d9c41d04a64099d860b90c65729a28ded8
+```
+
+Create a TVM attestation payload (TAP) that contains a secret (0xc0ffee), which will be release to confidential VMs whose measurement in PCR4 equals the reference measurement of your kernel.
+Please note that in real systems you would define values of more PCRs to ensure the integrity of the firmware, security monitor, initrd, etc.
+```
+cove-tap-tool generate --output-file=$ACE_DIR/cove_tap --pcrs 4=0x86774eec200ca6552cbc50211e4b32e7a4ba815c190d56b11ffabc8df1ebb6d9c41d04a64099d860b90c65729a28ded8 --secrets 0=0xc0ffee
+# Example output:
+# Writing PCR4=86774eec200ca6552cbc50211e4b32e7a4ba815c190d56b11ffabc8df1ebb6d9c41d04a64099d860b90c65729a28ded8
+# Writing secret 0
+```
+
+Attach the TAP to the kernel image:
+```
+cove-tap-tool append --tap-file=$ACE_DIR/cove_tap --kernel-file=$ACE_DIR/confidential_vms/linux_vm/buildroot/images/Image
+```
+
+Run again the hypervisor and then your confidential VM (see section `Run and Test`).
+You should see the output
+```
+#ACE: Reference PCR4=Sha512=0x86774eec200ca6552cbc50211e4b32e7a4ba815c190d56b11ffabc8df1ebb6d9c41d04a64099d860b90c65729a28ded8
+#ACE: Attestation succeeded, read 1 secret
+```
+
+You can read the secret from the inside of the confidential VM:
+```
+# if the root file system has not been mounted, then execute below:
+mount /dev/vda /root
+cd /root/root/ace_module
+insmod ace.ko
+```
+
+You should see the secret:
+```
+[  203.051959] Requesting secret from the security monitor
+[  203.107150] Secret=0xc0ffee
+```
+
+Integrating local attestation with dm-crypt/LUKS is work in progress. When finished, you will encrypt your rootfs and pass the decryption key via TAP.
+A script in initrd will then retrieve the decryption key from TAP and decrypt the rootfs.
 
 # License
 This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).
