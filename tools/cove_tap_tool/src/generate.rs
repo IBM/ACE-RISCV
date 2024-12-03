@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::ensure;
 use crate::error::Error;
-use std::fs::OpenOptions;
-use std::io::Write;
 use riscv_cove_tap::AttestationPayload;
 use riscv_cove_tap::AttestationPayloadSerializer;
 use riscv_cove_tap::Digest;
@@ -12,6 +10,8 @@ use riscv_cove_tap::DigestAlgorithm;
 use riscv_cove_tap::Lockbox;
 use riscv_cove_tap::LockboxAlgorithm;
 use riscv_cove_tap::Secret;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub fn generate_tap(
     pcrs: Vec<(u16, Vec<u8>)>,
