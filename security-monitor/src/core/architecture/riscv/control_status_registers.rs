@@ -50,7 +50,7 @@ pub struct ControlStatusRegisters {
     pub hvip: ReadWriteRiscvCsr<CSR_HVIP>,
     pub htinst: ReadWriteRiscvCsr<CSR_HTINST>,
     pub hgeip: ReadWriteRiscvCsr<CSR_HGEIP>,
-    pub henvcfg: ReadWriteRiscvCsr<CSR_HENVCFG>,
+    // pub henvcfg: ReadWriteRiscvCsr<CSR_HENVCFG>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     // HS-mode Debug
     pub hcontext: ReadWriteRiscvCsr<CSR_HCONTEXT>,
@@ -107,7 +107,7 @@ impl ControlStatusRegisters {
             hvip: ReadWriteRiscvCsr::new(),
             htinst: ReadWriteRiscvCsr::new(),
             hgeip: ReadWriteRiscvCsr::new(),
-            henvcfg: ReadWriteRiscvCsr::new(),
+            // henvcfg: ReadWriteRiscvCsr::new(),
             hgatp: ReadWriteRiscvCsr::new(),
             hcontext: ReadWriteRiscvCsr::new(),
             htimedelta: ReadWriteRiscvCsr::new(),
@@ -163,7 +163,7 @@ impl ControlStatusRegisters {
         self.hvip.save_value_in_main_memory(0);
         self.htinst.save_in_main_memory();
         self.hgeip.save_in_main_memory();
-        self.henvcfg.save_in_main_memory();
+        // self.henvcfg.save_in_main_memory();
         self.hgatp.save_in_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.hcontext.save_in_main_memory();
@@ -217,7 +217,7 @@ impl ControlStatusRegisters {
         self.hvip.restore_from_main_memory();
         self.htinst.restore_from_main_memory();
         // self.hgeip.restore_from_main_memory();
-        self.henvcfg.restore_from_main_memory();
+        // self.henvcfg.restore_from_main_memory();
         self.hgatp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.hcontext.restore_from_main_memory();
@@ -273,7 +273,7 @@ impl ControlStatusRegisters {
         hasher.update(self.hvip.read_from_main_memory().to_le_bytes());
         hasher.update(self.htinst.read_from_main_memory().to_le_bytes());
         hasher.update(self.hgeip.read_from_main_memory().to_le_bytes());
-        hasher.update(self.henvcfg.read_from_main_memory().to_le_bytes());
+        // hasher.update(self.henvcfg.read_from_main_memory().to_le_bytes());
         hasher.update(self.hgatp.read_from_main_memory().to_le_bytes());
         hasher.update(self.hcontext.read_from_main_memory().to_le_bytes());
         hasher.update(self.htimedelta.read_from_main_memory().to_le_bytes());

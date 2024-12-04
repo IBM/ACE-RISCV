@@ -39,14 +39,9 @@ setup:
 	@mkdir -p $(ACE_DIR)
 
 devtools: setup
-	if [ ! -f "${RISCV_GNU_TOOLCHAIN_WORK_DIR}/${CROSS_COMPILE}gcc" ]; then \
-		rm -rf $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
-		mkdir -p $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
-		wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.09.27/$(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
-		tar -zxf $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz --directory ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
-		mv ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/riscv/* ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
-		rm -f $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
-	fi
+	# if [ ! -f "${RISCV_GNU_TOOLCHAIN_WORK_DIR}/${CROSS_COMPILE}gcc" ]; then \
+	# 	echo "Compiler is missing! in ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/${CROSS_COMPILE}gcc"
+	# fi
 
 hypervisor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor

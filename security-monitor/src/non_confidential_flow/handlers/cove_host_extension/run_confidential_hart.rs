@@ -22,7 +22,7 @@ impl RunConfidentialHart {
             confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)),
             confidential_hart_id: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
             allowed_external_interrupts: 0,
-            stimecmp: hypervisor_hart.sstc().stimecmp.read(),
+            stimecmp: 0, //hypervisor_hart.sstc().stimecmp.read(),
             hvip: hypervisor_hart.csrs().hvip.read(),
         }
     }
@@ -51,7 +51,7 @@ impl RunConfidentialHart {
         let delay = 10; // TODO: generate random number
 
         // We write directly to the CSR because we are after the heavy context switch
-        confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
+        // confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
 
         // Inject external interrupts
         confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);

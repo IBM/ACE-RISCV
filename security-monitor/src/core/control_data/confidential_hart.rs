@@ -99,16 +99,16 @@ impl ConfidentialHart {
 
         // There is a subset of S-mode CSRs that have no VS equivalent and preserve their function when virtualization is enabled (see
         // `Hypervisor and Virtual Supervisor CSRs` in Volume II: RISC-V Privileged Architectures V20211203).
-        confidential_hart_state.csrs_mut().henvcfg.save_nacl_value_in_main_memory(shared_memory);
-        let henvcfg = confidential_hart_state.csrs_mut().henvcfg.read_from_main_memory();
-        confidential_hart_state.csrs_mut().senvcfg.save_value_in_main_memory(henvcfg);
+        // confidential_hart_state.csrs_mut().henvcfg.save_nacl_value_in_main_memory(shared_memory);
+        // let henvcfg = confidential_hart_state.csrs_mut().henvcfg.read_from_main_memory();
+        // confidential_hart_state.csrs_mut().senvcfg.save_value_in_main_memory(henvcfg);
         // Code running in VS-mode should directly access only the timer. Everything else must trap:
         confidential_hart_state.csrs_mut().hcounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
         confidential_hart_state.csrs_mut().scounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
 
         assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
         // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
-        confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
+        // confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_FS_INITIAL);
