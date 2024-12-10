@@ -74,7 +74,13 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(Nacl(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(_) => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             MachineEcall => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
+            FetchPageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            LoadPageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            StorePageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            trap_reason => {
+                crate::debug::__print_hart_state(flow.hypervisor_hart().hypervisor_hart_state());
+                panic!("Got exception not supported by the non-confidential trap handler: {:?}", trap_reason)
+            }
         }
     }
 

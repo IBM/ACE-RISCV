@@ -22,8 +22,10 @@ pub fn split_memory_into_confidential_and_non_confidential(
 
     // TODO: simplify use of PMP by using a single PMP entry to isolate the confidential memory.
     // We assume here that the first two PMPs are not used by anyone else, e.g., OpenSBI firmware
-    CSR.pmpaddr0.write(confidential_memory_start >> PMP_ADDRESS_SHIFT);
-    CSR.pmpaddr1.write(confidential_memory_end >> PMP_ADDRESS_SHIFT);
+    // CSR.pmpaddr0.write(confidential_memory_start >> PMP_ADDRESS_SHIFT);
+    // CSR.pmpaddr1.write(confidential_memory_end >> PMP_ADDRESS_SHIFT);
+    CSR.pmpaddr0.write(0);
+    CSR.pmpaddr1.write(0);
 
     close_access_to_confidential_memory();
     crate::debug::__print_pmp_configuration();
@@ -31,15 +33,27 @@ pub fn split_memory_into_confidential_and_non_confidential(
 }
 
 pub fn open_access_to_confidential_memory() {
-    let mask = (PMP_OFF_MASK | PMP_PERMISSION_RWX_MASK) | (PMP_TOR_MASK | PMP_PERMISSION_RWX_MASK) << (1 * PMP_CONFIG_SHIFT);
-    CSR.pmpcfg0.read_and_set_bits(mask);
-    clear_caches();
+    // if CSR.mseccfg.read() & MSECCFG_MML > 0 {
+    //     assert!(CSR.mseccfg.read() & mseccfg.RLB > 0); // we require RLB so we can set and unset the L bit.
+    //     let mask = PMP_PERMISSION_L_MASK | mask << (1 * PMP_CONFIG_SHIFT);
+    //     CSR.pmpcfg0.read_and_clear_bits(mask); // remove L bit means in Smepmp that the rule is enforced for non M-mode software
+    // } else {
+    //     let mask = (PMP_OFF_MASK | PMP_PERMISSION_RWX_MASK) | (PMP_TOR_MASK | PMP_PERMISSION_RWX_MASK) << (1 * PMP_CONFIG_SHIFT);
+    //     CSR.pmpcfg0.read_and_set_bits(mask); // assign access permissions to confidential memory
+    // }
+    // clear_caches();
 }
 
 pub fn close_access_to_confidential_memory() {
-    let mask = PMP_PERMISSION_RWX_MASK | (PMP_PERMISSION_RWX_MASK << (1 * PMP_CONFIG_SHIFT));
-    CSR.pmpcfg0.read_and_clear_bits(mask);
-    clear_caches();
+    // if CSR.mseccfg.read() & MSECCFG_MML > 0 {
+    //     assert!(CSR.mseccfg.read() & mseccfg.RLB > 0); // we require RLB so we can set and unset the L bit.
+    //     let mask = PMP_PERMISSION_L_MASK | mask << (1 * PMP_CONFIG_SHIFT);
+    //     CSR.pmpcfg0.read_and_set_bits(mask);  // setting L bit means in Smepmp that the rule is enforced for M-mode software
+    // } else {
+    //     let mask = PMP_PERMISSION_RWX_MASK | (PMP_PERMISSION_RWX_MASK << (1 * PMP_CONFIG_SHIFT));
+    //     CSR.pmpcfg0.read_and_clear_bits(mask); // clear access permissions to confidential memory
+    // }
+    // clear_caches();
 }
 
 fn clear_caches() {

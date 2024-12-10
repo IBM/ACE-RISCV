@@ -415,8 +415,16 @@ pub const PMP_NA4_MASK: usize = 0b10000;
 pub const PMP_NAPOT_MASK: usize = 0b11000;
 pub const PMP_PERMISSION_NONE_MASK: usize = 0;
 pub const PMP_PERMISSION_RWX_MASK: usize = 0b111;
+pub const PMP_PERMISSION_L_MASK: usize = 0x80;
 pub const PMP_CONFIG_SHIFT: usize = 8;
 pub const PMP_ADDRESS_SHIFT: u16 = 2;
+
+pub const MSECCFG_MML_SHIFT: usize = 0;
+pub const MSECCFG_MML: usize = 1 << MSECCFG_MML_SHIFT;
+pub const MSECCFG_MMWP_SHIFT: usize = 1;
+pub const MSECCFG_MMWP: usize = 1 << MSECCFG_MMWP_SHIFT;
+pub const MSECCFG_RLB_SHIFT: usize = 2;
+pub const MSECCFG_RLB: usize = 1 << MSECCFG_RLB_SHIFT;
 
 pub const MTVEC_BASE_SHIFT: usize = 2;
 

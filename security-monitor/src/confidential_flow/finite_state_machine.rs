@@ -100,6 +100,7 @@ impl<'a> ConfidentialFlow<'a> {
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => {
                 debug!("Bug: Not supported trap cause {:?}, maybe due to incorrect exception delegation?", trap_reason);
+                crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
                 ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
             }
         }

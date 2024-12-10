@@ -29,7 +29,7 @@ pub struct ControlStatusRegisters {
     pub sie: ReadWriteRiscvCsr<CSR_SIE>,
     pub stvec: ReadWriteRiscvCsr<CSR_STVEC>,
     pub scounteren: ReadWriteRiscvCsr<CSR_SCOUNTEREN>,
-    pub senvcfg: ReadWriteRiscvCsr<CSR_SENVCFG>,
+    // pub senvcfg: ReadWriteRiscvCsr<CSR_SENVCFG>,
     pub sscratch: ReadWriteRiscvCsr<CSR_SSCRATCH>,
     pub sepc: ReadWriteRiscvCsr<CSR_SEPC>,
     pub scause: ReadWriteRiscvCsr<CSR_SCAUSE>,
@@ -37,7 +37,7 @@ pub struct ControlStatusRegisters {
     pub sip: ReadWriteRiscvCsr<CSR_SIP>,
     pub satp: ReadWriteRiscvCsr<CSR_SATP>,
     // S-mode Debug extension should never be present due to security concerns
-    pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
+    // pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -53,7 +53,7 @@ pub struct ControlStatusRegisters {
     // pub henvcfg: ReadWriteRiscvCsr<CSR_HENVCFG>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     // HS-mode Debug
-    pub hcontext: ReadWriteRiscvCsr<CSR_HCONTEXT>,
+    // pub hcontext: ReadWriteRiscvCsr<CSR_HCONTEXT>,
     pub htimedelta: ReadWriteRiscvCsr<CSR_HTIMEDELTA>,
     // VS-mode
     pub vsstatus: ReadWriteRiscvCsr<CSR_VSSTATUS>,
@@ -87,14 +87,14 @@ impl ControlStatusRegisters {
             sie: ReadWriteRiscvCsr::new(),
             stvec: ReadWriteRiscvCsr::new(),
             scounteren: ReadWriteRiscvCsr::new(),
-            senvcfg: ReadWriteRiscvCsr::new(),
+            // senvcfg: ReadWriteRiscvCsr::new(),
             sscratch: ReadWriteRiscvCsr::new(),
             sepc: ReadWriteRiscvCsr::new(),
             scause: ReadWriteRiscvCsr::new(),
             stval: ReadWriteRiscvCsr::new(),
             sip: ReadWriteRiscvCsr::new(),
             satp: ReadWriteRiscvCsr::new(),
-            scontext: ReadWriteRiscvCsr::new(),
+            // scontext: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
@@ -109,7 +109,7 @@ impl ControlStatusRegisters {
             hgeip: ReadWriteRiscvCsr::new(),
             // henvcfg: ReadWriteRiscvCsr::new(),
             hgatp: ReadWriteRiscvCsr::new(),
-            hcontext: ReadWriteRiscvCsr::new(),
+            // hcontext: ReadWriteRiscvCsr::new(),
             htimedelta: ReadWriteRiscvCsr::new(),
             // VS-mode
             vsstatus: ReadWriteRiscvCsr::new(),
@@ -142,7 +142,7 @@ impl ControlStatusRegisters {
         self.sie.save_in_main_memory();
         self.stvec.save_in_main_memory();
         self.scounteren.save_in_main_memory();
-        self.senvcfg.save_in_main_memory();
+        // self.senvcfg.save_in_main_memory();
         self.sscratch.save_in_main_memory();
         self.sepc.save_in_main_memory();
         self.scause.save_in_main_memory();
@@ -196,7 +196,7 @@ impl ControlStatusRegisters {
         self.sie.restore_from_main_memory();
         self.stvec.restore_from_main_memory();
         self.scounteren.restore_from_main_memory();
-        self.senvcfg.restore_from_main_memory();
+        // self.senvcfg.restore_from_main_memory();
         self.sscratch.restore_from_main_memory();
         self.sepc.restore_from_main_memory();
         self.scause.restore_from_main_memory();
@@ -253,14 +253,14 @@ impl ControlStatusRegisters {
         hasher.update(self.sie.read_from_main_memory().to_le_bytes());
         hasher.update(self.stvec.read_from_main_memory().to_le_bytes());
         hasher.update(self.scounteren.read_from_main_memory().to_le_bytes());
-        hasher.update(self.senvcfg.read_from_main_memory().to_le_bytes());
+        // hasher.update(self.senvcfg.read_from_main_memory().to_le_bytes());
         hasher.update(self.sscratch.read_from_main_memory().to_le_bytes());
         hasher.update(self.sepc.read_from_main_memory().to_le_bytes());
         hasher.update(self.scause.read_from_main_memory().to_le_bytes());
         hasher.update(self.stval.read_from_main_memory().to_le_bytes());
         hasher.update(self.sip.read_from_main_memory().to_le_bytes());
         hasher.update(self.satp.read_from_main_memory().to_le_bytes());
-        hasher.update(self.scontext.read_from_main_memory().to_le_bytes());
+        // hasher.update(self.scontext.read_from_main_memory().to_le_bytes());
         // HS-mode
         hasher.update(self.hstatus.read_from_main_memory().to_le_bytes());
         hasher.update(self.hedeleg.read_from_main_memory().to_le_bytes());
@@ -275,7 +275,7 @@ impl ControlStatusRegisters {
         hasher.update(self.hgeip.read_from_main_memory().to_le_bytes());
         // hasher.update(self.henvcfg.read_from_main_memory().to_le_bytes());
         hasher.update(self.hgatp.read_from_main_memory().to_le_bytes());
-        hasher.update(self.hcontext.read_from_main_memory().to_le_bytes());
+        // hasher.update(self.hcontext.read_from_main_memory().to_le_bytes());
         hasher.update(self.htimedelta.read_from_main_memory().to_le_bytes());
         // VS-mode
         hasher.update(self.vsstatus.read_from_main_memory().to_le_bytes());
@@ -301,6 +301,13 @@ pub struct ControlStatusRegister {
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
     pub pmpaddr0: ReadWriteRiscvCsr<CSR_PMPADDR0>,
     pub pmpaddr1: ReadWriteRiscvCsr<CSR_PMPADDR1>,
+    pub pmpaddr2: ReadWriteRiscvCsr<CSR_PMPADDR2>,
+    pub pmpaddr3: ReadWriteRiscvCsr<CSR_PMPADDR3>,
+    pub pmpaddr4: ReadWriteRiscvCsr<CSR_PMPADDR4>,
+    pub pmpaddr5: ReadWriteRiscvCsr<CSR_PMPADDR5>,
+    pub pmpaddr6: ReadWriteRiscvCsr<CSR_PMPADDR6>,
+    pub pmpaddr7: ReadWriteRiscvCsr<CSR_PMPADDR7>,
+    // pub mseccfg: ReadWriteRiscvCsr<CSR_MSECCFG>,
 }
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
@@ -313,6 +320,13 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     pmpcfg0: ReadWriteRiscvCsr::new(),
     pmpaddr0: ReadWriteRiscvCsr::new(),
     pmpaddr1: ReadWriteRiscvCsr::new(),
+    pmpaddr2: ReadWriteRiscvCsr::new(),
+    pmpaddr3: ReadWriteRiscvCsr::new(),
+    pmpaddr4: ReadWriteRiscvCsr::new(),
+    pmpaddr5: ReadWriteRiscvCsr::new(),
+    pmpaddr6: ReadWriteRiscvCsr::new(),
+    pmpaddr7: ReadWriteRiscvCsr::new(),
+    // mseccfg: ReadWriteRiscvCsr::new(),
 };
 
 #[derive(Copy, Clone)]
