@@ -1,16 +1,8 @@
 diff --git a/lib/sbi/sbi_hart.c b/lib/sbi/sbi_hart.c
-index 770fee0..663eec7 100644
+index 770fee0..9e08308 100644
 --- a/lib/sbi/sbi_hart.c
 +++ b/lib/sbi/sbi_hart.c
-@@ -24,6 +24,7 @@
- #include <sbi/sbi_trap.h>
- #include <sbi/sbi_hfence.h>
- 
-+extern void ace_setup_this_hart();
- extern void __sbi_expected_trap(void);
- extern void __sbi_expected_trap_hext(void);
- 
-@@ -369,7 +370,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
+@@ -369,7 +369,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
  	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
  
  	/* Program M-only regions when MML is not set. */
@@ -19,7 +11,7 @@ index 770fee0..663eec7 100644
  	sbi_domain_for_each_memregion(dom, reg) {
  		/* Skip reserved entry */
  		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
-@@ -395,7 +396,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
+@@ -395,7 +395,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
  	csr_set(CSR_MSECCFG, MSECCFG_MML);
  
  	/* Program shared and SU-only regions */
@@ -28,7 +20,7 @@ index 770fee0..663eec7 100644
  	sbi_domain_for_each_memregion(dom, reg) {
  		/* Skip reserved entry */
  		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
-@@ -432,7 +433,7 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
+@@ -432,7 +432,7 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
  {
  	struct sbi_domain_memregion *reg;
  	struct sbi_domain *dom = sbi_domain_thishart_ptr();
@@ -37,14 +29,28 @@ index 770fee0..663eec7 100644
  	unsigned int pmp_flags;
  	unsigned long pmp_addr;
  
-@@ -534,6 +535,10 @@ int sbi_hart_pmp_configure(struct sbi_scratch *scratch)
- 		rc = sbi_hart_oldpmp_configure(scratch, pmp_count,
- 						pmp_log2gran, pmp_addr_max);
+diff --git a/lib/sbi/sbi_hsm.c b/lib/sbi/sbi_hsm.c
+index 3d60ceb..45c602d 100644
+--- a/lib/sbi/sbi_hsm.c
++++ b/lib/sbi/sbi_hsm.c
+@@ -26,6 +26,8 @@
+ #include <sbi/sbi_timer.h>
+ #include <sbi/sbi_console.h>
+ 
++extern void ace_setup_this_hart();
++
+ #define __sbi_hsm_hart_change_state(hdata, oldstate, newstate)		\
+ ({									\
+ 	long state = atomic_cmpxchg(&(hdata)->state, oldstate, newstate); \
+@@ -154,6 +156,11 @@ void __noreturn sbi_hsm_hart_start_finish(struct sbi_scratch *scratch,
+ 	next_mode = scratch->next_mode;
+ 	hsm_start_ticket_release(hdata);
  
 +	// ACE START
 +	// temporal hack to reconfigure PMPs after they have been reconfigured by OpenSBI.
 +	ace_setup_this_hart();
 +	// ACE END
- 	/*
- 	 * As per section 3.7.2 of privileged specification v1.12,
- 	 * virtual address translations can be speculatively performed
++
+ 	sbi_hart_switch_mode(hartid, next_arg1, next_addr, next_mode, false);
+ }
+ 
