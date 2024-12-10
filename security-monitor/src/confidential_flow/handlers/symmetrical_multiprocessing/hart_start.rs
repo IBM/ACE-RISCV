@@ -32,15 +32,19 @@ impl SbiHsmHartStart {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+        debug!("SbiHsmHartStart {} {:x} {:x}", self.confidential_hart_id, self.start_address, self.opaque);
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
         match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
             confidential_vm.start_confidential_hart(self.confidential_hart_id, self.start_address, self.opaque)
         }) {
-            Ok(_) => confidential_flow
-                .set_resumable_operation(ResumableOperation::SbiRequest())
-                .into_non_confidential_flow()
-                .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_kvm_hsm_hart_start())),
+            Ok(_) => {
+                // confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success()))
+                confidential_flow
+                    .set_resumable_operation(ResumableOperation::SbiRequest())
+                    .into_non_confidential_flow()
+                    .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(self.sbi_kvm_hsm_hart_start()))
+            }
             Err(error) => {
                 // starting a confidential hart might fail if the incoming request is invalid. For example, the confidential
                 // hart id does not exist or is the same as the one currently assigned to the hardware hart. In such cases,
@@ -52,6 +56,7 @@ impl SbiHsmHartStart {
     }
 
     fn sbi_kvm_hsm_hart_start(&self) -> SbiRequest {
+        debug!("sbi_kvm_hsm_hart_start");
         SbiRequest::new(HsmExtension::EXTID, HsmExtension::HART_START_FID, self.confidential_hart_id, 0)
     }
 }

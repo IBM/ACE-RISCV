@@ -99,7 +99,11 @@ impl<'a> ConfidentialFlow<'a> {
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => {
-                debug!("Bug: Not supported trap cause {:?}, maybe due to incorrect exception delegation?", trap_reason);
+                debug!(
+                    "Bug when executing confidential hart {}. Not supported trap cause {:?}, maybe due to incorrect exception delegation?",
+                    flow.confidential_hart().confidential_hart_id(),
+                    trap_reason
+                );
                 ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
             }
         }
