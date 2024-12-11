@@ -45,7 +45,7 @@ buildroot: setup
 		sed "s@^BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=.*@BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$(HYPERVISOR_LINUX_CONFIG)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_LINUX_KERNEL_PATCH=.*@BR2_LINUX_KERNEL_PATCH=\"$(HYPERVISOR_LINUX_PATCH)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		if [ ! -f "$(BUILDROOT_SOURCE_DIR)/Makefile" ]; then \
-			echo "Buildroot repository not initialized. Did you forget to run `git submodule update --init --recursive`?" ;\
+			echo "Buildroot repository not initialized. Did you forget to run: git submodule update --init --recursive?" ;\
 			exit 1 ;\
 		fi ;\
 		$(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BR2_JLEVEL=0 olddefconfig ;\
