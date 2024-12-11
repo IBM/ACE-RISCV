@@ -80,9 +80,9 @@ emulator: setup devtools
 	fi
 
 tools: setup
-	mkdir -p $(TOOLS_WORK_DIR)
-	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/
-	cp -rf $(TOOLS_SOURCE_DIR)/ace $(TOOLS_WORK_DIR)/
+	mkdir -p $(TOOLS_WORK_DIR) ;\
+	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/ ;\
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" TOOLS_WORK_DIR=$(TOOLS_WORK_DIR) ACE_DIR=$(ACE_DIR) $(MAKE) -C tools/cove_tap_tool;
 
 verify:
 	rm -rf $(ACE_DIR)/security_monitor/verify/

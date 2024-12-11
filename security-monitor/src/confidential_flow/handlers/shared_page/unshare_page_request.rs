@@ -6,9 +6,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::RemoteHfenc
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::architecture::{GeneralPurposeRegister, SharedPage};
-use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlDataStorage, ResumableOperation,
-};
+use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ControlDataStorage, ResumableOperation};
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -27,8 +25,8 @@ impl UnsharePageRequest {
         }
     }
 
-    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        match self.unmap_shared_page(confidential_flow.confidential_vm_id()) {
+    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+        match self.unmap_shared_page(&mut confidential_flow) {
             Ok(_) => confidential_flow
                 .set_resumable_operation(ResumableOperation::SbiRequest())
                 .into_non_confidential_flow()
@@ -43,14 +41,16 @@ impl UnsharePageRequest {
         SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_UNSHARE_MEMORY, self.address.usize(), self.size)
     }
 
-    fn unmap_shared_page(&self, confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
+    fn unmap_shared_page(&self, confidential_flow: &mut ConfidentialFlow) -> Result<(), Error> {
         ensure!(self.address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
         ensure!(self.size == SharedPage::SIZE.in_bytes(), Error::InvalidParameter())?;
 
+        let confidential_vm_id = confidential_flow.confidential_vm_id();
         ControlDataStorage::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             let unmapped_page_size = confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
             let request = RemoteHfenceGvmaVmid::all_harts(&self.address, unmapped_page_size, confidential_vm_id);
-            confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
+            confidential_flow
+                .broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
             Ok(())
         })
     }

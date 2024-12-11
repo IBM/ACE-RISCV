@@ -28,7 +28,8 @@ use crate::core::architecture::riscv::sbi::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart, ResumableOperation,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
+    ResumableOperation,
 };
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
@@ -99,7 +100,13 @@ impl<'a> ConfidentialFlow<'a> {
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => {
-                debug!("Bug: Not supported trap cause {:?}, maybe due to incorrect exception delegation?", trap_reason);
+                debug!(
+                    "Bug when executing confidential hart {}. Not supported trap cause {:?}. mepc={:x} mtval={:x}",
+                    flow.confidential_hart().confidential_hart_id(),
+                    trap_reason,
+                    flow.confidential_hart().csrs().mepc.read_from_main_memory(),
+                    flow.confidential_hart().csrs().mtval.read()
+                );
                 crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
                 ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
             }
@@ -207,17 +214,17 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
-    pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
-        ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
-            // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
-            // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
-            // that knows the original value of the mscratch expected by OpenSBI.
-            self.hardware_hart.swap_mscratch();
-            let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
-            // We must revert the content of mscratch back to the value expected by our context switched.
-            self.hardware_hart.swap_mscratch();
-            result
-        })
+    pub fn broadcast_remote_command(
+        &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+    ) -> Result<(), Error> {
+        // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
+        // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
+        // that knows the original value of the mscratch expected by OpenSBI.
+        self.hardware_hart.swap_mscratch();
+        let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
+        // We must revert the content of mscratch back to the value expected by our context switched.
+        self.hardware_hart.swap_mscratch();
+        result
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to

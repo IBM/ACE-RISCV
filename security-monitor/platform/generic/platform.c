@@ -30,7 +30,7 @@
 #include <sbi_utils/serial/semihosting.h>
 
 /*
-	ACE: init_security_monitor_asm hook implemented in Rust. 	
+	ACE: init_security_monitor_asm hook implemented in Rust.
 */
 extern void init_security_monitor_asm(bool cold_boot, void *fdt);
 
@@ -101,7 +101,7 @@ unsigned long fw_platform_init(unsigned long arg0, unsigned long arg1,
 	int rc, root_offset, cpus_offset, cpu_offset, len;
 	// START ACE
 	const uint8_t *mem_reg_prop;
-	int mem_offset;	
+	int mem_offset;
 	fdt64_t new_size;
 	// END ACE
 
@@ -220,13 +220,11 @@ static int generic_final_init(bool cold_boot)
 			if (rc)
 				return rc;
 		}
+		// ACE start
+		// This is the entry point of the security monitor's initialization procedure.
+		init_security_monitor_asm(cold_boot, fdt);
+		// ACE end
 	}
-
-	fdt = fdt_get_address();	
-	// ACE start
-	// This is the entry point of the security monitor's initialization procedure.
-	init_security_monitor_asm(cold_boot, fdt);
-	// ACE end
 
 	return 0;
 }

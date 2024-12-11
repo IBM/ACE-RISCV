@@ -10,23 +10,24 @@ use std::io::Seek;
 use std::io::SeekFrom;
 
 pub fn attach_tap(
-    input_file: String,
+    kernel_file: String,
     tap_file_name: String,
     output_file: Option<String>,
 ) -> Result<(), Error> {
     let output_file_name = match output_file {
-        Some(f) if input_file != f => {
-            std::fs::copy(input_file, f.clone())?;
+        Some(f) if kernel_file != f => {
+            std::fs::copy(kernel_file, f.clone())?;
             f
         }
         Some(f) => f,
-        None => input_file,
+        None => kernel_file,
     };
     let offset = find_placehoder(&output_file_name)?;
     // clear the placeholder
     let mut output_file = OpenOptions::new().write(true).open(output_file_name)?;
     output_file.seek(SeekFrom::Start(offset))?;
-    (riscv_cove_tap::ACE_HEADER_SIZE..riscv_cove_tap::ACE_MAX_TAP_SIZE).try_for_each(|_| output_file.write_u8(0u8))?;
+    (riscv_cove_tap::ACE_HEADER_SIZE..riscv_cove_tap::ACE_MAX_TAP_SIZE)
+        .try_for_each(|_| output_file.write_u8(0u8))?;
     // write expected TAP from the beginning of the offset
     output_file.seek(SeekFrom::Start(offset))?;
     let mut tap_file = OpenOptions::new().read(true).open(tap_file_name)?;
