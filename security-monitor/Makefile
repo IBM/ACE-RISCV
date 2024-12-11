@@ -51,7 +51,7 @@ debug: opensbi_bindings
 
 opensbi: build
 	echo "Compiling OpenSBI" ;\
-	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hsm.c"; then \
 		echo "Applying patches to OpenSBI" ;\
 		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(OPENSBI_PATCH); cd $(MAKEFILE_SOURCE_DIR);\
 	fi ;\
@@ -62,7 +62,7 @@ opensbi: build
 
 opensbi_bindings:
 	echo "Compiling OpenSBI bindings" ;\
-	if grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+	if grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hsm.c"; then \
 		echo "Applying patches to OpenSBI bindings" ;\
 		cd $(OPENSBI_SOURCE_DIR); git apply -R --whitespace=fix $(OPENSBI_PATCH); cd $(MAKEFILE_SOURCE_DIR); \
 	fi; \
