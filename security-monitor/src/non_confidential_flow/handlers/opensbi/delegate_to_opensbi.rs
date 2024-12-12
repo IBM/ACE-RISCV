@@ -71,8 +71,37 @@ impl DelegateToOpensbi {
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::ra, self.trap_regs.ra.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::sp, self.trap_regs.sp.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::gp, self.trap_regs.gp.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::tp, self.trap_regs.tp.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t0, self.trap_regs.t0.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t1, self.trap_regs.t1.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t2, self.trap_regs.t2.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s0, self.trap_regs.s0.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s1, self.trap_regs.s1.try_into().unwrap());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a0, self.trap_regs.a0.try_into().unwrap());
         hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a1, self.trap_regs.a1.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a2, self.trap_regs.a2.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a3, self.trap_regs.a3.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a4, self.trap_regs.a4.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a5, self.trap_regs.a5.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a6, self.trap_regs.a6.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::a7, self.trap_regs.a7.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s2, self.trap_regs.s2.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s3, self.trap_regs.s3.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s4, self.trap_regs.s4.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s5, self.trap_regs.s5.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s6, self.trap_regs.s6.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s7, self.trap_regs.s7.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s8, self.trap_regs.s8.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s9, self.trap_regs.s9.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s10, self.trap_regs.s10.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::s11, self.trap_regs.s11.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t3, self.trap_regs.t3.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t4, self.trap_regs.t4.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t5, self.trap_regs.t5.try_into().unwrap());
+        hypervisor_hart.gprs_mut().write(GeneralPurposeRegister::t6, self.trap_regs.t6.try_into().unwrap());
         hypervisor_hart.csrs_mut().mstatus.save_value_in_main_memory(self.trap_regs.mstatus.try_into().unwrap());
         hypervisor_hart.csrs_mut().mepc.save_value_in_main_memory(self.trap_regs.mepc.try_into().unwrap());
     }

@@ -40,7 +40,7 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
-    debug!("Initializing the CoVE security monitor for SiFive P550: v0");
+    debug!("Initializing the CoVE security monitor for SiFive P550: v1");
     if cold_boot {
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
@@ -270,7 +270,12 @@ extern "C" fn ace_setup_this_hart() {
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
-    debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
+    debug!(
+        "Hardware hart id={} registered trap handler at address: {:x} (previous={:x})",
+        hart_id,
+        trap_vector_address,
+        hart.hypervisor_hart_mut().csrs_mut().mtvec.read()
+    );
     hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
-    debug!("ace_setup_this_hart: finished, going back to OpenSBI");
+    debug!("ace_setup_this_hart: finished, going back to OpenSBI, mscratch={:x}", hart.hypervisor_hart().csrs().mscratch.read());
 }

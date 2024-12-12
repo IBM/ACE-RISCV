@@ -30,7 +30,7 @@ pub struct HardwareHart {
     // We need to store the OpenSBI's mscratch value because OpenSBI uses mscratch to track some of its internal
     // data structures and our security monitor also uses mscratch to keep track of the address of the hart state
     // in memory.
-    previous_mscratch: usize,
+    pub previous_mscratch: usize,
 }
 
 impl HardwareHart {
