@@ -57,19 +57,32 @@ impl<'a> NonConfidentialFlow<'a> {
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         let tt = TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state());
-        match tt {
-            Interrupt => {}
-            IllegalInstruction => {}
-            _ => {
-                debug!(
-                    "Enter SM non-conf flow due to {:?} mepc={:x} mscratch={:x} openbsi={:x}",
-                    tt,
-                    flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-                    flow.hypervisor_hart().csrs().mscratch.read_from_main_memory(),
-                    flow.hardware_hart.previous_mscratch,
-                );
-            }
-        }
+        // use crate::core::architecture::sbi::CovhExtension;
+        // use crate::core::architecture::CSR;
+        // match tt {
+        //     Interrupt => {}
+        //     IllegalInstruction => {}
+        //     HsEcall(crate::core::architecture::sbi::SbiExtension::Unknown(a, b)) => {
+        //         if a != 0x54494D45 {
+        //             debug!(
+        //                 "Enter SM non-conf flow due to {:?} mepc={:x} mscratch={:x} openbsi={:x}",
+        //                 tt,
+        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
+        //                 CSR.mhartid.read(),
+        //                 flow.hardware_hart.previous_mscratch,
+        //             );
+        //         }
+        //     }
+        //     _ => {
+        //         debug!(
+        //             "Enter SM non-conf flow due to {:?} mepc={:x} mscratch={:x} openbsi={:x}",
+        //             tt,
+        //             flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
+        //             CSR.mhartid.read(),
+        //             flow.hardware_hart.previous_mscratch,
+        //         );
+        //     }
+        // }
         match tt {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -93,7 +106,11 @@ impl<'a> NonConfidentialFlow<'a> {
             StorePageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             trap_reason => {
                 crate::debug::__print_hart_state(flow.hypervisor_hart().hypervisor_hart_state());
-                panic!("Got exception not supported by the non-confidential trap handler: {:?}", trap_reason)
+                panic!(
+                    "Non-confidential trap handler in hart {}: Unsupported exception {:?}",
+                    flow.hardware_hart.confidential_hart().confidential_hart_id(),
+                    trap_reason
+                );
             }
         }
     }

@@ -40,7 +40,7 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
-    debug!("Initializing the CoVE security monitor for SiFive P550: v1");
+    debug!("Initializing the CoVE security monitor for SiFive P550: v2");
     if cold_boot {
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
@@ -137,9 +137,9 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     let memory_start = fdt_memory_region.base as *mut usize;
     // In assembly that executed this initialization function splitted the memory into two regions where
     // the second region's size is equal or greater than the first ones.
-    let non_confidential_memory_size = fdt_memory_region.size.try_into().map_err(|_| Error::InvalidMemoryBoundary())?;
+    let memory_size: usize = fdt_memory_region.size.try_into().map_err(|_| Error::InvalidMemoryBoundary())?;
+    let non_confidential_memory_size = memory_size / 2;
     let confidential_memory_size = non_confidential_memory_size;
-    let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
     debug!("Memory 0x{:#?}-0x{:#?}", memory_start, memory_end);
 
@@ -151,7 +151,11 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
 
     // Second region of memory is defined as confidential memory
     let confidential_memory_start = non_confidential_memory_end;
-    let confidential_memory_end = memory_end;
+    debug!("Confidential memory start: 0x{:#?}", confidential_memory_start);
+    debug!("Confidential memory size: 0x{:x}", confidential_memory_size);
+    ensure!(confidential_memory_start.is_aligned_to(PageSize::smallest().in_bytes()), Error::InvalidMemoryBoundary())?;
+    debug!("Confidential memory size: 0x{:x}", confidential_memory_size);
+    let confidential_memory_end = memory_end; // fixed bug with pointer arithmetic
     debug!("Confidential memory 0x{:#?}-0x{:#?}", confidential_memory_start, confidential_memory_end);
 
     unsafe {
@@ -257,9 +261,9 @@ extern "C" fn ace_setup_this_hart() {
     hart.hypervisor_hart_mut().csrs_mut().mscratch.write(hart_address);
     debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart_address);
 
-    // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
-    // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
-    // the `MemoryLayout` has been already initialized by the boot hart.
+    // // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
+    // // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
+    // // the `MemoryLayout` has been already initialized by the boot hart.
     debug!("ace_setup_this_hart: setting up memory protection...");
     if let Err(error) = unsafe { HypervisorMemoryProtector::setup() } {
         debug!("Failed to setup hypervisor memory protector: {:?}", error);
@@ -268,7 +272,7 @@ extern "C" fn ace_setup_this_hart() {
     }
     debug!("ace_setup_this_hart: memory protection set up successfully...");
 
-    // Set up the trap vector, so that the exceptions are handled by the security monitor.
+    // // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
     debug!(
         "Hardware hart id={} registered trap handler at address: {:x} (previous={:x})",

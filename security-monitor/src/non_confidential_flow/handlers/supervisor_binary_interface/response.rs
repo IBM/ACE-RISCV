@@ -8,8 +8,8 @@ use crate::core::control_data::HypervisorHart;
 use crate::error::Error;
 
 pub struct SbiResponse {
-    a0: usize,
-    a1: usize,
+    pub a0: usize,
+    pub a1: usize,
 }
 
 impl SbiResponse {
