@@ -40,7 +40,7 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
-    debug!("Initializing the CoVE security monitor for SiFive P550: v2");
+    debug!("Initializing the CoVE security monitor for SiFive P550: v3");
     if cold_boot {
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
