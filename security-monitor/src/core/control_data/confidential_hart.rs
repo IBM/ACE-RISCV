@@ -287,10 +287,8 @@ impl ConfidentialHart {
     /// the hart was reset. This function is called as a response of another confidential hart (typically a boot hart)
     /// to start another confidential hart. Returns error if the confidential hart is not in stopped state.
     pub fn transition_from_stopped_to_started(&mut self, start_address: usize, opaque: usize) -> Result<(), Error> {
-        debug!("transition_from_stopped_to_started");
         ensure_not!(self.is_dummy(), Error::HartAlreadyRunning())?;
         ensure!(self.lifecycle_state == HartLifecycleState::Stopped, Error::CannotStartNotStoppedHart())?;
-        debug!("transition_from_stopped_to_started 2");
         // Let's set up the confidential hart initial state so that it can be run
         self.lifecycle_state = HartLifecycleState::Started;
         // Following the SBI documentation of the function `hart start` in the HSM extension, only vsatp, vsstatus.SIE,
@@ -304,7 +302,6 @@ impl ConfidentialHart {
         self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, self.id);
         self.confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, opaque);
         self.confidential_hart_state.csrs_mut().mepc.save_value_in_main_memory(start_address);
-        debug!("transition_from_stopped_to_started 3");
         Ok(())
     }
 

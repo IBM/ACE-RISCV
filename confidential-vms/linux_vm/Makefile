@@ -52,6 +52,10 @@ buildroot: setup
 		sed "s@^BR2_TARGET_ROOTFS_EXT2_SIZE=.*@BR2_TARGET_ROOTFS_EXT2_SIZE=\"$(LINUX_VM_BUILDROOT_ROOTFS_SIZE)\"@g" -i $(LINUX_VM_BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=.*@BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$(LINUX_VM_BUILDROOT_WORK_DIR)/linux64-config\"@g" -i $(LINUX_VM_BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_LINUX_KERNEL_PATCH=.*@BR2_LINUX_KERNEL_PATCH=\"$(LINUX_VM_PATCHES_DIR)\"@g" -i $(LINUX_VM_BUILDROOT_WORK_DIR)/.config; \
+		if [ ! -f "$(LINUX_VM_BUILDROOT_SOURCE_DIR)/Makefile" ]; then \
+			echo "Buildroot repository not initialized. Did you forget to run: git submodule update --init --recursive?" ;\
+			exit 1 ;\
+		fi ;\
 		$(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(LINUX_VM_BUILDROOT_WORK_DIR) CROSS_COMPILE=$(CROSS_COMPILE) BR2_JLEVEL=0 olddefconfig; \
 		$(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(LINUX_VM_BUILDROOT_WORK_DIR) BR2_JLEVEL=0; \
 	fi
@@ -74,8 +78,10 @@ overlay: setup
 	rm -rf $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) && mkdir -p $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\
 	cp -r $(LINUX_VM_IMAGE) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/ ;\
 	cp -r $(LINUX_VM_BUILDROOT_ROOTFS) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\
-	KERNEL_DIGEST=`$(TOOLS_WORK_DIR)/cove-tap-tool measure --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-` ;\
-	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$(KERNEL_DIGEST) --output-file=$(LINUX_VM_COVE_TAP) ;\
+	rm -f $(LINUX_VM_COVE_TAP) ;\
+	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
+	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP)
+	cp $(LINUX_VM_COVE_TAP) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
 
 rootfs: overlay
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) ARCH=riscv64 KDIR=$(LINUX_DIR) CROSS_COMPILE=$(CROSS_COMPILE) O=$(LINUX_VM_BUILDROOT_WORK_DIR) rootfs-ext2;

@@ -20,7 +20,7 @@ struct Args {
 enum Commands {
     Attach {
         #[arg(short, long)]
-        input_file: String,
+        kernel_file: String,
         #[arg(short, long)]
         tap_file: String,
         #[arg(short, long)]
@@ -75,10 +75,10 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 fn main() -> Result<(), Error> {
     Ok(match Args::parse().cmd {
         Commands::Attach {
-            input_file,
+            kernel_file,
             tap_file,
             output_file,
-        } => attach::attach_tap(input_file, tap_file, output_file),
+        } => attach::attach_tap(kernel_file, tap_file, output_file),
         Commands::Generate {
             pcrs,
             confidential_vm_secrets,

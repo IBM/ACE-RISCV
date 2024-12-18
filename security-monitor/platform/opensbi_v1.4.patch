@@ -4,7 +4,7 @@ index 770fee0..9e08308 100644
 +++ b/lib/sbi/sbi_hart.c
 @@ -369,7 +369,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
  	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
- 
+
  	/* Program M-only regions when MML is not set. */
 -	pmp_idx = 0;
 +	pmp_idx = 2;
@@ -13,7 +13,7 @@ index 770fee0..9e08308 100644
  		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
 @@ -395,7 +395,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
  	csr_set(CSR_MSECCFG, MSECCFG_MML);
- 
+
  	/* Program shared and SU-only regions */
 -	pmp_idx = 0;
 +	pmp_idx = 2;
@@ -28,7 +28,6 @@ index 770fee0..9e08308 100644
 +	unsigned int pmp_idx = 2;
  	unsigned int pmp_flags;
  	unsigned long pmp_addr;
- 
 diff --git a/lib/sbi/sbi_hsm.c b/lib/sbi/sbi_hsm.c
 index 3d60ceb..45c602d 100644
 --- a/lib/sbi/sbi_hsm.c
@@ -36,7 +35,6 @@ index 3d60ceb..45c602d 100644
 @@ -26,6 +26,8 @@
  #include <sbi/sbi_timer.h>
  #include <sbi/sbi_console.h>
- 
 +extern void ace_setup_this_hart();
 +
  #define __sbi_hsm_hart_change_state(hdata, oldstate, newstate)		\
@@ -45,7 +43,6 @@ index 3d60ceb..45c602d 100644
 @@ -154,6 +156,11 @@ void __noreturn sbi_hsm_hart_start_finish(struct sbi_scratch *scratch,
  	next_mode = scratch->next_mode;
  	hsm_start_ticket_release(hdata);
- 
 +	// ACE START
 +	// temporal hack to reconfigure PMPs after they have been reconfigured by OpenSBI.
 +	ace_setup_this_hart();
@@ -53,4 +50,3 @@ index 3d60ceb..45c602d 100644
 +
  	sbi_hart_switch_mode(hartid, next_arg1, next_addr, next_mode, false);
  }
- 
