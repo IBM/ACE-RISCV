@@ -72,24 +72,23 @@ rootfs: overlay
 
 kvmtool:
 	mkdir -p $(KVMTOOL_WORK_DIR) && cd $(KVMTOOL_WORK_DIR) ;\
-	if [ ! -f "${KVMTOOL_WORK_DIR}/dtc/build/libfdt.so" ]; then \
-		rm -rf ${KVMTOOL_WORK_DIR}/dtc ;\
-		git clone git://git.kernel.org/pub/scm/utils/dtc/dtc.git ;\
-		cd dtc ;\
-		ARCH=riscv CC="${CROSS_COMPILE}gcc -mabi=${PLATFORM_RISCV_ABI} -march=${PLATFORM_RISCV_ISA}" make NO_PYTHON=1 NO_YAML=1 DESTDIR=$($CC -print-sysroot) PREFIX=${KVMTOOL_WORK_DIR}/dtc/build LIBDIR=${KVMTOOL_WORK_DIR}/dtc/build/$($CC -dumpmachine) install-lib install-includes ;\
-		cp ${KVMTOOL_WORK_DIR}/dtc/build/include/* ${KVMTOOL_WORK_DIR}/dtc/build/ ;\
-		cd .. ;\
-	fi ;\
-	# if [ ! -f "${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static" ]; then \
-		# rm -rf ${KVMTOOL_WORK_DIR}/kvmtool ;\
-		# git clone -b cove-integration-03072023 https://github.com/wojciechozga/kvmtool.git ;\
-		rsync -r /home/woz/kvmtool ${KVMTOOL_WORK_DIR}/ ;\
+    if [ ! -f "${KVMTOOL_WORK_DIR}/dtc/build/libfdt.so" ]; then \
+        rm -rf ${KVMTOOL_WORK_DIR}/dtc ;\
+        git clone git://git.kernel.org/pub/scm/utils/dtc/dtc.git ;\
+        cd dtc ;\
+        ARCH=riscv CC="${CROSS_COMPILE}gcc -mabi=${PLATFORM_RISCV_ABI} -march=${PLATFORM_RISCV_ISA}" make NO_PYTHON=1 NO_YAML=1 DESTDIR=$($CC -print-sysroot) PREFIX=${KVMTOOL_WORK_DIR}/dtc/build LIBDIR=${KVMTOOL_WORK_DIR}/dtc/build/$($CC -dumpmachine) install-lib install-includes ;\
+        cp ${KVMTOOL_WORK_DIR}/dtc/build/include/* ${KVMTOOL_WORK_DIR}/dtc/build/ ;\
+        cd .. ;\
+    fi ;\
+	if [ ! -f "${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static" ]; then \
+		rm -rf ${KVMTOOL_WORK_DIR}/kvmtool ;\
+		git clone -b cove-integration-03072023 https://github.com/wojciechozga/kvmtool.git ;\
 		rm -f $(KVMTOOL_WORK_DIR)/kvmtool/lkvm-static ;\
 		cd $(KVMTOOL_WORK_DIR)/kvmtool ;\
 		ARCH=riscv LIBFDT_DIR=${KVMTOOL_WORK_DIR}/dtc/build/ make lkvm-static -j$(nproc) ;\
 		${CROSS_COMPILE}strip lkvm-static ;\
 		cd .. ;\
-	# fi
+	fi
 
 clean:
 	rm -rf $(HYPERVISOR_WORK_DIR)
