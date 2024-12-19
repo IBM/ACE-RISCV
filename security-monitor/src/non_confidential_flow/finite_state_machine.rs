@@ -104,14 +104,15 @@ impl<'a> NonConfidentialFlow<'a> {
             FetchPageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             LoadPageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StorePageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            trap_reason => {
-                crate::debug::__print_hart_state(flow.hypervisor_hart().hypervisor_hart_state());
-                panic!(
-                    "Non-confidential trap handler in hart {}: Unsupported exception {:?}",
-                    flow.hardware_hart.confidential_hart().confidential_hart_id(),
-                    trap_reason
-                );
-            }
+            _ => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            // trap_reason => {
+            //     crate::debug::__print_hart_state(flow.hypervisor_hart().hypervisor_hart_state());
+            //     panic!(
+            //         "Non-confidential trap handler in hart {}: Unsupported exception {:?}",
+            //         flow.hardware_hart.confidential_hart().confidential_hart_id(),
+            //         trap_reason
+            //     );
+            // }
         }
     }
 
