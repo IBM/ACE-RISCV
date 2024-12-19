@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::Error;
 use clap::{Parser, Subcommand};
+use clap_num::maybe_hex;
 
 mod attach;
 mod error;
@@ -39,6 +40,10 @@ enum Commands {
     Measure {
         #[arg(short, long)]
         kernel_file: String,
+        #[arg(long = "embedded-tap")]
+        embedded_tap: bool,
+        #[arg(long = "base-address", value_parser=maybe_hex::<u64>, default_value_t = 0x80000000)]
+        base_address: u64,
     },
 }
 
@@ -90,6 +95,10 @@ fn main() -> Result<(), Error> {
             tee_public_keys_files,
             output_file,
         ),
-        Commands::Measure { kernel_file } => measure::measure(kernel_file),
+        Commands::Measure {
+            kernel_file,
+            embedded_tap,
+            base_address,
+        } => measure::measure(kernel_file, embedded_tap, base_address),
     }?)
 }
