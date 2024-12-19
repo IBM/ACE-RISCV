@@ -19,7 +19,8 @@ LINUX_VM_OVERLAY_SOURCE_DIR			?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/overlay
 LINUX_VM_OVERLAY_WORK_DIR			?= $(CONFIDENTIAL_VMS_LINUX_WORK_DIR)/overlay
 LINUX_VM_OVERLAY_WORK_ROOT_DIR		?= $(LINUX_VM_OVERLAY_WORK_DIR)/root
 LINUX_VM_IMAGE						?= $(LINUX_VM_BUILDROOT_WORK_DIR)/images/Image
-LINUX_VM_COVE_TAP					?= $(LINUX_VM_BUILDROOT_WORK_DIR)/images/cove_tap
+LINUX_VM_COVE_TAP_QEMU				?= $(LINUX_VM_BUILDROOT_WORK_DIR)/images/cove_tap_qemu
+LINUX_VM_COVE_TAP_KVMTOOL			?= $(LINUX_VM_BUILDROOT_WORK_DIR)/images/cove_tap_kvmtool
 LINUX_VM_KERNEL_CONFIG				?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/linux64-defconfig
 LINUX_VM_BUILDROOT_CONFIG			?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/qemu_riscv64_virt_defconfig
 LINUX_VM_BUILDROOT_OVERRIDE_DIR		?= $(CONFIDENTIAL_VMS_LINUX_SOURCE_DIR)/configurations/package_override.dev
@@ -79,9 +80,14 @@ overlay: setup
 	cp -r $(LINUX_VM_IMAGE) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/ ;\
 	cp -r $(LINUX_VM_BUILDROOT_ROOTFS) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\
 	rm -f $(LINUX_VM_COVE_TAP) ;\
-	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
-	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP)
-	cp $(LINUX_VM_COVE_TAP) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
+	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure  --embedded-tap --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
+	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP_QEMU)
+	cp $(LINUX_VM_COVE_TAP_QEMU) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
+	rm -f $(LINUX_VM_COVE_TAP_KVMTOOL)
+	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure --base-address=0x80200000 --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
+	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP_KVMTOOL)
+	cp $(LINUX_VM_COVE_TAP_KVMTOOL) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
+
 
 rootfs: overlay
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -s -C $(LINUX_VM_BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) ARCH=riscv64 KDIR=$(LINUX_DIR) CROSS_COMPILE=$(CROSS_COMPILE) O=$(LINUX_VM_BUILDROOT_WORK_DIR) rootfs-ext2;
