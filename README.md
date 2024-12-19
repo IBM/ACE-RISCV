@@ -122,16 +122,22 @@ You should see the output from the boot process and a promt to login to the hype
 # login: root, password: passwd
 ```
 
-To run the sample Linux OS as a confidential VM (login: root, password: passwd) execute:
+To run the sample Linux OS as a confidential VM (login: root, password: passwd) execute.
+This demonstrates automatic promotion of a VM to TVM:
 ```
-./run_linux_vm.sh
+./run_linux_vm_qemu.sh
+```
+
+Run the sample Linux OS as a confidential VM using kvmtool.
+```
+./run_linux_vm_kvmtool.sh
 ```
 
 ## Local attestation
 Local attestation allows you to expose secrets (e.g., dm-crypt/LUKS key, TLS pre-shared key, etc) to your confidential VM in a secure way.
 
 Collect reference measurements of your virtual machines, like kernel, initrd, initial boot hart state.
-Below as, an example, we just collect kernel measurement:
+Below as, an example, we just collect the kernel measurement (for automatic promotion):
 ```
 cove-tap-tool measure --kernel-file $ACE_DIR/confidential_vms/linux_vm/buildroot/images/Image
 # Example output:
@@ -173,7 +179,7 @@ You should see the secret:
 [  203.107150] Secret=0xc0ffee
 ```
 
-Integrating local attestation with dm-crypt/LUKS is work in progress. When finished, you will encrypt your rootfs and pass the decryption key via TAP.
+Integrating local attestation with dm-crypt/LUKS is work in progress. When finished, you will be able to encrypt your rootfs and pass the decryption key via TAP.
 A script in initrd will then retrieve the decryption key from TAP and decrypt the rootfs.
 
 # License
