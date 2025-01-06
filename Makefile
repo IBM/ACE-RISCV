@@ -49,6 +49,9 @@ hypervisor: setup devtools
 hypervisor_dev:
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor dev
 
+hypervisor_kvmtool:
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor kvmtool
+
 confidential_vms: setup devtools hypervisor tools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay rootfs ;\
@@ -82,7 +85,7 @@ emulator: setup devtools
 tools: setup
 	mkdir -p $(TOOLS_WORK_DIR) ;\
 	cp -rf $(TOOLS_SOURCE_DIR)/*.sh $(TOOLS_WORK_DIR)/ ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" TOOLS_WORK_DIR=$(TOOLS_WORK_DIR) ACE_DIR=$(ACE_DIR) $(MAKE) -C tools/cove_tap_tool;
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" TOOLS_WORK_DIR=$(TOOLS_WORK_DIR) ACE_DIR=$(ACE_DIR) $(MAKE) -C tools/cove_tap_tool;
 
 verify:
 	rm -rf $(ACE_DIR)/security_monitor/verify/

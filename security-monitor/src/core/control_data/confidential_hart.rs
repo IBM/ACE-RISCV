@@ -10,6 +10,7 @@ use crate::core::architecture::{
 use crate::core::control_data::confidential_hart_remote_command::ConfidentialHartRemoteCommandExecutable;
 use crate::core::control_data::{ConfidentialHartRemoteCommand, ConfidentialVmId, MeasurementDigest, ResumableOperation};
 use crate::core::hardware_setup::HardwareSetup;
+use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::error::Error;
 
 extern "C" {
@@ -124,7 +125,9 @@ impl ConfidentialHart {
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
-    pub fn from_vm_hart(id: usize, program_counter: usize, htimedelta: usize, shared_memory: &NaclSharedMemory) -> Self {
+    pub fn from_vm_hart(
+        id: usize, program_counter: usize, fdt_address: ConfidentialVmPhysicalAddress, htimedelta: usize, shared_memory: &NaclSharedMemory,
+    ) -> Self {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.
         let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory);
@@ -143,8 +146,8 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().vsatp.save_nacl_value_in_main_memory(&shared_memory);
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted.
         confidential_hart_state.csrs_mut().mepc.save_value_in_main_memory(program_counter);
+        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, fdt_address.usize());
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
-        confidential_hart.resumable_operation = Some(ResumableOperation::SbiRequest());
         confidential_hart
     }
 
