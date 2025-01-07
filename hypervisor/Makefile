@@ -12,13 +12,13 @@ HYPERVISOR_CONFIGURATION_DIR		?= $(MAKEFILE_SOURCE_DIR)/configurations
 BUILDROOT_SOURCE_DIR				?= $(MAKEFILE_SOURCE_DIR)/buildroot
 
 HYPERVISOR_BUILDROOT_CONFIG_DIR		?= $(HYPERVISOR_CONFIGURATION_DIR)/qemu_riscv64_virt_defconfig
-HYPERVISOR_LINUX_CONFIG				?= $(HYPERVISOR_CONFIGURATION_DIR)/linux64-defconfig
+HYPERVISOR_LINUX_CONFIG				?= $(HYPERVISOR_CONFIGURATION_DIR)/config-6.6.21-g5d4ebc36fea5
 HYPERVISOR_BUILDROOT_OVERRIDE_DIR 	?= $(HYPERVISOR_CONFIGURATION_DIR)/package_override.dev
 HYPERVISOR_ROOTFS_SIZE				?= "1G"
 HYPERVISOR_OVERLAY_DIR				?= $(HYPERVISOR_WORK_DIR)/overlay
 HYPERVISOR_OVERLAY_ROOT_DIR			?= $(HYPERVISOR_OVERLAY_DIR)/root
 HYPERVISOR_PATCHES_DIR				?= $(MAKEFILE_SOURCE_DIR)/patches
-HYPERVISOR_LINUX_PATCH				?= $(HYPERVISOR_PATCHES_DIR)/linux/6.3-rc4/
+HYPERVISOR_LINUX_PATCH				?= $(HYPERVISOR_PATCHES_DIR)/linux/6.6.21/
 
 KVMTOOL_WORK_DIR					?= $(HYPERVISOR_WORK_DIR)/kvmtool
 
@@ -80,15 +80,16 @@ kvmtool:
         cp ${KVMTOOL_WORK_DIR}/dtc/build/include/* ${KVMTOOL_WORK_DIR}/dtc/build/ ;\
         cd .. ;\
     fi ;\
-	if [ ! -f "${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static" ]; then \
-		rm -rf ${KVMTOOL_WORK_DIR}/kvmtool ;\
-		git clone -b cove-integration-03072023 https://github.com/wojciechozga/kvmtool.git ;\
+	#if [ ! -f "${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static" ]; then \
+		#rm -rf ${KVMTOOL_WORK_DIR}/kvmtool ;\
+		#git clone -b p550 https://github.com/wojciechozga/kvmtool.git ;\
+		rsync -r /home/woz/kvmtool ${KVMTOOL_WORK_DIR}/ ;\
 		rm -f $(KVMTOOL_WORK_DIR)/kvmtool/lkvm-static ;\
 		cd $(KVMTOOL_WORK_DIR)/kvmtool ;\
 		ARCH=riscv LIBFDT_DIR=${KVMTOOL_WORK_DIR}/dtc/build/ make lkvm-static -j$(nproc) ;\
 		${CROSS_COMPILE}strip lkvm-static ;\
 		cd .. ;\
-	fi
+	#fi
 
 clean:
 	rm -rf $(HYPERVISOR_WORK_DIR)
