@@ -54,7 +54,7 @@ pub struct ControlStatusRegisters {
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     // HS-mode Debug
     // pub hcontext: ReadWriteRiscvCsr<CSR_HCONTEXT>,
-    pub htimedelta: ReadWriteRiscvCsr<CSR_HTIMEDELTA>,
+    // pub htimedelta: ReadWriteRiscvCsr<CSR_HTIMEDELTA>,
     // VS-mode
     pub vsstatus: ReadWriteRiscvCsr<CSR_VSSTATUS>,
     pub vsie: ReadWriteRiscvCsr<CSR_VSIE>,
@@ -110,7 +110,7 @@ impl ControlStatusRegisters {
             // henvcfg: ReadWriteRiscvCsr::new(),
             hgatp: ReadWriteRiscvCsr::new(),
             // hcontext: ReadWriteRiscvCsr::new(),
-            htimedelta: ReadWriteRiscvCsr::new(),
+            // htimedelta: ReadWriteRiscvCsr::new(),
             // VS-mode
             vsstatus: ReadWriteRiscvCsr::new(),
             vsie: ReadWriteRiscvCsr::new(),
@@ -167,7 +167,7 @@ impl ControlStatusRegisters {
         self.hgatp.save_in_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.hcontext.save_in_main_memory();
-        self.htimedelta.save_in_main_memory();
+        // self.htimedelta.save_in_main_memory();
         // VS-mode
         self.vsstatus.save_in_main_memory();
         self.vsie.save_in_main_memory();
@@ -221,7 +221,7 @@ impl ControlStatusRegisters {
         self.hgatp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.hcontext.restore_from_main_memory();
-        self.htimedelta.restore_from_main_memory();
+        // self.htimedelta.restore_from_main_memory();
         // VS-mode
         self.vsstatus.restore_from_main_memory();
         self.vsie.restore_from_main_memory();
@@ -276,7 +276,7 @@ impl ControlStatusRegisters {
         // hasher.update(self.henvcfg.read_from_main_memory().to_le_bytes());
         hasher.update(self.hgatp.read_from_main_memory().to_le_bytes());
         // hasher.update(self.hcontext.read_from_main_memory().to_le_bytes());
-        hasher.update(self.htimedelta.read_from_main_memory().to_le_bytes());
+        // hasher.update(self.htimedelta.read_from_main_memory().to_le_bytes());
         // VS-mode
         hasher.update(self.vsstatus.read_from_main_memory().to_le_bytes());
         hasher.update(self.vsie.read_from_main_memory().to_le_bytes());

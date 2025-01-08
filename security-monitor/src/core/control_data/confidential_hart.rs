@@ -94,7 +94,7 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
         confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK);
-        confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
+        // confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);
 
