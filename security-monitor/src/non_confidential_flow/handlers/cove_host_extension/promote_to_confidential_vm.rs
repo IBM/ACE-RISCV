@@ -62,6 +62,7 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
+        debug!("PromoteToConfidentialVm before exiting");
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(transformation))
     }
 

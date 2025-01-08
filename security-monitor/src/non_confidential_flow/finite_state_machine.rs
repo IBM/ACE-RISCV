@@ -65,11 +65,13 @@ impl<'a> NonConfidentialFlow<'a> {
             LoadAddressMisaligned => {}
             LoadAccessFault => {}
             StoreAddressMisaligned => {}
-            StoreAccessFault => {}
+            StoreAccessFault => {
+                debug!("Store access fault mepc={:x} ", flow.hypervisor_hart().csrs().mepc.read_from_main_memory());
+            }
             HsEcall(_) => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -84,7 +86,7 @@ impl<'a> NonConfidentialFlow<'a> {
             MachineEcall => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -102,7 +104,7 @@ impl<'a> NonConfidentialFlow<'a> {
             _ => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -182,7 +184,10 @@ impl<'a> NonConfidentialFlow<'a> {
     /// context switch between security domains).
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisorHart) -> ! {
         match transformation {
-            ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::SbiResponse(v) => {
+                debug!("FSM apply_and_exit_to_hypervisor");
+                v.apply_to_hypervisor_hart(self.hypervisor_hart_mut())
+            },
             ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }

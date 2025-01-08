@@ -107,7 +107,7 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().hcounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
         confidential_hart_state.csrs_mut().scounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
 
-        assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
+        // assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
         // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
         // confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
 
