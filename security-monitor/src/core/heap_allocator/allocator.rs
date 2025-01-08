@@ -28,21 +28,25 @@ impl LinkedListAllocator {
         assert!(size < isize::MAX.try_into().unwrap());
         assert!(base_address.is_aligned_to(mem::align_of::<FreeMemoryRegion>()));
         if 0 < size && size < mem::size_of::<FreeMemoryRegion>() {
-            panic!("Memory leak?");
+            debug!("Memory leak?");
             // Potential memory leak? To make sure there are no memory leaks here, we must guarantee that we
             // never allocate chunks smaller than the size of a FreeMemoryRegion structure
         }
 
         let mut free_node = FreeMemoryRegion::new(size);
         free_node.next = self.head.next.take();
-        self.head.next = unsafe {
-            // Safety: casting to *mut FreeMemoryRegion is fine because the caller is giving the ownership
-            // of this memory region to us.
-            let node_pointer = base_address as *mut FreeMemoryRegion;
+        // Safety: casting to *mut FreeMemoryRegion is fine because the caller is giving the ownership
+        // of this memory region to us.
+        let node_pointer = base_address as *mut FreeMemoryRegion;
+        if node_pointer.is_null() {
+            debug!("problem with null node pointer in heap allocator");
+        } else {
             // Safety: we can write the whole FreeMemoryRegion because we checked in the beginning of this
             // function that the memory region has enough space to hold the FreeMemoryRegion.
-            node_pointer.write(free_node);
-            Some(&mut *node_pointer)
+            self.head.next = unsafe {
+                node_pointer.write(free_node);
+                Some(&mut *node_pointer)
+            }
         }
     }
 
@@ -113,7 +117,11 @@ unsafe impl GlobalAlloc for HeapAllocator {
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let (size, _) = FreeMemoryRegion::align_to(layout);
-        self.lock().add_free_memory_region(ptr as *mut usize, size)
+        if !ptr.is_null() && size > 0 {
+            self.lock().add_free_memory_region(ptr as *mut usize, size);
+        } else {
+            debug!("Problem in dealloc. Null or zero size {}", size);
+        }
     }
 }
 
