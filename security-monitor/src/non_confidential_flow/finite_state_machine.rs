@@ -71,7 +71,7 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(_) => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -86,7 +86,7 @@ impl<'a> NonConfidentialFlow<'a> {
             MachineEcall => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -104,7 +104,7 @@ impl<'a> NonConfidentialFlow<'a> {
             _ => {
                 let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
                 let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 {
+                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
                     debug!(
                         "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
                         tt,
@@ -187,7 +187,7 @@ impl<'a> NonConfidentialFlow<'a> {
             ApplyToHypervisorHart::SbiResponse(v) => {
                 debug!("FSM apply_and_exit_to_hypervisor");
                 v.apply_to_hypervisor_hart(self.hypervisor_hart_mut())
-            },
+            }
             ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
