@@ -13,6 +13,7 @@ impl SbiGetImplId {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+        debug!("SbiGetImplId");
         let impl_id = 1;
         let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(impl_id));
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)

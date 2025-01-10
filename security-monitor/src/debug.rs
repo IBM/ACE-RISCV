@@ -54,14 +54,14 @@ pub fn __print_pmp_configuration() {}
 #[cfg(feature = "verbose")]
 pub fn __print_hart_state(state: &HartArchitecturalState) {
     debug!("Hart state:");
-    for i in 0..8 {
-        let gpr_id = i * 4;
-        let v0 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id).unwrap());
-        let v1 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 1).unwrap());
-        let v2 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 2).unwrap());
-        let v3 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 3).unwrap());
-        debug!("x{}: {:16x}\tx{}: {:16x}\tx{}: {:16x}\tx{}: {:16x}", gpr_id, v0, gpr_id + 1, v1, gpr_id + 2, v2, gpr_id + 3, v3);
-    }
+    // for i in 0..8 {
+    //     let gpr_id = i * 4;
+    //     let v0 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id).unwrap());
+    //     let v1 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 1).unwrap());
+    //     let v2 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 2).unwrap());
+    //     let v3 = state.gprs().read(GeneralPurposeRegister::try_from(gpr_id + 3).unwrap());
+    //     debug!("x{}: {:16x}\tx{}: {:16x}\tx{}: {:16x}\tx{}: {:16x}", gpr_id, v0, gpr_id + 1, v1, gpr_id + 2, v2, gpr_id + 3, v3);
+    // }
 
     debug!("mepc (from main memory) = {:x}", state.csrs().mepc.read_from_main_memory());
     debug!("mepc = {:16x}", state.csrs().mepc.read());
@@ -74,22 +74,22 @@ pub fn __print_hart_state(state: &HartArchitecturalState) {
     debug!("mtinst = {:16x}", state.csrs().mtinst.read());
     debug!("mtval = {:16x}", state.csrs().mtval.read());
     debug!("mtval2 = {:16x}", state.csrs().mtval2.read());
-    debug!("mtvec = {:16x}", state.csrs().mtvec.read());
-    debug!("mscratch = {:16x}", state.csrs().mscratch.read());
-    debug!("sstatus = {:16x}", state.csrs().sstatus.read());
-    debug!("sie = {:16x}", state.csrs().sie.read());
-    debug!("stvec = {:16x}", state.csrs().stvec.read());
-    debug!("scounteren = {:16x}", state.csrs().scounteren.read());
+    // debug!("mtvec = {:16x}", state.csrs().mtvec.read());
+    // debug!("mscratch = {:16x}", state.csrs().mscratch.read());
+    // debug!("sstatus = {:16x}", state.csrs().sstatus.read());
+    // debug!("sie = {:16x}", state.csrs().sie.read());
+    // debug!("stvec = {:16x}", state.csrs().stvec.read());
+    // debug!("scounteren = {:16x}", state.csrs().scounteren.read());
     // debug!("senvcfg = {:16x}", state.csrs().senvcfg.read());
-    debug!("sscratch = {:16x}", state.csrs().sscratch.read());
-    debug!("sepc = {:16x}", state.csrs().sepc.read());
-    debug!("scause = {:16x}", state.csrs().scause.read());
-    debug!("stval = {:16x}", state.csrs().stval.read());
-    debug!("sip = {:16x}", state.csrs().sip.read());
-    debug!("satp = {:16x}", state.csrs().satp.read());
+    // debug!("sscratch = {:16x}", state.csrs().sscratch.read());
+    // debug!("sepc = {:16x}", state.csrs().sepc.read());
+    // debug!("scause = {:16x}", state.csrs().scause.read());
+    // debug!("stval = {:16x}", state.csrs().stval.read());
+    // debug!("sip = {:16x}", state.csrs().sip.read());
+    // debug!("satp = {:16x}", state.csrs().satp.read());
     // debug!("scontext = {:16x}", state.csrs().scontext.read());
     // debug!("hstatus = {:16x}", state.csrs().hstatus.read());
-    // debug!("hedeleg = {:16x}", state.csrs().hedeleg.read());
+    debug!("hedeleg = {:16x}", state.csrs().hedeleg.read());
     // debug!("hideleg = {:16x}", state.csrs().hideleg.read());
     // debug!("hie = {:16x}", state.csrs().hie.read());
     // debug!("hcounteren = {:16x}", state.csrs().hcounteren.read());
@@ -97,7 +97,7 @@ pub fn __print_hart_state(state: &HartArchitecturalState) {
     // debug!("htval = {:16x}", state.csrs().htval.read());
     // debug!("hip = {:16x}", state.csrs().hip.read());
     // debug!("hvip = {:16x}", state.csrs().hvip.read());
-    // debug!("htinst = {:16x}", state.csrs().htinst.read());
+    debug!("htinst = {:16x}", state.csrs().htinst.read());
     // debug!("hgeip = {:16x}", state.csrs().hgeip.read());
     // debug!("hgatp = {:16x}", state.csrs().hgatp.read());
     // debug!("hcontext = {:16x}", state.csrs().hcontext.read());

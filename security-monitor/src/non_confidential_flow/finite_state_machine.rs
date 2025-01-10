@@ -59,64 +59,64 @@ impl<'a> NonConfidentialFlow<'a> {
         let tt = TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state());
         use crate::core::architecture::sbi::CovhExtension;
         use crate::core::architecture::CSR;
-        match tt {
-            Interrupt => {}
-            IllegalInstruction => {}
-            LoadAddressMisaligned => {}
-            LoadAccessFault => {}
-            StoreAddressMisaligned => {}
-            StoreAccessFault => {
-                debug!("Store access fault mepc={:x} ", flow.hypervisor_hart().csrs().mepc.read_from_main_memory());
-            }
-            HsEcall(_) => {
-                let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-                let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
-                    debug!(
-                        "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-                        tt,
-                        a7,
-                        a6,
-                        flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-                        CSR.mhartid.read(),
-                        flow.hardware_hart.previous_mscratch,
-                    );
-                }
-            }
-            MachineEcall => {
-                let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-                let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
-                    debug!(
-                        "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-                        tt,
-                        a7,
-                        a6,
-                        flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-                        CSR.mhartid.read(),
-                        flow.hardware_hart.previous_mscratch,
-                    );
-                }
-            }
-            FetchPageFault => {}
-            LoadPageFault => {}
-            StorePageFault => {}
-            _ => {
-                let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-                let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-                if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e {
-                    debug!(
-                        "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-                        tt,
-                        a7,
-                        a6,
-                        flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-                        CSR.mhartid.read(),
-                        flow.hardware_hart.previous_mscratch,
-                    );
-                }
-            }
-        }
+        // match tt {
+        //     Interrupt => {}
+        //     IllegalInstruction => {}
+        //     LoadAddressMisaligned => {}
+        //     LoadAccessFault => {}
+        //     StoreAddressMisaligned => {}
+        //     StoreAccessFault => {
+        //         debug!("Store access fault mepc={:x} ", flow.hypervisor_hart().csrs().mepc.read_from_main_memory());
+        //     }
+        //     HsEcall(_) => {
+        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
+        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
+        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
+        //             debug!(
+        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
+        //                 tt,
+        //                 a7,
+        //                 a6,
+        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
+        //                 CSR.mhartid.read(),
+        //                 flow.hardware_hart.previous_mscratch,
+        //             );
+        //         }
+        //     }
+        //     MachineEcall => {
+        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
+        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
+        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
+        //             debug!(
+        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
+        //                 tt,
+        //                 a7,
+        //                 a6,
+        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
+        //                 CSR.mhartid.read(),
+        //                 flow.hardware_hart.previous_mscratch,
+        //             );
+        //         }
+        //     }
+        //     FetchPageFault => {}
+        //     LoadPageFault => {}
+        //     StorePageFault => {}
+        //     _ => {
+        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
+        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
+        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
+        //             debug!(
+        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
+        //                 tt,
+        //                 a7,
+        //                 a6,
+        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
+        //                 CSR.mhartid.read(),
+        //                 flow.hardware_hart.previous_mscratch,
+        //             );
+        //         }
+        //     }
+        // }
         match tt {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),

@@ -15,25 +15,77 @@ pub struct MmioLoadRequest {
     mtval: usize,
     mtval2: usize,
     mtinst: usize,
+    instruction_alignment: Option<usize>,
 }
 
 impl MmioLoadRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
+        let mut instruction_alignment = None;
+        let mut mtinst = confidential_hart.csrs().mtinst.read();
+        if mtinst == 0 {
+            let mepc = confidential_hart.csrs().mepc.read_from_main_memory();
+            confidential_hart.csrs().mstatus.read_and_set_bits((1 << 17));
+            confidential_hart.csrs().mstatus.read_and_set_bits((1 << 19));
+            debug!("Load mepc={:x} mastatus={:x}", mepc, confidential_hart.csrs().mstatus.read());
+            // enable MPRV and MXR
+            // Safety: Below memory reads using raw pointer are safe because:
+            //  * RISC-V requires that instructions are properly aligned
+            //  * It is the processor who writes mepc with the address of the trapped instruction
+            //  * Processor will perform memory address translation using guest's MMU configuration because of mstatus::MPRV
+            if mepc % 8 == 0 {
+                mtinst = unsafe { (mepc as *const u64).read_volatile() } as usize;
+                instruction_alignment = Some(8);
+                debug!("Load 8B alignment");
+            } else if mepc % 4 == 0 {
+                mtinst = unsafe { (mepc as *const u32).read_volatile() } as usize;
+                instruction_alignment = Some(4);
+                debug!("Load 4B alignment");
+            } else if mepc % 2 == 0 {
+                mtinst = unsafe { (mepc as *const u16).read_volatile() } as usize;
+                instruction_alignment = Some(2);
+                debug!("Load 2B alignment");
+            } else {
+                debug!("Load invalid alignment");
+            }
+            confidential_hart.csrs().mstatus.read_and_clear_bits((1 << 17));
+            confidential_hart.csrs().mstatus.read_and_clear_bits((1 << 19));
+            debug!("Load mtinst={:x} mastatus={:x}", mtinst, confidential_hart.csrs().mstatus.read());
+        }
+
         Self {
             mcause: confidential_hart.csrs().mcause.read(),
             mtval: confidential_hart.csrs().mtval.read(),
             mtval2: confidential_hart.csrs().mtval2.read(),
-            mtinst: confidential_hart.csrs().mtinst.read(),
+            mtinst,
+            instruction_alignment,
         }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
-        assert!(self.mtinst & 0x1 > 0);
-        let instruction = self.mtinst | 0x3;
+        if self.mtinst & 0x1 == 0 {
+            debug!("Detected pseudo instruction, should never happen!");
+        }
+
+        let mut instruction = self.mtinst | 0x3;
         let instruction_length = if is_bit_enabled(self.mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
+        debug!("Load instr len: {} instruction_alignment = {:?}", instruction_length, self.instruction_alignment);
+
+        // Make sure that we do not expose via mtinst more than the trapped instruction. This could happen when security monitor reads
+        // the trapped instruction direcly from the guest's main memory but the instruction size is smaller than its alignment.
+        // For example, consider that security monitor reads instruction of size 2B that is aligned to 8B. It would read the entire 8B
+        // containing 2B instruction + 6B of the next instruction. It must expose only 2B. So, it must determine the size instruction
+        // and then mask only bits belonging to this instruction. Otherwise, we would create a cover channel.
+        if let Some(alignment) = self.instruction_alignment {
+            if alignment < instruction_length {
+                debug!("Not aligned instruction read from mepc for mmio load: {} {:x}", instruction_length, instruction);
+            } else if alignment > instruction_length {
+                instruction = instruction & ((1 << 8 * instruction_length) - 1);
+            }
+        }
 
         let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
+        debug!("Load fault address {:x}", fault_address);
         if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
             let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, instruction_length);
             confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));

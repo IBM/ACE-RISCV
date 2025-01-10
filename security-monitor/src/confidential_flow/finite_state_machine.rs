@@ -26,7 +26,7 @@ use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{HartLifecycleState, TrapCause};
+use crate::core::architecture::{GeneralPurposeRegister, HartLifecycleState, TrapCause};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
@@ -67,7 +67,25 @@ impl<'a> ConfidentialFlow<'a> {
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
         let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
-        match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
+        let tt = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
+        let a7 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a7);
+        let a6 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a6);
+        match tt {
+            Interrupt => {}
+            _ => {
+                debug!(
+                    "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
+                    a7,
+                    a6,
+                    flow.confidential_hart().csrs().mcause.read(),
+                    flow.confidential_hart().csrs().htinst.read(),
+                    flow.confidential_hart().csrs().mepc.read_from_main_memory()
+                );
+                crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
+            }
+        }
+
+        match tt {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),

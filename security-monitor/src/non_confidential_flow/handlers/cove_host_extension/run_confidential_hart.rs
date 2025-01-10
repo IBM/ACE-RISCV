@@ -28,14 +28,17 @@ impl RunConfidentialHart {
     }
 
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
+        debug!("RunConfidentialHart handle");
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
             Ok((allowed_external_interrupts, confidential_flow)) => {
                 self.allowed_external_interrupts = allowed_external_interrupts;
+                debug!("RunConfidentialHart allowed_external_interrupts {:x}", allowed_external_interrupts);
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
             }
             Err((non_confidential_flow, error)) => {
+                debug!("RunConfidentialHart handle error");
                 // Properly implemented hypervisor should never let us enter this code. Entering this code means that the
                 // transition into confidential flow failed. This might indicate an error in the hypervisor implementation
                 // because the hypervisor tried to schedule an invalid confidential VM, an invalid confidential hart, or a
@@ -47,6 +50,7 @@ impl RunConfidentialHart {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
+        debug!("RunConfidentialHart declassify_to_confidential_hart");
         // Guard against stepping attacks by adding random delay to the timer
         let delay = 10; // TODO: generate random number
 
