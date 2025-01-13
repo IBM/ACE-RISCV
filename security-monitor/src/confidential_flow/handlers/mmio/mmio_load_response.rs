@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::mmio::MmioLoadPending;
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToConfidentialVm};
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 
 pub struct MmioLoadResponse {
@@ -12,7 +13,7 @@ pub struct MmioLoadResponse {
 
 impl MmioLoadResponse {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart, request: MmioLoadPending) -> Self {
-        let value = hypervisor_hart.shared_memory().gpr(request.gpr_storing_load_result());
+        let value = hypervisor_hart.shared_memory().gpr(GeneralPurposeRegister::a0);
         Self { value, request }
     }
 
