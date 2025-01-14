@@ -4,8 +4,8 @@
 use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioStorePending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::specification::CAUSE_STORE_ACCESS;
-use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
+use crate::core::architecture::specification::{CAUSE_STORE_ACCESS, *};
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -15,10 +15,9 @@ pub struct MmioStoreRequest {
     mcause: usize,
     mtval: usize,
     mtval2: usize,
-    mtinst: usize,
+    instruction: usize,
     instruction_length: usize,
-    gpr: Result<GeneralPurposeRegister, Error>,
-    gpr_value: usize,
+    gpr_value: Result<usize, Error>,
 }
 
 impl MmioStoreRequest {
@@ -26,60 +25,10 @@ impl MmioStoreRequest {
         let mcause = confidential_hart.csrs().mcause.read();
         let mtval = confidential_hart.csrs().mtval.read();
         let mtval2 = confidential_hart.csrs().mtval2.read();
-
-        let mut instruction_alignment = None;
-        let mut mtinst = confidential_hart.csrs().mtinst.read();
-        if mtinst == 0 {
-            let mepc = confidential_hart.csrs().mepc.read_from_main_memory();
-            confidential_hart.csrs().mstatus.read_and_set_bits((1 << 17));
-            confidential_hart.csrs().mstatus.read_and_set_bits((1 << 19));
-            // enable MPRV and MXR
-            // Safety: Below memory reads using raw pointer are safe because:
-            //  * RISC-V requires that instructions are properly aligned
-            //  * It is the processor who writes mepc with the address of the trapped instruction
-            //  * Processor will perform memory address translation using guest's MMU configuration because of mstatus::MPRV
-            if mepc % 8 == 0 {
-                mtinst = unsafe { (mepc as *const u64).read_volatile() } as usize;
-                instruction_alignment = Some(8);
-            } else if mepc % 4 == 0 {
-                mtinst = unsafe { (mepc as *const u32).read_volatile() } as usize;
-                instruction_alignment = Some(4);
-            } else if mepc % 2 == 0 {
-                mtinst = unsafe { (mepc as *const u16).read_volatile() } as usize;
-                instruction_alignment = Some(2);
-            } else {
-                debug!("Store invalid alignment");
-            }
-            confidential_hart.csrs().mstatus.read_and_clear_bits((1 << 17));
-            confidential_hart.csrs().mstatus.read_and_clear_bits((1 << 19));
-        }
-
-        // According to the RISC-V privilege spec, mtinst encodes faulted instruction when bit 0 is 1.
-        // Otherwise it is a pseudo instruction.
-        if mtinst & 0x1 == 0 {
-            debug!("Detected pseudo instruction, should never happen!");
-        }
-
-        let mut instruction = mtinst | 0x3;
-        let instruction_length = if is_bit_enabled(mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
-
-        // Make sure that we do not expose via mtinst more than the trapped instruction. This could happen when security monitor reads
-        // the trapped instruction direcly from the guest's main memory but the instruction size is smaller than its alignment.
-        // For example, consider that security monitor reads instruction of size 2B that is aligned to 8B. It would read the entire 8B
-        // containing 2B instruction + 6B of the next instruction. It must expose only 2B. So, it must determine the size instruction
-        // and then mask only bits belonging to this instruction. Otherwise, we would create a cover channel.
-        if let Some(alignment) = instruction_alignment {
-            if alignment < instruction_length {
-                debug!("Not aligned instruction read from mepc for mmio load: {} {:x}", instruction_length, instruction);
-            } else if alignment > instruction_length {
-                instruction = instruction & ((1 << 8 * instruction_length) - 1);
-            }
-        }
-
-        let gpr = crate::core::architecture::decode_result_register(instruction);
-        let gpr_value = gpr.as_ref().and_then(|ref gpr| Ok(confidential_hart.gprs().read(**gpr))).unwrap_or(0);
-
-        Self { mcause, mtval, mtval2, mtinst, instruction_length, gpr, gpr_value }
+        let (instruction, instruction_length) = super::read_trapped_instruction(confidential_hart);
+        let gpr_value =
+            crate::core::architecture::decode_result_register(instruction).and_then(|gpr| Ok(confidential_hart.gprs().read(gpr)));
+        Self { mcause, mtval, mtval2, instruction, instruction_length, gpr_value }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
@@ -90,7 +39,7 @@ impl MmioStoreRequest {
             confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
         }
 
-        match self.gpr {
+        match self.gpr_value {
             Ok(_) => confidential_flow
                 .set_resumable_operation(ResumableOperation::MmioStore(MmioStorePending::new(self.instruction_length)))
                 .into_non_confidential_flow()
@@ -103,12 +52,33 @@ impl MmioStoreRequest {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        use crate::core::architecture::riscv::specification::*;
+        let mut mtinst = if self.instruction & INSN_MASK_SB == INSN_MATCH_SB {
+            INSN_MATCH_SB
+        } else if self.instruction & INSN_MASK_SH == INSN_MATCH_SH {
+            INSN_MATCH_SH
+        } else if self.instruction & INSN_MASK_SW == INSN_MATCH_SW {
+            INSN_MATCH_SW
+        } else if self.instruction & INSN_MASK_C_SW == INSN_MATCH_C_SW {
+            INSN_MATCH_SW
+        } else if self.instruction & INSN_MASK_SD == INSN_MATCH_SD {
+            INSN_MATCH_SD
+        } else if self.instruction & INSN_MASK_C_SD == INSN_MATCH_C_SD {
+            INSN_MATCH_SD
+        } else {
+            debug!("Not supported store instruction {:x}", self.instruction);
+            0
+        };
+
+        mtinst |= ((GeneralPurposeRegister::a0 as usize) << 20) | 1 << 0;
+        if self.instruction_length != 2 {
+            mtinst |= 1 << 1;
+        }
+
         hypervisor_hart.csrs_mut().scause.write(self.mcause);
         hypervisor_hart.csrs_mut().stval.write(self.mtval);
-        hypervisor_hart.shared_memory_mut().write_gpr(*self.gpr.as_ref().unwrap_or(&GeneralPurposeRegister::zero), self.gpr_value);
+        hypervisor_hart.shared_memory_mut().write_gpr(GeneralPurposeRegister::a0, *self.gpr_value.as_ref().unwrap_or(&0));
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);
-        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), self.mtinst);
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), mtinst);
         SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

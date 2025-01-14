@@ -29,7 +29,6 @@ impl SharePageRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("SharePageRequest");
         match self.share_page_sbi_request() {
             Ok(sbi_request) => confidential_flow
                 .set_resumable_operation(ResumableOperation::SharePage(self))

@@ -70,20 +70,20 @@ impl<'a> ConfidentialFlow<'a> {
         let tt = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
         let a7 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a7);
         let a6 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a6);
-        match tt {
-            Interrupt => {}
-            _ => {
-                debug!(
-                    "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
-                    a7,
-                    a6,
-                    flow.confidential_hart().csrs().mcause.read(),
-                    flow.confidential_hart().csrs().htinst.read(),
-                    flow.confidential_hart().csrs().mepc.read_from_main_memory()
-                );
-                crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-            }
-        }
+        // match tt {
+        //     Interrupt => {}
+        //     _ => {
+        //         debug!(
+        //             "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
+        //             a7,
+        //             a6,
+        //             flow.confidential_hart().csrs().mcause.read(),
+        //             flow.confidential_hart().csrs().htinst.read(),
+        //             flow.confidential_hart().csrs().mepc.read_from_main_memory()
+        //         );
+        //         crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
+        //     }
+        // }
 
         match tt {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),

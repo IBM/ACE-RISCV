@@ -39,7 +39,6 @@ impl PromoteToConfidentialVm {
     const BOOT_HART_ID: usize = 0;
 
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        debug!("PromoteToConfidentialVm enter");
         let fdt_address = ConfidentialVmPhysicalAddress::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0));
         let attestation_payload_address = match hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) {
             0 => None,
@@ -51,7 +50,6 @@ impl PromoteToConfidentialVm {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        debug!("PromoteToConfidentialVm handle");
         let transformation = match self.create_confidential_vm(non_confidential_flow.shared_memory()) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
@@ -62,7 +60,6 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
-        debug!("PromoteToConfidentialVm before exiting");
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(transformation))
     }
 

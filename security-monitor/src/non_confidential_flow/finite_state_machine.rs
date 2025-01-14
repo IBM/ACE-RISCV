@@ -185,7 +185,6 @@ impl<'a> NonConfidentialFlow<'a> {
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisorHart) -> ! {
         match transformation {
             ApplyToHypervisorHart::SbiResponse(v) => {
-                debug!("FSM apply_and_exit_to_hypervisor");
                 v.apply_to_hypervisor_hart(self.hypervisor_hart_mut())
             }
             ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
