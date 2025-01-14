@@ -54,6 +54,7 @@ impl RunConfidentialHart {
         // confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
 
         // Inject external interrupts
+        debug!("Set HVIP from HV in declassify {:x} {:x}", self.hvip, self.hvip & self.allowed_external_interrupts);
         confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
     }
 }

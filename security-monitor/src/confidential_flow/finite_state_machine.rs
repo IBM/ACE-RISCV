@@ -70,21 +70,22 @@ impl<'a> ConfidentialFlow<'a> {
         let tt = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
         let a7 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a7);
         let a6 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a6);
-        // match tt {
-        //     Interrupt => {}
-        //     _ => {
-        //         debug!(
-        //             "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
-        //             a7,
-        //             a6,
-        //             flow.confidential_hart().csrs().mcause.read(),
-        //             flow.confidential_hart().csrs().htinst.read(),
-        //             flow.confidential_hart().csrs().mepc.read_from_main_memory()
-        //         );
-        //         crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-        //     }
-        // }
-
+        match tt {
+            Interrupt => {}
+            _ => {
+                if a7 == 0x434f5647 {
+                    debug!(
+                        "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
+                        a7,
+                        a6,
+                        flow.confidential_hart().csrs().mcause.read(),
+                        flow.confidential_hart().csrs().htinst.read(),
+                        flow.confidential_hart().csrs().mepc.read_from_main_memory()
+                    );
+                    // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
+                }
+            }
+        }
         match tt {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -180,6 +181,7 @@ impl<'a> ConfidentialFlow<'a> {
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
         // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
         use crate::core::control_data::ResumableOperation::*;
+        debug!("Resume mepc={:x}", self.confidential_hart().csrs().mepc.read_from_main_memory());
         match self.confidential_hart_mut().take_resumable_operation() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
             Some(ResumeHart(v)) => v.handle(self),
@@ -219,10 +221,15 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts =
-            self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vsip.read_from_main_memory();
+        debug!("HVIP from HV {:b}", self.confidential_hart().csrs().hvip.read_from_main_memory());
         let address = self.confidential_hart_mut().address();
-        self.confidential_hart().csrs().hvip.write(interrupts);
+        self.confidential_hart()
+            .csrs()
+            .hvip
+            .write(self.confidential_hart().csrs().hvip.read_from_main_memory() & (1 << 2 | 1 << 6 | 1 << 10));
+        debug!("HVIP from HV 2 {:b}", self.confidential_hart().csrs().hvip.read());
+        self.confidential_hart().csrs().vsip.write(self.confidential_hart().csrs().vsip.read_from_main_memory());
+        debug!("VSIP from HV 3 {:b}", self.confidential_hart().csrs().vsip.read());
         self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }
@@ -256,6 +263,7 @@ impl<'a> ConfidentialFlow<'a> {
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
                     confidential_hart_remote_commands.drain(..).for_each(|confidential_hart_remote_command| {
+                        debug!("Executing remote command");
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
                         // is assigned to the hardware hart.
                         self.confidential_hart_mut().execute(&confidential_hart_remote_command);

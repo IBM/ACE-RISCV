@@ -184,9 +184,7 @@ impl<'a> NonConfidentialFlow<'a> {
     /// context switch between security domains).
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisorHart) -> ! {
         match transformation {
-            ApplyToHypervisorHart::SbiResponse(v) => {
-                v.apply_to_hypervisor_hart(self.hypervisor_hart_mut())
-            }
+            ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
