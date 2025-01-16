@@ -49,6 +49,9 @@ extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_a
             debug!("CoVE security monitor initialized successfully");
         }
     }
+    use crate::core::architecture::HartArchitecturalState;
+    let state = HartArchitecturalState::empty();
+    crate::debug::__print_hart_state(&state);
 }
 
 /// Initializes the security monitor.

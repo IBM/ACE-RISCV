@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::attestation::RetrieveSecretRequest;
+use crate::confidential_flow::handlers::delegate::DelegateToConfidentialVm;
 use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, ExposeEnabledInterrupts, HandleInterrupt};
 use crate::confidential_flow::handlers::mmio::{
     AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
@@ -86,8 +87,21 @@ impl<'a> ConfidentialFlow<'a> {
                 }
             }
         }
+
+        use crate::core::architecture::specification::CSR_MSTATUS_MPV;
+        if (flow.confidential_hart().confidential_hart_state().csrs().mstatus.read() & 1 << CSR_MSTATUS_MPV) == 0 {
+            crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
+            debug!("Bug when executing confidential hart {}", flow.confidential_hart().confidential_hart_id());
+            ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
+        }
+
         match tt {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            IllegalInstruction => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            LoadAddressMisaligned => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            StoreAddressMisaligned => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            LoadAccessFault => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            StoreAccessFault => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplVersion)) => SbiGetImplVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -181,7 +195,7 @@ impl<'a> ConfidentialFlow<'a> {
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
         // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
         use crate::core::control_data::ResumableOperation::*;
-        debug!("Resume mepc={:x}", self.confidential_hart().csrs().mepc.read_from_main_memory());
+        // debug!("Resume mepc={:x}", self.confidential_hart().csrs().mepc.read_from_main_memory());
         match self.confidential_hart_mut().take_resumable_operation() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
             Some(ResumeHart(v)) => v.handle(self),
@@ -213,6 +227,7 @@ impl<'a> ConfidentialFlow<'a> {
             ApplyToConfidentialHart::MmioAccessFault(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::SbiResponse(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::VirtualInstruction(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
+            ApplyToConfidentialHart::DelegateToConfidentialVm(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
         }
         self.exit_to_confidential_hart()
     }
@@ -221,15 +236,12 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        debug!("HVIP from HV {:b}", self.confidential_hart().csrs().hvip.read_from_main_memory());
         let address = self.confidential_hart_mut().address();
         self.confidential_hart()
             .csrs()
             .hvip
             .write(self.confidential_hart().csrs().hvip.read_from_main_memory() & (1 << 2 | 1 << 6 | 1 << 10));
-        debug!("HVIP from HV 2 {:b}", self.confidential_hart().csrs().hvip.read());
         self.confidential_hart().csrs().vsip.write(self.confidential_hart().csrs().vsip.read_from_main_memory());
-        debug!("VSIP from HV 3 {:b}", self.confidential_hart().csrs().vsip.read());
         self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }
@@ -263,7 +275,6 @@ impl<'a> ConfidentialFlow<'a> {
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
                     confidential_hart_remote_commands.drain(..).for_each(|confidential_hart_remote_command| {
-                        debug!("Executing remote command");
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
                         // is assigned to the hardware hart.
                         self.confidential_hart_mut().execute(&confidential_hart_remote_command);
@@ -324,7 +335,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.hardware_hart.confidential_hart_mut()
     }
 
-    fn confidential_hart(&'a self) -> &ConfidentialHart {
+    pub fn confidential_hart(&'a self) -> &ConfidentialHart {
         self.hardware_hart.confidential_hart()
     }
 

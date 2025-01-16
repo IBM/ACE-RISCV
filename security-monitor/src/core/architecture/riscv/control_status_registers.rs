@@ -24,6 +24,7 @@ pub struct ControlStatusRegisters {
     pub mtval2: ReadWriteRiscvCsr<CSR_MTVAL2>,
     pub mtvec: ReadWriteRiscvCsr<CSR_MTVEC>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
+    pub mcounteren: ReadWriteRiscvCsr<CSR_MCOUNTEREN>,
     // S-mode
     pub sstatus: ReadWriteRiscvCsr<CSR_SSTATUS>,
     pub sie: ReadWriteRiscvCsr<CSR_SIE>,
@@ -82,6 +83,7 @@ impl ControlStatusRegisters {
             mtval2: ReadWriteRiscvCsr::new(),
             mtvec: ReadWriteRiscvCsr::new(),
             mscratch: ReadWriteRiscvCsr::new(),
+            mcounteren: ReadWriteRiscvCsr::new(),
             // S-mode
             sstatus: ReadWriteRiscvCsr::new(),
             sie: ReadWriteRiscvCsr::new(),
@@ -137,6 +139,7 @@ impl ControlStatusRegisters {
         self.mtval2.save_in_main_memory();
         self.mtvec.save_in_main_memory();
         self.mscratch.save_in_main_memory();
+        self.mcounteren.save_in_main_memory();
         // S-mode
         self.sstatus.save_in_main_memory();
         self.sie.save_in_main_memory();
@@ -191,6 +194,7 @@ impl ControlStatusRegisters {
         self.mtval.restore_from_main_memory();
         self.mtval2.restore_from_main_memory();
         self.mtvec.restore_from_main_memory();
+        self.mcounteren.restore_from_main_memory();
         // S-mode
         self.sstatus.restore_from_main_memory();
         self.sie.restore_from_main_memory();
@@ -248,6 +252,7 @@ impl ControlStatusRegisters {
         hasher.update(self.mtval.read_from_main_memory().to_le_bytes());
         hasher.update(self.mtval2.read_from_main_memory().to_le_bytes());
         hasher.update(self.mtvec.read_from_main_memory().to_le_bytes());
+        hasher.update(self.mcounteren.read_from_main_memory().to_le_bytes());
         // S-mode
         hasher.update(self.sstatus.read_from_main_memory().to_le_bytes());
         hasher.update(self.sie.read_from_main_memory().to_le_bytes());

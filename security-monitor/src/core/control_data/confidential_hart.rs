@@ -44,12 +44,7 @@ impl ConfidentialHart {
     /// Configuration of RISC-V exceptions for confidential hart
     const EXCEPTION_DELEGATION: usize = (1 << CAUSE_MISALIGNED_FETCH)
         | (1 << CAUSE_FETCH_ACCESS)
-        | (1 << CAUSE_ILLEGAL_INSTRUCTION)
         | (1 << CAUSE_BREAKPOINT)
-        | (1 << CAUSE_MISALIGNED_LOAD)
-        | (1 << CAUSE_LOAD_ACCESS)
-        | (1 << CAUSE_MISALIGNED_STORE)
-        | (1 << CAUSE_STORE_ACCESS)
         | (1 << CAUSE_USER_ECALL)
         | (1 << CAUSE_FETCH_PAGE_FAULT)
         | (1 << CAUSE_LOAD_PAGE_FAULT)
@@ -104,8 +99,9 @@ impl ConfidentialHart {
         // let henvcfg = confidential_hart_state.csrs_mut().henvcfg.read_from_main_memory();
         // confidential_hart_state.csrs_mut().senvcfg.save_value_in_main_memory(henvcfg);
         // Code running in VS-mode should directly access only the timer. Everything else must trap:
-        confidential_hart_state.csrs_mut().hcounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
-        confidential_hart_state.csrs_mut().scounteren.save_value_in_main_memory(HCOUNTEREN_TM_MASK);
+        confidential_hart_state.csrs_mut().mcounteren.save_value_in_main_memory(0x7f);
+        confidential_hart_state.csrs_mut().hcounteren.save_value_in_main_memory(0x7f);
+        confidential_hart_state.csrs_mut().scounteren.save_value_in_main_memory(0x7f);
 
         // assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
         // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
@@ -164,6 +160,7 @@ impl ConfidentialHart {
         // guarantee that these F registers do not disclose information from other security domains. The same is true for all other
         // extensions, e.g., V extension.
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
+            debug!("Store F state");
             // Enable F extension to access F registers. The lightweight context switch will eventually recover valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);
@@ -181,6 +178,7 @@ impl ConfidentialHart {
         unsafe { self.sstc().restore_from_main_memory() };
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
+            debug!("restore F state");
             // Enable F extension to access F registers. The lightweight context switch will eventually recover the valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);
