@@ -74,17 +74,15 @@ impl<'a> ConfidentialFlow<'a> {
         match tt {
             Interrupt => {}
             _ => {
-                if a7 == 0x434f5647 {
-                    debug!(
-                        "Enter a7={:x} a6={:x} mcause={} htinst={:x} mepc={:x}",
-                        a7,
-                        a6,
-                        flow.confidential_hart().csrs().mcause.read(),
-                        flow.confidential_hart().csrs().htinst.read(),
-                        flow.confidential_hart().csrs().mepc.read_from_main_memory()
-                    );
-                    // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-                }
+                debug!(
+                    "Enter a7={:x} a6={:x} mstatus={:x} mcause={} mepc={:x}",
+                    a7,
+                    a6,
+                    flow.confidential_hart().csrs().mstatus.read_from_main_memory()
+                    flow.confidential_hart().csrs().mcause.read(),
+                    flow.confidential_hart().csrs().mepc.read_from_main_memory()
+                );
+                // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
             }
         }
 

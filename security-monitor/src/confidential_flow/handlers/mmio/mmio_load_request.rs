@@ -35,10 +35,10 @@ impl MmioLoadRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
-        if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
-            let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, self.instruction_length);
-            confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
-        }
+        // if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
+        //     let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, self.instruction_length);
+        //     confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
+        // }
 
         match crate::core::architecture::decode_result_register(self.instruction) {
             Ok(gpr) => confidential_flow
