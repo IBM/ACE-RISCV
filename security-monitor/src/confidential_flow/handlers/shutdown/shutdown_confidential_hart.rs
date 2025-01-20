@@ -4,6 +4,7 @@
 use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::riscv::sbi::SrstExtension;
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ControlDataStorage;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -13,8 +14,8 @@ use crate::non_confidential_flow::DeclassifyToHypervisor;
 ///
 /// Always returns the control flow to the hypervisor informing it about the shutdown of the confidential VM.
 pub fn shutdown_confidential_hart(mut confidential_flow: ConfidentialFlow) -> ! {
-    let a0 = confidential_hart.gprs_mut().read(GeneralPurposeRegister::a0);
-    let a1 = confidential_hart.gprs_mut().read(GeneralPurposeRegister::a1);
+    let a0 = confidential_flow.confidential_hart().gprs().read(GeneralPurposeRegister::a0);
+    let a1 = confidential_flow.confidential_hart().gprs().read(GeneralPurposeRegister::a1);
 
     let confidential_vm_id = confidential_flow.confidential_vm_id();
     // change the lifecycle status of the confidential hart to Shutdown

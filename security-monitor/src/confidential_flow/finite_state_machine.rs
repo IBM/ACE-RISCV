@@ -7,7 +7,7 @@ use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, Exp
 use crate::confidential_flow::handlers::mmio::{
     AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
 };
-use crate::confidential_flow::handlers::sbi::{InvalidCall, SbiResponse};
+use crate::confidential_flow::handlers::sbi::{DebugRequest, InvalidCall, SbiResponse};
 use crate::confidential_flow::handlers::sbi_base_extension::{
     SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion,
 };
@@ -78,9 +78,9 @@ impl<'a> ConfidentialFlow<'a> {
                     "Enter a7={:x} a6={:x} mstatus={:x} mcause={} mepc={:x}",
                     a7,
                     a6,
-                    flow.confidential_hart().csrs().mstatus.read_from_main_memory()
+                    flow.confidential_hart().csrs().mstatus.read_from_main_memory(),
                     flow.confidential_hart().csrs().mcause.read(),
-                    flow.confidential_hart().csrs().mepc.read_from_main_memory()
+                    flow.confidential_hart().csrs().mepc.read_from_main_memory(),
                 );
                 // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
             }
@@ -126,6 +126,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Covg(ShareMemory)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(RetrieveSecret)) => RetrieveSecretRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(Debug)) => DebugRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(_) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),

@@ -29,7 +29,10 @@ impl DelegateToConfidentialVm {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("Delegating mcause={} mepc={:x} mstatus={:x} vstvec={:x} vsstatus={:x} to conf vm", self.mcause, self.mepc, self.mstatus, self.vstvec, self.vsstatus);
+        debug!(
+            "Delegating mcause={} mepc={:x} mstatus={:x} vstvec={:x} vsstatus={:x} to conf vm",
+            self.mcause, self.mepc, self.mstatus, self.vstvec, self.vsstatus
+        );
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::DelegateToConfidentialVm(self))
     }
 
