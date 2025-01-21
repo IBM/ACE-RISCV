@@ -160,7 +160,6 @@ impl ConfidentialHart {
         // guarantee that these F registers do not disclose information from other security domains. The same is true for all other
         // extensions, e.g., V extension.
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
-            debug!("Store F state");
             // Enable F extension to access F registers. The lightweight context switch will eventually recover valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);
@@ -178,7 +177,6 @@ impl ConfidentialHart {
         unsafe { self.sstc().restore_from_main_memory() };
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
-            debug!("restore F state");
             // Enable F extension to access F registers. The lightweight context switch will eventually recover the valid F configuration in
             // mstatus, so we do not have to set it back to the original value after this context switch.
             self.csrs().mstatus.read_and_set_bits(SR_FS);

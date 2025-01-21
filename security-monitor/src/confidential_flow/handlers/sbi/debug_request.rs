@@ -26,7 +26,6 @@ impl DebugRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("ConfidentialVM: a0={} a1={} a2={} a3={}", self.a0, self.a1, self.a2, self.a3);
         let r = SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_DEBUG, self.a0, self.a1);
 
         confidential_flow

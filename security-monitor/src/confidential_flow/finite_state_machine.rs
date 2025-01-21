@@ -71,20 +71,20 @@ impl<'a> ConfidentialFlow<'a> {
         let tt = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
         let a7 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a7);
         let a6 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a6);
-        match tt {
-            Interrupt => {}
-            _ => {
-                debug!(
-                    "Enter a7={:x} a6={:x} mstatus={:x} mcause={} mepc={:x}",
-                    a7,
-                    a6,
-                    flow.confidential_hart().csrs().mstatus.read_from_main_memory(),
-                    flow.confidential_hart().csrs().mcause.read(),
-                    flow.confidential_hart().csrs().mepc.read_from_main_memory(),
-                );
-                // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-            }
-        }
+        // match tt {
+        //     Interrupt => {}
+        //     _ => {
+        //         debug!(
+        //             "Enter a7={:x} a6={:x} mstatus={:x} mcause={} mepc={:x}",
+        //             a7,
+        //             a6,
+        //             flow.confidential_hart().csrs().mstatus.read_from_main_memory(),
+        //             flow.confidential_hart().csrs().mcause.read(),
+        //             flow.confidential_hart().csrs().mepc.read_from_main_memory(),
+        //         );
+        //         // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
+        //     }
+        // }
 
         use crate::core::architecture::specification::CSR_MSTATUS_MPV;
         if (flow.confidential_hart().confidential_hart_state().csrs().mstatus.read() & 1 << CSR_MSTATUS_MPV) == 0 {
@@ -195,7 +195,6 @@ impl<'a> ConfidentialFlow<'a> {
         // One of the reasons why this confidential hart was not running is that it could have sent a request (e.g., a hypercall or MMIO
         // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
         use crate::core::control_data::ResumableOperation::*;
-        // debug!("Resume mepc={:x}", self.confidential_hart().csrs().mepc.read_from_main_memory());
         match self.confidential_hart_mut().take_resumable_operation() {
             Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
             Some(ResumeHart(v)) => v.handle(self),

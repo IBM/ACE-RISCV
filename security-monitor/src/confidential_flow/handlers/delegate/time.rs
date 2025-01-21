@@ -15,9 +15,7 @@ impl TimeRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        debug!("Reading CSR_TIME in security monitor");
         let time = CSR.time.read();
-        debug!("CSR_TIME={}", time);
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(time)))
     }
 }
