@@ -4,6 +4,7 @@
 use crate::confidential_flow::handlers::interrupts::{ExposeEnabledInterrupts, HandleInterrupt};
 use crate::confidential_flow::handlers::mmio::{MmioLoadRequest, MmioStoreRequest};
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 
 /// Declassifiers that expose part of the confidential VM's hart state to the hypervisor.
 pub enum DeclassifyToHypervisor {
@@ -13,4 +14,5 @@ pub enum DeclassifyToHypervisor {
     MmioLoadRequest(MmioLoadRequest),
     MmioStoreRequest(MmioStoreRequest),
     EnabledInterrupts(ExposeEnabledInterrupts),
+    VirtualInstruction(VirtualInstruction),
 }

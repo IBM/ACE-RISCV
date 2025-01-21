@@ -330,7 +330,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.confidential_hart().confidential_hart_id()
     }
 
-    fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
+    pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
         self.hardware_hart.confidential_hart_mut()
     }
 

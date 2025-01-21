@@ -15,7 +15,9 @@ impl TimeRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let time = CSR.time.read();
+        let addr = 0x200BFF8;
+        let time = unsafe { (addr as *const u64).read_volatile() } as usize;
+        // let time = CSR.time.read();
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(time)))
     }
 }

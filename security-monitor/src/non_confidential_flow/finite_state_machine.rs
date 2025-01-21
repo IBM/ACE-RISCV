@@ -167,6 +167,7 @@ impl<'a> NonConfidentialFlow<'a> {
             DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::EnabledInterrupts(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            DeclassifyToHypervisor::VirtualInstruction(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         self
     }
