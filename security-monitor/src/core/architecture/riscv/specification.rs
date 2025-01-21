@@ -20,6 +20,15 @@ pub const ECALL_INSTRUCTION_LENGTH: usize = 4;
 pub const CAUSE_INTERRUPT_BIT: usize = 63;
 pub const STVEC_MODE_VECTORED: usize = 0b11;
 
+pub const CSR_USTATUS: u16 = 0;
+pub const CSR_UIE: u16 = 4;
+pub const CSR_UTVEC: u16 = 5;
+pub const CSR_USCRATCH: u16 = 64;
+pub const CSR_UEPC: u16 = 65;
+pub const CSR_UCAUSE: u16 = 66;
+pub const CSR_UTVAL: u16 = 67;
+pub const CSR_UIP: u16 = 68;
+
 pub const CSR_FFLAGS: u16 = 0x1;
 pub const CSR_FRM: u16 = 0x2;
 pub const CSR_FCSR: u16 = 0x3;

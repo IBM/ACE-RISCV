@@ -39,6 +39,15 @@ pub struct ControlStatusRegisters {
     pub satp: ReadWriteRiscvCsr<CSR_SATP>,
     // S-mode Debug extension should never be present due to security concerns
     // pub scontext: ReadWriteRiscvCsr<CSR_SCONTEXT>,
+    // U-mode
+    pub ustatus: ReadWriteRiscvCsr<CSR_USTATUS>,
+    pub uie: ReadWriteRiscvCsr<CSR_UIE>,
+    pub utvec: ReadWriteRiscvCsr<CSR_UTVEC>,
+    pub uscratch: ReadWriteRiscvCsr<CSR_USCRATCH>,
+    pub uepc: ReadWriteRiscvCsr<CSR_UEPC>,
+    pub ucause: ReadWriteRiscvCsr<CSR_UCAUSE>,
+    pub ubadaddr: ReadWriteRiscvCsr<CSR_UTVAL>,
+    pub uip: ReadWriteRiscvCsr<CSR_UIP>,
     // HS-mode
     pub hstatus: ReadWriteRiscvCsr<CSR_HSTATUS>,
     pub hedeleg: ReadWriteRiscvCsr<CSR_HEDELEG>,
@@ -97,6 +106,15 @@ impl ControlStatusRegisters {
             sip: ReadWriteRiscvCsr::new(),
             satp: ReadWriteRiscvCsr::new(),
             // scontext: ReadWriteRiscvCsr::new(),
+            // U-mode
+            ustatus: ReadWriteRiscvCsr::new(),
+            uie: ReadWriteRiscvCsr::new(),
+            utvec: ReadWriteRiscvCsr::new(),
+            uscratch: ReadWriteRiscvCsr::new(),
+            uepc: ReadWriteRiscvCsr::new(),
+            ucause: ReadWriteRiscvCsr::new(),
+            ubadaddr: ReadWriteRiscvCsr::new(),
+            uip: ReadWriteRiscvCsr::new(),
             // HS-mode
             hstatus: ReadWriteRiscvCsr::new(),
             hedeleg: ReadWriteRiscvCsr::new(),
@@ -154,6 +172,15 @@ impl ControlStatusRegisters {
         self.satp.save_in_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.save_in_main_memory();
+        // U-mode
+        self.ustatus.save_in_main_memory();
+        self.uie.save_in_main_memory();
+        self.utvec.save_in_main_memory();
+        self.uscratch.save_in_main_memory();
+        self.uepc.save_in_main_memory();
+        self.ucause.save_in_main_memory();
+        self.ubadaddr.save_in_main_memory();
+        // self.uip.save_in_main_memory();
         // HS-mode
         self.hstatus.save_in_main_memory();
         self.hedeleg.save_in_main_memory();
@@ -209,6 +236,15 @@ impl ControlStatusRegisters {
         self.satp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.restore_from_main_memory();
+        // U-mode
+        self.ustatus.restore_from_main_memory();
+        self.uie.restore_from_main_memory();
+        self.utvec.restore_from_main_memory();
+        self.uscratch.restore_from_main_memory();
+        self.uepc.restore_from_main_memory();
+        self.ucause.restore_from_main_memory();
+        self.ubadaddr.restore_from_main_memory();
+        self.uip.restore_from_main_memory();
         // HS-mode
         self.hstatus.restore_from_main_memory();
         self.hedeleg.restore_from_main_memory();
