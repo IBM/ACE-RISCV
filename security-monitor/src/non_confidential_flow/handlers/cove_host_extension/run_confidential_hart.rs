@@ -28,12 +28,12 @@ impl RunConfidentialHart {
     }
 
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        debug!("State of KVM:");
-        crate::debug::__print_hart_state(non_confidential_flow.hypervisor_hart().hypervisor_hart_state());
+        // debug!("State of KVM:");
+        // crate::debug::__print_hart_state(non_confidential_flow.hypervisor_hart().hypervisor_hart_state());
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
             Ok((allowed_external_interrupts, confidential_flow)) => {
-                debug!("State of Confidential VM:");
-                crate::debug::__print_hart_state(confidential_flow.confidential_hart().confidential_hart_state());
+                // debug!("State of Confidential VM:");
+                // crate::debug::__print_hart_state(confidential_flow.confidential_hart().confidential_hart_state());
                 self.allowed_external_interrupts = allowed_external_interrupts;
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))

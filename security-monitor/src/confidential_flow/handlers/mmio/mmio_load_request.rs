@@ -21,7 +21,7 @@ pub struct MmioLoadRequest {
 impl MmioLoadRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         let fault_address = (confidential_hart.csrs().mtval2.read() << 2) | (confidential_hart.csrs().mtval.read() & 0x3);
-        debug!("MMIO store: 0x{:x}", fault_address);
+        // debug!("MMIO store: 0x{:x}", fault_address);
 
         let (instruction, instruction_length) = super::read_trapped_instruction(confidential_hart);
         Self {
