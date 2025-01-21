@@ -7,6 +7,10 @@ use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 use crate::error::Error;
 
+pub use time::TimeRequest;
+
+mod time;
+
 pub struct DelegateToConfidentialVm {
     mstatus: usize,
     mcause: usize,
@@ -14,6 +18,7 @@ pub struct DelegateToConfidentialVm {
     mtval: usize,
     vstvec: usize,
     vsstatus: usize,
+    mtinst: usize,
 }
 
 impl DelegateToConfidentialVm {
@@ -24,14 +29,15 @@ impl DelegateToConfidentialVm {
         let mtval = confidential_hart.csrs().mtval.read();
         let vstvec = confidential_hart.csrs().vstvec.read();
         let vsstatus = confidential_hart.csrs().vsstatus.read();
+        let mtinst = crate::confidential_flow::handlers::mmio::read_trapped_instruction(confidential_hart).0;
 
-        Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus }
+        Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, mtinst }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         debug!(
-            "Delegating mcause={} mepc={:x} mstatus={:x} vstvec={:x} vsstatus={:x} to conf vm",
-            self.mcause, self.mepc, self.mstatus, self.vstvec, self.vsstatus
+            "Delegating mcause={} mepc={:x} mtinst={:x} mstatus={:x} vstvec={:x} vsstatus={:x} to conf vm",
+            self.mcause, self.mepc, self.mtinst, self.mstatus, self.vstvec, self.vsstatus
         );
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::DelegateToConfidentialVm(self))
     }

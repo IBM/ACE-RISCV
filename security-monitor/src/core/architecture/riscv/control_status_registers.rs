@@ -348,6 +348,7 @@ pub struct ControlStatusRegister {
     pub pmpaddr5: ReadWriteRiscvCsr<CSR_PMPADDR5>,
     pub pmpaddr6: ReadWriteRiscvCsr<CSR_PMPADDR6>,
     pub pmpaddr7: ReadWriteRiscvCsr<CSR_PMPADDR7>,
+    pub time: ReadWriteRiscvCsr<CSR_TIME>,
     // pub mseccfg: ReadWriteRiscvCsr<CSR_MSECCFG>,
 }
 
@@ -367,6 +368,7 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     pmpaddr5: ReadWriteRiscvCsr::new(),
     pmpaddr6: ReadWriteRiscvCsr::new(),
     pmpaddr7: ReadWriteRiscvCsr::new(),
+    time: ReadWriteRiscvCsr::new(),
     // mseccfg: ReadWriteRiscvCsr::new(),
 };
 

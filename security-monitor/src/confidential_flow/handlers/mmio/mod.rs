@@ -43,7 +43,7 @@ extern "C" {
     fn _load_u64_from_confidential_vm_memory(address: usize) -> usize;
 }
 
-fn read_trapped_instruction(confidential_hart: &crate::core::control_data::ConfidentialHart) -> (usize, usize) {
+pub fn read_trapped_instruction(confidential_hart: &crate::core::control_data::ConfidentialHart) -> (usize, usize) {
     match confidential_hart.csrs().mtinst.read() {
         0 => {
             let guest_virtual_address = confidential_hart.csrs().mepc.read_from_main_memory();

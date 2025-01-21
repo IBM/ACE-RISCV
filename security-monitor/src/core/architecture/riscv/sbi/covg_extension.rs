@@ -12,6 +12,7 @@ pub enum CovgExtension {
     DenyExternalInterrupt,
     RetrieveSecret,
     Debug,
+    Time,
     Unknown(usize, usize),
 }
 
@@ -25,6 +26,7 @@ impl CovgExtension {
     pub const SBI_EXT_COVG_DENY_EXT_INTERRUPT: usize = 5;
     pub const SBI_EXT_COVG_RETRIEVE_SECRET: usize = 9;
     pub const SBI_EXT_COVG_DEBUG: usize = 10;
+    pub const SBI_EXT_COVG_TIME: usize = 11;
 
     pub fn from_function_id(function_id: usize) -> Self {
         match function_id {
@@ -36,6 +38,7 @@ impl CovgExtension {
             Self::SBI_EXT_COVG_DENY_EXT_INTERRUPT => Self::DenyExternalInterrupt,
             Self::SBI_EXT_COVG_RETRIEVE_SECRET => Self::RetrieveSecret,
             Self::SBI_EXT_COVG_DEBUG => Self::Debug,
+            Self::SBI_EXT_COVG_TIME => Self::Time,
             _ => Self::Unknown(Self::EXTID, function_id),
         }
     }
