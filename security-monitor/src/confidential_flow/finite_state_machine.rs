@@ -71,6 +71,7 @@ impl<'a> ConfidentialFlow<'a> {
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
         match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            DelegateToConfidentialVm
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplVersion)) => SbiGetImplVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),

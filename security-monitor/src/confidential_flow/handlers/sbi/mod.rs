@@ -4,7 +4,9 @@
 pub use invalid_call::InvalidCall;
 pub use request::SbiRequest;
 pub use response::SbiResponse;
+pub use delegate::DelegateToConfidentialVm;
 
 mod invalid_call;
 mod request;
 mod response;
+mod delegate;
