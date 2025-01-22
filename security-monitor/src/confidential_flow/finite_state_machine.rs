@@ -16,6 +16,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     Ipi, NoOperation, RemoteFenceI, RemoteSfenceVma, RemoteSfenceVmaAsid, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop,
     SbiHsmHartSuspend,
 };
+use crate::confidential_flow::handlers::time::SetTimer;
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
@@ -25,6 +26,7 @@ use crate::core::architecture::riscv::sbi::IpiExtension::*;
 use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
+use crate::core::architecture::riscv::sbi::TimeExtension::*;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
@@ -95,6 +97,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Covg(ShareMemory)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(RetrieveSecret)) => RetrieveSecretRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Time(SetTimer)) => SetTimer::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(_) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -293,7 +296,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.confidential_hart().confidential_hart_id()
     }
 
-    fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
+    pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
         self.hardware_hart.confidential_hart_mut()
     }
 

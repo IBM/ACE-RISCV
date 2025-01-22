@@ -56,7 +56,7 @@ echo "Number of cores assigned to the guest: ${SMP}"
 ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -m ${MEMORY} \
     ${INTERACTIVE} \
-    -machine virt -cpu rv64 \
+    -machine virt -cpu rv64,sstc=false \
     -bios none \
     -kernel ${KERNEL} \
     -global virtio-mmio.force-legacy=false \

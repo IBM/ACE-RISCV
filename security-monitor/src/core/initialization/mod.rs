@@ -86,23 +86,23 @@ fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(),
 /// does not support required extensions.
 fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     // All harts in the system can run the security monitor and every hart must implement all required features
-    fdt.harts().try_for_each(|ref hart| {
-        let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-        HardwareSetup::check_isa_extensions(prop)
-    })?;
+    // fdt.harts().try_for_each(|ref hart| {
+    //     let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+    //     HardwareSetup::check_isa_extensions(prop)
+    // })?;
 
-    // Enable support for extensions that are implemented by all harts
-    HardwareExtension::all().into_iter().for_each(|ext| {
-        let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
-            let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-            let extensions = &prop.split('_').collect::<Vec<&str>>();
-            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
-        });
-        if is_extension_supported_by_all_harts {
-            debug!("Enabling support for extension: {:?}", ext);
-            let _ = HardwareSetup::add_extension(ext);
-        }
-    });
+    // // Enable support for extensions that are implemented by all harts
+    // HardwareExtension::all().into_iter().for_each(|ext| {
+    //     let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
+    //         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+    //         let extensions = &prop.split('_').collect::<Vec<&str>>();
+    //         extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+    //     });
+    //     if is_extension_supported_by_all_harts {
+    //         debug!("Enabling support for extension: {:?}", ext);
+    //         let _ = HardwareSetup::add_extension(ext);
+    //     }
+    // });
 
     // TODO: make sure there are enough PMPs
 

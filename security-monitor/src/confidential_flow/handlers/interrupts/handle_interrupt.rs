@@ -18,7 +18,12 @@ impl HandleInterrupt {
         Self { pending_interrupts: confidential_hart.csrs().mip.read() }
     }
 
-    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+        // debug!(
+        //     "Interrupt {:x} mepc={:x}",
+        //     self.pending_interrupts,
+        //     confidential_flow.confidential_hart_mut().csrs().mepc.read_from_main_memory()
+        // );
         if self.pending_interrupts & MIE_SSIP_MASK > 0 {
             // One of the reasons why the confidential hart was interrupted with SSIP is that it got an `ConfidentialHartRemoteCommand` from
             // another confidential hart. If this is the case, we must process all queued requests before resuming confidential

@@ -9,4 +9,5 @@ pub mod sbi_base_extension;
 pub mod shared_page;
 pub mod shutdown;
 pub mod symmetrical_multiprocessing;
+pub mod time;
 pub mod virtual_instructions;
