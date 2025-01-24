@@ -17,7 +17,7 @@ pub struct ControlStatusRegisters {
     pub medeleg: ReadWriteRiscvCsr<CSR_MEDELEG>,
     pub mideleg: ReadWriteRiscvCsr<CSR_MIDELEG>,
     pub mie: ReadWriteRiscvCsr<CSR_MIE>,
-    pub mip: ReadRiscvCsr<CSR_MIP>,
+    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
     pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
     pub mtinst: ReadWriteRiscvCsr<CSR_MTINST>,
     pub mtval: ReadWriteRiscvCsr<CSR_MTVAL>,
@@ -65,6 +65,11 @@ pub struct ControlStatusRegisters {
     pub vscause: ReadWriteRiscvCsr<CSR_VSCAUSE>,
     pub vstval: ReadWriteRiscvCsr<CSR_VSTVAL>,
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
+    // timer
+    pub stimecmp: usize,
+    pub vstimecmp: usize,
+    pub vstip: usize,
+    pub allowed_external_interrupts: usize,
 }
 
 impl ControlStatusRegisters {
@@ -75,7 +80,7 @@ impl ControlStatusRegisters {
             medeleg: ReadWriteRiscvCsr::new(),
             mideleg: ReadWriteRiscvCsr::new(),
             mie: ReadWriteRiscvCsr::new(),
-            mip: ReadRiscvCsr::new(),
+            mip: ReadWriteRiscvCsr::new(),
             mstatus: ReadWriteRiscvCsr::new(),
             mtinst: ReadWriteRiscvCsr::new(),
             mtval: ReadWriteRiscvCsr::new(),
@@ -121,6 +126,11 @@ impl ControlStatusRegisters {
             vscause: ReadWriteRiscvCsr::new(),
             vstval: ReadWriteRiscvCsr::new(),
             vsatp: ReadWriteRiscvCsr::new(),
+            // timer
+            stimecmp: 0,
+            vstimecmp: 0,
+            vstip: 0,
+            allowed_external_interrupts: 0,
         };
         csrs
     }

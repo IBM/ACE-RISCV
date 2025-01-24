@@ -105,6 +105,7 @@ impl ConfidentialHart {
         // assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
         // // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
         // confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
+        confidential_hart_state.csrs_mut().vstimecmp = usize::MAX - 1;
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_FS_INITIAL);

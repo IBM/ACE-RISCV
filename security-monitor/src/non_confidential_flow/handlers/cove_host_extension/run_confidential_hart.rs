@@ -4,6 +4,7 @@
 use crate::confidential_flow::DeclassifyToConfidentialVm;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
+use crate::core::timer_controller::TimerController;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
@@ -29,8 +30,9 @@ impl RunConfidentialHart {
 
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
-            Ok((allowed_external_interrupts, confidential_flow)) => {
+            Ok((allowed_external_interrupts, mut confidential_flow)) => {
                 self.allowed_external_interrupts = allowed_external_interrupts;
+                TimerController::try_write(|controller| Ok(controller.restore_vs_timer(&mut confidential_flow))).unwrap();
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
@@ -52,11 +54,16 @@ impl RunConfidentialHart {
 
         // We write directly to the CSR because we are after the heavy context switch
         // confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
-        confidential_hart.csrs_mut().htimedelta.write(0); //(-10isize) as usize);
-                                                          // if self.hvip > 0 {
-                                                          //     debug!("enter {:x} {:x}", self.hvip, self.allowed_external_interrupts);
-                                                          // }
-                                                          // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
+        confidential_hart.csrs_mut().htimedelta.write(0);
+
+        let new_hvip = self.hvip & self.allowed_external_interrupts;
+
+        use crate::core::architecture::specification::*;
+        // if new_hvip > 0 {
+        // debug!("hypervisor injects {:x}!", new_hvip);
+        // }
+
+        confidential_hart.csrs_mut().allowed_external_interrupts = self.allowed_external_interrupts;
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(new_hvip);
     }
 }

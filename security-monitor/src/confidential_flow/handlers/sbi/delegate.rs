@@ -7,7 +7,6 @@ use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
 use crate::error::Error;
 
-
 pub struct DelegateToConfidentialVm {
     mstatus: usize,
     mcause: usize,
@@ -26,7 +25,7 @@ impl DelegateToConfidentialVm {
         let mtval = confidential_hart.csrs().mtval.read();
         let vstvec = confidential_hart.csrs().vstvec.read();
         let vsstatus = confidential_hart.csrs().vsstatus.read();
-        let mtinst = crate::confidential_flow::handlers::mmio::read_trapped_instruction(confidential_hart).0;
+        let mtinst = confidential_hart.csrs().mtinst.read();
 
         Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, mtinst }
     }

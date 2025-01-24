@@ -19,8 +19,18 @@ impl VirtualInstruction {
         Self { instruction, instruction_length }
     }
 
-    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+        confidential_flow.confidential_hart_mut().csrs_mut().mepc.add(self.instruction_length);
+
+        // use crate::confidential_flow::handlers::sbi::SbiRequest;
+        // use crate::core::architecture::sbi::CovgExtension;
+        // use crate::non_confidential_flow::DeclassifyToHypervisor;
+
+        // let r = SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_ALLOW_EXT_INTERRUPT, usize::MAX, 0);
+        // confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::SbiRequest(r))
+
         let transformation = if self.instruction == WFI_INSTRUCTION {
+            // debug!("wfi");
             ApplyToConfidentialHart::VirtualInstruction(self)
         } else {
             // TODO: add support for some CSR manipulation
@@ -30,7 +40,5 @@ impl VirtualInstruction {
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 
-    pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        confidential_hart.csrs_mut().mepc.add(self.instruction_length);
-    }
+    pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {}
 }
