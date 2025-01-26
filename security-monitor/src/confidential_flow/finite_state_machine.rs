@@ -81,36 +81,6 @@ impl<'a> ConfidentialFlow<'a> {
             ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
         }
 
-        use crate::core::architecture::specification::*;
-        // let sie = flow.confidential_hart_mut().csrs_mut().hie.read();
-        // flow.confidential_hart_mut().csrs_mut().hie.read_and_set_bits(MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK);
-        // flow.confidential_hart_mut().csrs_mut().vstip = flow.confidential_hart().confidential_hart_state().csrs().hip.read();
-
-        if flow.confidential_hart().confidential_hart_state().csrs().hvip.read() & MIE_VSSIP_MASK == 0 {
-            if flow.confidential_hart_mut().csrs_mut().vstip & MIE_VSSIP_MASK > 0 {
-                flow.confidential_hart_mut().csrs_mut().vstip &= !MIE_VSSIP_MASK;
-            }
-        }
-        // if flow.confidential_hart().confidential_hart_state().csrs().hvip.read() & MIE_VSTIP_MASK == 0 {
-        // if flow.confidential_hart_mut().csrs_mut().vstip & MIE_VSTIP_MASK > 0 {
-        flow.confidential_hart_mut().csrs_mut().vstip &= !MIE_VSTIP_MASK;
-        // }
-        // }
-        if flow.confidential_hart().confidential_hart_state().csrs().hvip.read() & MIE_VSEIP_MASK == 0 {
-            if flow.confidential_hart_mut().csrs_mut().vstip & MIE_VSEIP_MASK > 0 {
-                flow.confidential_hart_mut().csrs_mut().vstip &= !MIE_VSEIP_MASK;
-            }
-        }
-        // debug!(
-        //     "mepc={:x} hip={:x} hie={:x} vsie={:x} IE={:x}",
-        //     flow.confidential_hart_mut().csrs_mut().mepc.read_from_main_memory(),
-        //     flow.confidential_hart().confidential_hart_state().csrs().hip.read(),
-        //     flow.confidential_hart().confidential_hart_state().csrs().hie.read(),
-        //     flow.confidential_hart().confidential_hart_state().csrs().vsie.read(),
-        //     flow.confidential_hart().confidential_hart_state().csrs().vsstatus.read() & 0x100010,
-        // );
-        // flow.confidential_hart_mut().csrs_mut().hie.write(sie);
-
         match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             IllegalInstruction => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -253,33 +223,10 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory()
-            | self.confidential_hart().csrs().vsip.read_from_main_memory()
-            | self.confidential_hart().csrs().vstip)
+        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vstip)
             & self.confidential_hart().csrs().allowed_external_interrupts;
-
-        use crate::core::architecture::specification::*;
-
+        self.confidential_hart().csrs().hvip.write(interrupts);
         let address = self.confidential_hart_mut().address();
-
-        use crate::core::architecture::specification::*;
-        // if self.confidential_hart().csrs().vsstatus.read() & 0x10 > 0 {
-        let i2 = interrupts & (self.confidential_hart().csrs().vsie.read() << 1);
-        self.confidential_hart().csrs().hvip.write(i2);
-        // debug!("exit_to_confidential_hart with VSTIP {:x}", interrupts);
-        // self.confidential_hart_mut().csrs_mut().vstip = 0;
-        // }
-        // debug!(
-        //     "exit_to_confidential_hart with VSTIP {:x} vsip={:x} vsip={:x}",
-        //     interrupts,
-        //     self.confidential_hart().csrs().vsip.read(),
-        //     self.confidential_hart().csrs().vsie.read()
-        // );
-
-        if self.confidential_hart_mut().csrs_mut().hvip.read() & MIE_VSTIP_MASK > 0 {
-            debug!("inject timer");
-        }
-
         self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }

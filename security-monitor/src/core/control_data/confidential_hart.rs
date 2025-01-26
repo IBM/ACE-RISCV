@@ -43,6 +43,14 @@ pub struct ConfidentialHart {
 impl ConfidentialHart {
     /// Configuration of RISC-V exceptions for confidential hart
     const EXCEPTION_DELEGATION: usize = (1 << CAUSE_MISALIGNED_FETCH)
+        | (1 << CAUSE_ILLEGAL_INSTRUCTION)
+        | (1 << 1)
+        | (1 << 2)
+        | (1 << 3)
+        | (1 << 4)
+        | (1 << 5)
+        | (1 << 6)
+        | (1 << 7)
         | (1 << CAUSE_BREAKPOINT)
         | (1 << CAUSE_STORE_ACCESS)
         | (1 << CAUSE_USER_ECALL)
@@ -50,12 +58,13 @@ impl ConfidentialHart {
         | (1 << CAUSE_LOAD_PAGE_FAULT)
         | (1 << CAUSE_STORE_PAGE_FAULT);
     const INITIAL_MSTATUS: usize =
-        ((1 << CSR_MSTATUS_MPV) | (1 << CSR_MSTATUS_MPP) | (1 << CSR_MSTATUS_SIE) | (1 << CSR_MSTATUS_SPIE)) & !(1 << CSR_MSTATUS_MPIE);
-    const INITIAL_HSTATUS: usize = (1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL);
+        ((1 << CSR_MSTATUS_MPV) | (1 << CSR_MSTATUS_MPP) | (1 << CSR_MSTATUS_SIE) | (1 << CSR_MSTATUS_SPIE) | (1 << CSR_SSTATUS_FS))
+            & !(1 << CSR_MSTATUS_MPIE);
+    const INITIAL_HSTATUS: usize = (1 << CSR_HSTATUS_VTW) | (1 << CSR_HSTATUS_SPVP) | (1 << CSR_HSTATUS_UXL) | (1 << CSR_SSTATUS_FS);
     const INITIAL_SSTATUS: usize = (1 << CSR_SSTATUS_SPIE) | (1 << CSR_SSTATUS_UXL);
     /// Configuration of delegation of RISC-V interrupts that will trap directly in the confidential hart. All other interrupts will trap in
     /// the security monitor.
-    const INTERRUPT_DELEGATION: usize = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
+    const INTERRUPT_DELEGATION: usize = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK | 1 << 12;
 
     /// Constructs a dummy hart. This dummy hart carries no confidential information. It is used to indicate that a real
     /// confidential hart has been assigned to a hardware hart for execution. A dummy confidential hart has the id of the hardware hart it
@@ -88,7 +97,7 @@ impl ConfidentialHart {
         // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
         confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
-        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK | MIE_MTIP_MASK);
+        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK | MIE_MTIP_MASK | MIE_SSIP_MASK);
         confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);

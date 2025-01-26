@@ -29,11 +29,6 @@ impl<'a> TimerController {
     }
 
     pub fn set_next_event_for_vs_mode(&mut self, confidential_flow: &mut ConfidentialFlow, ncycle: usize) {
-        // let old_timer = self.read_m_timer(confidential_flow);
-        let stimecmp = confidential_flow.confidential_hart_mut().csrs_mut().stimecmp;
-        let vstimecmp = confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp;
-
-        debug!("set timer time={:x} new={:x} s={:x} vs={:x}", self.read_mtime(), ncycle, stimecmp, vstimecmp);
         confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = ncycle;
         if self.is_vs_timer_running(confidential_flow) {
             self.set_vs_timer(confidential_flow, ncycle);
@@ -61,10 +56,10 @@ impl<'a> TimerController {
         vstimecmp > 0 && mtime >= vstimecmp
     }
 
-    pub fn handle_vs_interrupt(&mut self, mut confidential_flow: &mut ConfidentialFlow) {
-        debug!("Inject VSTIP");
+    pub fn handle_vs_interrupt(&mut self, confidential_flow: &mut ConfidentialFlow) {
+        // debug!("Inject VSTIP");
         confidential_flow.confidential_hart_mut().csrs_mut().vstip |= MIE_VSTIP_MASK;
-        confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = usize::MAX - 1;
+        // confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = usize::MAX - 1;
     }
 
     pub fn store_vs_timer(&mut self, confidential_flow: &mut ConfidentialFlow) {
@@ -110,17 +105,14 @@ impl<'a> TimerController {
     pub fn set_vs_timer(&self, confidential_flow: &mut ConfidentialFlow, ncycle: usize) {
         // debug!("Restore VS timer {:x}", ncycle);
         self.set_m_timer(confidential_flow, ncycle);
-        confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_VSTIP_MASK);
-        confidential_flow.confidential_hart_mut().csrs_mut().mie.read_and_set_bits(MIE_MTIP_MASK);
-        confidential_flow.confidential_hart_mut().csrs_mut().mie.read_and_set_bits(MIE_VSTIP_MASK);
+        confidential_flow.confidential_hart_mut().csrs_mut().vstip &= !MIE_VSTIP_MASK;
+        confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
     }
 
     pub fn set_s_timer(&self, confidential_flow: &mut ConfidentialFlow, ncycle: usize) {
         // debug!("Restore S timer {:x}", ncycle);
         self.set_m_timer(confidential_flow, ncycle);
-        confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_STIP_MASK);
-        confidential_flow.confidential_hart_mut().csrs_mut().mie.read_and_set_bits(MIE_MTIP_MASK);
-        confidential_flow.confidential_hart_mut().csrs_mut().mie.read_and_set_bits(MIE_STIP_MASK);
+        confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
     }
 
     pub fn read_mtime(&self) -> usize {
@@ -128,9 +120,8 @@ impl<'a> TimerController {
     }
 
     fn read_m_timer(&self, confidential_flow: &mut ConfidentialFlow) -> usize {
-        let mut m_timer = 0;
         confidential_flow.swap_mscratch();
-        m_timer = (unsafe { sbi_timer_value() }) as usize;
+        let m_timer = (unsafe { sbi_timer_value() }) as usize;
         confidential_flow.swap_mscratch();
         m_timer
     }
