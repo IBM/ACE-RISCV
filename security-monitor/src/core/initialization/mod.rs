@@ -10,7 +10,6 @@ use crate::core::interrupt_controller::InterruptController;
 use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
-use crate::core::timer_controller::TimerController;
 use crate::error::Error;
 use alloc::vec::Vec;
 use core::mem::size_of;
@@ -187,7 +186,6 @@ fn initalize_security_monitor_state(
     unsafe { PageAllocator::initialize(page_allocator_start_address, page_allocator_end_address)? };
 
     InterruptController::initialize()?;
-    TimerController::initialize()?;
     ControlDataStorage::initialize()?;
     HardwareSetup::initialize()?;
 

@@ -32,7 +32,7 @@ impl RunConfidentialHart {
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
             Ok((allowed_external_interrupts, mut confidential_flow)) => {
                 self.allowed_external_interrupts = allowed_external_interrupts;
-                TimerController::try_write(|controller| Ok(controller.restore_vs_timer(&mut confidential_flow))).unwrap();
+                TimerController::new(&mut confidential_flow).restore_vs_timer();
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
@@ -57,11 +57,6 @@ impl RunConfidentialHart {
         confidential_hart.csrs_mut().htimedelta.write(0);
 
         let new_hvip = self.hvip & self.allowed_external_interrupts;
-
-        use crate::core::architecture::specification::*;
-        // if new_hvip > 0 {
-        // debug!("hypervisor injects {:x}!", new_hvip);
-        // }
 
         confidential_hart.csrs_mut().allowed_external_interrupts = self.allowed_external_interrupts;
         confidential_hart.csrs_mut().hvip.save_value_in_main_memory(new_hvip);

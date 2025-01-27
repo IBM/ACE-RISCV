@@ -20,7 +20,7 @@ impl SetTimer {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        TimerController::try_write(|controller| Ok(controller.set_next_event_for_vs_mode(&mut confidential_flow, self.ncycle))).unwrap();
+        TimerController::new(&mut confidential_flow).set_next_event_for_vs_mode(self.ncycle);
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success()))
     }
 }

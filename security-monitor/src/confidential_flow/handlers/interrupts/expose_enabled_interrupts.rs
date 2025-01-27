@@ -13,7 +13,8 @@ impl ExposeEnabledInterrupts {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self {
             vsie: confidential_hart.csrs().vsie.read(),
-            vstimecmp: confidential_hart.csrs().vstimecmp, // vstimecmp: confidential_hart.sstc().vstimecmp.read(),
+            vstimecmp: confidential_hart.csrs().vstimecmp.unwrap_or(usize::MAX - 1), /* vstimecmp:
+                                                                                      * confidential_hart.sstc().vstimecmp.read(), */
         }
     }
 

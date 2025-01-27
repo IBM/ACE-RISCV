@@ -97,7 +97,7 @@ impl ConfidentialHart {
         // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
         confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
-        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK | MIE_MTIP_MASK | MIE_SSIP_MASK);
+        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK | MIE_MTIP_MASK | MIE_MEIP_MASK | MIE_SSIP_MASK);
         confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);
@@ -114,7 +114,6 @@ impl ConfidentialHart {
         // assert!(HardwareSetup::is_extension_supported(HardwareExtension::SupervisorTimerExtension));
         // // Preempt execution as fast as possible to allow hypervisor control confidential hart execution duration
         // confidential_hart_state.sstc_mut().stimecmp.save_value_in_main_memory(0);
-        confidential_hart_state.csrs_mut().vstimecmp = usize::MAX - 1;
 
         if HardwareSetup::is_extension_supported(HardwareExtension::FloatingPointExtension) {
             confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_FS_INITIAL);

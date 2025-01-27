@@ -154,7 +154,7 @@ impl<'a> ConfidentialFlow<'a> {
         let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
 
-        TimerController::try_write(|controller| Ok(controller.store_vs_timer(&mut self))).unwrap();
+        TimerController::new(&mut self).store_vs_timer();
 
         ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             // Run heavy context switch when giving back the confidential hart to the confidential VM.
@@ -223,7 +223,8 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vstip)
+        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory()
+            | self.confidential_hart().csrs().pending_interrupts)
             & self.confidential_hart().csrs().allowed_external_interrupts;
         self.confidential_hart().csrs().hvip.write(interrupts);
         let address = self.confidential_hart_mut().address();

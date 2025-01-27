@@ -67,8 +67,8 @@ pub struct ControlStatusRegisters {
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
     // timer
     pub stimecmp: usize,
-    pub vstimecmp: usize,
-    pub vstip: usize,
+    pub vstimecmp: Option<usize>,
+    pub pending_interrupts: usize,
     pub allowed_external_interrupts: usize,
 }
 
@@ -128,8 +128,8 @@ impl ControlStatusRegisters {
             vsatp: ReadWriteRiscvCsr::new(),
             // timer
             stimecmp: 0,
-            vstimecmp: 0,
-            vstip: 0,
+            vstimecmp: None,
+            pending_interrupts: 0,
             allowed_external_interrupts: 0,
         };
         csrs
