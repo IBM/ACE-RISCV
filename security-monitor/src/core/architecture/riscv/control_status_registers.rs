@@ -17,7 +17,7 @@ pub struct ControlStatusRegisters {
     pub medeleg: ReadWriteRiscvCsr<CSR_MEDELEG>,
     pub mideleg: ReadWriteRiscvCsr<CSR_MIDELEG>,
     pub mie: ReadWriteRiscvCsr<CSR_MIE>,
-    pub mip: ReadRiscvCsr<CSR_MIP>,
+    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
     pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
     pub mtinst: ReadWriteRiscvCsr<CSR_MTINST>,
     pub mtval: ReadWriteRiscvCsr<CSR_MTVAL>,
@@ -75,6 +75,11 @@ pub struct ControlStatusRegisters {
     pub vscause: ReadWriteRiscvCsr<CSR_VSCAUSE>,
     pub vstval: ReadWriteRiscvCsr<CSR_VSTVAL>,
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
+    // timer
+    pub stimecmp: usize,
+    pub vstimecmp: Option<usize>,
+    pub pending_interrupts: usize,
+    pub allowed_external_interrupts: usize,
 }
 
 impl ControlStatusRegisters {
@@ -85,7 +90,7 @@ impl ControlStatusRegisters {
             medeleg: ReadWriteRiscvCsr::new(),
             mideleg: ReadWriteRiscvCsr::new(),
             mie: ReadWriteRiscvCsr::new(),
-            mip: ReadRiscvCsr::new(),
+            mip: ReadWriteRiscvCsr::new(),
             mstatus: ReadWriteRiscvCsr::new(),
             mtinst: ReadWriteRiscvCsr::new(),
             mtval: ReadWriteRiscvCsr::new(),
@@ -141,6 +146,11 @@ impl ControlStatusRegisters {
             vscause: ReadWriteRiscvCsr::new(),
             vstval: ReadWriteRiscvCsr::new(),
             vsatp: ReadWriteRiscvCsr::new(),
+            // timer
+            stimecmp: 0,
+            vstimecmp: None,
+            pending_interrupts: 0,
+            allowed_external_interrupts: 0,
         };
         csrs
     }
@@ -342,14 +352,8 @@ pub struct ControlStatusRegister {
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
     pub pmpaddr0: ReadWriteRiscvCsr<CSR_PMPADDR0>,
     pub pmpaddr1: ReadWriteRiscvCsr<CSR_PMPADDR1>,
-    pub pmpaddr2: ReadWriteRiscvCsr<CSR_PMPADDR2>,
-    pub pmpaddr3: ReadWriteRiscvCsr<CSR_PMPADDR3>,
-    pub pmpaddr4: ReadWriteRiscvCsr<CSR_PMPADDR4>,
-    pub pmpaddr5: ReadWriteRiscvCsr<CSR_PMPADDR5>,
-    pub pmpaddr6: ReadWriteRiscvCsr<CSR_PMPADDR6>,
-    pub pmpaddr7: ReadWriteRiscvCsr<CSR_PMPADDR7>,
-    pub time: ReadWriteRiscvCsr<CSR_TIME>,
-    // pub mseccfg: ReadWriteRiscvCsr<CSR_MSECCFG>,
+    pub mcycle: ReadWriteRiscvCsr<CSR_MCYCLE>,
+    pub minstret: ReadWriteRiscvCsr<CSR_MINSTRET>,
 }
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
@@ -362,14 +366,8 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     pmpcfg0: ReadWriteRiscvCsr::new(),
     pmpaddr0: ReadWriteRiscvCsr::new(),
     pmpaddr1: ReadWriteRiscvCsr::new(),
-    pmpaddr2: ReadWriteRiscvCsr::new(),
-    pmpaddr3: ReadWriteRiscvCsr::new(),
-    pmpaddr4: ReadWriteRiscvCsr::new(),
-    pmpaddr5: ReadWriteRiscvCsr::new(),
-    pmpaddr6: ReadWriteRiscvCsr::new(),
-    pmpaddr7: ReadWriteRiscvCsr::new(),
-    time: ReadWriteRiscvCsr::new(),
-    // mseccfg: ReadWriteRiscvCsr::new(),
+    mcycle: ReadWriteRiscvCsr::new(),
+    minstret: ReadWriteRiscvCsr::new(),
 };
 
 #[derive(Copy, Clone)]

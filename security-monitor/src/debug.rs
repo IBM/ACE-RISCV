@@ -39,12 +39,12 @@ pub fn __print_pmp_configuration() {
     // debug!("mseccfg: {:b}", CSR.mseccfg.read());
     debug!("PMP0: {:x} ({:b})", CSR.pmpaddr0.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF);
     debug!("PMP1: {:x} ({:b})", CSR.pmpaddr1.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF00);
-    debug!("PMP2: {:x} ({:b})", CSR.pmpaddr2.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF0000);
-    debug!("PMP3: {:x} ({:b})", CSR.pmpaddr3.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF000000);
-    debug!("PMP4: {:x} ({:b})", CSR.pmpaddr4.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF00000000);
-    debug!("PMP5: {:x} ({:b})", CSR.pmpaddr5.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF0000000000);
-    debug!("PMP6: {:x} ({:b})", CSR.pmpaddr6.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF000000000000);
-    debug!("PMP7: {:x} ({:b})", CSR.pmpaddr7.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF00000000000000);
+    // debug!("PMP2: {:x} ({:b})", CSR.pmpaddr2.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF0000);
+    // debug!("PMP3: {:x} ({:b})", CSR.pmpaddr3.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF000000);
+    // debug!("PMP4: {:x} ({:b})", CSR.pmpaddr4.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF00000000);
+    // debug!("PMP5: {:x} ({:b})", CSR.pmpaddr5.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF0000000000);
+    // debug!("PMP6: {:x} ({:b})", CSR.pmpaddr6.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF000000000000);
+    // debug!("PMP7: {:x} ({:b})", CSR.pmpaddr7.read() << PMP_ADDRESS_SHIFT, pmpcfg0 & 0xFF00000000000000);
 }
 
 #[macro_export]

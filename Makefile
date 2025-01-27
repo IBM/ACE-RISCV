@@ -14,6 +14,8 @@ export QEMU_VERSION						?= 8.2.1
 # Riscv toolchain
 export RISCV_GNU_TOOLCHAIN_SOURCE_DIR	?= $(MAKEFILE_SOURCE_DIR)/riscv-gnu-toolchain/
 export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= /home/woz/yocto/build/tmp/work/riscv64-freedomusdk-linux/opensbi-sifive-hf-prem/1.4/recipe-sysroot-native/usr/bin/riscv64-freedomusdk-linux/
+# export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= /home/woz/yocto/build/tmp/work/hifive_premier_p550-freedomusdk-linux/u-boot-sifive-hf-prem/2024.01/recipe-sysroot-native/usr/bin/riscv64-freedomusdk-linux/
+
 export RISCV_GNU_TOOLCHAIN_VERSION	    ?= riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly
 # Confidential VMs
 export CONFIDENTIAL_VMS_SOURCE_DIR		?= $(MAKEFILE_SOURCE_DIR)/confidential-vms

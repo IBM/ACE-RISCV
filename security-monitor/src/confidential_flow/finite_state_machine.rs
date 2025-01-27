@@ -17,6 +17,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     Ipi, NoOperation, RemoteFenceI, RemoteSfenceVma, RemoteSfenceVmaAsid, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop,
     SbiHsmHartSuspend,
 };
+use crate::confidential_flow::handlers::time::SetTimer;
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
@@ -26,12 +27,16 @@ use crate::core::architecture::riscv::sbi::IpiExtension::*;
 use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
+use crate::core::architecture::riscv::sbi::TimeExtension::*;
+use crate::core::architecture::sbi::CovgExtension;
+use crate::core::architecture::sbi::SbiExtension::Time;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{GeneralPurposeRegister, HartLifecycleState, TrapCause};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
 };
+use crate::core::timer_controller::TimerController;
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
 
@@ -66,40 +71,22 @@ impl<'a> ConfidentialFlow<'a> {
     /// ConfidentialFlow but accessible to the assembly code performing the context switch.
     #[no_mangle]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
-        let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
+        let mut flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
-        let tt = TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state());
-        let a7 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a7);
-        let a6 = flow.confidential_hart().gprs().read(GeneralPurposeRegister::a6);
-        // match tt {
-        //     Interrupt => {}
-        //     _ => {
-        //         debug!(
-        //             "Enter a7={:x} a6={:x} mstatus={:x} mcause={} mepc={:x}",
-        //             a7,
-        //             a6,
-        //             flow.confidential_hart().csrs().mstatus.read_from_main_memory(),
-        //             flow.confidential_hart().csrs().mcause.read(),
-        //             flow.confidential_hart().csrs().mepc.read_from_main_memory(),
-        //         );
-        //         // crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-        //     }
-        // }
 
         use crate::core::architecture::specification::CSR_MSTATUS_MPV;
         if (flow.confidential_hart().confidential_hart_state().csrs().mstatus.read() & 1 << CSR_MSTATUS_MPV) == 0 {
-            crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
-            debug!("Bug when executing confidential hart {}", flow.confidential_hart().confidential_hart_id());
+            debug!(
+                "Bug when executing confidential hart {} cause={}",
+                flow.confidential_hart().confidential_hart_id(),
+                flow.confidential_hart().confidential_hart_state().csrs().mcause.read()
+            );
             ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
         }
 
-        match tt {
+        match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             IllegalInstruction => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            LoadAddressMisaligned => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            StoreAddressMisaligned => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            LoadAccessFault => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            StoreAccessFault => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplVersion)) => SbiGetImplVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -127,7 +114,8 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(RetrieveSecret)) => RetrieveSecretRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(Debug)) => DebugRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Covg(Time)) => TimeRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(CovgExtension::Time)) => TimeRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Time(SetTimer)) => SetTimer::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(_) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -162,11 +150,13 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     /// Moves in the finite state machine (FSM) from the confidential flow into non-confidential flow.
-    pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
+    pub fn into_non_confidential_flow(mut self) -> NonConfidentialFlow<'a> {
         // When moving back to the non-confidential flow, we always declassify enabled interrupts and timer configuration. This allows the
         // hypervisor to schedule the confidential VM timer and interrupts. Read the CoVE spec to learn more.
         let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
+
+        TimerController::new(&mut self).store_vs_timer();
 
         ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             // Run heavy context switch when giving back the confidential hart to the confidential VM.
@@ -235,12 +225,11 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
+        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory()
+            | self.confidential_hart().csrs().pending_interrupts)
+            & self.confidential_hart().csrs().allowed_external_interrupts;
+        self.confidential_hart().csrs().hvip.write(interrupts);
         let address = self.confidential_hart_mut().address();
-        self.confidential_hart()
-            .csrs()
-            .hvip
-            .write(self.confidential_hart().csrs().hvip.read_from_main_memory() & (1 << 2 | 1 << 6 | 1 << 10));
-        self.confidential_hart().csrs().vsip.write(self.confidential_hart().csrs().vsip.read_from_main_memory());
         self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }
@@ -340,5 +329,9 @@ impl<'a> ConfidentialFlow<'a> {
 
     fn hypervisor_hart(&'a self) -> &HypervisorHart {
         &self.hardware_hart.hypervisor_hart()
+    }
+
+    pub fn swap_mscratch(&mut self) {
+        self.hardware_hart.swap_mscratch()
     }
 }

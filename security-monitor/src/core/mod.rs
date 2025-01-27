@@ -6,6 +6,7 @@ pub mod control_data;
 pub mod memory_layout;
 pub mod memory_protector;
 pub mod page_allocator;
+pub mod timer_controller;
 
 mod hardware_setup;
 mod heap_allocator;

@@ -103,18 +103,18 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
         Ok::<(), Error>(())
     })?;
 
-    // Enable support for extensions that are implemented by all harts
-    HardwareExtension::all().into_iter().for_each(|ext| {
-        let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
-            let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-            let extensions = &prop.split('_').collect::<Vec<&str>>();
-            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
-        });
-        if is_extension_supported_by_all_harts {
-            debug!("Enabling support for extension: {:?}", ext);
-            let _ = HardwareSetup::add_extension(ext);
-        }
-    });
+    // // Enable support for extensions that are implemented by all harts
+    // HardwareExtension::all().into_iter().for_each(|ext| {
+    //     let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
+    //         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+    //         let extensions = &prop.split('_').collect::<Vec<&str>>();
+    //         extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+    //     });
+    //     if is_extension_supported_by_all_harts {
+    //         debug!("Enabling support for extension: {:?}", ext);
+    //         let _ = HardwareSetup::add_extension(ext);
+    //     }
+    // });
 
     // TODO: make sure there are enough PMPs
     debug!("verify_harts: found {} harts", fdt.harts().count());

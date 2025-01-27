@@ -12,6 +12,7 @@ pub use nacl_extension::*;
 pub use rfence_extension::*;
 pub use spec::*;
 pub use srst_extension::*;
+pub use time_extension::*;
 
 mod base_extension;
 mod covg_extension;
@@ -23,6 +24,7 @@ mod nacl_extension;
 mod rfence_extension;
 mod spec;
 mod srst_extension;
+mod time_extension;
 
 #[derive(Debug)]
 pub enum SbiExtension {
@@ -35,6 +37,7 @@ pub enum SbiExtension {
     Covh(CovhExtension),
     Covi(CoviExtension),
     Covg(CovgExtension),
+    Time(TimeExtension),
     Unknown(usize, usize),
 }
 
@@ -50,6 +53,7 @@ impl SbiExtension {
             (CovhExtension::EXTID, function_id) => Self::Covh(CovhExtension::from_function_id(function_id)),
             (CoviExtension::EXTID, function_id) => Self::Covi(CoviExtension::from_function_id(function_id)),
             (CovgExtension::EXTID, function_id) => Self::Covg(CovgExtension::from_function_id(function_id)),
+            (TimeExtension::EXTID, function_id) => Self::Time(TimeExtension::from_function_id(function_id)),
             (extension_id, function_id) => Self::Unknown(extension_id, function_id),
         }
     }

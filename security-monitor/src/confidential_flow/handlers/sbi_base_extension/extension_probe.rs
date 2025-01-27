@@ -30,6 +30,7 @@ impl SbiExtensionProbe {
             HsmExtension::EXTID => 1,
             SrstExtension::EXTID => 1,
             CovgExtension::EXTID => 1,
+            TimeExtension::EXTID => 1,
             _ => 0,
         }
     }

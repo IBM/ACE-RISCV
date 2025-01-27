@@ -4,6 +4,7 @@
 use crate::confidential_flow::DeclassifyToConfidentialVm;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
+use crate::core::timer_controller::TimerController;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
@@ -31,10 +32,9 @@ impl RunConfidentialHart {
         // debug!("State of KVM:");
         // crate::debug::__print_hart_state(non_confidential_flow.hypervisor_hart().hypervisor_hart_state());
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
-            Ok((allowed_external_interrupts, confidential_flow)) => {
-                // debug!("State of Confidential VM:");
-                // crate::debug::__print_hart_state(confidential_flow.confidential_hart().confidential_hart_state());
+            Ok((allowed_external_interrupts, mut confidential_flow)) => {
                 self.allowed_external_interrupts = allowed_external_interrupts;
+                TimerController::new(&mut confidential_flow).restore_vs_timer();
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
@@ -56,8 +56,11 @@ impl RunConfidentialHart {
 
         // We write directly to the CSR because we are after the heavy context switch
         // confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
+        // confidential_hart.csrs_mut().htimedelta.write(0);
 
-        // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
+        let new_hvip = self.hvip & self.allowed_external_interrupts;
+
+        confidential_hart.csrs_mut().allowed_external_interrupts = self.allowed_external_interrupts;
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(new_hvip);
     }
 }

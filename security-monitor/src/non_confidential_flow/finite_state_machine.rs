@@ -56,68 +56,7 @@ impl<'a> NonConfidentialFlow<'a> {
         // Specifically, every physical hart has its own are in the main memory and its `mscratch` register stores the address. See the
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
-        let tt = TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state());
-        use crate::core::architecture::sbi::CovhExtension;
-        use crate::core::architecture::CSR;
-        // match tt {
-        //     Interrupt => {}
-        //     IllegalInstruction => {}
-        //     LoadAddressMisaligned => {}
-        //     LoadAccessFault => {}
-        //     StoreAddressMisaligned => {}
-        //     StoreAccessFault => {
-        //         debug!("Store access fault mepc={:x} ", flow.hypervisor_hart().csrs().mepc.read_from_main_memory());
-        //     }
-        //     HsEcall(_) => {
-        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
-        //             debug!(
-        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-        //                 tt,
-        //                 a7,
-        //                 a6,
-        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-        //                 CSR.mhartid.read(),
-        //                 flow.hardware_hart.previous_mscratch,
-        //             );
-        //         }
-        //     }
-        //     MachineEcall => {
-        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
-        //             debug!(
-        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-        //                 tt,
-        //                 a7,
-        //                 a6,
-        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-        //                 CSR.mhartid.read(),
-        //                 flow.hardware_hart.previous_mscratch,
-        //             );
-        //         }
-        //     }
-        //     FetchPageFault => {}
-        //     LoadPageFault => {}
-        //     StorePageFault => {}
-        //     _ => {
-        //         let a7 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a7);
-        //         let a6 = flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::a6);
-        //         if a7 != 0x54494D45 && a7 != 0x735049 && a7 != 0x52464E43 && a7 != 0x4442434e && a7 != 0x504D55 {
-        //             debug!(
-        //                 "Enter SM non-conf flow due to {:?} {:x} {:x} mepc={:x} mscratch={:x} openbsi={:x}",
-        //                 tt,
-        //                 a7,
-        //                 a6,
-        //                 flow.hypervisor_hart().csrs().mepc.read_from_main_memory(),
-        //                 CSR.mhartid.read(),
-        //                 flow.hardware_hart.previous_mscratch,
-        //             );
-        //         }
-        //     }
-        // }
-        match tt {
+        match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             LoadAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -139,14 +78,6 @@ impl<'a> NonConfidentialFlow<'a> {
             LoadPageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StorePageFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             _ => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            // trap_reason => {
-            //     crate::debug::__print_hart_state(flow.hypervisor_hart().hypervisor_hart_state());
-            //     panic!(
-            //         "Non-confidential trap handler in hart {}: Unsupported exception {:?}",
-            //         flow.hardware_hart.confidential_hart().confidential_hart_id(),
-            //         trap_reason
-            //     );
-            // }
         }
     }
 
@@ -167,7 +98,6 @@ impl<'a> NonConfidentialFlow<'a> {
             DeclassifyToHypervisor::MmioLoadRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::MmioStoreRequest(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
             DeclassifyToHypervisor::EnabledInterrupts(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            DeclassifyToHypervisor::VirtualInstruction(v) => v.declassify_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         self
     }
