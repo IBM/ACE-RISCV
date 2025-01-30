@@ -35,7 +35,7 @@ impl DelegateToConfidentialVm {
         Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, inst, inst_len }
     }
 
-    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         if self.mcause == CAUSE_ILLEGAL_INSTRUCTION.into() {
             self.emulate_illegal_instruction(confidential_flow)
         } else {
@@ -51,7 +51,7 @@ impl DelegateToConfidentialVm {
         use riscv_decode::Instruction::*;
         let get_rs1_num = |instruction| ((instruction & 0xf8000) >> 15);
 
-        let (csr_value, new_value, do_write, result_gpr_index) = match riscv_decode::decode(self.inst as u32) {
+        let (csr_value, _new_value, do_write, result_gpr_index) = match riscv_decode::decode(self.inst as u32) {
             Ok(Csrrw(t)) => (self.read_csr(t.csr()), t.rs1() as usize, true, t.rd()),
             Ok(Csrrs(t)) => {
                 let csr_value = self.read_csr(t.csr());
@@ -83,7 +83,7 @@ impl DelegateToConfidentialVm {
             Ok(v) => {
                 confidential_flow.confidential_hart_mut().gprs_mut().write(v, csr_value as usize);
             }
-            Err(e) => {
+            Err(_) => {
                 debug!("Emulate illegal instruction: Invalid GPR {}", result_gpr_index);
             }
         }

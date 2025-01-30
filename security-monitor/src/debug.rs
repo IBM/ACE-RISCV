@@ -103,7 +103,7 @@ pub fn __print_hart_state(state: &HartArchitecturalState) {
     debug!("hgeip = {:16x}", state.csrs().hgeip.read());
     debug!("hgatp = {:16x}", state.csrs().hgatp.read());
     // debug!("hcontext = {:16x}", state.csrs().hcontext.read());
-    // debug!("htimedelta = {:16x}", state.csrs().htimedelta.read());
+    debug!("htimedelta = {:16x}", state.csrs().htimedelta.read());
     debug!("vsstatus = {:16x}", state.csrs().vsstatus.read());
     debug!("vsie = {:16x}", state.csrs().vsie.read());
     debug!("vsip = {:16x}", state.csrs().vsip.read());
