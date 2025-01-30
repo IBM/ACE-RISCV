@@ -56,7 +56,6 @@ impl RunConfidentialHart {
 
         // We write directly to the CSR because we are after the heavy context switch
         // confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
-        // confidential_hart.csrs_mut().htimedelta.write(0);
 
         let new_hvip = self.hvip & self.allowed_external_interrupts;
 

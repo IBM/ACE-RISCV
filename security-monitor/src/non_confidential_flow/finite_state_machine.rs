@@ -118,6 +118,9 @@ impl<'a> NonConfidentialFlow<'a> {
             ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::PromoteResponse((handler, sbi_response, htimedelta)) => {
+                handler.apply_to_hypervisor_hart(self.hypervisor_hart_mut(), sbi_response, htimedelta)
+            }
         }
         unsafe { exit_to_hypervisor_asm() }
     }

@@ -11,7 +11,11 @@ pub struct ExposeEnabledInterrupts {
 
 impl ExposeEnabledInterrupts {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        Self { vsie: confidential_hart.csrs().vsie.read(), vstimecmp: confidential_hart.csrs().vstimecmp.unwrap_or(usize::MAX - 1) }
+        let htimedelta = confidential_hart.csrs().htimedelta.read();
+        Self {
+            vsie: confidential_hart.csrs().vsie.read(),
+            vstimecmp: confidential_hart.csrs().vstimecmp.and_then(|v| Some(v.wrapping_add(htimedelta))).unwrap_or(usize::MAX),
+        }
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
