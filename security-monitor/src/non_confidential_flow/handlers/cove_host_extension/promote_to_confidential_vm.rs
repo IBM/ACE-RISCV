@@ -16,6 +16,10 @@ use alloc::vec::Vec;
 use flattened_device_tree::FlattenedDeviceTree;
 use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
 
+extern "C" {
+    fn sbi_timer_value() -> u64;
+}
+
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
 /// specification. With this call, the hypervisor presents a state of a virtual machine, requesting the security monitor to promote it to a
 /// confidential VM. The security monitor copies the VM state (data, page tables, boot hart state) into the confidential memory and measures
@@ -49,8 +53,13 @@ impl PromoteToConfidentialVm {
         Self { fdt_address, attestation_payload_address, program_counter, hgatp }
     }
 
-    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
-        let transformation = match self.create_confidential_vm(non_confidential_flow.shared_memory()) {
+    pub fn handle(self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
+        non_confidential_flow.swap_mscratch();
+        let m_timer = (unsafe { sbi_timer_value() }) as usize;
+        non_confidential_flow.swap_mscratch();
+        let htimedelta = 0_i64.wrapping_sub(m_timer as i64) as usize;
+
+        let sbi_response = match self.create_confidential_vm(non_confidential_flow.shared_memory(), htimedelta) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
                 SbiResponse::success_with_code(confidential_vm_id.usize())
@@ -60,10 +69,16 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
-        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::SbiResponse(transformation))
+        non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::PromoteResponse((self, sbi_response, htimedelta)))
     }
 
-    fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory) -> Result<ConfidentialVmId, Error> {
+    pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart, sbi_response: SbiResponse, htimedelta: usize) {
+        use crate::core::architecture::specification::CSR_HTIMEDELTA;
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTIMEDELTA.into(), htimedelta);
+        sbi_response.apply_to_hypervisor_hart(hypervisor_hart);
+    }
+
+    fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory, htimedelta: usize) -> Result<ConfidentialVmId, Error> {
         debug!("Promoting a VM to a confidential VM");
         // Copying the entire VM's state to the confidential memory, recreating the MMU configuration
         let mut memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hgatp)?;
@@ -71,9 +86,6 @@ impl PromoteToConfidentialVm {
         // The pointer to the flattened device tree (FDT) as well as the entire FDT must be treated as an untrusted input, which measurement
         // is reflected during attestation. We can parse FDT only after moving VM's data (and the FDT) to the confidential memory.
         let (vm_memory_layout, number_of_confidential_harts) = self.process_device_tree(&memory_protector)?;
-
-        // TODO: generate htimedelta
-        let htimedelta = 0;
 
         // We create a fixed number of harts (all but the boot hart are in the reset state).
         let confidential_harts: Vec<_> = (0..number_of_confidential_harts)

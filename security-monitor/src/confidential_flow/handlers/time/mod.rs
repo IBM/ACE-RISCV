@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
+use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::specification::WFI_INSTRUCTION;
-use crate::core::architecture::{GeneralPurposeRegister, CSR};
-use crate::core::control_data::{ConfidentialHart, ResumableOperation};
+use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::control_data::ConfidentialHart;
 use crate::core::timer_controller::TimerController;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 

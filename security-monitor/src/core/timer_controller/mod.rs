@@ -1,12 +1,8 @@
 use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::specification::*;
 use crate::core::architecture::CSR;
-use crate::core::control_data::ConfidentialHart;
-use crate::error::Error;
-use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 extern "C" {
-    fn sbi_timer_event_start(next_event: u64);
     fn sbi_timer_value() -> u64;
 }
 
@@ -17,22 +13,31 @@ pub struct TimerController<'a, 'b> {
 
 impl<'a, 'b> TimerController<'a, 'b> {
     pub fn new(confidential_flow: &'a mut ConfidentialFlow<'b>) -> Self {
-        Self { current_time: CSR.time.read(), confidential_flow }
+        confidential_flow.swap_mscratch();
+        let current_time = (unsafe { sbi_timer_value() }) as usize;
+        confidential_flow.swap_mscratch();
+
+        Self { current_time, confidential_flow }
     }
 
     pub fn set_next_event_for_vs_mode(&mut self, next_event: usize) {
         if next_event >= usize::MAX - 1 {
             self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = None;
         } else {
+            let htimedelta = self.confidential_flow.confidential_hart_mut().csrs_mut().htimedelta.read();
+            let next_event = (next_event as isize).wrapping_sub(htimedelta as isize) as usize;
             self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(next_event);
-            if self.should_set_vs_timer() {
+            if self.vs_timer_interrupted() {
+                self.handle_vs_interrupt();
+                self.set_s_timer();
+            } else if self.should_set_vs_timer() {
                 self.set_vs_timer();
+            } else {
+                self.set_s_timer();
+                self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
+                self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
             }
         }
-    }
-
-    fn is_vs_timer_programmed(&mut self) -> bool {
-        self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp.is_some()
     }
 
     fn should_set_vs_timer(&mut self) -> bool {
@@ -50,6 +55,7 @@ impl<'a, 'b> TimerController<'a, 'b> {
 
     pub fn handle_vs_interrupt(&mut self) {
         self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts |= MIE_VSTIP_MASK;
+        self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
     }
 
     pub fn store_vs_timer(&mut self) {
@@ -66,13 +72,13 @@ impl<'a, 'b> TimerController<'a, 'b> {
     }
 
     pub fn restore_vs_timer(&mut self) {
-        // let current_time = self.current_time();
-        // let mtimer = self.read_m_timer(confidential_flow);
-        // debug!("{:x}", mtimer - current_time);
-        self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = self.current_time + 80000;
+        let mut mtimecmp = self.read_mtimecmp();
+        if mtimecmp < self.current_time {
+            mtimecmp = self.current_time + 10000;
+        }
+        self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = mtimecmp;
 
         if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
-            // debug!("left {:x}", v);
             self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = self.current_time.checked_add(v);
 
             if self.vs_timer_interrupted() {
@@ -88,17 +94,9 @@ impl<'a, 'b> TimerController<'a, 'b> {
         }
     }
 
-    fn read_m_timer(&mut self) -> usize {
-        self.confidential_flow.swap_mscratch();
-        let m_timer = (unsafe { sbi_timer_value() }) as usize;
-        self.confidential_flow.swap_mscratch();
-        m_timer
-    }
-
-    fn set_m_timer(&mut self, next_event: usize) {
-        self.confidential_flow.swap_mscratch();
-        unsafe { sbi_timer_event_start(next_event as u64) };
-        self.confidential_flow.swap_mscratch();
+    fn read_mtimecmp(&mut self) -> usize {
+        let addr = 0x2004000 + CSR.mhartid.read() * 8;
+        unsafe { (addr as *const usize).read_volatile() }
     }
 
     pub fn set_s_timer(&mut self) {
@@ -113,5 +111,10 @@ impl<'a, 'b> TimerController<'a, 'b> {
             self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
             self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
         }
+    }
+
+    fn set_m_timer(&mut self, next_event: usize) {
+        let addr = 0x2004000 + CSR.mhartid.read() * 8;
+        unsafe { (addr as *mut usize).write_volatile(next_event) };
     }
 }

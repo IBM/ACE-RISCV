@@ -11,10 +11,10 @@ pub struct ExposeEnabledInterrupts {
 
 impl ExposeEnabledInterrupts {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
+        let htimedelta = confidential_hart.csrs().htimedelta.read();
         Self {
             vsie: confidential_hart.csrs().vsie.read(),
-            vstimecmp: confidential_hart.csrs().vstimecmp.unwrap_or(usize::MAX - 1), /* vstimecmp:
-                                                                                      * confidential_hart.sstc().vstimecmp.read(), */
+            vstimecmp: confidential_hart.csrs().vstimecmp.and_then(|v| Some(v.wrapping_add(htimedelta))).unwrap_or(usize::MAX),
         }
     }
 
