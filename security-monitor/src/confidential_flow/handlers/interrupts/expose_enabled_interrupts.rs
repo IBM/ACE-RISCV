@@ -11,7 +11,7 @@ pub struct ExposeEnabledInterrupts {
 
 impl ExposeEnabledInterrupts {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        let htimedelta = confidential_hart.csrs().htimedelta.read();
+        let htimedelta = confidential_hart.csrs().htimedelta;
         Self {
             vsie: confidential_hart.csrs().vsie.read(),
             vstimecmp: confidential_hart.csrs().vstimecmp.and_then(|v| Some(v.wrapping_add(htimedelta))).unwrap_or(usize::MAX),

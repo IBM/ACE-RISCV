@@ -3,20 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::{GeneralPurposeRegister, CSR};
 use crate::core::control_data::ConfidentialHart;
-use crate::error::Error;
+use crate::core::timer_controller::TimerController;
 
-pub struct TimeRequest {}
+pub struct ReadTime {
+    htimedelta: usize,
+}
 
-impl TimeRequest {
+impl ReadTime {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
-        Self {}
+        Self { htimedelta: confidential_hart.csrs().htimedelta }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let addr = 0x200BFF8;
-        let time = unsafe { (addr as *const u64).read_volatile() } as usize;
-        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(time)))
+        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::success_with_code(
+            TimerController::read_virt_time(self.htimedelta),
+        )))
     }
 }

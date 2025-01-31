@@ -1,16 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::specification::CAUSE_ILLEGAL_INSTRUCTION;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::ConfidentialHart;
-use crate::error::Error;
-
-pub use time::TimeRequest;
-
-mod time;
+use crate::core::timer_controller::TimerController;
 
 pub struct DelegateToConfidentialVm {
     mstatus: usize,
@@ -19,6 +14,7 @@ pub struct DelegateToConfidentialVm {
     mtval: usize,
     vstvec: usize,
     vsstatus: usize,
+    htimedelta: usize,
     inst: usize,
     inst_len: usize,
 }
@@ -32,7 +28,8 @@ impl DelegateToConfidentialVm {
         let vstvec = confidential_hart.csrs().vstvec.read();
         let vsstatus = confidential_hart.csrs().vsstatus.read();
         let (inst, inst_len) = crate::confidential_flow::handlers::mmio::read_trapped_instruction(confidential_hart);
-        Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, inst, inst_len }
+        let htimedelta = confidential_hart.csrs().htimedelta;
+        Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, htimedelta, inst, inst_len }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
@@ -96,7 +93,7 @@ impl DelegateToConfidentialVm {
         use crate::core::architecture::CSR;
 
         if csr == CSR_TIME.into() {
-            return (unsafe { (0x200BFF8 as *const u64).read_volatile() }) as usize;
+            return TimerController::read_virt_time(self.htimedelta);
         } else if csr == CSR_CYCLE.into() {
             return CSR.mcycle.read();
         } else if csr == CSR_INSTRET.into() {
@@ -109,9 +106,9 @@ impl DelegateToConfidentialVm {
 
     pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         use crate::core::architecture::specification::CSR_MSTATUS_MPP;
-        let SR_SPP_MASK = 0x00000100;
-        let SR_SIE = 0x00000002;
-        let SR_SPIE = 0x00000020;
+        const SR_SPP_MASK: usize = 0x00000100;
+        const SR_SIE: usize = 0x00000002;
+        const SR_SPIE: usize = 0x00000020;
 
         let mut new_vsstatus = self.vsstatus;
         new_vsstatus &= !SR_SPP_MASK;
@@ -135,7 +132,7 @@ impl DelegateToConfidentialVm {
         confidential_hart.csrs_mut().vstval.write(self.mtval);
         confidential_hart.csrs_mut().vsepc.write(self.mepc);
         /* Set Guest privilege mode to supervisor */
-        confidential_hart.csrs_mut().mstatus.enable_bits_on_saved_value((1 << CSR_MSTATUS_MPP));
+        confidential_hart.csrs_mut().mstatus.enable_bits_on_saved_value(1 << CSR_MSTATUS_MPP);
 
         confidential_hart.csrs_mut().mepc.save_value_in_main_memory(self.vstvec);
     }

@@ -9,16 +9,13 @@ use crate::core::control_data::{
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, PageAllocator};
+use crate::core::timer_controller::TimerController;
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 use alloc::vec::Vec;
 use flattened_device_tree::FlattenedDeviceTree;
 use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
-
-extern "C" {
-    fn sbi_timer_value() -> u64;
-}
 
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
 /// specification. With this call, the hypervisor presents a state of a virtual machine, requesting the security monitor to promote it to a
@@ -53,11 +50,9 @@ impl PromoteToConfidentialVm {
         Self { fdt_address, attestation_payload_address, program_counter, hgatp }
     }
 
-    pub fn handle(self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
-        non_confidential_flow.swap_mscratch();
-        let m_timer = (unsafe { sbi_timer_value() }) as usize;
-        non_confidential_flow.swap_mscratch();
-        let htimedelta = 0_i64.wrapping_sub(m_timer as i64) as usize;
+    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
+        let htimedelta = 0_i64.wrapping_sub(TimerController::read_time() as i64) as usize;
+        debug!("htimedelta={:x}", htimedelta);
 
         let sbi_response = match self.create_confidential_vm(non_confidential_flow.shared_memory(), htimedelta) {
             Ok(confidential_vm_id) => {

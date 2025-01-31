@@ -13,18 +13,22 @@ pub struct TimerController<'a, 'b> {
 
 impl<'a, 'b> TimerController<'a, 'b> {
     pub fn new(confidential_flow: &'a mut ConfidentialFlow<'b>) -> Self {
-        confidential_flow.swap_mscratch();
-        let current_time = (unsafe { sbi_timer_value() }) as usize;
-        confidential_flow.swap_mscratch();
+        Self { current_time: TimerController::read_time(), confidential_flow }
+    }
 
-        Self { current_time, confidential_flow }
+    pub fn read_time() -> usize {
+        unsafe { (0x200BFF8 as *const usize).read_volatile() }
+    }
+
+    pub fn read_virt_time(htimedelta: usize) -> usize {
+        TimerController::read_time().wrapping_add(htimedelta)
     }
 
     pub fn set_next_event_for_vs_mode(&mut self, next_event: usize) {
         if next_event >= usize::MAX - 1 {
             self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = None;
         } else {
-            let htimedelta = self.confidential_flow.confidential_hart_mut().csrs_mut().htimedelta.read();
+            let htimedelta = self.confidential_flow.confidential_hart_mut().csrs_mut().htimedelta;
             let next_event = (next_event as isize).wrapping_sub(htimedelta as isize) as usize;
             self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(next_event);
             if self.vs_timer_interrupted() {

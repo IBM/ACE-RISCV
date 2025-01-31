@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::attestation::RetrieveSecretRequest;
-use crate::confidential_flow::handlers::delegate::{DelegateToConfidentialVm, TimeRequest};
+use crate::confidential_flow::handlers::delegate::DelegateToConfidentialVm;
 use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, ExposeEnabledInterrupts, HandleInterrupt};
 use crate::confidential_flow::handlers::mmio::{
     AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
@@ -17,7 +17,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     Ipi, NoOperation, RemoteFenceI, RemoteSfenceVma, RemoteSfenceVmaAsid, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop,
     SbiHsmHartSuspend,
 };
-use crate::confidential_flow::handlers::time::SetTimer;
+use crate::confidential_flow::handlers::time::{ReadTime, SetTimer};
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
@@ -31,7 +31,7 @@ use crate::core::architecture::riscv::sbi::TimeExtension::*;
 use crate::core::architecture::sbi::CovgExtension;
 use crate::core::architecture::sbi::SbiExtension::Time;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{GeneralPurposeRegister, HartLifecycleState, TrapCause};
+use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
@@ -114,7 +114,7 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(RetrieveSecret)) => RetrieveSecretRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(Debug)) => DebugRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
-            VsEcall(Covg(CovgExtension::Time)) => TimeRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(CovgExtension::Time)) => ReadTime::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Time(SetTimer)) => SetTimer::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(_) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
