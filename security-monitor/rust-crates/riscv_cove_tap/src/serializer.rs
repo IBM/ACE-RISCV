@@ -15,11 +15,11 @@ impl AttestationPayloadSerializer {
         Self {}
     }
 
-    pub fn serialize(&self, mut payload: AttestationPayload) -> Result<Vec<u8>, TapError> {
+    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload) -> Result<Vec<u8>, TapError> {
         let digests = self.serialize_digests(&mut payload)?;
         let secrets = self.serialize_secrets(&mut payload)?;
         let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
-        let mut lockboxes = self.serialize_lockboxes(&mut payload)?;
+        let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
 
         let total_size = lockboxes.len() + encrypted_part.len();
 
@@ -32,16 +32,23 @@ impl AttestationPayloadSerializer {
         Ok(result)
     }
 
-    fn serialize_lockboxes(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
+    fn serialize_lockboxes(&self, mut lockboxes: Vec<Lockbox>) -> Result<Vec<u8>, TapError> {
         // TODO: sanity check: lockboxes < 1024
         let mut result = vec![];
-        result.append(&mut (payload.lockboxes.len() as u16).to_le_bytes().to_vec());
-        for mut lockbox in payload.lockboxes.drain(..) {
-            let entry_size = lockbox.value.len() + 10;
+        result.append(&mut (lockboxes.len() as u16).to_le_bytes().to_vec());
+        for mut lockbox in lockboxes.drain(..) {
+            let entry_size = lockbox.esk.len() + lockbox.nonce.len() + lockbox.tag.len() + lockbox.tsk.len() + 18;
             result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
             result.append(&mut (lockbox.name as u64).to_le_bytes().to_vec());
             result.append(&mut (lockbox.algorithm as u16).to_le_bytes().to_vec());
-            result.append(&mut lockbox.value);
+            result.append(&mut (lockbox.esk.len() as u16).to_le_bytes().to_vec());
+            result.append(&mut lockbox.esk);
+            result.append(&mut (lockbox.nonce.len() as u16).to_le_bytes().to_vec());
+            result.append(&mut lockbox.nonce);
+            result.append(&mut (lockbox.tag.len() as u16).to_le_bytes().to_vec());
+            result.append(&mut lockbox.tag);
+            result.append(&mut (lockbox.tsk.len() as u16).to_le_bytes().to_vec());
+            result.append(&mut lockbox.tsk);
         }
         Ok(result)
     }
