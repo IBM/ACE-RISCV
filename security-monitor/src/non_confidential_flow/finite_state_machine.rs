@@ -7,8 +7,8 @@ use crate::core::architecture::riscv::sbi::CovhExtension::*;
 use crate::core::architecture::riscv::sbi::NaclExtension::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
+use crate::core::architecture::TrapCause;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{TrapCause};
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::cove_host_extension::{
