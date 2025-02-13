@@ -18,5 +18,9 @@ pub enum TapError {
     #[error("Invalid size of the TAP")]
     InvalidSize(),
     #[error("Aes error {0}")]
-    AesError(#[from] aes_gcm::Error)
+    AesError(#[from] aes_gcm::Error),
+    #[error("Key from slice error")]
+    KeyCreationError(#[from] core::array::TryFromSliceError),
+    #[error("KEM error")]
+    KemError(),
 }

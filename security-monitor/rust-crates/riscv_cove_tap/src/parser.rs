@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-
 pub use crate::error::TapError;
 use alloc::vec::Vec;
-use alloc::vec;
 use crate::spec::*;
+use alloc::vec;
 
 pub struct AttestationPayloadParser {
     pub pointer: *const u8,
@@ -19,7 +18,7 @@ impl AttestationPayloadParser {
         })
     }
 
-    pub fn parse_and_verify(&mut self) -> Result<AttestationPayload, TapError> {
+    pub fn parse_and_verify(&mut self, decapsulation_key: &Vec<u8>) -> Result<AttestationPayload, TapError> {
         if self.read_u32()? != ACE_MAGIC_TAP_START {
             return Err(TapError::InvalidMagicStart());
         }
@@ -28,25 +27,38 @@ impl AttestationPayloadParser {
         //     return Err(TapError::InvalidSize());
         // }
         let number_of_lockboxes = self.read_u16()?;
-        let mut lockboxes = vec![];
+        if usize::from(number_of_lockboxes) > MAX_NUMBER_OF_LOCKBOXES {
+            return Err(TapError::InvalidSize());
+        }
+
+        let mut symmetric_key = vec![0u8; 32];
         for _ in 0..number_of_lockboxes {
             let size = self.read_u16()? as usize;
-            let name = self.read_u64()?;
+            // TODO: decide based on the lockbox name if this lockbox is intended for this device or not
+            let _name = self.read_u64()?;
             let algorithm = LockboxAlgorithm::from_u16(self.read_u16()?)?;
-            let value = self.read_exact(size-10)?;
-            lockboxes.push(Lockbox {
-                name,
-                algorithm,
-                value
-            });
+            let (esk, nonce, tag, tsk) = match algorithm {
+                LockboxAlgorithm::Debug => {
+                    (vec![], vec![], vec![], self.read_exact(size-10)?)
+                },
+                LockboxAlgorithm::MlKem1024Aes256 => {
+                    let esk = self.read_exact(10)?;
+                    let nonce = self.read_exact(10)?;
+                    let tag = self.read_exact(10)?;
+                    let tsk = self.read_exact(10)?;
+                    (esk, nonce, tag, tsk)
+                }
+            };
+            if let Ok(mut tsk) = algorithm.decode(decapsulation_key, esk, nonce, tag, tsk) {
+                symmetric_key.append(&mut tsk);
+                break;
+            }
         }
-        // TODO: recover symmetric key
-        let symmetric_key = [0u8; 32];
 
         let payload_encryption_algorithm = PayloadEncryptionAlgorithm::from_u16(self.read_u16()?)?;
         match payload_encryption_algorithm {
             PayloadEncryptionAlgorithm::Debug => {},
-            PayloadEncryptionAlgorithm::AesGcm256 => self.decrypt_aes_gcm_256(symmetric_key)?,
+            PayloadEncryptionAlgorithm::AesGcm256 => self.decrypt_aes_gcm_256(&symmetric_key)?,
         }
 
         let number_of_digests = self.read_u16()?;
@@ -73,13 +85,12 @@ impl AttestationPayloadParser {
         }
 
         Ok(AttestationPayload {
-            lockboxes,
             digests,
             secrets,
         })
     }
 
-    fn decrypt_aes_gcm_256(&mut self, symmetric_key: [u8; 32]) -> Result<(), TapError> {
+    fn decrypt_aes_gcm_256(&mut self, symmetric_key: &Vec<u8>) -> Result<(), TapError> {
         use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
 
         let nonce_size = self.read_u16()? as usize;
@@ -88,8 +99,7 @@ impl AttestationPayloadParser {
         let tag = self.read_exact(tag_size)?;
         let payload_size = self.read_u16()? as usize;
 
-        let key: Key<Aes256Gcm> = symmetric_key.into();
-        let cipher = Aes256Gcm::new(&key);
+        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(symmetric_key.as_slice()));
         let nonce = Nonce::from_slice(&nonce);
         let tag = Tag::from_slice(&tag);
         let mut data_slice = unsafe{ core::slice::from_raw_parts_mut(self.pointer as *mut u8, payload_size) };
