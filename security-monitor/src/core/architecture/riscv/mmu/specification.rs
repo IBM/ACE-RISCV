@@ -41,4 +41,6 @@ pub const HGATP64_VMID_SHIFT: usize = 44;
 pub const HGATP_PAGE_SHIFT: usize = 12;
 pub const HGATP_PPN_MASK: usize = 0x0000FFFFFFFFFFF;
 
+pub const HGATP_MODE_SV39X4: usize = 8;
+pub const HGATP_MODE_SV48X4: usize = 9;
 pub const HGATP_MODE_SV57X4: usize = 10;
