@@ -327,6 +327,7 @@ CONFIG_FPU=y
 # CONFIG_RISCV_COVE_GUEST is not set
 CONFIG_RISCV_COVE_GUEST=y
 CONFIG_RISCV_COVE_GUEST_PROMOTE=y
+CONFIG_RISCV_COVE_GUEST_EMBEDDED_TAP=y
 # end of Confidential VM Extension(CoVE) Support
 # end of Platform type
 

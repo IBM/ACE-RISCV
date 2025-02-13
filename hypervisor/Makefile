@@ -20,6 +20,8 @@ HYPERVISOR_OVERLAY_ROOT_DIR			?= $(HYPERVISOR_OVERLAY_DIR)/root
 HYPERVISOR_PATCHES_DIR				?= $(MAKEFILE_SOURCE_DIR)/patches
 HYPERVISOR_LINUX_PATCH				?= $(HYPERVISOR_PATCHES_DIR)/linux/6.3-rc4/
 
+KVMTOOL_WORK_DIR					?= $(HYPERVISOR_WORK_DIR)/kvmtool
+
 BUILDROOT_WORK_DIR					?= $(HYPERVISOR_WORK_DIR)/buildroot
 RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
 export PATH 						:= $(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)
@@ -52,11 +54,12 @@ buildroot: setup
 		$(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) BR2_JLEVEL=0 ;\
 	fi
 
-overlay:
+overlay: kvmtool
 	echo "Setting up the content of the hypervisor's root directory" ;\
 	mkdir -p $(HYPERVISOR_OVERLAY_ROOT_DIR); \
 	mkdir -p $(HYPERVISOR_OVERLAY_DIR); \
-	cp $(HYPERVISOR_ROOTFS_SOURCE_DIR)/*.sh $(HYPERVISOR_OVERLAY_ROOT_DIR)/
+	cp $(HYPERVISOR_ROOTFS_SOURCE_DIR)/*.sh $(HYPERVISOR_OVERLAY_ROOT_DIR)/; \
+	cp ${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static $(HYPERVISOR_OVERLAY_ROOT_DIR)/;
 
 dev:
 	sed "s@^BR2_PACKAGE_OVERRIDE_FILE=.*@BR2_PACKAGE_OVERRIDE_FILE=\"$(HYPERVISOR_BUILDROOT_OVERRIDE_DIR)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
@@ -66,6 +69,26 @@ dev:
 rootfs: overlay
 	echo "Generating hypervisor's root filesystem" ;\
 	$(MAKE) -s -C $(BUILDROOT_SOURCE_DIR) RISCV=$(RISCV_GNU_TOOLCHAIN_WORK_DIR) PATH=$(PATH) O=$(BUILDROOT_WORK_DIR) rootfs-ext2
+
+kvmtool:
+	mkdir -p $(KVMTOOL_WORK_DIR) && cd $(KVMTOOL_WORK_DIR) ;\
+    if [ ! -f "${KVMTOOL_WORK_DIR}/dtc/build/libfdt.so" ]; then \
+        rm -rf ${KVMTOOL_WORK_DIR}/dtc ;\
+        git clone git://git.kernel.org/pub/scm/utils/dtc/dtc.git ;\
+        cd dtc ;\
+        ARCH=riscv CC="${CROSS_COMPILE}gcc -mabi=${PLATFORM_RISCV_ABI} -march=${PLATFORM_RISCV_ISA}" make NO_PYTHON=1 NO_YAML=1 DESTDIR=$($CC -print-sysroot) PREFIX=${KVMTOOL_WORK_DIR}/dtc/build LIBDIR=${KVMTOOL_WORK_DIR}/dtc/build/$($CC -dumpmachine) install-lib install-includes ;\
+        cp ${KVMTOOL_WORK_DIR}/dtc/build/include/* ${KVMTOOL_WORK_DIR}/dtc/build/ ;\
+        cd .. ;\
+    fi ;\
+	if [ ! -f "${KVMTOOL_WORK_DIR}/kvmtool/lkvm-static" ]; then \
+		rm -rf ${KVMTOOL_WORK_DIR}/kvmtool ;\
+		git clone -b cove-integration-03072023 https://github.com/wojciechozga/kvmtool.git ;\
+		rm -f $(KVMTOOL_WORK_DIR)/kvmtool/lkvm-static ;\
+		cd $(KVMTOOL_WORK_DIR)/kvmtool ;\
+		ARCH=riscv LIBFDT_DIR=${KVMTOOL_WORK_DIR}/dtc/build/ make lkvm-static -j$(nproc) ;\
+		${CROSS_COMPILE}strip lkvm-static ;\
+		cd .. ;\
+	fi
 
 clean:
 	rm -rf $(HYPERVISOR_WORK_DIR)

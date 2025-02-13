@@ -1,5 +1,5 @@
 diff --git a/lib/sbi/sbi_hart.c b/lib/sbi/sbi_hart.c
-index 770fee0..9e08308 100644
+index a0ab0c6..8e2e838 100644
 --- a/lib/sbi/sbi_hart.c
 +++ b/lib/sbi/sbi_hart.c
 @@ -369,7 +369,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
