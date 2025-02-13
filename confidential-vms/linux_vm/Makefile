@@ -77,12 +77,13 @@ overlay: setup
 	mkdir -p $(HYPERVISOR_OVERLAY_ROOT_DIR) ;\
 	cp $(LINUX_VM_ROOTFS_SOURCE_DIR)/*.sh $(HYPERVISOR_OVERLAY_ROOT_DIR)/ ;\
 	rm -rf $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) && mkdir -p $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\
-	cp -r $(LINUX_VM_IMAGE) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/ ;\
-	cp -r $(LINUX_VM_BUILDROOT_ROOTFS) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR) ;\
 	rm -f $(LINUX_VM_COVE_TAP_QEMU) ;\
 	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure  --embedded-tap --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
 	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP_QEMU)
+	$(TOOLS_WORK_DIR)/cove-tap-tool attach --tap-file=$(LINUX_VM_COVE_TAP_QEMU) --kernel-file=$(LINUX_VM_IMAGE)
 	cp $(LINUX_VM_COVE_TAP_QEMU) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
+	cp $(LINUX_VM_IMAGE) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)/
+	cp $(LINUX_VM_BUILDROOT_ROOTFS) $(HYPERVISOR_OVERLAY_LINUX_VM_DIR)
 	rm -f $(LINUX_VM_COVE_TAP_KVMTOOL)
 	$(eval $@_TMP = $(shell $(TOOLS_WORK_DIR)/cove-tap-tool measure --base-address=0x80200000 --kernel-file=$(LINUX_VM_IMAGE) | cut -d' ' -f2-;) )
 	$(TOOLS_WORK_DIR)/cove-tap-tool generate --pcrs 4=$($@_TMP) --secrets 0=0xc0ffee --output-file=$(LINUX_VM_COVE_TAP_KVMTOOL)
