@@ -37,13 +37,17 @@ impl AttestationPayloadSerializer {
         let mut result = vec![];
         result.append(&mut (lockboxes.len() as u16).to_le_bytes().to_vec());
         for mut lockbox in lockboxes.drain(..) {
-            let entry_size = lockbox.esk.len() + lockbox.nonce.len() + lockbox.tag.len() + lockbox.tsk.len() + 10;
+            let entry_size = lockbox.esk.len() + lockbox.nonce.len() + lockbox.tag.len() + lockbox.tsk.len() + 18;
             result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
             result.append(&mut (lockbox.name as u64).to_le_bytes().to_vec());
             result.append(&mut (lockbox.algorithm as u16).to_le_bytes().to_vec());
+            result.append(&mut (lockbox.esk.len() as u16).to_le_bytes().to_vec());
             result.append(&mut lockbox.esk);
+            result.append(&mut (lockbox.nonce.len() as u16).to_le_bytes().to_vec());
             result.append(&mut lockbox.nonce);
+            result.append(&mut (lockbox.tag.len() as u16).to_le_bytes().to_vec());
             result.append(&mut lockbox.tag);
+            result.append(&mut (lockbox.tsk.len() as u16).to_le_bytes().to_vec());
             result.append(&mut lockbox.tsk);
         }
         Ok(result)

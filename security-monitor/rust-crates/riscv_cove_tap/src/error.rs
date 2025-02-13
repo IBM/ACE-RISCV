@@ -23,4 +23,8 @@ pub enum TapError {
     KeyCreationError(#[from] core::array::TryFromSliceError),
     #[error("KEM error")]
     KemError(),
+    #[error("Could not find valid lockbox for this system")]
+    NoLockboxFound(),
+    #[error("Invalid size of TSK")]
+    InvalidTskSize(),
 }

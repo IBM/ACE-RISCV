@@ -94,7 +94,7 @@ impl LockboxAlgorithm {
                 Ok(tsk)
             },
             LockboxAlgorithm::MlKem1024Aes256 => {
-                                use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
+                use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
                 use hybrid_array::Array;
                 use ml_kem::{MlKem1024, KemCore, MlKem1024Params, Encoded, EncodedSizeUser,kem::{Decapsulate, DecapsulationKey}};
 

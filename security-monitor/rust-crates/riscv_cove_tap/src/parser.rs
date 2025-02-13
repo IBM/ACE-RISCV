@@ -31,28 +31,32 @@ impl AttestationPayloadParser {
             return Err(TapError::InvalidSize());
         }
 
-        let mut symmetric_key = vec![0u8; 32];
+        let mut symmetric_key = vec![];
         for _ in 0..number_of_lockboxes {
-            let size = self.read_u16()? as usize;
+            let _size = self.read_u16()? as usize;
             // TODO: decide based on the lockbox name if this lockbox is intended for this device or not
             let _name = self.read_u64()?;
             let algorithm = LockboxAlgorithm::from_u16(self.read_u16()?)?;
-            let (esk, nonce, tag, tsk) = match algorithm {
-                LockboxAlgorithm::Debug => {
-                    (vec![], vec![], vec![], self.read_exact(size-10)?)
-                },
-                LockboxAlgorithm::MlKem1024Aes256 => {
-                    let esk = self.read_exact(10)?;
-                    let nonce = self.read_exact(10)?;
-                    let tag = self.read_exact(10)?;
-                    let tsk = self.read_exact(10)?;
-                    (esk, nonce, tag, tsk)
+            let esk_size = self.read_u16()? as usize;
+            let esk = self.read_exact(esk_size)?;
+            let nonce_size = self.read_u16()? as usize;
+            let nonce = self.read_exact(nonce_size)?;
+            let tag_size = self.read_u16()? as usize;
+            let tag = self.read_exact(tag_size)?;
+            let tsk_size = self.read_u16()? as usize;
+            let tsk = self.read_exact(tsk_size)?;
+            match algorithm.decode(decapsulation_key, esk, nonce, tag, tsk) {
+                Ok(mut tsk) => {
+                    symmetric_key.append(&mut tsk);
+                    break;
+                }
+                Err(e) => {
+                    return Err(e)
                 }
             };
-            if let Ok(mut tsk) = algorithm.decode(decapsulation_key, esk, nonce, tag, tsk) {
-                symmetric_key.append(&mut tsk);
-                break;
-            }
+        }
+        if symmetric_key.is_empty() {
+            return Err(TapError::NoLockboxFound());
         }
 
         let payload_encryption_algorithm = PayloadEncryptionAlgorithm::from_u16(self.read_u16()?)?;
@@ -99,6 +103,9 @@ impl AttestationPayloadParser {
         let tag = self.read_exact(tag_size)?;
         let payload_size = self.read_u16()? as usize;
 
+        if symmetric_key.len() != 32 {
+            return Err(TapError::InvalidTskSize());
+        }
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(symmetric_key.as_slice()));
         let nonce = Nonce::from_slice(&nonce);
         let tag = Tag::from_slice(&tag);
