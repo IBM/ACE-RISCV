@@ -146,6 +146,19 @@ index c9302650adc8..c14366f2916a 100644
  
  /* Functions related to CoVE Interrupt Management(COVI) Extension */
  int sbi_covi_tvm_aia_init(unsigned long tvm_gid, struct sbi_cove_tvm_aia_params *tvm_aia_params);
+diff --git a/arch/riscv/include/asm/kvm_nacl.h b/arch/riscv/include/asm/kvm_nacl.h
+index 49bf06750e94..b64c4add87fa 100644
+--- a/arch/riscv/include/asm/kvm_nacl.h
++++ b/arch/riscv/include/asm/kvm_nacl.h
+@@ -205,7 +205,7 @@ do {								\
+ #define nacl_csr_read(__c)					\
+ ({								\
+ 	unsigned long __r;					\
+-	if (kvm_riscv_nacl_available())				\
++	if (kvm_riscv_nacl_sync_csr_available())				\
+ 		__r = nacl_shmem_csr_read(nacl_shmem(), __c);	\
+ 	else							\
+ 		__r = csr_read(__c);				\
 diff --git a/arch/riscv/include/asm/kvm_vcpu_sbi.h b/arch/riscv/include/asm/kvm_vcpu_sbi.h
 index 5b37a12337b1..763a931407f3 100644
 --- a/arch/riscv/include/asm/kvm_vcpu_sbi.h
@@ -749,7 +762,7 @@ index b007c027baed..017191116ddf 100644
  						d.addr, d.size, d.order);
  			else
 diff --git a/arch/riscv/kvm/vcpu.c b/arch/riscv/kvm/vcpu.c
-index 005c7c93536d..cebed69ada29 100644
+index 005c7c93536d..10223d3f9b21 100644
 --- a/arch/riscv/kvm/vcpu.c
 +++ b/arch/riscv/kvm/vcpu.c
 @@ -234,7 +234,14 @@ void kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
@@ -779,7 +792,40 @@ index 005c7c93536d..cebed69ada29 100644
  			return -ENXIO;
  
  		if (copy_from_user(&irq, argp, sizeof(irq)))
-@@ -992,12 +999,12 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+@@ -832,18 +839,24 @@ void kvm_riscv_vcpu_flush_interrupts(struct kvm_vcpu *vcpu)
+ 
+ void kvm_riscv_vcpu_sync_interrupts(struct kvm_vcpu *vcpu)
+ {
+-	unsigned long hvip;
+-	struct kvm_vcpu_arch *v = &vcpu->arch;
+ 	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
++	struct kvm_vcpu_arch *v = &vcpu->arch;
++	unsigned long hvip;
++	void *nshmem;
+ 
+ 	/* Read current HVIP and VSIE CSRs */
+-	csr->vsie = nacl_csr_read(CSR_VSIE);
++	if (is_cove_vm_finalized(vcpu->kvm)) {
++		nshmem = nacl_shmem();
++		csr->vsie = nacl_shmem_csr_read(nshmem, CSR_VSIE);
++		/* The HVIP is not updated by the TSM. Expect it to be zero. */
++		hvip = nacl_shmem_csr_read(nshmem, CSR_HVIP);
++	} else {
++		/* Read current HVIP and VSIE CSRs */
++		csr->vsie = nacl_csr_read(CSR_VSIE);
++		/* Sync-up HVIP.VSSIP bit changes does by Guest. */
++		hvip = nacl_csr_read(CSR_HVIP);
++	}
+ 
+-	/*
+-	 * Sync-up HVIP.VSSIP bit changes does by Guest. For TVMs,
+-	 * the HVIP is not updated by the TSM. Expect it to be zero.
+-	 */
+-	hvip = nacl_csr_read(CSR_HVIP);
+ 	if ((csr->hvip ^ hvip) & (1UL << IRQ_VS_SOFT)) {
+ 		if (hvip & (1UL << IRQ_VS_SOFT)) {
+ 			if (!test_and_set_bit(IRQ_VS_SOFT,
+@@ -992,12 +1005,12 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
  	u64 henvcfg = kvm_riscv_vcpu_get_henvcfg(vcpu->arch.isa);
  	struct kvm_vcpu_csr *csr = &vcpu->arch.guest_csr;
  
@@ -790,11 +836,11 @@ index 005c7c93536d..cebed69ada29 100644
  	}
  
 -	if (kvm_riscv_nacl_sync_csr_available()) {
-+	if (unlikely(kvm_riscv_cove_enabled()) || kvm_riscv_nacl_sync_csr_available()) {
++	if (kvm_riscv_nacl_sync_csr_available() || is_cove_vm_single_step_initializing(vcpu->kvm)) {
  		nshmem = nacl_shmem();
  		nacl_shmem_csr_write(nshmem, CSR_VSSTATUS, csr->vsstatus);
  		nacl_shmem_csr_write(nshmem, CSR_VSIE, csr->vsie);
-@@ -1048,7 +1055,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+@@ -1048,7 +1061,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
  
  	vcpu->cpu = -1;
  
@@ -803,16 +849,16 @@ index 005c7c93536d..cebed69ada29 100644
  		kvm_riscv_cove_vcpu_put(vcpu);
  		return;
  	}
-@@ -1061,7 +1068,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+@@ -1061,7 +1074,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
  
  	kvm_riscv_vcpu_timer_save(vcpu);
  
 -	if (kvm_riscv_nacl_available()) {
-+	if (kvm_riscv_nacl_sync_csr_available()) {
++	if (kvm_riscv_nacl_sync_csr_available() || is_cove_vm_single_step_initializing(vcpu->kvm)) {
  		/**
  		 * For TVMs, we don't need a separate case as TSM only updates
  		 * the required CSRs during the world switch. All other CSR
-@@ -1114,7 +1121,7 @@ static void kvm_riscv_check_vcpu_requests(struct kvm_vcpu *vcpu)
+@@ -1114,7 +1127,7 @@ static void kvm_riscv_check_vcpu_requests(struct kvm_vcpu *vcpu)
  		if (kvm_check_request(KVM_REQ_VCPU_RESET, vcpu))
  			kvm_riscv_reset_vcpu(vcpu);
  
@@ -821,7 +867,7 @@ index 005c7c93536d..cebed69ada29 100644
  			/*
  			 * KVM doesn't need to do anything special here
  			 * as the TSM is expected track the tlb version and issue
-@@ -1325,8 +1332,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
+@@ -1325,8 +1338,11 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
  		 */
  		kvm_riscv_vcpu_flush_interrupts(vcpu);
  
@@ -1096,10 +1142,10 @@ index 44a3b06d0593..42f3571361a0 100644
  		}
 diff --git a/arch/riscv/kvm/vcpu_sbi_covh.c b/arch/riscv/kvm/vcpu_sbi_covh.c
 new file mode 100644
-index 000000000000..d6362e9e3b48
+index 000000000000..2dbb85093ac4
 --- /dev/null
 +++ b/arch/riscv/kvm/vcpu_sbi_covh.c
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,89 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 IBM.
@@ -1122,6 +1168,7 @@ index 000000000000..d6362e9e3b48
 +	struct kvm_cpu_context *cntx;
 +	struct kvm_vcpu *target_vcpu;
 +	unsigned long target_vcpuid;
++	struct kvm_guest_timer *gt;
 +	void *nshmem = nacl_shmem();
 +	int rc, gpr_id, offset;
 +
@@ -1131,6 +1178,7 @@ index 000000000000..d6362e9e3b48
 +
 +	tvmc = vcpu->kvm->arch.tvmc;
 +	cntx = &vcpu->arch.guest_context;
++	gt = &vcpu->kvm->arch.timer;
 +
 +	/* Reset all but boot vcpu and preload VM's pages */
 +	kvm_for_each_vcpu(target_vcpuid, target_vcpu, vcpu->kvm) {
@@ -1149,6 +1197,7 @@ index 000000000000..d6362e9e3b48
 +	if (rc)
 +		goto vcpus_allocated;
 +
++	gt->time_delta = nacl_shmem_csr_read(nshmem, CSR_HTIMEDELTA);
 +	tvmc->finalized_done = true;
 +	kvm_info("CoVE Guest creation successful with guest id %lx\n", tvmc->tvm_guest_id);
 +	return 0;
@@ -1187,7 +1236,7 @@ index 000000000000..d6362e9e3b48
 +	.handler = kvm_sbi_ext_covh_handler,
 +};
 diff --git a/arch/riscv/kvm/vcpu_timer.c b/arch/riscv/kvm/vcpu_timer.c
-index f059e148c680..b654eaa53c71 100644
+index f059e148c680..b23fc0c7793f 100644
 --- a/arch/riscv/kvm/vcpu_timer.c
 +++ b/arch/riscv/kvm/vcpu_timer.c
 @@ -73,7 +73,7 @@ static int kvm_riscv_vcpu_timer_cancel(struct kvm_vcpu_timer *t)
@@ -1217,7 +1266,29 @@ index f059e148c680..b654eaa53c71 100644
  		goto skip_hcsr_update;
  
  	kvm_riscv_vcpu_update_timedelta(vcpu);
-@@ -374,7 +374,7 @@ void kvm_riscv_guest_timer_init(struct kvm *kvm)
+@@ -342,10 +342,18 @@ void kvm_riscv_vcpu_timer_sync(struct kvm_vcpu *vcpu)
+ 		return;
+ 
+ #if defined(CONFIG_32BIT)
+-	t->next_cycles = nacl_csr_read(CSR_VSTIMECMP);
+-	t->next_cycles |= (u64)nacl_csr_read(CSR_VSTIMECMPH) << 32;
++	if (is_cove_vm_finalized(vcpu->kvm)) {
++		t->next_cycles = nacl_shmem_csr_read(nacl_shmem(), CSR_VSTIMECMP);
++		t->next_cycles |= (u64)nacl_shmem_csr_read(nacl_shmem(), CSR_VSTIMECMPH) << 32;
++	} else {
++		t->next_cycles = nacl_csr_read(CSR_VSTIMECMP);
++		t->next_cycles |= (u64)nacl_csr_read(CSR_VSTIMECMPH) << 32;
++	}
+ #else
+-	t->next_cycles = nacl_csr_read(CSR_VSTIMECMP);
++	if (is_cove_vm_finalized(vcpu->kvm))
++		t->next_cycles = nacl_shmem_csr_read(nacl_shmem(), CSR_VSTIMECMP);
++	else
++		t->next_cycles = nacl_csr_read(CSR_VSTIMECMP);
+ #endif
+ }
+ 
+@@ -374,7 +382,7 @@ void kvm_riscv_guest_timer_init(struct kvm *kvm)
  	struct kvm_guest_timer *gt = &kvm->arch.timer;
  
  	riscv_cs_get_mult_shift(&gt->nsec_mult, &gt->nsec_shift);
