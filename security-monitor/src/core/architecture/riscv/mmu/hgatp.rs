@@ -6,6 +6,7 @@ use super::specification::*;
 #[repr(usize)]
 /// Represents the mode implemented by the MMU for the G-stage address translation
 pub enum HgatpMode {
+    Sv48x4 = HGATP_MODE_SV48X4,
     Sv57x4 = HGATP_MODE_SV57X4,
 }
 
@@ -16,6 +17,7 @@ impl HgatpMode {
 
     fn from_code(code: usize) -> Option<Self> {
         match code {
+            HGATP_MODE_SV48X4 => Some(HgatpMode::Sv48x4),
             HGATP_MODE_SV57X4 => Some(HgatpMode::Sv57x4),
             _ => None,
         }
