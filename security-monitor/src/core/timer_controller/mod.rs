@@ -77,9 +77,9 @@ impl<'a, 'b> TimerController<'a, 'b> {
 
     pub fn restore_vs_timer(&mut self) {
         let mut mtimecmp = self.read_mtimecmp();
-        if mtimecmp < self.current_time {
-            mtimecmp = self.current_time + 10000;
-        }
+        // if mtimecmp == usize::MAX {
+        //     mtimecmp = self.current_time + 10000;
+        // }
         self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = mtimecmp;
 
         if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {

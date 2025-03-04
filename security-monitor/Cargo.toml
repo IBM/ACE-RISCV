@@ -45,8 +45,11 @@ crate-type=["staticlib"]
 verbose = []
 
 [profile.release]
+strip = true
+lto = true
+
 # required by https://crates.io/crates/cargo-call-stack
-lto = 'fat'
+# lto = 'fat'
 # enables check for integer overflows in runtime. This will incurrs performance overhead
 # a properly done formal verification of the security monitor would obsolete this feature
-overflow-checks = true
+# overflow-checks = true
