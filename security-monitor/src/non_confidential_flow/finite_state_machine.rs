@@ -15,7 +15,7 @@ use crate::non_confidential_flow::handlers::cove_host_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
-use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
+use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, EmulateIllegalInstruction, ProbeSbiExtension};
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::InvalidCall;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
 
@@ -58,7 +58,10 @@ impl<'a> NonConfidentialFlow<'a> {
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
             Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            IllegalInstruction => {
+                let flow = EmulateIllegalInstruction::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow);
+                DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow)
+            }
             LoadAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             LoadAccessFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             StoreAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -125,6 +128,10 @@ impl<'a> NonConfidentialFlow<'a> {
         unsafe { exit_to_hypervisor_asm() }
     }
 
+    pub fn resume_hypervisor_hart_execution(self) -> ! {
+        unsafe { exit_to_hypervisor_asm() }
+    }
+
     /// Swaps the mscratch register value with the original mascratch value used by OpenSBI. This function must be
     /// called before executing any OpenSBI function. We can remove this once we get rid of the OpenSBI firmware.
     pub fn swap_mscratch(&mut self) {
@@ -135,7 +142,7 @@ impl<'a> NonConfidentialFlow<'a> {
         self.hypervisor_hart().shared_memory()
     }
 
-    fn hypervisor_hart_mut(&mut self) -> &mut HypervisorHart {
+    pub fn hypervisor_hart_mut(&mut self) -> &mut HypervisorHart {
         self.hardware_hart.hypervisor_hart_mut()
     }
 

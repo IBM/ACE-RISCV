@@ -27,7 +27,8 @@ impl DelegateToConfidentialVm {
         let mtval = confidential_hart.csrs().mtval.read();
         let vstvec = confidential_hart.csrs().vstvec.read();
         let vsstatus = confidential_hart.csrs().vsstatus.read();
-        let (inst, inst_len) = crate::confidential_flow::handlers::mmio::read_trapped_instruction(confidential_hart);
+        let mtinst = confidential_hart.csrs().mtinst.read();
+        let (inst, inst_len) = crate::confidential_flow::handlers::mmio::read_trapped_instruction(mtinst, mepc);
         let htimedelta = confidential_hart.csrs().htimedelta;
         Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, htimedelta, inst, inst_len }
     }

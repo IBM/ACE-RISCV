@@ -29,7 +29,9 @@ impl MmioStoreRequest {
         let fault_address = (mtval2 << 2) | (mtval & 0x3);
         // debug!("MMIO store: 0x{:x}", fault_address);
 
-        let (instruction, instruction_length) = super::read_trapped_instruction(confidential_hart);
+        let mtinst = confidential_hart.csrs().mtinst.read();
+        let mepc = confidential_hart.csrs().mtinst.read_from_main_memory();
+        let (instruction, instruction_length) = super::read_trapped_instruction(mtinst, mepc);
         let gpr_value =
             crate::core::architecture::decode_result_register(instruction).and_then(|gpr| Ok(confidential_hart.gprs().read(gpr)));
         Self { mcause, mtval, mtval2, instruction, instruction_length, gpr_value }

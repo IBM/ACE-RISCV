@@ -43,10 +43,10 @@ extern "C" {
     fn _load_u64_from_confidential_vm_memory(address: usize) -> usize;
 }
 
-pub fn read_trapped_instruction(confidential_hart: &crate::core::control_data::ConfidentialHart) -> (usize, usize) {
-    match confidential_hart.csrs().mtinst.read() {
+pub fn read_trapped_instruction(mtinst: usize, mepc: usize) -> (usize, usize) {
+    match mtinst {
         0 => {
-            let guest_virtual_address = confidential_hart.csrs().mepc.read_from_main_memory();
+            let guest_virtual_address = mepc;
             let mut low = unsafe { _load_u64_from_confidential_vm_memory(guest_virtual_address & !7) };
             low = low >> (8 * (guest_virtual_address & 7));
             let instruction_length = riscv_decode::instruction_length(low as u16);
