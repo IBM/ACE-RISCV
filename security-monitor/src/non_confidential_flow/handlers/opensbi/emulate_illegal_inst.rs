@@ -29,7 +29,7 @@ impl EmulateIllegalInstruction {
         let vsstatus = hypervisor_hart.csrs().vsstatus.read();
         let mtinst = hypervisor_hart.csrs().mtinst.read();
         let (inst, inst_len) = crate::confidential_flow::handlers::mmio::read_trapped_instruction(mtinst, mepc);
-        let htimedelta = hypervisor_hart.csrs().htimedelta;
+        let htimedelta = hypervisor_hart.csrs().htimedelta; // } else { 0 };
         Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, htimedelta, inst, inst_len }
     }
 
@@ -91,13 +91,17 @@ impl EmulateIllegalInstruction {
         use crate::core::architecture::CSR;
 
         if csr == CSR_TIME.into() {
-            return Some(TimerController::read_virt_time(self.htimedelta));
+            if self.mstatus & (1 << 39) > 0 {
+                return Some(TimerController::read_virt_time(self.htimedelta));
+            } else {
+                return Some(TimerController::read_virt_time(0));
+            }
         } else if csr == CSR_CYCLE.into() {
             return Some(CSR.mcycle.read());
         } else if csr == CSR_INSTRET.into() {
             return Some(CSR.minstret.read());
         } else if csr == CSR_HTIMEDELTA.into() {
-            return Some(0);
+            return Some(self.htimedelta);
         } else {
             return None;
         }
