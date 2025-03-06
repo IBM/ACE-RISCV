@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::specification::CAUSE_ILLEGAL_INSTRUCTION;
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{GeneralPurposeRegister, CSR};
 use crate::core::control_data::HypervisorHart;
 use crate::core::timer_controller::TimerController;
 use crate::non_confidential_flow::NonConfidentialFlow;
@@ -29,11 +29,11 @@ impl EmulateIllegalInstruction {
         let vsstatus = hypervisor_hart.csrs().vsstatus.read();
         let mtinst = hypervisor_hart.csrs().mtinst.read();
         let (inst, inst_len) = crate::confidential_flow::handlers::mmio::read_trapped_instruction(mtinst, mepc);
-        let htimedelta = hypervisor_hart.csrs().htimedelta; // } else { 0 };
+        let htimedelta = hypervisor_hart.csrs().htimedelta;
         Self { mstatus, mcause, mepc, mtval, vstvec, vsstatus, htimedelta, inst, inst_len }
     }
 
-    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> NonConfidentialFlow {
+    pub fn handle(mut self, mut non_confidential_flow: NonConfidentialFlow) -> NonConfidentialFlow {
         if self.mcause == CAUSE_ILLEGAL_INSTRUCTION.into() {
             return self.emulate_illegal_instruction(non_confidential_flow);
         }
@@ -45,14 +45,22 @@ impl EmulateIllegalInstruction {
         let get_rs1_num = |instruction| ((instruction & 0xf8000) >> 15);
 
         let (csr_value, new_value, do_write, result_gpr_index) = match riscv_decode::decode(self.inst as u32) {
-            Ok(Csrrw(t)) => (self.read_csr(t.csr()), t.rs1() as usize, true, t.rd()),
+            Ok(Csrrw(t)) => {
+                let new_value =
+                    non_confidential_flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
+                (self.read_csr(t.csr()), new_value, true, t.rd())
+            }
             Ok(Csrrs(t)) => {
+                let new_value =
+                    non_confidential_flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
                 let csr_value = self.read_csr(t.csr());
-                (csr_value, csr_value.unwrap_or(0) | (t.rs1() as usize), get_rs1_num(self.inst) != 0, t.rd())
+                (csr_value, csr_value.unwrap_or(0) | new_value, get_rs1_num(self.inst) != 0, t.rd())
             }
             Ok(Csrrc(t)) => {
+                let new_value =
+                    non_confidential_flow.hypervisor_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
                 let csr_value = self.read_csr(t.csr());
-                (self.read_csr(t.csr()), csr_value.unwrap_or(0) & !(t.rs1() as usize), get_rs1_num(self.inst) != 0, t.rd())
+                (self.read_csr(t.csr()), csr_value.unwrap_or(0) & !new_value, get_rs1_num(self.inst) != 0, t.rd())
             }
             Ok(Csrrwi(t)) => (self.read_csr(t.csr()), get_rs1_num(self.inst), true, t.rd()),
             Ok(Csrrsi(t)) => {

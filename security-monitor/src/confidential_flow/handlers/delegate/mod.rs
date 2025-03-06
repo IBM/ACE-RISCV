@@ -50,14 +50,22 @@ impl DelegateToConfidentialVm {
         let get_rs1_num = |instruction| ((instruction & 0xf8000) >> 15);
 
         let (csr_value, _new_value, do_write, result_gpr_index) = match riscv_decode::decode(self.inst as u32) {
-            Ok(Csrrw(t)) => (self.read_csr(t.csr()), t.rs1() as usize, true, t.rd()),
+            Ok(Csrrw(t)) => {
+                let new_value =
+                    confidential_flow.confidential_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
+                (self.read_csr(t.csr()), new_value, true, t.rd())
+            }
             Ok(Csrrs(t)) => {
+                let new_value =
+                    confidential_flow.confidential_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
                 let csr_value = self.read_csr(t.csr());
-                (csr_value, csr_value | (t.rs1() as usize), get_rs1_num(self.inst) != 0, t.rd())
+                (csr_value, csr_value | new_value, get_rs1_num(self.inst) != 0, t.rd())
             }
             Ok(Csrrc(t)) => {
+                let new_value =
+                    confidential_flow.confidential_hart().gprs().read(GeneralPurposeRegister::try_from(t.rs1() as usize).unwrap());
                 let csr_value = self.read_csr(t.csr());
-                (self.read_csr(t.csr()), csr_value & !(t.rs1() as usize), get_rs1_num(self.inst) != 0, t.rd())
+                (self.read_csr(t.csr()), csr_value & !new_value, get_rs1_num(self.inst) != 0, t.rd())
             }
             Ok(Csrrwi(t)) => (self.read_csr(t.csr()), get_rs1_num(self.inst), true, t.rd()),
             Ok(Csrrsi(t)) => {
