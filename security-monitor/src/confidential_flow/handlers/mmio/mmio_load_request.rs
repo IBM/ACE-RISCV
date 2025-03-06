@@ -24,7 +24,7 @@ impl MmioLoadRequest {
         // debug!("MMIO store: 0x{:x}", fault_address);
 
         let mtinst = confidential_hart.csrs().mtinst.read();
-        let mepc = confidential_hart.csrs().mtinst.read_from_main_memory();
+        let mepc = confidential_hart.csrs().mepc.read_from_main_memory();
         let (instruction, instruction_length) = super::read_trapped_instruction(mtinst, mepc);
         Self {
             mcause: confidential_hart.csrs().mcause.read(),
