@@ -15,7 +15,9 @@ use crate::non_confidential_flow::handlers::cove_host_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
-use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, EmulateIllegalInstruction, ProbeSbiExtension};
+use crate::non_confidential_flow::handlers::opensbi::{
+    DelegateInterruptToOpensbi, DelegateToOpensbi, EmulateIllegalInstruction, ProbeSbiExtension,
+};
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::InvalidCall;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
 
@@ -57,7 +59,13 @@ impl<'a> NonConfidentialFlow<'a> {
         // `initialization` procedure for more details.
         let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
-            Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            Interrupt => {
+                if flow.hypervisor_hart().csrs().mcause.read() & (1 << 11) > 0 {
+                    DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow)
+                } else {
+                    DelegateInterruptToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow)
+                }
+            }
             IllegalInstruction => {
                 let flow = EmulateIllegalInstruction::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow);
                 DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow)
