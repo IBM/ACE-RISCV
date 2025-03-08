@@ -109,6 +109,10 @@ impl HypervisorHart {
         &self.hypervisor_hart_state
     }
 
+    pub fn hypervisor_hart_state_mut(&mut self) -> &mut HartArchitecturalState {
+        &mut self.hypervisor_hart_state
+    }
+
     pub fn shared_memory(&self) -> &NaclSharedMemory {
         &self.shared_memory
     }

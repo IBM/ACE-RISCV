@@ -15,15 +15,19 @@ use crate::non_confidential_flow::handlers::cove_host_extension::{
     DestroyConfidentialVm, GetSecurityMonitorInfo, PromoteToConfidentialVm, RunConfidentialHart,
 };
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
-use crate::non_confidential_flow::handlers::opensbi::{DelegateToOpensbi, ProbeSbiExtension};
-use crate::non_confidential_flow::handlers::supervisor_binary_interface::InvalidCall;
+use crate::non_confidential_flow::handlers::supervisor_binary_interface::{InvalidCall, ProbeSbiExtension};
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
+use opensbi_sys::sbi_trap_regs;
 
 extern "C" {
     /// To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
     /// never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
     /// KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
+
+    /// Currently, we rely on OpenSBI to handle some of the interrupts or exceptions. Below function is the entry point
+    /// to OpenSBI trap handler.
+    fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;
 }
 
 /// Represents the non-confidential part of the finite state machine (FSM), implementing router and exit nodes. It encapsulates the
@@ -55,15 +59,9 @@ impl<'a> NonConfidentialFlow<'a> {
         // hardware hart's dump area in main memory. This area in main memory is exclusively owned by the physical hart executing this code.
         // Specifically, every physical hart has its own are in the main memory and its `mscratch` register stores the address. See the
         // `initialization` procedure for more details.
-        let flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
+        let mut flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
-            Interrupt => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            IllegalInstruction => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            LoadAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            LoadAccessFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            StoreAddressMisaligned => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            StoreAccessFault => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(Base(ProbeExtension)) => ProbeSbiExtension::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
+            HsEcall(Base(ProbeExtension)) => ProbeSbiExtension::from_hypervisor_hart(flow.hypervisor_hart_mut()).handle(flow),
             HsEcall(Covh(TsmGetInfo)) => GetSecurityMonitorInfo::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(PromoteToTvm)) => PromoteToConfidentialVm::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Covh(TvmVcpuRun)) => RunConfidentialHart::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -72,10 +70,19 @@ impl<'a> NonConfidentialFlow<'a> {
             HsEcall(Nacl(ProbeFeature)) => NaclProbeFeature::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(SetupSharedMemory)) => NaclSetupSharedMemory::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
             HsEcall(Nacl(_)) => InvalidCall::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            HsEcall(_) => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            MachineEcall => DelegateToOpensbi::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
-            trap_reason => panic!("Bug: Incorrect interrupt delegation configuration: {:?}", trap_reason),
+            _ => flow.delegate_to_opensbi(),
         }
+    }
+
+    pub fn delegate_to_opensbi(self) -> ! {
+        // Safety: We play with fire here. We must statically make sure that OpenSBI's input structure is bitwise same as ACE's hart state.
+        let trap_regs = self.hardware_hart.hypervisor_hart_mut().hypervisor_hart_state_mut() as *mut _ as *mut sbi_trap_regs;
+        let _ = self.hardware_hart.opensbi_context(|| {
+            Ok(unsafe {
+                sbi_trap_handler(trap_regs);
+            })
+        });
+        unsafe { exit_to_hypervisor_asm() }
     }
 
     /// Tries to traverse to confidential flow of the finite state machine (FSM). Returns error if the identifier of a confidential VM or
@@ -113,16 +120,9 @@ impl<'a> NonConfidentialFlow<'a> {
     pub(super) fn apply_and_exit_to_hypervisor(mut self, transformation: ApplyToHypervisorHart) -> ! {
         match transformation {
             ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
-            ApplyToHypervisorHart::OpenSbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
         }
         unsafe { exit_to_hypervisor_asm() }
-    }
-
-    /// Swaps the mscratch register value with the original mascratch value used by OpenSBI. This function must be
-    /// called before executing any OpenSBI function. We can remove this once we get rid of the OpenSBI firmware.
-    pub fn swap_mscratch(&mut self) {
-        self.hardware_hart.swap_mscratch()
     }
 
     pub fn shared_memory(&self) -> &NaclSharedMemory {
