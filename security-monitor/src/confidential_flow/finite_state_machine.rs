@@ -242,14 +242,8 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn broadcast_remote_command(
         &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
-        // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
-        // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
-        // that knows the original value of the mscratch expected by OpenSBI.
-        self.hardware_hart.swap_mscratch();
-        let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
-        // We must revert the content of mscratch back to the value expected by our context switched.
-        self.hardware_hart.swap_mscratch();
-        result
+        // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
+        self.hardware_hart.opensbi_context(|| confidential_vm.broadcast_remote_command(confidential_hart_remote_command))
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to
@@ -329,9 +323,5 @@ impl<'a> ConfidentialFlow<'a> {
 
     fn hypervisor_hart(&'a self) -> &HypervisorHart {
         &self.hardware_hart.hypervisor_hart()
-    }
-
-    pub fn swap_mscratch(&mut self) {
-        self.hardware_hart.swap_mscratch()
     }
 }

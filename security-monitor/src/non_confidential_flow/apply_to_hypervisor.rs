@@ -3,13 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::non_confidential_flow::handlers::cove_host_extension::PromoteToConfidentialVm;
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::NaclSetupSharedMemory;
-use crate::non_confidential_flow::handlers::opensbi::DelegateToOpensbi;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 
 /// Transformation of the hypervisor state created as a result of processing an SBI request from the hypervisor.
 pub enum ApplyToHypervisorHart {
     SbiResponse(SbiResponse),
-    OpenSbiResponse(DelegateToOpensbi),
     SetSharedMemory(NaclSetupSharedMemory),
     PromoteResponse((PromoteToConfidentialVm, SbiResponse, usize)),
 }

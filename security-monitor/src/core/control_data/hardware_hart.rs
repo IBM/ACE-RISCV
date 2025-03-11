@@ -56,6 +56,14 @@ impl HardwareHart {
         self.previous_mscratch = current_mscratch;
     }
 
+    pub fn opensbi_context<F>(&mut self, function: F) -> Result<(), crate::error::Error>
+    where F: FnOnce() -> Result<(), crate::error::Error> {
+        self.swap_mscratch();
+        let result = function();
+        self.swap_mscratch();
+        result
+    }
+
     pub fn confidential_hart(&self) -> &ConfidentialHart {
         &self.confidential_hart
     }

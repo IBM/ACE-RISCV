@@ -3,5 +3,4 @@
 // SPDX-License-Identifier: Apache-2.0
 pub mod cove_host_extension;
 pub mod nested_acceleration_extension;
-pub mod opensbi;
 pub mod supervisor_binary_interface;

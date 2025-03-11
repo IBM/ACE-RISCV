@@ -37,9 +37,9 @@ impl HandleInterrupt {
             if controller.vs_timer_interrupted() {
                 controller.handle_vs_interrupt();
                 controller.set_s_timer();
-                // if !controller.s_timer_interrupted() {
-                //     confidential_flow.resume_confidential_hart_execution();
-                // }
+                if !controller.s_timer_interrupted() {
+                    confidential_flow.resume_confidential_hart_execution();
+                }
             }
             confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
         }

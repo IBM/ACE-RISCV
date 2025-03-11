@@ -11,14 +11,19 @@ use crate::core::control_data::{DigestType, MeasurementDigest};
 use core::arch::asm;
 
 /// Represents all control status registers (CSRs) accessible to modes less privileged than M-mode.
+#[repr(C)]
 pub struct ControlStatusRegisters {
     pub mepc: ReadWriteRiscvCsr<CSR_MEPC>,
+    pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
+    // Safety: Architectural hart state must be bitwise equal to corresponding OpenSBI structure.
+    //         For that reason, this structure is layouted according to C convention and it starts
+    //         with mepc and mstatus. When updating to new version of OpenSBI, make sure that
+    //         CSRs' order in this structure is correct.
     pub mcause: ReadWriteRiscvCsr<CSR_MCAUSE>,
     pub medeleg: ReadWriteRiscvCsr<CSR_MEDELEG>,
     pub mideleg: ReadWriteRiscvCsr<CSR_MIDELEG>,
     pub mie: ReadWriteRiscvCsr<CSR_MIE>,
     pub mip: ReadWriteRiscvCsr<CSR_MIP>,
-    pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
     pub mtinst: ReadWriteRiscvCsr<CSR_MTINST>,
     pub mtval: ReadWriteRiscvCsr<CSR_MTVAL>,
     pub mtval2: ReadWriteRiscvCsr<CSR_MTVAL2>,
@@ -86,12 +91,12 @@ impl ControlStatusRegisters {
     pub fn empty() -> Self {
         let mut csrs = Self {
             mepc: ReadWriteRiscvCsr::new(),
+            mstatus: ReadWriteRiscvCsr::new(),
             mcause: ReadWriteRiscvCsr::new(),
             medeleg: ReadWriteRiscvCsr::new(),
             mideleg: ReadWriteRiscvCsr::new(),
             mie: ReadWriteRiscvCsr::new(),
             mip: ReadWriteRiscvCsr::new(),
-            mstatus: ReadWriteRiscvCsr::new(),
             mtinst: ReadWriteRiscvCsr::new(),
             mtval: ReadWriteRiscvCsr::new(),
             mtval2: ReadWriteRiscvCsr::new(),
@@ -157,11 +162,11 @@ impl ControlStatusRegisters {
 
     pub fn save_in_main_memory(&mut self) {
         self.mepc.save_in_main_memory();
+        self.mstatus.save_in_main_memory();
         self.mcause.save_in_main_memory();
         self.medeleg.save_in_main_memory();
         self.mideleg.save_in_main_memory();
         self.mie.save_in_main_memory();
-        self.mstatus.save_in_main_memory();
         self.mtinst.save_in_main_memory();
         self.mtval.save_in_main_memory();
         self.mtval2.save_in_main_memory();
@@ -222,11 +227,11 @@ impl ControlStatusRegisters {
 
     pub fn restore_from_main_memory(&self) {
         self.mepc.restore_from_main_memory();
+        self.mstatus.restore_from_main_memory();
         self.mcause.restore_from_main_memory();
         self.medeleg.restore_from_main_memory();
         self.mideleg.restore_from_main_memory();
         self.mie.restore_from_main_memory();
-        self.mstatus.restore_from_main_memory();
         self.mtinst.restore_from_main_memory();
         self.mtval.restore_from_main_memory();
         self.mtval2.restore_from_main_memory();
