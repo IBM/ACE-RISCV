@@ -77,10 +77,9 @@ impl<'a> NonConfidentialFlow<'a> {
     pub fn delegate_to_opensbi(self) -> ! {
         // Safety: We play with fire here. We must statically make sure that OpenSBI's input structure is bitwise same as ACE's hart state.
         let trap_regs = self.hardware_hart.hypervisor_hart_mut().hypervisor_hart_state_mut() as *mut _ as *mut sbi_trap_regs;
-        let _ = self.hardware_hart.opensbi_context(|| {
-            Ok(unsafe {
-                sbi_trap_handler(trap_regs);
-            })
+        let _ = self.hardware_hart.opensbi_context(|| unsafe {
+            sbi_trap_handler(trap_regs);
+            Ok(())
         });
         unsafe { exit_to_hypervisor_asm() }
     }

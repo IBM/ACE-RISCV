@@ -64,6 +64,9 @@ confidential_vms_dev: tools
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay ;\
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
 
+confidential_vms_overlay: tools
+	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay
+
 security_monitor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) LINUX_IMAGE=$(LINUX_IMAGE) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C security-monitor build
 

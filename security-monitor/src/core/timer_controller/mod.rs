@@ -49,9 +49,9 @@ impl<'a, 'b> TimerController<'a, 'b> {
         self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp.and_then(|v| Some(v <= stimecmp)).unwrap_or(false)
     }
 
-    pub fn s_timer_interrupted(&mut self) -> bool {
-        self.current_time >= self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp
-    }
+    // pub fn s_timer_interrupted(&mut self) -> bool {
+    //     self.current_time >= self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp
+    // }
 
     pub fn vs_timer_interrupted(&mut self) -> bool {
         self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp.and_then(|v| Some(self.current_time >= v)).unwrap_or(false)
@@ -67,10 +67,10 @@ impl<'a, 'b> TimerController<'a, 'b> {
             self.handle_vs_interrupt();
         }
 
-        // if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
-        //     let cycles_left = if v > self.current_time { v - self.current_time } else { 0 };
-        //     self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(cycles_left);
-        // }
+        if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
+            let cycles_left = if v > self.current_time { v - self.current_time } else { 0 };
+            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(cycles_left);
+        }
 
         self.set_s_timer();
     }
@@ -83,7 +83,7 @@ impl<'a, 'b> TimerController<'a, 'b> {
         self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = mtimecmp;
 
         if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
-            // self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = self.current_time.checked_add(v);
+            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = self.current_time.checked_add(v);
 
             if self.vs_timer_interrupted() {
                 self.handle_vs_interrupt();
