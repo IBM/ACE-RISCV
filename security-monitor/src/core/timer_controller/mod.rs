@@ -25,22 +25,21 @@ impl<'a, 'b> TimerController<'a, 'b> {
     }
 
     pub fn set_next_event_for_vs_mode(&mut self, next_event: usize) {
-        if next_event >= usize::MAX - 1 {
-            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = None;
+        self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = if next_event >= usize::MAX - 1 {
+            None
         } else {
             let htimedelta = self.confidential_flow.confidential_hart_mut().csrs_mut().htimedelta;
-            let next_event = (next_event as isize).wrapping_sub(htimedelta as isize) as usize;
-            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(next_event);
-            if self.vs_timer_interrupted() {
-                self.handle_vs_interrupt();
-                self.set_s_timer();
-            } else if self.should_set_vs_timer() {
-                self.set_vs_timer();
-            } else {
-                self.set_s_timer();
-                self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
-                self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
-            }
+            Some((next_event as isize).wrapping_sub(htimedelta as isize) as usize)
+        };
+        if self.vs_timer_interrupted() {
+            self.handle_vs_interrupt();
+            self.set_s_timer();
+        } else if self.should_set_vs_timer() {
+            self.set_vs_timer();
+        } else {
+            self.set_s_timer();
+            self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
+            self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
         }
     }
 
@@ -49,9 +48,9 @@ impl<'a, 'b> TimerController<'a, 'b> {
         self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp.and_then(|v| Some(v <= stimecmp)).unwrap_or(false)
     }
 
-    // pub fn s_timer_interrupted(&mut self) -> bool {
-    //     self.current_time >= self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp
-    // }
+    pub fn s_timer_interrupted(&mut self) -> bool {
+        self.current_time >= self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp
+    }
 
     pub fn vs_timer_interrupted(&mut self) -> bool {
         self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp.and_then(|v| Some(self.current_time >= v)).unwrap_or(false)
@@ -66,25 +65,17 @@ impl<'a, 'b> TimerController<'a, 'b> {
         if self.vs_timer_interrupted() {
             self.handle_vs_interrupt();
         }
-
-        if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
-            let cycles_left = if v > self.current_time { v - self.current_time } else { 0 };
-            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(cycles_left);
-        }
-
+        // if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
+        //     let cycles_left = if v > self.current_time { v - self.current_time } else { 0 };
+        //     self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = Some(cycles_left);
+        // }
         self.set_s_timer();
     }
 
     pub fn restore_vs_timer(&mut self) {
-        let mut mtimecmp = self.read_mtimecmp();
-        // if mtimecmp == usize::MAX {
-        //     mtimecmp = self.current_time + 10000;
-        // }
-        self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = mtimecmp;
-
+        self.confidential_flow.confidential_hart_mut().csrs_mut().stimecmp = self.read_mtimecmp();
         if let Some(v) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
-            self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = self.current_time.checked_add(v);
-
+            // self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp = self.current_time.checked_add(v);
             if self.vs_timer_interrupted() {
                 self.handle_vs_interrupt();
                 self.set_s_timer();

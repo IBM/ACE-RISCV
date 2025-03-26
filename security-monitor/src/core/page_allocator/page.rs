@@ -314,8 +314,10 @@ impl<T: PageState> Page<T> {
         let mut hasher = DigestType::new_with_prefix(digest.clone());
         // below unsafe is ok because the page has been initialized and it owns the entire memory region.
         // We are creating a slice of bytes, so the number of elements in the slice is the same as the size of the page.
-        let slice: &[u8] = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
-        if slice.iter().find(|b| **b != 0).is_some() {
+        let slice: &[usize] =
+            unsafe { core::slice::from_raw_parts(self.address().to_ptr() as *const usize, self.size().in_bytes() / Self::ENTRY_SIZE) };
+        if slice.iter().find(|v| **v != 0).is_some() {
+            let slice: &[u8] = unsafe { core::slice::from_raw_parts(self.address().to_ptr(), self.size().in_bytes()) };
             hasher.update(guest_physical_address.to_le_bytes());
             hasher.update(&slice);
             hasher.finalize_into(digest);
