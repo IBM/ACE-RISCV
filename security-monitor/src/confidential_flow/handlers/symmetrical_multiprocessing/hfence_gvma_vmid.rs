@@ -7,17 +7,17 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommandE
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
 /// An inter hart request sent by the security monitor to clear G-stage level cached address translations.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct RemoteHfenceGvmaVmid {
     ipi: Ipi,
-    _start_address: usize,
+    _start_address: Option<ConfidentialVmPhysicalAddress>,
     _size: PageSize,
     _vmid: ConfidentialVmId,
 }
 
 impl RemoteHfenceGvmaVmid {
-    pub fn all_harts(start_address: &ConfidentialVmPhysicalAddress, _size: PageSize, _vmid: ConfidentialVmId) -> Self {
-        Self { ipi: Ipi::all_harts(), _start_address: start_address.usize(), _size, _vmid }
+    pub fn all_harts(start_address: Option<ConfidentialVmPhysicalAddress>, _size: PageSize, _vmid: ConfidentialVmId) -> Self {
+        Self { ipi: Ipi::all_harts(), _start_address: start_address, _size, _vmid }
     }
 }
 
