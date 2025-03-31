@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioStorePending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::specification::{CAUSE_STORE_ACCESS, *};
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::confidential_flow::ConfidentialFlow;
+use crate::core::architecture::specification::*;
+use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;
@@ -15,6 +15,7 @@ pub struct MmioStoreRequest {
     mcause: usize,
     mtval: usize,
     mtval2: usize,
+    mtinst: usize,
     instruction: usize,
     instruction_length: usize,
     gpr_value: Result<usize, Error>,
@@ -26,24 +27,19 @@ impl MmioStoreRequest {
         let mtval = confidential_hart.csrs().mtval.read();
         let mtval2 = confidential_hart.csrs().mtval2.read();
 
-        let fault_address = (mtval2 << 2) | (mtval & 0x3);
-        // debug!("MMIO store: 0x{:x}", fault_address);
-
         let mtinst = confidential_hart.csrs().mtinst.read();
         let mepc = confidential_hart.csrs().mepc.read_from_main_memory();
         let (instruction, instruction_length) = super::read_trapped_instruction(mtinst, mepc);
         let gpr_value =
             crate::core::architecture::decode_result_register(instruction).and_then(|gpr| Ok(confidential_hart.gprs().read(gpr)));
-        Self { mcause, mtval, mtval2, instruction, instruction_length, gpr_value }
+        Self { mcause, mtval, mtval2, mtinst, instruction, instruction_length, gpr_value }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
-
-        // if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
-        //     let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_STORE_ACCESS.into(), self.mtval, self.instruction_length);
-        //     confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
-        // }
+        if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
+            MmioAccessFault::new(CAUSE_STORE_ACCESS.into(), self.mtval, self.mtinst, fault_address).handle(confidential_flow)
+        }
 
         match self.gpr_value {
             Ok(_) => confidential_flow

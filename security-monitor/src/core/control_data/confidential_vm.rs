@@ -225,7 +225,10 @@ impl ConfidentialVm {
                         // confidential hart.
                         self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
                             ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
-                            Ok(remote_commands.push(remote_command.clone()))
+                            if remote_commands.iter().find(|c| **c == remote_command).is_none() {
+                                remote_commands.push(remote_command.clone());
+                            }
+                            Ok(())
                         })?;
                         InterruptController::try_read(|controller| controller.send_ipi(id_of_hardware_hart_running_confidential_hart))
                     }

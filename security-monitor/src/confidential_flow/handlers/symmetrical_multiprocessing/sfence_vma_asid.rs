@@ -11,7 +11,7 @@ use crate::core::control_data::{
 
 /// Handles a request from one confidential hart to execute sfence.vma instruction on remote confidential harts. It represents an inter hart
 /// request.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct RemoteSfenceVmaAsid {
     ipi: Ipi,
     _start_address: usize,

@@ -5,7 +5,7 @@ use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioLoadPending}
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::specification::{CAUSE_LOAD_ACCESS, *};
-use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -14,6 +14,7 @@ pub struct MmioLoadRequest {
     mcause: usize,
     mtval: usize,
     mtval2: usize,
+    mtinst: usize,
     instruction: usize,
     instruction_length: usize,
 }
@@ -30,6 +31,7 @@ impl MmioLoadRequest {
             mcause: confidential_hart.csrs().mcause.read(),
             mtval: confidential_hart.csrs().mtval.read(),
             mtval2: confidential_hart.csrs().mtval2.read(),
+            mtinst,
             instruction,
             instruction_length,
         }
@@ -37,11 +39,11 @@ impl MmioLoadRequest {
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
-        // if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
-        //     let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, self.instruction_length);
-        //     confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
-        // }
+        if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
+            MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, self.mtinst, fault_address).handle(confidential_flow)
+        }
 
+        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
         match crate::core::architecture::decode_result_register(self.instruction) {
             Ok(gpr) => confidential_flow
                 .set_resumable_operation(ResumableOperation::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))

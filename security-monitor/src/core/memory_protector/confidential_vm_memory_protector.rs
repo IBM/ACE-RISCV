@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
-use crate::core::architecture::{PageSize, SharedPage};
+use crate::core::architecture::PageSize;
 use crate::core::control_data::{ConfidentialVmId, ConfidentialVmMemoryLayout, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::error::Error;
@@ -35,6 +35,13 @@ impl ConfidentialVmMemoryProtector {
         self.hgatp = Hgatp::new(self.root_page_table.address(), self.root_page_table.hgatp_mode(), id.usize());
     }
 
+    pub fn map_empty_page(
+        &mut self, confidential_vm_physical_address: ConfidentialVmPhysicalAddress, page_size: PageSize,
+    ) -> Result<PageSize, Error> {
+        self.root_page_table.map_empty_page(&confidential_vm_physical_address, &page_size)?;
+        Ok(page_size)
+    }
+
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
     /// shared page is mapped into the address space of the confidential VM.
     ///
@@ -46,10 +53,7 @@ impl ConfidentialVmMemoryProtector {
     pub fn map_shared_page(
         &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
     ) -> Result<PageSize, Error> {
-        let shared_page = SharedPage::new(hypervisor_address, confidential_vm_physical_address)?;
-        let shared_page_size = shared_page.page_size();
-        self.root_page_table.map_shared_page(shared_page)?;
-        Ok(shared_page_size)
+        Ok(self.root_page_table.map_shared_page(hypervisor_address, confidential_vm_physical_address)?)
     }
 
     /// Modifies the configuration of the underlying hardware memory isolation component (e.g., MMU) in a way that a
