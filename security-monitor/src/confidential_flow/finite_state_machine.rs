@@ -242,6 +242,10 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn broadcast_remote_command(
         &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
+        // check if the remote command is also dedicated for the currently executing confidential hart
+        if confidential_hart_remote_command.is_hart_selected(self.hardware_hart.confidential_hart().confidential_hart_id()) {
+            self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
+        }
         // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
         self.hardware_hart.opensbi_context(|| confidential_vm.broadcast_remote_command(confidential_hart_remote_command))
     }
