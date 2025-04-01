@@ -216,6 +216,11 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn broadcast_remote_command(
         &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
+        // check if the remote command is also dedicated for the currently executing confidential hart
+        if confidential_hart_remote_command.is_hart_selected(self.hardware_hart.confidential_hart().confidential_hart_id()) {
+            self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
+        }
+
         // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
         // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
         // that knows the original value of the mscratch expected by OpenSBI.
@@ -223,6 +228,7 @@ impl<'a> ConfidentialFlow<'a> {
         let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
         // We must revert the content of mscratch back to the value expected by our context switched.
         self.hardware_hart.swap_mscratch();
+
         result
     }
 
