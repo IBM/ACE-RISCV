@@ -50,10 +50,12 @@ impl PromoteToConfidentialVm {
         Self { fdt_address, attestation_payload_address, program_counter, hgatp }
     }
 
-    pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
+    pub fn handle(self, mut non_confidential_flow: NonConfidentialFlow) -> ! {
         let htimedelta = 0_i64.wrapping_sub(TimerController::read_time() as i64) as usize;
         debug!("htimedelta={:x}", htimedelta);
 
+        crate::core::architecture::CSR.mstatus.read_and_set_bits(crate::core::architecture::specification::SR_FS);
+        unsafe { non_confidential_flow.hypervisor_hart_mut().hypervisor_hart_state_mut().fprs_mut().save_in_main_memory() };
         let sbi_response = match self.create_confidential_vm(non_confidential_flow.shared_memory(), htimedelta) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
@@ -64,6 +66,8 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
+        unsafe { non_confidential_flow.hypervisor_hart_mut().hypervisor_hart_state_mut().fprs_mut().restore_from_main_memory() };
+
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::PromoteResponse((self, sbi_response, htimedelta)))
     }
 
