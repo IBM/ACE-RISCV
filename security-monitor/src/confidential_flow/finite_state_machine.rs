@@ -196,7 +196,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.exit_to_confidential_hart()
     }
 
-    pub fn exit_to_confidential_hart(mut self) -> ! {
+    fn exit_to_confidential_hart(mut self) -> ! {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
@@ -216,8 +216,9 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn broadcast_remote_command(
         &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
+        let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
         // check if the remote command is also dedicated for the currently executing confidential hart
-        if confidential_hart_remote_command.is_hart_selected(self.hardware_hart.confidential_hart().confidential_hart_id()) {
+        if confidential_hart_remote_command.is_hart_selected(sender_confidential_hart_id) {
             self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
         }
 
@@ -225,7 +226,7 @@ impl<'a> ConfidentialFlow<'a> {
         // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
         // that knows the original value of the mscratch expected by OpenSBI.
         self.hardware_hart.swap_mscratch();
-        let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
+        let result = confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command);
         // We must revert the content of mscratch back to the value expected by our context switched.
         self.hardware_hart.swap_mscratch();
 

@@ -75,6 +75,7 @@ impl PromoteToConfidentialVm {
         // TODO: generate htimedelta
         let htimedelta = 0;
 
+        debug!("number_of_confidential_harts = {}", number_of_confidential_harts);
         // We create a fixed number of harts (all but the boot hart are in the reset state).
         let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
             .map(|confidential_hart_id| match confidential_hart_id {

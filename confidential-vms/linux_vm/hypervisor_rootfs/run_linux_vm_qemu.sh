@@ -7,11 +7,12 @@ QEMU_CMD=qemu-system-riscv64
 KERNEL=/root/linux_vm/Image
 DRIVE=/root/linux_vm/rootfs.ext2
 INITRAMFS=/root/linux_vm/rootfs.cpio
+TAP=/root/linux_vm/cove_tap_qemu
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
 SMP=2
-MEMORY=1G
+MEMORY=2G
 
 for i in "$@"; do
   case $i in
@@ -52,7 +53,7 @@ echo "Number of cores assigned to the guest: ${SMP}"
 ${QEMU_CMD} ${DEBUG_OPTIONS} \
     ${INTERACTIVE} \
     --enable-kvm \
-    -machine virt -cpu rv64,f=true -smp ${SMP} -m ${MEMORY} \
+    -machine virt,cove=true,cove-tap-filename=${TAP} -cpu rv64,f=true -smp ${SMP} -m ${MEMORY} \
     -kernel ${KERNEL} \
     -seed 0 \
     -global virtio-mmio.force-legacy=false \

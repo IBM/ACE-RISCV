@@ -14,8 +14,8 @@ DRIVE=${ACE_DIR}/hypervisor/buildroot/images/rootfs.ext4
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=2
-MEMORY=8G
+SMP=4
+MEMORY=4G
 
 for i in "$@"; do
   case $i in
