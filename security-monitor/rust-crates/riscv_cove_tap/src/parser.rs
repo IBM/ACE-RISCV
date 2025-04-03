@@ -33,12 +33,16 @@ impl AttestationPayloadParser {
             let _name = self.read_u64()?;
             let algorithm = LockboxAlgorithm::from_u16(self.read_u16()?)?;
             let esk_size = self.read_u16()? as usize;
+            ensure!(esk_size < 100_000, TapError::InvalidSize())?;
             let esk = self.read_exact(esk_size)?;
             let nonce_size = self.read_u16()? as usize;
+            ensure!(nonce_size < 100_000, TapError::InvalidSize())?;
             let nonce = self.read_exact(nonce_size)?;
             let tag_size = self.read_u16()? as usize;
+            ensure!(tag_size < 100_000, TapError::InvalidSize())?;
             let tag = self.read_exact(tag_size)?;
             let tsk_size = self.read_u16()? as usize;
+            ensure!(tsk_size < 100_000, TapError::InvalidSize())?;
             symmetric_key = self.read_exact(tsk_size)?;
             algorithm.decode(decapsulation_key, &esk, &nonce, &tag, &mut symmetric_key)?;
         }
@@ -54,7 +58,7 @@ impl AttestationPayloadParser {
         let mut digests = Vec::with_capacity(number_of_digests.into());
         for _ in 0..number_of_digests {
             let size = self.read_u16()? as usize;
-            ensure!(size >= 4, TapError::InvalidSize())?;
+            ensure!(4 <= size && size < 100_000, TapError::InvalidSize())?;
             let pcr_id = self.read_u16()?;
             let algorithm = DigestAlgorithm::from_u16(self.read_u16()?)?;
             let value = self.read_exact(size-4)?;
@@ -69,7 +73,7 @@ impl AttestationPayloadParser {
         let mut secrets = vec![];
         for _ in 0..number_of_secrets {
             let size = self.read_u16()? as usize;
-            ensure!(size >= 10, TapError::InvalidSize())?;
+            ensure!(10 <= size && size < 100_000, TapError::InvalidSize())?;
             let name = self.read_u64()? as u64;
             let value = self.read_exact(size-10)?;
             secrets.push(Secret { name, value });
@@ -82,10 +86,13 @@ impl AttestationPayloadParser {
         use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
 
         let nonce_size = self.read_u16()? as usize;
+        ensure!(nonce_size < 100_000, TapError::InvalidSize())?;
         let nonce = self.read_exact(nonce_size)?;
         let tag_size = self.read_u16()? as usize;
+        ensure!(tag_size < 100_000, TapError::InvalidSize())?;
         let tag = self.read_exact(tag_size)?;
         let payload_size = self.read_u16()? as usize;
+        ensure!(payload_size < 100_000, TapError::InvalidSize())?;
 
         ensure!(symmetric_key.len() == 32, TapError::InvalidTskSize())?;
         let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(symmetric_key));
@@ -97,21 +104,15 @@ impl AttestationPayloadParser {
     }
 
     fn read_u16(&mut self) -> Result<u16, TapError> {
-        let value = unsafe { (self.pointer as *const u16).read_volatile() };
-        self.pointer = self.pointer.wrapping_add(2);
-        Ok(value)
+        Ok(u16::from_le_bytes(self.read_exact(2)?.try_into().map_err(|_| TapError::InvalidSize())?))
     }
 
     fn read_u32(&mut self) -> Result<u32, TapError> {
-        let value = unsafe { (self.pointer as *const u32).read_volatile() };
-        self.pointer = self.pointer.wrapping_add(4);
-        Ok(value)
+        Ok(u32::from_le_bytes(self.read_exact(4)?.try_into().map_err(|_| TapError::InvalidSize())?))
     }
 
     fn read_u64(&mut self) -> Result<u64, TapError> {
-        let value = unsafe { (self.pointer as *const u64).read_volatile() };
-        self.pointer = self.pointer.wrapping_add(8);
-        Ok(value)
+        Ok(u64::from_le_bytes(self.read_exact(8)?.try_into().map_err(|_| TapError::InvalidSize())?))
     }
 
     fn read_exact(&mut self, size: usize) -> Result<Vec<u8>, TapError> {
