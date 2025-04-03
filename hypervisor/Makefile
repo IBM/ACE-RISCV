@@ -45,7 +45,7 @@ buildroot: setup
 		sed "s@^BR2_ROOTFS_OVERLAY=.*@BR2_ROOTFS_OVERLAY=\"$(HYPERVISOR_OVERLAY_DIR)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_TARGET_ROOTFS_EXT2_SIZE=.*@BR2_TARGET_ROOTFS_EXT2_SIZE=\"$(HYPERVISOR_ROOTFS_SIZE)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		sed "s@^BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=.*@BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE=\"$(HYPERVISOR_LINUX_CONFIG)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
-		sed "s@^BR2_LINUX_KERNEL_PATCH=.*@BR2_LINUX_KERNEL_PATCH=\"$(HYPERVISOR_LINUX_PATCH)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
+		sed "s@^BR2_GLOBAL_PATCH_DIR=.*@BR2_GLOBAL_PATCH_DIR=\"$(HYPERVISOR_PATCHES_DIR)\"@g" -i $(BUILDROOT_WORK_DIR)/.config; \
 		if [ ! -f "$(BUILDROOT_SOURCE_DIR)/Makefile" ]; then \
 			echo "Buildroot repository not initialized. Did you forget to run: git submodule update --init --recursive?" ;\
 			exit 1 ;\

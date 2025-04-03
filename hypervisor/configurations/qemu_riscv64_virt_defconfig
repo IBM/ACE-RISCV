@@ -52,6 +52,8 @@ BR2_LINUX_KERNEL_PATCH=""
 # development with custom Linux kernel sources
 BR2_PACKAGE_OVERRIDE_FILE=""
 
+BR2_GLOBAL_PATCH_DIR=""
+
 # Packages
 BR2_PACKAGE_DROPBEAR=y
 
