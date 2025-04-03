@@ -12,7 +12,7 @@ TAP=/root/linux_vm/cove_tap_qemu
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
 SMP=2
-MEMORY=2G
+MEMORY=1G
 
 for i in "$@"; do
   case $i in
