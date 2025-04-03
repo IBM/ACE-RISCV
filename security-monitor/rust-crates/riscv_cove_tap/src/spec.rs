@@ -88,18 +88,18 @@ impl LockboxAlgorithm {
     }
 
     #[cfg(feature = "parser")]
-    pub fn decode(&self, decapsulation_key: &Vec<u8>, esk: Vec<u8>, nonce: Vec<u8>, tag: Vec<u8>, mut tsk: Vec<u8>) -> Result<Vec<u8>, TapError> {
+    pub fn decode(&self, decapsulation_key: &[u8], esk: &[u8], nonce: &[u8], tag: &[u8], tsk: &mut Vec<u8>) -> Result<(), TapError> {
         match self {
             LockboxAlgorithm::Debug => {
-                Ok(tsk)
+                Ok(())
             },
             LockboxAlgorithm::MlKem1024Aes256 => {
                 use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
                 use hybrid_array::Array;
                 use ml_kem::{MlKem1024, KemCore, MlKem1024Params, Encoded, EncodedSizeUser,kem::{Decapsulate, DecapsulationKey}};
 
-                let m = Array::try_from(esk.as_slice())?;
-                let dk_bytes = Encoded::<DecapsulationKey::<MlKem1024Params>>::try_from(decapsulation_key.as_slice())?;
+                let m = Array::try_from(esk)?;
+                let dk_bytes = Encoded::<DecapsulationKey::<MlKem1024Params>>::try_from(decapsulation_key)?;
                 let dk = <MlKem1024 as KemCore>::DecapsulationKey::from_bytes(&dk_bytes);
                 let sk = match dk.decapsulate(&m) {
                     Ok(v) => v,
@@ -107,10 +107,8 @@ impl LockboxAlgorithm {
                 };
 
                 let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(sk.as_slice()));
-                let nonce = Nonce::from_slice(&nonce);
-                let tag = Tag::from_slice(&tag);
-                cipher.decrypt_in_place_detached(nonce, b"", &mut tsk, &tag).unwrap();
-                Ok(tsk)
+                cipher.decrypt_in_place_detached(Nonce::from_slice(nonce), b"", tsk, &Tag::from_slice(tag)).unwrap();
+                Ok(())
             }
         }
     }

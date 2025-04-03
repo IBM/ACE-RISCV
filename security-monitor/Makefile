@@ -31,7 +31,7 @@ build: opensbi_bindings fmt
 	echo "Generating OpenSBI bindings" ;\
 	mkdir -p $(SM_WORK_DIR) ; \
 	rm -f $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME); \
-	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) ; \
+	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) --features verbose ; \
 	cp $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)/
 
