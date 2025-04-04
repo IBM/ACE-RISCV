@@ -1,0 +1,256 @@
+diff --git a/accel/kvm/kvm-all.c b/accel/kvm/kvm-all.c
+index b472301637..c39c09b16b 100644
+--- a/accel/kvm/kvm-all.c
++++ b/accel/kvm/kvm-all.c
+@@ -2527,6 +2527,13 @@ static int kvm_init(MachineState *ms)
+         type = kvm_arch_get_default_type(ms);
+     }
+ 
++    if (object_property_find(OBJECT(current_machine), "cove")) {
++        if (object_property_get_bool(OBJECT(current_machine), "cove", &error_abort)) {
++            type = 1UL << 10;
++            warn_report("Creating CoVE TVM");
++        }
++    }
++
+     do {
+         ret = kvm_ioctl(s, KVM_CREATE_VM, type);
+     } while (ret == -EINTR);
+diff --git a/hw/riscv/boot.c b/hw/riscv/boot.c
+index 52bf8e67de..7f4550bbf1 100644
+--- a/hw/riscv/boot.c
++++ b/hw/riscv/boot.c
+@@ -16,7 +16,7 @@
+  * You should have received a copy of the GNU General Public License along with
+  * this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+-
++#include <linux/kvm.h>
+ #include "qemu/osdep.h"
+ #include "qemu/datadir.h"
+ #include "qemu/units.h"
+@@ -205,6 +205,18 @@ static void riscv_load_initrd(MachineState *machine, uint64_t kernel_entry)
+         }
+     }
+ 
++    #if defined(CONFIG_KVM)
++        struct kvm_riscv_cove_measure_region mr = {
++            .user_addr = 0,
++            .gpa = start,
++            .size = size,
++            .type = KVM_RISCV_COVE_REGION_INITRD,
++        };
++        warn_report("Register initrd region %lx %ld", start, size);
++        KVMState *s = KVM_STATE(machine->accelerator);
++        kvm_vm_ioctl(s, KVM_RISCV_COVE_MEASURE_REGION, &mr);
++    #endif
++
+     /* Some RISC-V machines (e.g. opentitan) don't have a fdt. */
+     if (fdt) {
+         end = start + size;
+@@ -222,6 +234,7 @@ target_ulong riscv_load_kernel(MachineState *machine,
+     const char *kernel_filename = machine->kernel_filename;
+     uint64_t kernel_load_base, kernel_entry;
+     void *fdt = machine->fdt;
++    ssize_t kernel_size;
+ 
+     g_assert(kernel_filename != NULL);
+ 
+@@ -232,20 +245,23 @@ target_ulong riscv_load_kernel(MachineState *machine,
+      * the (expected) load address load address. This allows kernels to have
+      * separate SBI and ELF entry points (used by FreeBSD, for example).
+      */
+-    if (load_elf_ram_sym(kernel_filename, NULL, NULL, NULL,
++    kernel_size = load_elf_ram_sym(kernel_filename, NULL, NULL, NULL,
+                          NULL, &kernel_load_base, NULL, NULL, 0,
+-                         EM_RISCV, 1, 0, NULL, true, sym_cb) > 0) {
++                         EM_RISCV, 1, 0, NULL, true, sym_cb) > 0;
++    if (kernel_size > 0) {
+         kernel_entry = kernel_load_base;
+         goto out;
+     }
+ 
+-    if (load_uimage_as(kernel_filename, &kernel_entry, NULL, NULL,
+-                       NULL, NULL, NULL) > 0) {
++    kernel_size = load_uimage_as(kernel_filename, &kernel_entry, NULL, NULL,
++                       NULL, NULL, NULL);
++    if (kernel_size > 0) {
+         goto out;
+     }
+ 
+-    if (load_image_targphys_as(kernel_filename, kernel_start_addr,
+-                               current_machine->ram_size, NULL) > 0) {
++    kernel_size = load_image_targphys_as(kernel_filename, kernel_start_addr,
++                               current_machine->ram_size, NULL);
++    if (kernel_size > 0) {
+         kernel_entry = kernel_start_addr;
+         goto out;
+     }
+@@ -262,6 +278,35 @@ out:
+         kernel_entry = extract64(kernel_entry, 0, 32);
+     }
+ 
++    #if defined(CONFIG_KVM)
++        struct kvm_riscv_cove_measure_region mr = {
++            .user_addr = 0,
++            .gpa = kernel_entry,
++            .size = kernel_size,
++            .type = KVM_RISCV_COVE_REGION_KERNEL,
++        };
++        warn_report("Register kernel region %lx %ld", kernel_entry, kernel_size);
++        KVMState *s = KVM_STATE(machine->accelerator);
++        kvm_vm_ioctl(s, KVM_RISCV_COVE_MEASURE_REGION, &mr);
++
++        if (object_property_find(OBJECT(current_machine), "cove-tap-filename")) {
++            const char * tap_filename = object_property_get_str(OBJECT(current_machine), "cove-tap-filename", NULL);
++            hwaddr tap_addr = (kernel_entry+kernel_size);
++            tap_addr = ((4096-1) & tap_addr) ? ((tap_addr+4096) & ~(4096-1)) : tap_addr;
++            error_report("Loading CoVE TAP %s %lx", tap_filename, tap_addr);
++            if (load_image_targphys(tap_filename, tap_addr, 4096) <= 0) {
++                error_report("Loading CoVE TAP failed");
++            }
++            struct kvm_riscv_cove_measure_region mr = {
++                .user_addr = 0,
++                .gpa = tap_addr,
++                .size = 4096,
++                .type = KVM_RISCV_COVE_REGION_COVE_TAP,
++            };
++            kvm_vm_ioctl(KVM_STATE(machine->accelerator), KVM_RISCV_COVE_MEASURE_REGION, &mr);
++        }
++    #endif
++
+     if (load_initrd && machine->initrd_filename) {
+         riscv_load_initrd(machine, kernel_entry);
+     }
+diff --git a/hw/riscv/virt.c b/hw/riscv/virt.c
+index 505a36dff6..40a41eb9ee 100644
+--- a/hw/riscv/virt.c
++++ b/hw/riscv/virt.c
+@@ -17,7 +17,8 @@
+  * You should have received a copy of the GNU General Public License along with
+  * this program.  If not, see <http://www.gnu.org/licenses/>.
+  */
+-
++#include <linux/kvm.h>
++#include <libfdt.h>
+ #include "qemu/osdep.h"
+ #include "qemu/units.h"
+ #include "qemu/error-report.h"
+@@ -1312,6 +1313,17 @@ static void virt_machine_done(Notifier *notifier, void *data)
+                                            machine);
+     riscv_load_fdt(fdt_load_addr, machine->fdt);
+ 
++    #if defined(CONFIG_KVM)
++        uint32_t fdtsize = fdt_totalsize(machine->fdt);
++        struct kvm_riscv_cove_measure_region mr = {
++            .user_addr = 0,
++            .gpa = fdt_load_addr,
++            .size = fdtsize,
++            .type = KVM_RISCV_COVE_REGION_FDT,
++        };
++        kvm_vm_ioctl(KVM_STATE(machine->accelerator), KVM_RISCV_COVE_MEASURE_REGION, &mr);
++    #endif
++
+     /* load the reset vector */
+     riscv_setup_rom_reset_vec(machine, &s->soc[0], start_addr,
+                               virt_memmap[VIRT_MROM].base,
+@@ -1330,6 +1342,12 @@ static void virt_machine_done(Notifier *notifier, void *data)
+     if (virt_is_acpi_enabled(s)) {
+         virt_acpi_setup(s);
+     }
++
++    #if defined(CONFIG_KVM)
++        struct kvm_riscv_cove_vm_finalize finalize = {
++        };
++        kvm_vm_ioctl(KVM_STATE(machine->accelerator), KVM_RISCV_COVE_VM_FINALIZE, &finalize);
++    #endif
+ }
+ 
+ static void virt_machine_init(MachineState *machine)
+@@ -1540,6 +1558,33 @@ static void virt_machine_instance_init(Object *obj)
+     s->acpi = ON_OFF_AUTO_AUTO;
+ }
+ 
++static bool virt_get_cove(Object *obj, Error **errp)
++{
++    RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
++
++    return s->cove;
++}
++
++static void virt_set_cove(Object *obj, bool value, Error **errp)
++{
++    RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
++
++    s->cove = value;
++}
++
++static char *virt_get_cove_tap_filename(Object *obj, Error **errp)
++{
++    RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
++    return g_strdup(s->cove_tap_filename);
++}
++
++static void virt_set_cove_tap_filename(Object *obj, const char *val, Error **errp)
++{
++    RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
++    g_free(s->cove_tap_filename);
++    s->cove_tap_filename = g_strdup(val);
++}
++
+ static char *virt_get_aia_guests(Object *obj, Error **errp)
+ {
+     RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
+@@ -1714,6 +1759,10 @@ static void virt_machine_class_init(ObjectClass *oc, void *data)
+                               NULL, NULL);
+     object_class_property_set_description(oc, "acpi",
+                                           "Enable ACPI");
++    object_class_property_add_bool(oc, "cove", virt_get_cove,
++            virt_set_cove);
++    object_class_property_add_str(oc, "cove-tap-filename", virt_get_cove_tap_filename,
++            virt_set_cove_tap_filename);
+ }
+ 
+ static const TypeInfo virt_machine_typeinfo = {
+diff --git a/include/hw/riscv/virt.h b/include/hw/riscv/virt.h
+index e5c474b26e..c01e733b34 100644
+--- a/include/hw/riscv/virt.h
++++ b/include/hw/riscv/virt.h
+@@ -60,6 +60,8 @@ struct RISCVVirtState {
+     char *oem_table_id;
+     OnOffAuto acpi;
+     const MemMapEntry *memmap;
++    bool cove;
++    char *cove_tap_filename;
+ };
+ 
+ enum {
+diff --git a/linux-headers/linux/kvm.h b/linux-headers/linux/kvm.h
+index 1f3f3333a4..9dc12996ef 100644
+--- a/linux-headers/linux/kvm.h
++++ b/linux-headers/linux/kvm.h
+@@ -2245,4 +2245,24 @@ struct kvm_s390_zpci_op {
+ /* flags for kvm_s390_zpci_op->u.reg_aen.flags */
+ #define KVM_S390_ZPCIOP_REGAEN_HOST    (1 << 0)
+ 
++enum KVM_RISCV_COVE_REGION {
++	KVM_RISCV_COVE_REGION_FIRMWARE = 0,
++	KVM_RISCV_COVE_REGION_KERNEL,
++	KVM_RISCV_COVE_REGION_FDT,
++	KVM_RISCV_COVE_REGION_INITRD,
++	KVM_RISCV_COVE_REGION_COVE_TAP,
++};
++
++struct kvm_riscv_cove_measure_region {
++	unsigned long user_addr;
++	unsigned long gpa;
++	unsigned long size;
++	enum KVM_RISCV_COVE_REGION type;
++};
++
++struct kvm_riscv_cove_vm_finalize {};
++
++#define KVM_RISCV_COVE_MEASURE_REGION _IOR(KVMIO, 0xb6, struct kvm_riscv_cove_measure_region)
++#define KVM_RISCV_COVE_VM_FINALIZE  _IOR(KVMIO, 0xb7, struct kvm_riscv_cove_vm_finalize)
++
+ #endif /* __LINUX_KVM_H */
