@@ -59,8 +59,7 @@ hypervisor_kvmtool:
 
 confidential_vms: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ buildroot ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay rootfs ;\
-	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor rootfs;
+	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ overlay rootfs
 
 confidential_vms_dev: tools
 	$(MAKE) -C $(CONFIDENTIAL_VMS_SOURCE_DIR)/linux_vm/ dev ;\
