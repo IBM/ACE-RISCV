@@ -1,0 +1,217 @@
+diff --git a/recipes-bsp/opensbi/opensbi-sifive-hf-prem/0009-ace.patch b/recipes-bsp/opensbi/opensbi-sifive-hf-prem/0009-ace.patch
+new file mode 100644
+index 0000000..77f2315
+--- /dev/null
++++ b/recipes-bsp/opensbi/opensbi-sifive-hf-prem/0009-ace.patch
+@@ -0,0 +1,149 @@
++
++
++
++
++diff --git a/lib/sbi/sbi_domain.c b/lib/sbi/sbi_domain.c
++index 06c60ae..3582e74 100644
++--- a/lib/sbi/sbi_domain.c
+++++ b/lib/sbi/sbi_domain.c
++@@ -796,16 +796,16 @@ int sbi_domain_init(struct sbi_scratch *scratch, u32 cold_hartid)
++ 	root.possible_harts = root_hmask;
++
++ 	/* Root domain firmware memory region */
++-	sbi_domain_memregion_init(scratch->fw_start, scratch->fw_rw_offset,
++-				  (SBI_DOMAIN_MEMREGION_M_READABLE |
+++	sbi_domain_memregion_init(scratch->fw_start, scratch->fw_size,
+++				  (SBI_DOMAIN_MEMREGION_M_READABLE | SBI_DOMAIN_MEMREGION_M_WRITABLE |
++ 				   SBI_DOMAIN_MEMREGION_M_EXECUTABLE),
++ 				  &root_memregs[root_memregs_count++],0);
++
++-	sbi_domain_memregion_init((scratch->fw_start + scratch->fw_rw_offset),
++-				  (scratch->fw_size - scratch->fw_rw_offset),
++-				  (SBI_DOMAIN_MEMREGION_M_READABLE |
++-				   SBI_DOMAIN_MEMREGION_M_WRITABLE),
++-				  &root_memregs[root_memregs_count++],0);
+++	// sbi_domain_memregion_init((scratch->fw_start + scratch->fw_rw_offset),
+++	// 			  (scratch->fw_size - scratch->fw_rw_offset),
+++	// 			  (SBI_DOMAIN_MEMREGION_M_READABLE |
+++	// 			   SBI_DOMAIN_MEMREGION_M_WRITABLE),
+++	// 			  &root_memregs[root_memregs_count++],0);
++
++ #ifdef CONFIG_PLATFORM_ESWIN
++ 	sbi_domain_memregion_init(0x1000000000UL, 0x3fffffUL, SBI_DOMAIN_MEMREGION_ENF_PERMISSIONS,
++diff --git a/lib/sbi/sbi_hart.c b/lib/sbi/sbi_hart.c
++index f621cdd..68b2b18 100644
++--- a/lib/sbi/sbi_hart.c
+++++ b/lib/sbi/sbi_hart.c
++@@ -435,7 +435,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
++ 	pmp_disable(SBI_SMEPMP_RESV_ENTRY);
++
++ 	/* Program M-only regions when MML is not set. */
++-	pmp_idx = 0;
+++	pmp_idx = 2;
++ 	sbi_domain_for_each_memregion(dom, reg) {
++ 		/* Skip reserved entry */
++ 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
++@@ -461,7 +461,7 @@ static int sbi_hart_smepmp_configure(struct sbi_scratch *scratch,
++ 	csr_set(CSR_MSECCFG, MSECCFG_MML);
++
++ 	/* Program shared and SU-only regions */
++-	pmp_idx = 0;
+++	pmp_idx = 2;
++ 	sbi_domain_for_each_memregion(dom, reg) {
++ 		/* Skip reserved entry */
++ 		if (pmp_idx == SBI_SMEPMP_RESV_ENTRY)
++@@ -498,7 +498,7 @@ static int sbi_hart_oldpmp_configure(struct sbi_scratch *scratch,
++ {
++ 	struct sbi_domain_memregion *reg;
++ 	struct sbi_domain *dom = sbi_domain_thishart_ptr();
++-	unsigned int pmp_idx = 0;
+++	unsigned int pmp_idx = 2;
++ 	unsigned int pmp_flags;
++ 	unsigned long pmp_addr;
++
++diff --git a/lib/sbi/sbi_hsm.c b/lib/sbi/sbi_hsm.c
++index 3d60ceb..3870971 100644
++--- a/lib/sbi/sbi_hsm.c
+++++ b/lib/sbi/sbi_hsm.c
++@@ -26,6 +26,8 @@
++ #include <sbi/sbi_timer.h>
++ #include <sbi/sbi_console.h>
++
+++extern void ace_setup_this_hart();
+++
++ #define __sbi_hsm_hart_change_state(hdata, oldstate, newstate)		\
++ ({									\
++ 	long state = atomic_cmpxchg(&(hdata)->state, oldstate, newstate); \
++@@ -154,6 +156,8 @@ void __noreturn sbi_hsm_hart_start_finish(struct sbi_scratch *scratch,
++ 	next_mode = scratch->next_mode;
++ 	hsm_start_ticket_release(hdata);
++
+++	ace_setup_this_hart();
+++
++ 	sbi_hart_switch_mode(hartid, next_arg1, next_addr, next_mode, false);
++ }
++
++diff --git a/lib/sbi/sbi_init.c b/lib/sbi/sbi_init.c
++index 931ba7c..9c0454b 100644
++--- a/lib/sbi/sbi_init.c
+++++ b/lib/sbi/sbi_init.c
++@@ -80,6 +80,8 @@ static void sbi_boot_print_general(struct sbi_scratch *scratch)
++ 		return;
++
++ 	/* Platform details */
+++	sbi_printf("ACE: 2024.09.00-HFP550 release\n");
+++	sbi_printf("ACE: build version %d\n", 152);
++ 	sbi_printf("Platform Name             : %s\n",
++ 		   sbi_platform_name(plat));
++ 	sbi_platform_get_features_str(plat, str, sizeof(str));
++diff --git a/lib/utils/serial/uart8250.c b/lib/utils/serial/uart8250.c
++index 1fe053f..af114dd 100644
++--- a/lib/utils/serial/uart8250.c
+++++ b/lib/utils/serial/uart8250.c
++@@ -135,7 +135,12 @@ int uart8250_init(unsigned long base, u32 in_freq, u32 baudrate, u32 reg_shift,
++
++ 	sbi_console_set_device(&uart8250_console);
++
+++#ifdef CONFIG_PLATFORM_ESWIN
+++	/* For now, not adding memrange for UART as we are short of PMP regions */
+++	return 0;
+++#else
++ 	return sbi_domain_root_add_memrange(base, PAGE_SIZE, PAGE_SIZE,
++ 					    (SBI_DOMAIN_MEMREGION_MMIO |
++ 					    SBI_DOMAIN_MEMREGION_SHARED_SURW_MRW));
+++#endif
++ }
++diff --git a/platform/eswin/eic770x/objects.mk b/platform/eswin/eic770x/objects.mk
++index 8535107..7d6806d 100644
++--- a/platform/eswin/eic770x/objects.mk
+++++ b/platform/eswin/eic770x/objects.mk
++@@ -15,7 +15,7 @@ platform-objs-y += eic770x_uart.o
++ platform-cppflags-y =
++ platform-cflags-y =
++ platform-asflags-y =
++-platform-ldflags-y = -fno-stack-protector
+++platform-ldflags-y = -fno-stack-protector -L/opt/woz/ace_p550/security-monitor/ -lace
++
++ # Command for platform specific "make run"
++
++diff --git a/platform/eswin/eic770x/platform.c b/platform/eswin/eic770x/platform.c
++index e15df16..cbf581a 100644
++--- a/platform/eswin/eic770x/platform.c
+++++ b/platform/eswin/eic770x/platform.c
++@@ -30,6 +30,8 @@
++ #include <sbi/sbi_hart.h>
++ #include "eic770x_uart.h"
++
+++extern void init_security_monitor_asm(bool cold_boot, void *fdt);
+++
++ /* clang-format off */
++ #define EIC770X_HART_COUNT				4
++ #define DIE_REG_OFFSET					0
++@@ -225,6 +227,7 @@ static int eic770x_final_init(bool cold_boot)
++
++ 	fdt = sbi_scratch_thishart_arg1_ptr();
++ 	eic770x_modify_dt(fdt);
+++	init_security_monitor_asm(cold_boot, fdt);
++
++ 	return 0;
++ }
+diff --git a/recipes-bsp/opensbi/opensbi-sifive-hf-prem_1.4.bb b/recipes-bsp/opensbi/opensbi-sifive-hf-prem_1.4.bb
+index 4a7bf4b..8740670 100644
+--- a/recipes-bsp/opensbi/opensbi-sifive-hf-prem_1.4.bb
++++ b/recipes-bsp/opensbi/opensbi-sifive-hf-prem_1.4.bb
+@@ -21,13 +21,15 @@ SRC_URI:append = " \
+ 	file://0005-lib-sbi-Configure-CSR-registers.patch \
+ 	file://0006-lib-sbi-eic770x-Add-PMP-for-TOR-region.patch \
+ 	file://0007-sbi-init-Modify-CSR-values.patch \
++	file://0009-ace.patch \
+ "
+ 
+ S = "${WORKDIR}/git"
+ 
+ TARGET_CC_ARCH += "${LDFLAGS}"
+ 
+-EXTRA_OEMAKE += "PLATFORM=${RISCV_SBI_PLAT} CHIPLET="BR2_CHIPLET_1" CHIPLET_DIE_AVAILABLE="BR2_CHIPLET_1_DIE0_AVAILABLE" MEM_MODE="BR2_MEMMODE_FLAT" PLATFORM_CLUSTER_X_CORE="BR2_CLUSTER_4_CORE" PLATFORM_RISCV_ISA=rv64imafdc_zicsr_zifencei I=${D}"
++
++EXTRA_OEMAKE += "PLATFORM=${RISCV_SBI_PLAT} CHIPLET="BR2_CHIPLET_1" CHIPLET_DIE_AVAILABLE="BR2_CHIPLET_1_DIE0_AVAILABLE" MEM_MODE="BR2_MEMMODE_FLAT" PLATFORM_CLUSTER_X_CORE="BR2_CLUSTER_4_CORE" PLATFORM_RISCV_ISA=rv64imafdc_zicsr_zifencei PLATFORM_RISCV_ABI=lp64d I=${D}"
+ # If RISCV_SBI_PAYLOAD is set then include it as a payload
+ EXTRA_OEMAKE:append = " ${@riscv_get_extra_oemake_image(d)}"
+ EXTRA_OEMAKE:append = " ${@riscv_get_extra_oemake_fdt(d)}"
+diff --git a/recipes-bsp/u-boot/files/0002-ace-p550.patch b/recipes-bsp/u-boot/files/0002-ace-p550.patch
+new file mode 100644
+index 0000000..407d46f
+--- /dev/null
++++ b/recipes-bsp/u-boot/files/0002-ace-p550.patch
+@@ -0,0 +1,13 @@
++diff --git a/arch/riscv/cpu/eic7700/dram.c b/arch/riscv/cpu/eic7700/dram.c
++index a3521ac1e4..0728819cc2 100644
++--- a/arch/riscv/cpu/eic7700/dram.c
+++++ b/arch/riscv/cpu/eic7700/dram.c
++@@ -16,7 +16,7 @@ DECLARE_GLOBAL_DATA_PTR;
++ DECLARE_GLOBAL_DATA_PTR;
++
++ /* 32 GB */
++-#define DDR_SIZE_MAX    	0x800000000
+++#define DDR_SIZE_MAX    	0x200000000
++
++ /* 128 MB offset */
++ #define RAM_BASE_OFFSET 	0x8000000
+diff --git a/recipes-bsp/u-boot/u-boot-sifive-hf-prem_2024.01.bb b/recipes-bsp/u-boot/u-boot-sifive-hf-prem_2024.01.bb
+index 1887c67..55a9357 100644
+--- a/recipes-bsp/u-boot/u-boot-sifive-hf-prem_2024.01.bb
++++ b/recipes-bsp/u-boot/u-boot-sifive-hf-prem_2024.01.bb
+@@ -7,10 +7,16 @@ DEPENDS += "bc-native dtc-native"
+ 
+ SRCREV = "419a5fb2a92d338e813771acb0b50fefd9a1fea0"
+ SRC_URI = "git://github.com/eswincomputing/u-boot.git;protocol=https;branch=u-boot-2024.01-EIC7X \
+-           file://0001-riscv-hifive_premier_p550-defined-boot-media-sequenc.patch"
++           file://0001-riscv-hifive_premier_p550-defined-boot-media-sequenc.patch \
++           file://0002-ace-p550.patch \
++           "
+ 
+ do_deploy:append () {
+ 	install -m 755 ${B}/u-boot.dtb ${DEPLOYDIR}
++    cp ${DEPLOYDIR}/u-boot.dtb ${DEPLOYDIR}/u-boot_original.dtb
++    fdtput -c ${DEPLOYDIR}/u-boot.dtb /reserved-memory/ace-conf-mem
++    fdtput -t x ${DEPLOYDIR}/u-boot.dtb /reserved-memory/ace-conf-mem reg 0x2 0x80000000 0x2 0x0
++    fdtput -t s ${DEPLOYDIR}/u-boot.dtb /reserved-memory/ace-conf-mem no-map
+ }
+ 
+ COMPATIBLE_MACHINE = "hifive-premier-p550"
