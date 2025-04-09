@@ -219,7 +219,7 @@ impl ConfidentialVm {
             .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
             .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
             .try_for_each(|confidential_hart_id| {
-                if self.confidential_harts[confidential_hart_id].hardware_hart_id().is_none()
+                if self.confidential_harts[confidential_hart_id].hardware_hart_id().is_some()
                     || self.confidential_harts[confidential_hart_id].is_executable()
                 {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
