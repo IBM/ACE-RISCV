@@ -13,7 +13,7 @@ use crate::core::control_data::ConfidentialHart;
 /// command preserve the same semantics: they originate from the outside of the hart and the receiver might be currently running or not. If
 /// the receiver hart is running, it is interrupted (IPI) and executes the command. If the hart is not running, the command is buffered and
 /// executed on the next time the receiver is scheduled to run.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ConfidentialHartRemoteCommand {
     Ipi(Ipi),
     RemoteFenceI(RemoteFenceI),

@@ -196,7 +196,7 @@ impl<'a> ConfidentialFlow<'a> {
         self.exit_to_confidential_hart()
     }
 
-    pub fn exit_to_confidential_hart(mut self) -> ! {
+    fn exit_to_confidential_hart(mut self) -> ! {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
@@ -216,8 +216,14 @@ impl<'a> ConfidentialFlow<'a> {
     pub fn broadcast_remote_command(
         &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
+        let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
+        // check if the remote command is also dedicated for the currently executing confidential hart
+        if confidential_hart_remote_command.is_hart_selected(sender_confidential_hart_id) {
+            self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
+        }
         // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
-        self.hardware_hart.opensbi_context(|| confidential_vm.broadcast_remote_command(confidential_hart_remote_command))
+        self.hardware_hart
+            .opensbi_context(|| confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command))
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to

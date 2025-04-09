@@ -30,7 +30,7 @@ impl SbiHsmHartResume {
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match confidential_flow.resume_confidential_hart(self.resume_address, self.opaque) {
-            Ok(_) => confidential_flow.exit_to_confidential_hart(),
+            Ok(_) => confidential_flow.resume_confidential_hart_execution(),
             Err(error) => {
                 confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)))
             }

@@ -17,6 +17,17 @@ pub use parser::AttestationPayloadParser;
 #[cfg(feature = "serializer")]
 pub use serializer::AttestationPayloadSerializer;
 
+#[macro_export]
+macro_rules! ensure {
+    ($cond:expr, $error:expr) => {
+        if !$cond {
+            Err($error)
+        } else {
+            Ok(())
+        }
+    };
+}
+
 pub use spec::*;
 pub use error::*;
 pub mod spec;

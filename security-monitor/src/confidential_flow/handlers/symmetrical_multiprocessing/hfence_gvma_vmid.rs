@@ -7,24 +7,25 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommandE
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
 /// An inter hart request sent by the security monitor to clear G-stage level cached address translations.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct RemoteHfenceGvmaVmid {
     ipi: Ipi,
-    _start_address: usize,
+    _start_address: Option<ConfidentialVmPhysicalAddress>,
     _size: PageSize,
     _vmid: ConfidentialVmId,
 }
 
 impl RemoteHfenceGvmaVmid {
-    pub fn all_harts(start_address: &ConfidentialVmPhysicalAddress, _size: PageSize, _vmid: ConfidentialVmId) -> Self {
-        Self { ipi: Ipi::all_harts(), _start_address: start_address.usize(), _size, _vmid }
+    pub fn all_harts(start_address: Option<ConfidentialVmPhysicalAddress>, _size: PageSize, _vmid: ConfidentialVmId) -> Self {
+        Self { ipi: Ipi::all_harts(), _start_address: start_address, _size, _vmid }
     }
 }
 
 impl ConfidentialHartRemoteCommandExecutable for RemoteHfenceGvmaVmid {
-    fn execute_on_confidential_hart(&self, _confidential_hart: &mut ConfidentialHart) {
+    fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         // TODO: execute a more fine grained fence. Right now, we just clear all tlbs
         crate::core::architecture::riscv::fence::hfence_gvma();
+        self.ipi.execute_on_confidential_hart(confidential_hart);
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {

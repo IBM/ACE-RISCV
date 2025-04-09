@@ -48,7 +48,7 @@ impl UnsharePageRequest {
         let confidential_vm_id = confidential_flow.confidential_vm_id();
         ControlDataStorage::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             let unmapped_page_size = confidential_vm.memory_protector_mut().unmap_shared_page(&self.address)?;
-            let request = RemoteHfenceGvmaVmid::all_harts(&self.address, unmapped_page_size, confidential_vm_id);
+            let request = RemoteHfenceGvmaVmid::all_harts(Some(self.address.clone()), unmapped_page_size, confidential_vm_id);
             confidential_flow
                 .broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
             Ok(())
