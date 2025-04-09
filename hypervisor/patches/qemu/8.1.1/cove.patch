@@ -5,7 +5,7 @@ index b472301637..c39c09b16b 100644
 @@ -2527,6 +2527,13 @@ static int kvm_init(MachineState *ms)
          type = kvm_arch_get_default_type(ms);
      }
- 
+
 +    if (object_property_find(OBJECT(current_machine), "cove")) {
 +        if (object_property_get_bool(OBJECT(current_machine), "cove", &error_abort)) {
 +            type = 1UL << 10;
@@ -32,7 +32,7 @@ index 52bf8e67de..7f4550bbf1 100644
 @@ -205,6 +205,18 @@ static void riscv_load_initrd(MachineState *machine, uint64_t kernel_entry)
          }
      }
- 
+
 +    #if defined(CONFIG_KVM)
 +        struct kvm_riscv_cove_measure_region mr = {
 +            .user_addr = 0,
@@ -53,9 +53,9 @@ index 52bf8e67de..7f4550bbf1 100644
      uint64_t kernel_load_base, kernel_entry;
      void *fdt = machine->fdt;
 +    ssize_t kernel_size;
- 
+
      g_assert(kernel_filename != NULL);
- 
+
 @@ -232,20 +245,23 @@ target_ulong riscv_load_kernel(MachineState *machine,
       * the (expected) load address load address. This allows kernels to have
       * separate SBI and ELF entry points (used by FreeBSD, for example).
@@ -69,7 +69,7 @@ index 52bf8e67de..7f4550bbf1 100644
          kernel_entry = kernel_load_base;
          goto out;
      }
- 
+
 -    if (load_uimage_as(kernel_filename, &kernel_entry, NULL, NULL,
 -                       NULL, NULL, NULL) > 0) {
 +    kernel_size = load_uimage_as(kernel_filename, &kernel_entry, NULL, NULL,
@@ -77,7 +77,7 @@ index 52bf8e67de..7f4550bbf1 100644
 +    if (kernel_size > 0) {
          goto out;
      }
- 
+
 -    if (load_image_targphys_as(kernel_filename, kernel_start_addr,
 -                               current_machine->ram_size, NULL) > 0) {
 +    kernel_size = load_image_targphys_as(kernel_filename, kernel_start_addr,
@@ -89,7 +89,7 @@ index 52bf8e67de..7f4550bbf1 100644
 @@ -262,6 +278,35 @@ out:
          kernel_entry = extract64(kernel_entry, 0, 32);
      }
- 
+
 +    #if defined(CONFIG_KVM)
 +        struct kvm_riscv_cove_measure_region mr = {
 +            .user_addr = 0,
@@ -139,7 +139,7 @@ index 505a36dff6..40a41eb9ee 100644
 @@ -1312,6 +1313,17 @@ static void virt_machine_done(Notifier *notifier, void *data)
                                             machine);
      riscv_load_fdt(fdt_load_addr, machine->fdt);
- 
+
 +    #if defined(CONFIG_KVM)
 +        uint32_t fdtsize = fdt_totalsize(machine->fdt);
 +        struct kvm_riscv_cove_measure_region mr = {
@@ -165,12 +165,12 @@ index 505a36dff6..40a41eb9ee 100644
 +        kvm_vm_ioctl(KVM_STATE(machine->accelerator), KVM_RISCV_COVE_VM_FINALIZE, &finalize);
 +    #endif
  }
- 
+
  static void virt_machine_init(MachineState *machine)
 @@ -1540,6 +1558,33 @@ static void virt_machine_instance_init(Object *obj)
      s->acpi = ON_OFF_AUTO_AUTO;
  }
- 
+
 +static bool virt_get_cove(Object *obj, Error **errp)
 +{
 +    RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
@@ -210,7 +210,7 @@ index 505a36dff6..40a41eb9ee 100644
 +    object_class_property_add_str(oc, "cove-tap-filename", virt_get_cove_tap_filename,
 +            virt_set_cove_tap_filename);
  }
- 
+
  static const TypeInfo virt_machine_typeinfo = {
 diff --git a/include/hw/riscv/virt.h b/include/hw/riscv/virt.h
 index e5c474b26e..c01e733b34 100644
@@ -223,7 +223,7 @@ index e5c474b26e..c01e733b34 100644
 +    bool cove;
 +    char *cove_tap_filename;
  };
- 
+
  enum {
 diff --git a/linux-headers/linux/kvm.h b/linux-headers/linux/kvm.h
 index 1f3f3333a4..9dc12996ef 100644
@@ -232,7 +232,7 @@ index 1f3f3333a4..9dc12996ef 100644
 @@ -2245,4 +2245,24 @@ struct kvm_s390_zpci_op {
  /* flags for kvm_s390_zpci_op->u.reg_aen.flags */
  #define KVM_S390_ZPCIOP_REGAEN_HOST    (1 << 0)
- 
+
 +enum KVM_RISCV_COVE_REGION {
 +	KVM_RISCV_COVE_REGION_FIRMWARE = 0,
 +	KVM_RISCV_COVE_REGION_KERNEL,

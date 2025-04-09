@@ -222,7 +222,8 @@ impl<'a> ConfidentialFlow<'a> {
             self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
         }
         // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
-        self.hardware_hart.opensbi_context(|| confidential_vm.broadcast_remote_command(confidential_hart_remote_command))
+        self.hardware_hart
+            .opensbi_context(|| confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command))
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to
