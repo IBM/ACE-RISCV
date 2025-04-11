@@ -10,13 +10,13 @@
 # # Safety
 #
 # # The caller must ensure that:
-#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart. 
+#   * `mscratch` stores the address of the dump hart area of the currently executing hardware hart.
 # The function guarantees that on return:
 #   * `mscratch` contains the address of the dump hart area of the currently executing hardware hart.
 .section .text.init
-.globl enter_from_hypervisor_or_vm_asm
+.globl enter_from_hypervisor_asm
 .align 4
-enter_from_hypervisor_or_vm_asm:
+enter_from_hypervisor_asm:
     csrrw	      a0,	mscratch, a0
     # Store current processor state (except for `a0`) in memory
     sd	        ra, ({HART_RA_OFFSET})(a0)
@@ -54,7 +54,7 @@ enter_from_hypervisor_or_vm_asm:
     csrr        t0, mepc
     sd	        t0, ({HART_MEPC_OFFSET})(a0)
     csrr        t0, mstatus
-    sd	        t0, ({HART_MSTATUS_OFFSET})(a0) 
+    sd	        t0, ({HART_MSTATUS_OFFSET})(a0)
 
     # Store the original value of `a0` in the main memory and set `mscratch` to its original value
     csrrw	      t0, mscratch, a0
@@ -63,4 +63,4 @@ enter_from_hypervisor_or_vm_asm:
     # Set the stack for the security monitor execution on this physical hart
     ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
 
-    j           route_trap_from_hypervisor_or_vm
+    j           route_trap_from_hypervisor

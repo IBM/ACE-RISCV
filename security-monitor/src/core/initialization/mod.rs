@@ -21,7 +21,7 @@ const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
 
 extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
-    fn enter_from_hypervisor_or_vm_asm() -> !;
+    fn enter_from_hypervisor_asm() -> !;
 }
 
 /// A *private* static array of hart states stores the hypervisor's harts states. Safe Rust code cannot access this
@@ -229,9 +229,8 @@ extern "C" fn ace_setup_this_hart() {
     // opensbi_mscratch in the internal hart state. OpenSBI stored in mscratch a pointer to the
     // `opensbi_mscratch` region of this hart before calling the security monitor's initialization
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
-    hart.swap_mscratch();
     let hart_address = hart.hypervisor_hart().address();
-    hart.hypervisor_hart_mut().csrs_mut().mscratch.write(hart_address);
+    hart.set_ace_mscratch(hart_address);
     debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart_address);
 
     // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
@@ -244,7 +243,7 @@ extern "C" fn ace_setup_this_hart() {
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
+    let trap_vector_address = enter_from_hypervisor_asm as usize;
     debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
     hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }

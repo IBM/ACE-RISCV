@@ -5,7 +5,7 @@ pub use riscv::*;
 
 pub mod riscv;
 
-#[inline]
+#[inline(always)]
 pub fn is_bit_enabled(register_value: usize, bit_index: usize) -> bool {
     register_value & (1 << bit_index) > 0
 }
