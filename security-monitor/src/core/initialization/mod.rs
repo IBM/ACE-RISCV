@@ -259,9 +259,8 @@ extern "C" fn ace_setup_this_hart() {
     // `opensbi_mscratch` region of this hart before calling the security monitor's initialization
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
     debug!("ace_setup_this_hart: swapping mscratch...");
-    hart.swap_mscratch();
     let hart_address = hart.hypervisor_hart().address();
-    hart.hypervisor_hart_mut().csrs_mut().mscratch.write(hart_address);
+    hart.set_ace_mscratch(hart_address);
     debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart_address);
 
     // // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region

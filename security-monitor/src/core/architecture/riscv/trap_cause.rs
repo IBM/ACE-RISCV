@@ -5,7 +5,7 @@ use super::hart_architectural_state::HartArchitecturalState;
 use super::sbi::SbiExtension;
 use super::specification::*;
 use super::GeneralPurposeRegister;
-use crate::core::architecture::is_bit_enabled;
+use crate::core::architecture::{is_bit_enabled, CSR};
 
 #[derive(Debug)]
 pub enum TrapCause {
@@ -30,13 +30,12 @@ pub enum TrapCause {
 
 impl TrapCause {
     pub fn from_hart_architectural_state(hart_state: &HartArchitecturalState) -> Self {
-        let mcause = hart_state.csrs().mcause.read();
-        let extension_id = hart_state.gprs().read(GeneralPurposeRegister::a7);
-        let function_id = hart_state.gprs().read(GeneralPurposeRegister::a6);
-
+        let mcause = CSR.mcause.read();
         if is_bit_enabled(mcause, CAUSE_INTERRUPT_BIT) {
             Self::Interrupt
         } else {
+            let extension_id = hart_state.gprs().read(GeneralPurposeRegister::a7);
+            let function_id = hart_state.gprs().read(GeneralPurposeRegister::a6);
             match mcause as u8 {
                 CAUSE_ILLEGAL_INSTRUCTION => Self::IllegalInstruction,
                 CAUSE_MISALIGNED_LOAD => Self::LoadAddressMisaligned,

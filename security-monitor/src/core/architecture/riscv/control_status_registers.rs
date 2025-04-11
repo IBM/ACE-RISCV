@@ -354,6 +354,7 @@ pub struct ControlStatusRegister {
     pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
     pub mimpid: ReadWriteRiscvCsr<CSR_MIMPID>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
+    pub mcause: ReadWriteRiscvCsr<CSR_MCAUSE>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
     pub pmpaddr0: ReadWriteRiscvCsr<CSR_PMPADDR0>,
@@ -369,6 +370,7 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     marchid: ReadWriteRiscvCsr::new(),
     mimpid: ReadWriteRiscvCsr::new(),
     mscratch: ReadWriteRiscvCsr::new(),
+    mcause: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     pmpcfg0: ReadWriteRiscvCsr::new(),
     pmpaddr0: ReadWriteRiscvCsr::new(),
@@ -413,27 +415,27 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
         self.0 = self.0 + value;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn disable_bit_on_saved_value(&mut self, bit_index: usize) {
         self.disable_bits_on_saved_value(1 << bit_index);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn disable_bits_on_saved_value(&mut self, bit_mask: usize) {
         self.0 &= !bit_mask;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn enable_bit_on_saved_value(&mut self, bit_index: usize) {
         self.enable_bits_on_saved_value(1 << bit_index);
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn enable_bits_on_saved_value(&mut self, bit_mask: usize) {
         self.0 |= bit_mask;
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn read(&self) -> usize {
         let r: usize;
         unsafe {
@@ -442,14 +444,26 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
         r
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn write(&self, val_to_set: usize) {
         unsafe {
             asm!("csrw {csr}, {rs}", rs = in(reg) val_to_set, csr = const V);
         }
     }
 
-    #[inline]
+    #[inline(always)]
+    pub fn swap(&self, value: usize) -> usize {
+        let r: usize;
+        unsafe {
+            asm!("csrrw {rd}, {csr}, {rs1}",
+                     rd = out(reg) r,
+                     csr = const V,
+                     rs1 = in(reg) value);
+        }
+        r
+    }
+
+    #[inline(always)]
     pub fn read_and_set_bits(&self, bitmask: usize) -> usize {
         let r: usize;
         unsafe {
@@ -461,7 +475,7 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
         r
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn read_and_clear_bits(&self, bitmask: usize) -> usize {
         let r: usize;
         unsafe {

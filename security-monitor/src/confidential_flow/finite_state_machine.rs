@@ -60,7 +60,6 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: Invalid argument provided by the assembly context switch";
     const DUMMY_HART_ERROR_MSG: &'static str = "Bug: Found dummy hart instead of a confidential hart";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
@@ -71,7 +70,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// ConfidentialFlow but accessible to the assembly code performing the context switch.
     #[no_mangle]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
-        let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
+        let flow = Self { hardware_hart: unsafe { &mut *hardware_hart_pointer } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
 
         use crate::core::architecture::specification::CSR_MSTATUS_MPV;
