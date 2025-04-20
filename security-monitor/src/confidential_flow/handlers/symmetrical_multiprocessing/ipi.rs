@@ -42,7 +42,7 @@ impl Ipi {
 impl ConfidentialHartRemoteCommandExecutable for Ipi {
     fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         // IPI exposes itself as supervisor-level software interrupt.
-        confidential_hart.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::riscv::specification::MIE_VSSIP);
+        confidential_hart.csrs_mut().hvip.enable_bit_on_saved_value(crate::core::architecture::riscv::specification::MIE_VSSIP);
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {
