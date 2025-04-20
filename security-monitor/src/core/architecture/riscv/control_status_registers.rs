@@ -205,7 +205,7 @@ impl ControlStatusRegisters {
         self.hgeie.save_in_main_memory();
         self.htval.save_in_main_memory();
         self.hip.save_in_main_memory();
-        self.hvip.save_value_in_main_memory(0);
+        self.hvip.save_value_in_main_memory(self.hvip.read() & !MIE_VSTIP_MASK);
         self.htinst.save_in_main_memory();
         self.hgeip.save_in_main_memory();
         // self.henvcfg.save_in_main_memory();
