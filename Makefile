@@ -13,7 +13,8 @@ export QEMU_RISCV_WORK_DIR				?= $(ACE_DIR)/qemu-riscv/
 export QEMU_VERSION						?= 8.2.1
 # Riscv toolchain
 export RISCV_GNU_TOOLCHAIN_SOURCE_DIR	?= $(MAKEFILE_SOURCE_DIR)/riscv-gnu-toolchain/
-export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
+#export RISCV_GNU_TOOLCHAIN_WORK_DIR		?= $(ACE_DIR)/riscv-gnu-toolchain/
+export RISCV_GNU_TOOLCHAIN_WORK_DIR		= /home/woz/yocto/build/tmp/work/riscv64-freedomusdk-linux/opensbi-sifive-hf-prem/1.4/recipe-sysroot-native/usr/bin/riscv64-freedomusdk-linux/
 
 export RISCV_GNU_TOOLCHAIN_VERSION	    ?= riscv64-glibc-ubuntu-22.04-gcc-nightly-2023.09.27-nightly
 # Confidential VMs
@@ -27,7 +28,7 @@ export LINUX_IMAGE						?= $(HYPERVISOR_WORK_DIR)/buildroot/images/Image
 export TOOLS_SOURCE_DIR					?= $(MAKEFILE_SOURCE_DIR)/tools
 export TOOLS_WORK_DIR					?= $(ACE_DIR)/tools
 
-export CROSS_COMPILE					?= riscv64-unknown-linux-gnu-
+export CROSS_COMPILE					= riscv64-freedomusdk-linux-
 export PLATFORM_RISCV_XLEN				= 64
 export PLATFORM_RISCV_ISA				= rv64imafdc_zicsr_zifencei
 export PLATFORM_RISCV_ABI				= lp64d
@@ -40,13 +41,13 @@ setup:
 	@mkdir -p $(ACE_DIR)
 
 devtools: setup
-	if [ ! -f "${RISCV_GNU_TOOLCHAIN_WORK_DIR}/${CROSS_COMPILE}gcc" ]; then \
-		mkdir -p $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
-		wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.09.27/$(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
-		tar -zxf $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz --directory ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
-		mv ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/riscv/* ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
-		rm -f $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
-	fi
+	# if [ ! -f "${RISCV_GNU_TOOLCHAIN_WORK_DIR}/${CROSS_COMPILE}gcc" ]; then \
+	# 	mkdir -p $(RISCV_GNU_TOOLCHAIN_WORK_DIR); \
+	# 	wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2023.09.27/$(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
+	# 	tar -zxf $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz --directory ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
+	# 	mv ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/riscv/* ${RISCV_GNU_TOOLCHAIN_WORK_DIR}/ ; \
+	# 	rm -f $(RISCV_GNU_TOOLCHAIN_VERSION).tar.gz ; \
+	# fi
 
 hypervisor: setup devtools
 	PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/:$(PATH)" ACE_DIR=$(ACE_DIR) $(MAKE) -C hypervisor
