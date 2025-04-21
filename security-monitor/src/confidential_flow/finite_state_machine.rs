@@ -200,8 +200,7 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts =
-            self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vsip.read_from_main_memory();
+        let interrupts = self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().pending_irqs;
         let address = self.confidential_hart_mut().address();
         self.confidential_hart().csrs().hvip.write(interrupts);
         self.confidential_hart().csrs().sscratch.write(address);

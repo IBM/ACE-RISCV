@@ -70,6 +70,7 @@ pub struct ControlStatusRegisters {
     pub vscause: ReadWriteRiscvCsr<CSR_VSCAUSE>,
     pub vstval: ReadWriteRiscvCsr<CSR_VSTVAL>,
     pub vsatp: ReadWriteRiscvCsr<CSR_VSATP>,
+    pub pending_irqs: usize,
 }
 
 impl ControlStatusRegisters {
@@ -126,11 +127,14 @@ impl ControlStatusRegisters {
             vscause: ReadWriteRiscvCsr::new(),
             vstval: ReadWriteRiscvCsr::new(),
             vsatp: ReadWriteRiscvCsr::new(),
+            pending_irqs: 0,
         };
         csrs
     }
 
     pub fn save_in_main_memory(&mut self) {
+        self.pending_irqs = self.hvip.read() & MIE_VSSIP_MASK;
+
         self.mepc.save_in_main_memory();
         self.mstatus.save_in_main_memory();
         self.mcause.save_in_main_memory();
@@ -165,7 +169,7 @@ impl ControlStatusRegisters {
         self.hgeie.save_in_main_memory();
         self.htval.save_in_main_memory();
         self.hip.save_in_main_memory();
-        self.hvip.save_value_in_main_memory(self.hvip.read() & !MIE_VSTIP_MASK);
+        self.hvip.save_value_in_main_memory(0);
         self.htinst.save_in_main_memory();
         self.hgeip.save_in_main_memory();
         self.henvcfg.save_in_main_memory();

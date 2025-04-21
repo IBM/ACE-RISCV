@@ -54,6 +54,8 @@ impl RunConfidentialHart {
         confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
 
         // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
+        use crate::core::architecture::specification::*;
+        let hvip = self.hvip & (MIE_VSSIP_MASK | MIE_VSEIP_MASK);
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(hvip & self.allowed_external_interrupts);
     }
 }
