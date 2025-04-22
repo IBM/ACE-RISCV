@@ -1,6 +1,6 @@
 [package]
 name = "security-monitor"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
 description = "Assured Confidential Execution (ACE): security monitor implementation targetting RISC-V"
 edition = "2021"

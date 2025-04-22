@@ -225,6 +225,7 @@ impl<'a> ConfidentialFlow<'a> {
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
         let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory()
+            | self.confidential_hart().csrs().pending_irqs
             | self.confidential_hart().csrs().pending_interrupts)
             & self.confidential_hart().csrs().allowed_external_interrupts;
         self.confidential_hart().csrs().hvip.write(interrupts);

@@ -85,6 +85,7 @@ pub struct ControlStatusRegisters {
     pub vstimecmp: Option<usize>,
     pub pending_interrupts: usize,
     pub allowed_external_interrupts: usize,
+    pub pending_irqs: usize,
 }
 
 impl ControlStatusRegisters {
@@ -156,11 +157,14 @@ impl ControlStatusRegisters {
             vstimecmp: None,
             pending_interrupts: 0,
             allowed_external_interrupts: 0,
+            pending_irqs: 0,
         };
         csrs
     }
 
     pub fn save_in_main_memory(&mut self) {
+        self.pending_irqs = self.hvip.read() & !MIE_VSTIP_MASK;
+
         self.mepc.save_in_main_memory();
         self.mstatus.save_in_main_memory();
         self.mcause.save_in_main_memory();
@@ -205,7 +209,7 @@ impl ControlStatusRegisters {
         self.hgeie.save_in_main_memory();
         self.htval.save_in_main_memory();
         self.hip.save_in_main_memory();
-        self.hvip.save_value_in_main_memory(self.hvip.read() & !MIE_VSTIP_MASK);
+        self.hvip.save_value_in_main_memory(0);
         self.htinst.save_in_main_memory();
         self.hgeip.save_in_main_memory();
         // self.henvcfg.save_in_main_memory();
