@@ -163,7 +163,7 @@ impl ControlStatusRegisters {
     }
 
     pub fn save_in_main_memory(&mut self) {
-        self.pending_irqs = self.hvip.read() & !MIE_VSTIP_MASK;
+        self.pending_irqs = self.hvip.read() & MIE_VSSIP_MASK;
 
         self.mepc.save_in_main_memory();
         self.mstatus.save_in_main_memory();
