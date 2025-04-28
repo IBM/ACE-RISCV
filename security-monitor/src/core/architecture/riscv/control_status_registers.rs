@@ -23,7 +23,7 @@ pub struct ControlStatusRegisters {
     pub medeleg: ReadWriteRiscvCsr<CSR_MEDELEG>,
     pub mideleg: ReadWriteRiscvCsr<CSR_MIDELEG>,
     pub mie: ReadWriteRiscvCsr<CSR_MIE>,
-    pub mip: ReadRiscvCsr<CSR_MIP>,
+    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
     pub mtinst: ReadWriteRiscvCsr<CSR_MTINST>,
     pub mtval: ReadWriteRiscvCsr<CSR_MTVAL>,
     pub mtval2: ReadWriteRiscvCsr<CSR_MTVAL2>,
@@ -82,7 +82,7 @@ impl ControlStatusRegisters {
             medeleg: ReadWriteRiscvCsr::new(),
             mideleg: ReadWriteRiscvCsr::new(),
             mie: ReadWriteRiscvCsr::new(),
-            mip: ReadRiscvCsr::new(),
+            mip: ReadWriteRiscvCsr::new(),
             mtinst: ReadWriteRiscvCsr::new(),
             mtval: ReadWriteRiscvCsr::new(),
             mtval2: ReadWriteRiscvCsr::new(),
@@ -210,7 +210,7 @@ impl ControlStatusRegisters {
         self.sepc.restore_from_main_memory();
         self.scause.restore_from_main_memory();
         self.stval.restore_from_main_memory();
-        self.sip.restore_from_main_memory();
+        // self.sip.restore_from_main_memory();
         self.satp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.restore_from_main_memory();
@@ -301,6 +301,7 @@ impl ControlStatusRegisters {
 }
 
 pub struct ControlStatusRegister {
+    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
     pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
     pub mvendorid: ReadWriteRiscvCsr<CSR_MVENDORID>,
     pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
@@ -313,6 +314,7 @@ pub struct ControlStatusRegister {
 }
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
+    mip: ReadWriteRiscvCsr::new(),
     mhartid: ReadWriteRiscvCsr::new(),
     mvendorid: ReadWriteRiscvCsr::new(),
     marchid: ReadWriteRiscvCsr::new(),

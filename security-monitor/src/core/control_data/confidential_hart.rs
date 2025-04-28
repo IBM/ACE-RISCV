@@ -61,6 +61,7 @@ impl ConfidentialHart {
     /// Configuration of delegation of RISC-V interrupts that will trap directly in the confidential hart. All other interrupts will trap in
     /// the security monitor.
     const INTERRUPT_DELEGATION: usize = MIE_VSSIP_MASK | MIE_VSTIP_MASK | MIE_VSEIP_MASK;
+    const ENABLED_INTERRUPTS: usize = Self::INTERRUPT_DELEGATION | MIE_STIP_MASK | MIE_MEIP_MASK | MIE_MSIP_MASK | MIE_MTIP_MASK;
 
     /// Constructs a dummy hart. This dummy hart carries no confidential information. It is used to indicate that a real
     /// confidential hart has been assigned to a hardware hart for execution. A dummy confidential hart has the id of the hardware hart it
@@ -91,9 +92,9 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().mideleg.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         confidential_hart_state.csrs_mut().hideleg.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
         // the `vsie` register reflects `hie`, so we set up `hie` allowing only VS-level interrupts
-        confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::INTERRUPT_DELEGATION);
+        confidential_hart_state.csrs_mut().hie.save_value_in_main_memory(Self::ENABLED_INTERRUPTS);
         // Allow only hypervisor's timer interrupts to preemt confidential VM's execution
-        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(MIE_STIP_MASK);
+        confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(Self::ENABLED_INTERRUPTS);
         confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
         confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);
@@ -135,6 +136,7 @@ impl ConfidentialHart {
         confidential_hart_state.set_gprs(shared_memory.gprs());
         // this register is cleared as it can contain undeterministic address of TEE Attestation Payload that would destroy integrity
         // measurements
+        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, id);
         confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, 0);
         confidential_hart_state.csrs_mut().vsstatus.save_nacl_value_in_main_memory(&shared_memory);
         confidential_hart_state.csrs_mut().vsie.save_nacl_value_in_main_memory(&shared_memory);
@@ -280,7 +282,11 @@ impl ConfidentialHart {
 // more details.
 impl ConfidentialHart {
     pub fn lifecycle_state(&self) -> &HartLifecycleState {
-        &self.lifecycle_state
+        if self.is_dummy() {
+            &HartLifecycleState::Started
+        } else {
+            &self.lifecycle_state
+        }
     }
 
     /// Changes the lifecycle state of the hart into the `StartPending` state. Confidential hart's state is set as if

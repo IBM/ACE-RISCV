@@ -50,7 +50,7 @@ impl ControlDataStorage {
 
     pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
         ControlDataStorage::try_write(|control_data| {
-            ensure!(control_data.confidential_vm(confidential_vm_id)?.are_all_harts_shutdown(), Error::HartAlreadyRunning())?;
+            ensure!(control_data.confidential_vm(confidential_vm_id)?.is_vm_executing(), Error::HartAlreadyRunning())?;
             debug!("Removing ConfidentialVM[{:?}] from the control data structure", confidential_vm_id);
             control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
         })
