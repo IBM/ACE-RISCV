@@ -50,7 +50,7 @@ impl RunConfidentialHart {
         confidential_hart.csrs_mut().allowed_external_interrupts = self.allowed_external_interrupts;
 
         use crate::core::architecture::specification::*;
-        let hvip = self.hvip; // & (MIE_VSSIP_MASK | MIE_VSEIP_MASK);
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(hvip & self.allowed_external_interrupts);
+        let hvip = self.hvip & !(MIE_VSSIP_MASK | MIE_VSTIP_MASK);
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(hvip);
     }
 }

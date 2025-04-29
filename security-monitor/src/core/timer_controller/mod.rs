@@ -38,7 +38,7 @@ impl<'a, 'b> TimerController<'a, 'b> {
             self.set_vs_timer();
         } else {
             self.set_s_timer();
-            self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
+            self.confidential_flow.confidential_hart_mut().csrs_mut().pending_vstip_irqs &= !MIE_VSTIP_MASK;
             self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
         }
     }
@@ -57,7 +57,7 @@ impl<'a, 'b> TimerController<'a, 'b> {
     }
 
     pub fn handle_vs_interrupt(&mut self) {
-        self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts |= MIE_VSTIP_MASK;
+        self.confidential_flow.confidential_hart_mut().csrs_mut().pending_vstip_irqs |= MIE_VSTIP_MASK;
         self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
     }
 
@@ -103,7 +103,7 @@ impl<'a, 'b> TimerController<'a, 'b> {
     fn set_vs_timer(&mut self) {
         if let Some(next_event) = self.confidential_flow.confidential_hart_mut().csrs_mut().vstimecmp {
             self.set_m_timer(next_event);
-            self.confidential_flow.confidential_hart_mut().csrs_mut().pending_interrupts &= !MIE_VSTIP_MASK;
+            self.confidential_flow.confidential_hart_mut().csrs_mut().pending_vstip_irqs &= !MIE_VSTIP_MASK;
             self.confidential_flow.confidential_hart_mut().csrs_mut().mip.read_and_clear_bits(MIE_MTIP_MASK);
         }
     }

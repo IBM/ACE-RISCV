@@ -83,9 +83,9 @@ pub struct ControlStatusRegisters {
     // timer
     pub stimecmp: usize,
     pub vstimecmp: Option<usize>,
-    pub pending_interrupts: usize,
+    pub pending_vstip_irqs: usize,
     pub allowed_external_interrupts: usize,
-    pub pending_irqs: usize,
+    pub pending_vssip_irqs: usize,
 }
 
 impl ControlStatusRegisters {
@@ -155,15 +155,15 @@ impl ControlStatusRegisters {
             // timer
             stimecmp: 0,
             vstimecmp: None,
-            pending_interrupts: 0,
+            pending_vstip_irqs: 0,
             allowed_external_interrupts: 0,
-            pending_irqs: 0,
+            pending_vssip_irqs: 0,
         };
         csrs
     }
 
     pub fn save_in_main_memory(&mut self) {
-        self.pending_irqs = self.hvip.read() & MIE_VSSIP_MASK;
+        self.pending_vssip_irqs = self.hvip.read() & MIE_VSSIP_MASK;
 
         self.mepc.save_in_main_memory();
         self.mstatus.save_in_main_memory();
@@ -187,7 +187,7 @@ impl ControlStatusRegisters {
         self.sepc.save_in_main_memory();
         self.scause.save_in_main_memory();
         self.stval.save_in_main_memory();
-        self.sip.save_in_main_memory();
+        // self.sip.save_in_main_memory();
         self.satp.save_in_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.save_in_main_memory();
@@ -208,7 +208,7 @@ impl ControlStatusRegisters {
         self.hcounteren.save_in_main_memory();
         self.hgeie.save_in_main_memory();
         self.htval.save_in_main_memory();
-        self.hip.save_in_main_memory();
+        // self.hip.save_in_main_memory();
         self.hvip.save_value_in_main_memory(0);
         self.htinst.save_in_main_memory();
         self.hgeip.save_in_main_memory();
@@ -220,7 +220,7 @@ impl ControlStatusRegisters {
         // VS-mode
         self.vsstatus.save_in_main_memory();
         self.vsie.save_in_main_memory();
-        self.vsip.save_in_main_memory();
+        // self.vsip.save_in_main_memory();
         self.vstvec.save_in_main_memory();
         self.vsscratch.save_in_main_memory();
         self.vsepc.save_in_main_memory();
@@ -251,7 +251,7 @@ impl ControlStatusRegisters {
         self.sepc.restore_from_main_memory();
         self.scause.restore_from_main_memory();
         self.stval.restore_from_main_memory();
-        self.sip.restore_from_main_memory();
+        // self.sip.restore_from_main_memory();
         self.satp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.scontext.restore_from_main_memory();
@@ -284,7 +284,7 @@ impl ControlStatusRegisters {
         // VS-mode
         self.vsstatus.restore_from_main_memory();
         self.vsie.restore_from_main_memory();
-        self.vsip.restore_from_main_memory();
+        // self.vsip.restore_from_main_memory();
         self.vstvec.restore_from_main_memory();
         self.vsscratch.restore_from_main_memory();
         self.vsepc.restore_from_main_memory();
@@ -353,6 +353,7 @@ impl ControlStatusRegisters {
 
 pub struct ControlStatusRegister {
     pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
+    pub mip: ReadWriteRiscvCsr<CSR_MIP>,
     pub mhartid: ReadWriteRiscvCsr<CSR_MHARTID>,
     pub mvendorid: ReadWriteRiscvCsr<CSR_MVENDORID>,
     pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
@@ -369,6 +370,7 @@ pub struct ControlStatusRegister {
 
 pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     mstatus: ReadWriteRiscvCsr::new(),
+    mip: ReadWriteRiscvCsr::new(),
     mhartid: ReadWriteRiscvCsr::new(),
     mvendorid: ReadWriteRiscvCsr::new(),
     marchid: ReadWriteRiscvCsr::new(),
