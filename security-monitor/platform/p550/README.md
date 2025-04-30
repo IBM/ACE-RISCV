@@ -19,24 +19,24 @@ Let's build now the ACE security monitor. Make sure that we have access to the s
 ```
 YOCTO_RISCV_GNU_TOOLCHAIN_DIR=$YOCTO_DIR/build/tmp/sysroots-components/x86_64/gcc-cross-riscv64/usr/bin/riscv64-freedomusdk-linux/
 YOCTO_CROSS_COMPILE=riscv64-freedomusdk-linux-
-ls -lah $YOCTO_RISCV_GNU_TOOLCHAIN_DIR/$YOCTO_CROSS_COMPILE-gcc
+ls -lah $YOCTO_RISCV_GNU_TOOLCHAIN_DIR/${YOCTO_CROSS_COMPILE}gcc
 ```
 
 Let's download ACE sources dedicated for SiFive P550.
 ```
-ACE_SRC=/tmp/ace
+export ACE_SRC=/tmp/ace
+export ACE_DIR=$ACE_SRC/build/
 git clone --recurse-submodules -b sifive_p550 git@github.com:IBM/ACE-RISCV.git $ACE_SRC
 ```
 
 Build the version of the ACE security monitor dedicated for P550.
 ```
-cd $ACE_SRC
-RISCV_GNU_TOOLCHAIN_WORK_DIR=$YOCTO_RISCV_GNU_TOOLCHAIN_DIR CROSS_COMPILE=$YOCTO_CROSS_COMPILE make -j192 security_monitor
+RISCV_GNU_TOOLCHAIN_WORK_DIR=$YOCTO_RISCV_GNU_TOOLCHAIN_DIR CROSS_COMPILE=$YOCTO_CROSS_COMPILE make -j192 -C $ACE_SRC security_monitor
 ```
 
 Check presentence of the static library (`libace.a`) that contains the ACE security monitor.
 ```
-ls -lah $ACE_SRC/build/security-monitor/libace.a
+ls -lah $ACE_DIR/security-monitor/libace.a
 ```
 
 ### Build OpenSBI linked with the ACE security monitor
@@ -68,12 +68,12 @@ RISCV_GNU_TOOLCHAIN_WORK_DIR=$YOCTO_RISCV_GNU_TOOLCHAIN_DIR CROSS_COMPILE=$YOCTO
 
 Check that the host Linux kernel image was built:
 ```
-ls -lah $ACE_DIR/build/hypervisor/buildroot/build/linux-6.6.21/arch/riscv/boot/Image.gz
+ls -lah $ACE_DIR/hypervisor/buildroot/build/linux-6.6.21/arch/riscv/boot/Image.gz
 ```
 
 You can copy `Image.gz` to P550 with `scp` and then copy it to the /boot folder and reboot the system.
 ```
-scp $ACE_DIR/build/hypervisor/buildroot/build/linux-6.6.21/arch/riscv/boot/Image.gz login@ip_of_p550:/tmp
+scp $ACE_DIR/hypervisor/buildroot/build/linux-6.6.21/arch/riscv/boot/Image.gz login@ip_of_p550:/tmp
 # you must adjust below command so that you copy to the location of the boot drive:
 sudo cp /tmp/Image.gz /run/media/boot-mmcblk0p1/Image.gz
 ```
@@ -93,7 +93,7 @@ make -j192 confidential_vms
 
 Check that the VM image was built:
 ```
-ls -lah $ACE_DIR/build/confidential_vms/linux_vm/buildroot/images/*
+ls -lah $ACE_DIR/confidential_vms/linux_vm/buildroot/images/*
 # The following files should be present
 #   Image - contains guest Linux kernel
 #   rootfs.ext4 - root filesystem
@@ -102,7 +102,7 @@ ls -lah $ACE_DIR/build/confidential_vms/linux_vm/buildroot/images/*
 
 Now, use the `scp` tool to copy the VM image files to your P550 evaluation board.
 ```
-scp $ACE_DIR/build/confidential_vms/linux_vm/buildroot/images/* login@ip_of_p550:/tmp
+scp $ACE_DIR/confidential_vms/linux_vm/buildroot/images/* login@ip_of_p550:/tmp
 ```
 
 Now, run the test confidential VM on P550:
