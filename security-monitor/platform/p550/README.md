@@ -20,9 +20,12 @@ At this point, we have built the original SiFive P550 firmware. We will need the
 ### Build ACE security monitor
 Let's build now the ACE security monitor. Make sure that we have access to the same compiler that yocto used to compile OpenSBI firmware.
 ```
-YOCTO_RISCV_GNU_TOOLCHAIN_DIR=$YOCTO_DIR/build/tmp/sysroots-components/x86_64/gcc-cross-riscv64/usr/bin/riscv64-freedomusdk-linux/
+YOCTO_RISCV_GNU_TOOLCHAIN_DIR=$YOCTO_DIR/build/tmp/work/riscv64-freedomusdk-linux/opensbi-sifive-hf-prem/1.4/recipe-sysroot-native/usr/bin/riscv64-freedomusdk-linux/
 YOCTO_CROSS_COMPILE=riscv64-freedomusdk-linux-
 ls -lah $YOCTO_RISCV_GNU_TOOLCHAIN_DIR/${YOCTO_CROSS_COMPILE}gcc
+
+# If you have problems with getting above compiler, you might try to force yocto to build just OpenSBI using `devtool` from poky:
+# $POKY_DIR/layers/build/scripts/devtool --basepath=$YOCTO_DIR/build build opensbi-sifive-hf-prem
 ```
 
 Let's download ACE sources dedicated for SiFive P550.
