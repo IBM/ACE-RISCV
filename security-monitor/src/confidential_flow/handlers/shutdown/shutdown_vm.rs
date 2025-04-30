@@ -4,7 +4,7 @@
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::shutdown::shutdown_confidential_hart;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand};
+use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ControlDataStorage};
 
 /// Handles the system reset call of the SBI's SRST extension. This call is a request to shutdown or reboot the
 /// confidential virtual machine. The security monitor allows only for the full shutdown of the confidential virtual
@@ -13,7 +13,7 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand}
 /// To shutdown the entire confidential VM and remove it from the control data memory, all confidential harts must be
 /// shutdown (lifecycle state `Shutdown`). To do so, we send `Shutdown IPI` to all confidential harts. The last
 /// confidential hart that shutdowns itself, will remove the entire confidential VM from the control data.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct ShutdownRequest {
     calling_hart_id: usize,
 }
@@ -24,11 +24,12 @@ impl ShutdownRequest {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        match confidential_flow.broadcast_remote_command(ConfidentialHartRemoteCommand::ShutdownRequest(self)) {
+        match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+            confidential_flow.broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::ShutdownRequest(self))
+        }) {
             Ok(_) => shutdown_confidential_hart(confidential_flow),
             Err(error) => {
-                let transformation = ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error));
-                confidential_flow.apply_and_exit_to_confidential_hart(transformation)
+                confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(SbiResponse::error(error)))
             }
         }
     }

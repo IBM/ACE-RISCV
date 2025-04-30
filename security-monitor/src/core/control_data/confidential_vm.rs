@@ -186,8 +186,8 @@ impl ConfidentialVm {
 
 /* Lifecycle related */
 impl ConfidentialVm {
-    pub fn are_all_harts_shutdown(&self) -> bool {
-        self.confidential_harts.iter().filter(|hart| hart.lifecycle_state() != &HartLifecycleState::PoweredOff).count() == 0
+    pub fn is_vm_executing(&self) -> bool {
+        self.confidential_harts.iter().filter(|hart| hart.is_dummy()).count() == 0
     }
 
     /// Returns the lifecycle state of the confidential hart
@@ -212,30 +212,32 @@ impl ConfidentialVm {
     ///
     /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
-    pub fn broadcast_remote_command(&mut self, remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
+    pub fn broadcast_remote_command(
+        &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
+    ) -> Result<(), Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
+            .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
             .try_for_each(|confidential_hart_id| {
-                match self.confidential_harts[confidential_hart_id].hardware_hart_id() {
-                    Some(id_of_hardware_hart_running_confidential_hart) => {
-                        // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
-                        // hart. We add the ConfidentialHartRemoteCommand to a per confidential hart queue and then interrupt that
-                        // hardware hart with IPI. Consequently, the hardware hart running the target confidential hart will
-                        // trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the targetted
-                        // confidential hart.
-                        self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
-                            ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
-                            Ok(remote_commands.push(remote_command.clone()))
-                        })?;
-                        InterruptController::try_read(|controller| controller.send_ipi(id_of_hardware_hart_running_confidential_hart))
-                    }
-                    None => {
-                        // The confidential hart that should receive the ConfidentialHartRemoteCommand is not running on any hardware
-                        // hart. Thus, we can excute the ConfidentialHartRemoteCommand directly.
-                        self.confidential_harts[confidential_hart_id].execute(&remote_command);
+                if self.confidential_harts[confidential_hart_id].hardware_hart_id().is_some()
+                    || self.confidential_harts[confidential_hart_id].is_executable()
+                {
+                    self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
+                        ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
+                        if remote_commands.iter().find(|c| **c == remote_command).is_none() {
+                            remote_commands.push(remote_command.clone());
+                        }
                         Ok(())
+                    })?;
+
+                    if let Some(hardware_hart_id) = self.confidential_harts[confidential_hart_id].hardware_hart_id() {
+                        // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
+                        // hart. We interrupt that hardware hart with IPI. Consequently, the hardware hart running the target confidential
+                        // hart will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target hart.
+                        InterruptController::try_read(|controller| controller.send_ipi(hardware_hart_id))?;
                     }
                 }
+                Ok(())
             })
     }
 

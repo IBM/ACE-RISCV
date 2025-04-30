@@ -5,8 +5,15 @@ use crate::core::architecture::CSR;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
+use opensbi_sys::sbi_trap_regs;
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
+
+extern "C" {
+    /// Currently, we rely on OpenSBI to handle some of the interrupts or exceptions. Below function is the entry point
+    /// to OpenSBI trap handler.
+    fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;
+}
 
 /// Represents a state of a physical hart that executes in the security monitor. It is always associated with a hypervisor hart that made a
 /// call to the security monitor.
@@ -30,7 +37,7 @@ pub struct HardwareHart {
     // We need to store the OpenSBI's mscratch value because OpenSBI uses mscratch to track some of its internal
     // data structures and our security monitor also uses mscratch to keep track of the address of the hart state
     // in memory.
-    previous_mscratch: usize,
+    pub previous_mscratch: usize,
 }
 
 impl HardwareHart {
@@ -46,14 +53,31 @@ impl HardwareHart {
         }
     }
 
-    /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
-    /// we replaced during the system initialization. We store the original mscratch value expected by the OpenSBI in
-    /// the previous_mscratch field.
-    pub fn swap_mscratch(&mut self) {
-        let previous_mscratch = self.previous_mscratch;
-        let current_mscratch = CSR.mscratch.read();
-        CSR.mscratch.write(previous_mscratch);
-        self.previous_mscratch = current_mscratch;
+    // Safety: this function can be called only once during initialization. We cannot do it in constructor, because physical harts art not
+    // initialized yet then.
+    pub fn set_ace_mscratch(&mut self, value: usize) {
+        self.previous_mscratch = CSR.mscratch.swap(value);
+    }
+
+    #[inline(always)]
+    pub fn opensbi_context<F>(&mut self, function: F) -> Result<(), crate::error::Error>
+    where F: FnOnce() -> Result<(), crate::error::Error> {
+        let ace_mscratch = CSR.mscratch.swap(self.previous_mscratch);
+        let result = function();
+        CSR.mscratch.write(ace_mscratch);
+        result
+    }
+
+    #[inline(always)]
+    pub fn call_opensbi_trap_handler(&mut self) {
+        // Safety: We play with fire here. We must statically make sure that OpenSBI's input structure is bitwise same as ACE's hart
+        // state.
+        let trap_regs = self.hypervisor_hart_mut().hypervisor_hart_state_mut() as *mut _ as *mut sbi_trap_regs;
+        let _ = self.opensbi_context(|| {
+            Ok(unsafe {
+                sbi_trap_handler(trap_regs);
+            })
+        });
     }
 
     pub fn confidential_hart(&self) -> &ConfidentialHart {

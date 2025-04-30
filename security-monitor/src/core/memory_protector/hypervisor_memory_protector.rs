@@ -15,7 +15,7 @@ impl HypervisorMemoryProtector {
         Self {}
     }
 
-    /// Configures the memory protection mechanism on the hart which executes this function.  
+    /// Configures the memory protection mechanism on the hart which executes this function.
     ///
     /// # Safety
     ///
@@ -25,10 +25,17 @@ impl HypervisorMemoryProtector {
     pub unsafe fn setup() -> Result<(), Error> {
         // We use RISC-V PMP mechanism to define that the confidential memory region is not accessible.
         // We use RISC-V IOPMP mechanism to ensure that no IO devices can access confidential memory region.
+        debug!("HypervisorMemoryProtector setup: reading memory layout...");
         let (confidential_memory_start, confidential_memory_end) = MemoryLayout::read().confidential_memory_boundary();
+        debug!(
+            "HypervisorMemoryProtector setup: reading memory layout {:x}-{:x}...",
+            confidential_memory_start, confidential_memory_end
+        );
+        debug!("HypervisorMemoryProtector setup: creating connfidential memory using PMPs");
         pmp::split_memory_into_confidential_and_non_confidential(confidential_memory_start, confidential_memory_end)?;
         iopmp::protect_confidential_memory_from_io_devices(confidential_memory_start, confidential_memory_end)?;
 
+        debug!("HypervisorMemoryProtector setup: closing access to confidential memory using PMPs");
         // Enable memory isolation protection. TLB shutdown is not needed because every hart will run this code during its initialization
         // and below function will clear all cached TLBs.
         pmp::close_access_to_confidential_memory();

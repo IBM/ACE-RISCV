@@ -4,6 +4,7 @@
 use crate::confidential_flow::DeclassifyToConfidentialVm;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
+use crate::core::timer_controller::TimerController;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
 
@@ -12,7 +13,6 @@ pub struct RunConfidentialHart {
     confidential_vm_id: ConfidentialVmId,
     confidential_hart_id: usize,
     allowed_external_interrupts: usize,
-    stimecmp: usize,
     hvip: usize,
 }
 
@@ -22,15 +22,15 @@ impl RunConfidentialHart {
             confidential_vm_id: ConfidentialVmId::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)),
             confidential_hart_id: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
             allowed_external_interrupts: 0,
-            stimecmp: hypervisor_hart.sstc().stimecmp.read(),
             hvip: hypervisor_hart.csrs().hvip.read(),
         }
     }
 
     pub fn handle(mut self, non_confidential_flow: NonConfidentialFlow) -> ! {
         match non_confidential_flow.into_confidential_flow(self.confidential_vm_id, self.confidential_hart_id) {
-            Ok((allowed_external_interrupts, confidential_flow)) => {
+            Ok((allowed_external_interrupts, mut confidential_flow)) => {
                 self.allowed_external_interrupts = allowed_external_interrupts;
+                TimerController::new(&mut confidential_flow).restore_vs_timer();
                 confidential_flow
                     .declassify_to_confidential_hart(DeclassifyToConfidentialVm::Resume(self))
                     .resume_confidential_hart_execution()
@@ -47,13 +47,10 @@ impl RunConfidentialHart {
     }
 
     pub fn declassify_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        // Guard against stepping attacks by adding random delay to the timer
-        let delay = 10; // TODO: generate random number
+        confidential_hart.csrs_mut().allowed_external_interrupts = self.allowed_external_interrupts;
 
-        // We write directly to the CSR because we are after the heavy context switch
-        confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
-
-        // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
+        use crate::core::architecture::specification::*;
+        let hvip = self.hvip & !(MIE_VSSIP_MASK | MIE_VSTIP_MASK);
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(hvip);
     }
 }

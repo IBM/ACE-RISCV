@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::Error;
 use clap::{Parser, Subcommand};
+use clap_num::maybe_hex;
 
 mod attach;
 mod error;
@@ -20,7 +21,7 @@ struct Args {
 enum Commands {
     Attach {
         #[arg(short, long)]
-        input_file: String,
+        kernel_file: String,
         #[arg(short, long)]
         tap_file: String,
         #[arg(short, long)]
@@ -39,6 +40,10 @@ enum Commands {
     Measure {
         #[arg(short, long)]
         kernel_file: String,
+        #[arg(long = "embedded-tap")]
+        embedded_tap: bool,
+        #[arg(long = "base-address", value_parser=maybe_hex::<u64>, default_value_t = 0x80000000)]
+        base_address: u64,
     },
 }
 
@@ -75,10 +80,10 @@ pub fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 fn main() -> Result<(), Error> {
     Ok(match Args::parse().cmd {
         Commands::Attach {
-            input_file,
+            kernel_file,
             tap_file,
             output_file,
-        } => attach::attach_tap(input_file, tap_file, output_file),
+        } => attach::attach_tap(kernel_file, tap_file, output_file),
         Commands::Generate {
             pcrs,
             confidential_vm_secrets,
@@ -90,6 +95,10 @@ fn main() -> Result<(), Error> {
             tee_public_keys_files,
             output_file,
         ),
-        Commands::Measure { kernel_file } => measure::measure(kernel_file),
+        Commands::Measure {
+            kernel_file,
+            embedded_tap,
+            base_address,
+        } => measure::measure(kernel_file, embedded_tap, base_address),
     }?)
 }

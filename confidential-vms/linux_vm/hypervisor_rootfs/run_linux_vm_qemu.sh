@@ -10,8 +10,8 @@ INITRAMFS=/root/linux_vm/rootfs.cpio
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=2
-MEMORY=1G
+SMP=1
+MEMORY=512M
 
 for i in "$@"; do
   case $i in

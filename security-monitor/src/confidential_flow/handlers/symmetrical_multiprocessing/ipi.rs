@@ -4,7 +4,9 @@
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable};
+use crate::core::control_data::{
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable, ControlDataStorage,
+};
 
 /// Handles a request from one confidential hart to execute IPI on other confidential harts.
 #[derive(PartialEq, Debug, Clone)]
@@ -29,18 +31,18 @@ impl Ipi {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        let transformation = confidential_flow
-            .broadcast_remote_command(ConfidentialHartRemoteCommand::Ipi(self))
-            .and_then(|_| Ok(SbiResponse::success()))
-            .unwrap_or_else(|error| SbiResponse::error(error));
-        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
+        let result = ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+            confidential_flow.broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::Ipi(self))
+        })
+        .map_or_else(|error| SbiResponse::error(error), |_| SbiResponse::success());
+        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(result))
     }
 }
 
 impl ConfidentialHartRemoteCommandExecutable for Ipi {
     fn execute_on_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
         // IPI exposes itself as supervisor-level software interrupt.
-        confidential_hart.csrs_mut().vsip.enable_bit_on_saved_value(crate::core::architecture::riscv::specification::MIE_VSSIP);
+        confidential_hart.csrs_mut().pending_vssip_irqs |= crate::core::architecture::riscv::specification::MIE_VSSIP_MASK;
     }
 
     fn is_hart_selected(&self, hart_id: usize) -> bool {

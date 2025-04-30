@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::specification::*;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::error::Error;
 
@@ -24,22 +25,6 @@ pub fn decode_result_register(mtinst: usize) -> Result<GeneralPurposeRegister, E
             // section once compressed instructions are supported in the
             // rust-decode crate!
             const SH_RS2C: usize = 2;
-            const INSN_MATCH_C_LD: usize = 0x6000;
-            const INSN_MASK_C_LD: usize = 0xe003;
-            const INSN_MATCH_C_SD: usize = 0xe000;
-            const INSN_MASK_C_SD: usize = 0xe003;
-            const INSN_MATCH_C_LW: usize = 0x4000;
-            const INSN_MASK_C_LW: usize = 0xe003;
-            const INSN_MATCH_C_SW: usize = 0xc000;
-            const INSN_MASK_C_SW: usize = 0xe003;
-            const INSN_MATCH_C_LDSP: usize = 0x6002;
-            const INSN_MASK_C_LDSP: usize = 0xe003;
-            const INSN_MATCH_C_SDSP: usize = 0xe002;
-            const INSN_MASK_C_SDSP: usize = 0xe003;
-            const INSN_MATCH_C_LWSP: usize = 0x4002;
-            const INSN_MASK_C_LWSP: usize = 0xe003;
-            const INSN_MATCH_C_SWSP: usize = 0xc002;
-            const INSN_MASK_C_SWSP: usize = 0xe003;
 
             let log_regbytes = 3; // for 64b!
             let shift_right = |x: usize, y: isize| {

@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version="4", features = ["derive"] } # for command line argument parsing
+clap-num = "1.1.1"
 
 byteorder = "1.5" # to serialize numbers using little/big endianness
 sha2 = "0.10" # to calculate integrity measurements of kernel, initramfs etc.

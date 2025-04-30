@@ -6,8 +6,8 @@ use crate::core::architecture::specification::{CSR_STIMECMP, CSR_VSTIMECMP};
 
 #[repr(C)]
 pub struct SupervisorTimerExtension {
-    pub stimecmp: ReadWriteRiscvCsr<CSR_STIMECMP>,
-    pub vstimecmp: ReadWriteRiscvCsr<CSR_VSTIMECMP>,
+    // pub stimecmp: ReadWriteRiscvCsr<CSR_STIMECMP>,
+    // pub vstimecmp: ReadWriteRiscvCsr<CSR_VSTIMECMP>,
 }
 
 impl SupervisorTimerExtension {
@@ -16,8 +16,8 @@ impl SupervisorTimerExtension {
 
     pub fn empty() -> Self {
         Self {
-            stimecmp: ReadWriteRiscvCsr::new_with_value(Self::TIMER_INFINITY),
-            vstimecmp: ReadWriteRiscvCsr::new_with_value(Self::TIMER_INFINITY),
+            // stimecmp: ReadWriteRiscvCsr::new_with_value(Self::TIMER_INFINITY),
+            // vstimecmp: ReadWriteRiscvCsr::new_with_value(Self::TIMER_INFINITY),
         }
     }
 
@@ -27,8 +27,8 @@ impl SupervisorTimerExtension {
     ///
     /// Caller must ensure that the sstc exists
     pub unsafe fn save_in_main_memory(&mut self) {
-        self.stimecmp.save_in_main_memory();
-        self.vstimecmp.save_in_main_memory();
+        // self.stimecmp.save_in_main_memory();
+        // self.vstimecmp.save_in_main_memory();
     }
 
     /// Restores from main memory the sstc state.
@@ -37,7 +37,7 @@ impl SupervisorTimerExtension {
     ///
     /// Caller must ensure that the sstc exists.
     pub unsafe fn restore_from_main_memory(&self) {
-        self.stimecmp.restore_from_main_memory();
-        self.vstimecmp.restore_from_main_memory();
+        // self.stimecmp.restore_from_main_memory();
+        // self.vstimecmp.restore_from_main_memory();
     }
 }

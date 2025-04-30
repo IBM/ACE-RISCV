@@ -40,13 +40,18 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// function, the security properties of ACE hold.
 #[no_mangle]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
-    debug!("Initializing the CoVE security monitor");
+    debug!("Initializing the CoVE security monitor for SiFive P550: v7");
     if cold_boot {
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
             debug!("Failed to initialize the security monitor: {:?}", error);
+        } else {
+            debug!("CoVE security monitor initialized successfully");
         }
     }
+    use crate::core::architecture::HartArchitecturalState;
+    let state = HartArchitecturalState::empty();
+    crate::debug::__print_hart_state(&state);
 }
 
 /// Initializes the security monitor.
@@ -59,19 +64,24 @@ extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_a
 ///
 /// See `FlattenedDeviceTree::from_raw_pointer` for safety requirements.
 fn init_security_monitor(flattened_device_tree_address: *const u8) -> Result<(), Error> {
+    debug!("init_security_monitor: Read FDT...");
     let fdt = unsafe { FlattenedDeviceTree::from_raw_pointer(flattened_device_tree_address)? };
 
     // TODO: make sure the system has enough physical memory
+    debug!("init_security_monitor: Initializing memory layout...");
     let (confidential_memory_start, confidential_memory_end) = initialize_memory_layout(&fdt)?;
 
     // Creates page tokens, heap, page allocator
+    debug!("init_security_monitor: Initializing security monitor state...");
     initalize_security_monitor_state(confidential_memory_start, confidential_memory_end)?;
     // From now on, we can use heap.
 
     // Make sure harts implement all required extension
+    debug!("init_security_monitor: Verifying harts...");
     let number_of_harts = verify_harts(&fdt)?;
 
     // Prepares memory required to store physical harts states during context switches
+    debug!("init_security_monitor: Preparing harts...");
     prepare_harts(number_of_harts)?;
 
     // TODO: lock access to attestation keys/seed/credentials.
@@ -88,23 +98,26 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     // All harts in the system can run the security monitor and every hart must implement all required features
     fdt.harts().try_for_each(|ref hart| {
         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-        HardwareSetup::check_isa_extensions(prop)
+        debug!("verify_harts: Hart {}", prop);
+        // HardwareSetup::check_isa_extensions(prop)
+        Ok::<(), Error>(())
     })?;
 
-    // Enable support for extensions that are implemented by all harts
-    HardwareExtension::all().into_iter().for_each(|ext| {
-        let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
-            let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-            let extensions = &prop.split('_').collect::<Vec<&str>>();
-            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
-        });
-        if is_extension_supported_by_all_harts {
-            debug!("Enabling support for extension: {:?}", ext);
-            let _ = HardwareSetup::add_extension(ext);
-        }
-    });
+    // // Enable support for extensions that are implemented by all harts
+    // HardwareExtension::all().into_iter().for_each(|ext| {
+    //     let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
+    //         let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
+    //         let extensions = &prop.split('_').collect::<Vec<&str>>();
+    //         extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+    //     });
+    //     if is_extension_supported_by_all_harts {
+    //         debug!("Enabling support for extension: {:?}", ext);
+    //         let _ = HardwareSetup::add_extension(ext);
+    //     }
+    // });
 
     // TODO: make sure there are enough PMPs
+    debug!("verify_harts: found {} harts", fdt.harts().count());
 
     Ok(fdt.harts().count())
 }
@@ -127,9 +140,9 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
     let memory_start = fdt_memory_region.base as *mut usize;
     // In assembly that executed this initialization function splitted the memory into two regions where
     // the second region's size is equal or greater than the first ones.
-    let non_confidential_memory_size = fdt_memory_region.size.try_into().map_err(|_| Error::InvalidMemoryBoundary())?;
+    let memory_size: usize = fdt_memory_region.size.try_into().map_err(|_| Error::InvalidMemoryBoundary())?;
+    let non_confidential_memory_size = memory_size / 2;
     let confidential_memory_size = non_confidential_memory_size;
-    let memory_size = non_confidential_memory_size + confidential_memory_size;
     let memory_end = memory_start.wrapping_byte_add(memory_size) as *const usize;
     debug!("Memory 0x{:#?}-0x{:#?}", memory_start, memory_end);
 
@@ -141,7 +154,11 @@ fn initialize_memory_layout(fdt: &FlattenedDeviceTree) -> Result<(ConfidentialMe
 
     // Second region of memory is defined as confidential memory
     let confidential_memory_start = non_confidential_memory_end;
-    let confidential_memory_end = memory_end;
+    debug!("Confidential memory start: 0x{:#?}", confidential_memory_start);
+    debug!("Confidential memory size: 0x{:x}", confidential_memory_size);
+    ensure!(confidential_memory_start.is_aligned_to(PageSize::smallest().in_bytes()), Error::InvalidMemoryBoundary())?;
+    debug!("Confidential memory size: 0x{:x}", confidential_memory_size);
+    let confidential_memory_end = memory_end; // fixed bug with pointer arithmetic
     debug!("Confidential memory 0x{:#?}-0x{:#?}", confidential_memory_start, confidential_memory_end);
 
     unsafe {
@@ -164,16 +181,19 @@ fn initalize_security_monitor_state(
     assert!(confidential_memory_size > 0);
 
     let number_of_pages = confidential_memory_size as usize / PageSize::smallest().in_bytes();
+    debug!("initalize_security_monitor_state: number of pages {}", number_of_pages);
     // Calculate if we have enough memory in the system to store page tokens. In the worst case we
     // have one page token for every possible page in the confidential memory.
     let size_of_a_page_token_in_bytes = size_of::<Page<UnAllocated>>();
     let bytes_required_to_store_page_tokens = number_of_pages * size_of_a_page_token_in_bytes;
     let heap_pages = NUMBER_OF_HEAP_PAGES + (bytes_required_to_store_page_tokens / PageSize::smallest().in_bytes());
+    debug!("initalize_security_monitor_state: number of heap pages {}", heap_pages);
     ensure!(number_of_pages > heap_pages, Error::NotEnoughMemory())?;
     // Set up the global allocator so we can start using alloc::*.
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
     let heap_end_address = MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
+    debug!("initalize_security_monitor_state: initializing heap...");
     crate::core::heap_allocator::init_heap(heap_start_address, heap_size_in_bytes);
 
     // PageAllocator's memory starts directly after the HeapAllocator's memory
@@ -183,10 +203,14 @@ fn initalize_security_monitor_state(
     let page_allocator_end_address = confidential_memory_end;
     // It is safe to construct the PageAllocator because we own the corresponding memory region and pass this
     // ownership to the PageAllocator.
+    debug!("initalize_security_monitor_state: initializing page allocator...");
     unsafe { PageAllocator::initialize(page_allocator_start_address, page_allocator_end_address)? };
 
+    debug!("initalize_security_monitor_state: initializing interrupt controller...");
     InterruptController::initialize()?;
+    debug!("initalize_security_monitor_state: initializing control data storage...");
     ControlDataStorage::initialize()?;
+    debug!("initalize_security_monitor_state: initializing hardware setup...");
     HardwareSetup::initialize()?;
 
     Ok(())
@@ -194,6 +218,7 @@ fn initalize_security_monitor_state(
 
 fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     // We need to allocate stack for the dumped state of each physical hart.
+    debug!("initalize_security_monitor_state: initializing per-hart stack...");
     let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
@@ -201,8 +226,10 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
         debug!("Hart[{}] stack \t 0x{:x}-0x{:x}", hart_id, stack.start_address(), stack.end_address());
         harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
     }
+    debug!("initalize_security_monitor_state: initializing per-hart mutex...");
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
     fence_wo();
+    debug!("initalize_security_monitor_state: harts initialized");
     Ok(())
 }
 
@@ -211,9 +238,11 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 #[no_mangle]
 extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
+    debug!("ace_setup_this_hart: configuring individual hart [before barrier]...");
     while !HARTS_STATES.is_completed() {
         fence_wo();
     }
+    debug!("ace_setup_this_hart: configuring individual hart [after barrier]...");
 
     let hart_id = CSR.mhartid.read();
     debug!("Setting up hardware hart id={}", hart_id);
@@ -229,22 +258,30 @@ extern "C" fn ace_setup_this_hart() {
     // opensbi_mscratch in the internal hart state. OpenSBI stored in mscratch a pointer to the
     // `opensbi_mscratch` region of this hart before calling the security monitor's initialization
     // procedure. Thus, the swap will move the mscratch register value into the dump state of the hart
-    hart.swap_mscratch();
+    debug!("ace_setup_this_hart: swapping mscratch...");
     let hart_address = hart.hypervisor_hart().address();
-    hart.hypervisor_hart_mut().csrs_mut().mscratch.write(hart_address);
+    hart.set_ace_mscratch(hart_address);
     debug!("Hardware hart id={} has state area region at {:x}", hart_id, hart_address);
 
-    // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
-    // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
-    // the `MemoryLayout` has been already initialized by the boot hart.
+    // // Configure the memory isolation mechanism that can limit memory view of the hypervisor to the memory region
+    // // owned by the hypervisor. The setup method enables the memory isolation. It is safe to call it because
+    // // the `MemoryLayout` has been already initialized by the boot hart.
+    debug!("ace_setup_this_hart: setting up memory protection...");
     if let Err(error) = unsafe { HypervisorMemoryProtector::setup() } {
         debug!("Failed to setup hypervisor memory protector: {:?}", error);
         // TODO: block access to attestation keys/registers on this hart?
         return;
     }
+    debug!("ace_setup_this_hart: memory protection set up successfully...");
 
-    // Set up the trap vector, so that the exceptions are handled by the security monitor.
+    // // Set up the trap vector, so that the exceptions are handled by the security monitor.
     let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
-    debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
+    debug!(
+        "Hardware hart id={} registered trap handler at address: {:x} (previous={:x})",
+        hart_id,
+        trap_vector_address,
+        hart.hypervisor_hart_mut().csrs_mut().mtvec.read()
+    );
     hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
+    debug!("ace_setup_this_hart: finished, going back to OpenSBI, mscratch={:x}", hart.hypervisor_hart().csrs().mscratch.read());
 }

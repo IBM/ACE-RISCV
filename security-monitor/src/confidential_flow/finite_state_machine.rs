@@ -2,11 +2,12 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::attestation::RetrieveSecretRequest;
+use crate::confidential_flow::handlers::delegate::DelegateToConfidentialVm;
 use crate::confidential_flow::handlers::interrupts::{AllowExternalInterrupt, ExposeEnabledInterrupts, HandleInterrupt};
 use crate::confidential_flow::handlers::mmio::{
     AddMmioRegion, MmioLoadRequest, MmioLoadResponse, MmioStoreRequest, MmioStoreResponse, RemoveMmioRegion,
 };
-use crate::confidential_flow::handlers::sbi::{InvalidCall, SbiResponse};
+use crate::confidential_flow::handlers::sbi::{DebugRequest, InvalidCall, SbiResponse};
 use crate::confidential_flow::handlers::sbi_base_extension::{
     SbiExtensionProbe, SbiGetImplId, SbiGetImplVersion, SbiGetMarchId, SbiGetMimpid, SbiGetMvendorid, SbiGetSpecVersion,
 };
@@ -16,6 +17,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
     Ipi, NoOperation, RemoteFenceI, RemoteSfenceVma, RemoteSfenceVmaAsid, SbiHsmHartStart, SbiHsmHartStatus, SbiHsmHartStop,
     SbiHsmHartSuspend,
 };
+use crate::confidential_flow::handlers::time::{ReadTime, SetTimer};
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
@@ -25,11 +27,16 @@ use crate::core::architecture::riscv::sbi::IpiExtension::*;
 use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
+use crate::core::architecture::riscv::sbi::TimeExtension::*;
+use crate::core::architecture::sbi::CovgExtension;
+use crate::core::architecture::sbi::SbiExtension::Time;
 use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::{HartLifecycleState, TrapCause};
 use crate::core::control_data::{
-    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart, ResumableOperation,
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
+    ResumableOperation,
 };
+use crate::core::timer_controller::TimerController;
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
 
@@ -53,7 +60,6 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: Invalid argument provided by the assembly context switch";
     const DUMMY_HART_ERROR_MSG: &'static str = "Bug: Found dummy hart instead of a confidential hart";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
@@ -64,10 +70,22 @@ impl<'a> ConfidentialFlow<'a> {
     /// ConfidentialFlow but accessible to the assembly code performing the context switch.
     #[no_mangle]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
-        let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
+        let flow = Self { hardware_hart: unsafe { &mut *hardware_hart_pointer } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
+
+        use crate::core::architecture::specification::CSR_MSTATUS_MPV;
+        if (flow.confidential_hart().confidential_hart_state().csrs().mstatus.read() & 1 << CSR_MSTATUS_MPV) == 0 {
+            debug!(
+                "Bug when executing confidential hart {} cause={}",
+                flow.confidential_hart().confidential_hart_id(),
+                flow.confidential_hart().confidential_hart_state().csrs().mcause.read()
+            );
+            ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
+        }
+
         match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            IllegalInstruction => DelegateToConfidentialVm::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplId)) => SbiGetImplId::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetImplVersion)) => SbiGetImplVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -94,12 +112,22 @@ impl<'a> ConfidentialFlow<'a> {
             VsEcall(Covg(ShareMemory)) => SharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(UnshareMemory)) => UnsharePageRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Covg(RetrieveSecret)) => RetrieveSecretRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(Debug)) => DebugRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Covg(CovgExtension::Time)) => ReadTime::from_confidential_hart(flow.confidential_hart()).handle(flow),
+            VsEcall(Time(SetTimer)) => SetTimer::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(_) => InvalidCall::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestLoadPageFault => MmioLoadRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => {
-                debug!("Bug: Not supported trap cause {:?}, maybe due to incorrect exception delegation?", trap_reason);
+                debug!(
+                    "Bug when executing confidential hart {}. Not supported trap cause {:?}. mepc={:x} mtval={:x}",
+                    flow.confidential_hart().confidential_hart_id(),
+                    trap_reason,
+                    flow.confidential_hart().csrs().mepc.read_from_main_memory(),
+                    flow.confidential_hart().csrs().mtval.read()
+                );
+                crate::debug::__print_hart_state(flow.confidential_hart().confidential_hart_state());
                 ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
             }
         }
@@ -121,11 +149,13 @@ impl<'a> ConfidentialFlow<'a> {
     }
 
     /// Moves in the finite state machine (FSM) from the confidential flow into non-confidential flow.
-    pub fn into_non_confidential_flow(self) -> NonConfidentialFlow<'a> {
+    pub fn into_non_confidential_flow(mut self) -> NonConfidentialFlow<'a> {
         // When moving back to the non-confidential flow, we always declassify enabled interrupts and timer configuration. This allows the
         // hypervisor to schedule the confidential VM timer and interrupts. Read the CoVE spec to learn more.
         let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
+
+        TimerController::new(&mut self).store_vs_timer();
 
         ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             // Run heavy context switch when giving back the confidential hart to the confidential VM.
@@ -185,6 +215,7 @@ impl<'a> ConfidentialFlow<'a> {
             ApplyToConfidentialHart::MmioAccessFault(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::SbiResponse(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
             ApplyToConfidentialHart::VirtualInstruction(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
+            ApplyToConfidentialHart::DelegateToConfidentialVm(v) => v.apply_to_confidential_hart(self.confidential_hart_mut()),
         }
         self.exit_to_confidential_hart()
     }
@@ -193,10 +224,12 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts =
-            self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vsip.read_from_main_memory();
-        let address = self.confidential_hart_mut().address();
+        let interrupts = (self.confidential_hart().csrs().hvip.read_from_main_memory()
+            | self.confidential_hart().csrs().pending_vssip_irqs
+            | self.confidential_hart().csrs().pending_vstip_irqs)
+            & self.confidential_hart().csrs().allowed_external_interrupts;
         self.confidential_hart().csrs().hvip.write(interrupts);
+        let address = self.confidential_hart_mut().address();
         self.confidential_hart().csrs().sscratch.write(address);
         unsafe { exit_to_confidential_hart_asm() }
     }
@@ -206,17 +239,17 @@ impl<'a> ConfidentialFlow<'a> {
 impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
-    pub fn broadcast_remote_command(&mut self, confidential_hart_remote_command: ConfidentialHartRemoteCommand) -> Result<(), Error> {
-        ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
-            // Hack: For the time-being, we rely on the OpenSBI's implementation of physical IPIs. To use OpenSBI functions we
-            // must set the mscratch register to the value expected by OpenSBI. We do it here, because we have access to the `HardwareHart`
-            // that knows the original value of the mscratch expected by OpenSBI.
-            self.hardware_hart.swap_mscratch();
-            let result = confidential_vm.broadcast_remote_command(confidential_hart_remote_command);
-            // We must revert the content of mscratch back to the value expected by our context switched.
-            self.hardware_hart.swap_mscratch();
-            result
-        })
+    pub fn broadcast_remote_command(
+        &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+    ) -> Result<(), Error> {
+        let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
+        // check if the remote command is also dedicated for the currently executing confidential hart
+        if confidential_hart_remote_command.is_hart_selected(sender_confidential_hart_id) {
+            self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
+        }
+        // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
+        self.hardware_hart
+            .opensbi_context(|| confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command))
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to
@@ -286,11 +319,11 @@ impl<'a> ConfidentialFlow<'a> {
         self.confidential_hart().confidential_hart_id()
     }
 
-    fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
+    pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
         self.hardware_hart.confidential_hart_mut()
     }
 
-    fn confidential_hart(&'a self) -> &ConfidentialHart {
+    pub fn confidential_hart(&'a self) -> &ConfidentialHart {
         self.hardware_hart.confidential_hart()
     }
 

@@ -20,6 +20,15 @@ pub const ECALL_INSTRUCTION_LENGTH: usize = 4;
 pub const CAUSE_INTERRUPT_BIT: usize = 63;
 pub const STVEC_MODE_VECTORED: usize = 0b11;
 
+pub const CSR_USTATUS: u16 = 0;
+pub const CSR_UIE: u16 = 4;
+pub const CSR_UTVEC: u16 = 5;
+pub const CSR_USCRATCH: u16 = 64;
+pub const CSR_UEPC: u16 = 65;
+pub const CSR_UCAUSE: u16 = 66;
+pub const CSR_UTVAL: u16 = 67;
+pub const CSR_UIP: u16 = 68;
+
 pub const CSR_FFLAGS: u16 = 0x1;
 pub const CSR_FRM: u16 = 0x2;
 pub const CSR_FCSR: u16 = 0x3;
@@ -415,8 +424,16 @@ pub const PMP_NA4_MASK: usize = 0b10000;
 pub const PMP_NAPOT_MASK: usize = 0b11000;
 pub const PMP_PERMISSION_NONE_MASK: usize = 0;
 pub const PMP_PERMISSION_RWX_MASK: usize = 0b111;
+pub const PMP_PERMISSION_L_MASK: usize = 0x80;
 pub const PMP_CONFIG_SHIFT: usize = 8;
 pub const PMP_ADDRESS_SHIFT: u16 = 2;
+
+pub const MSECCFG_MML_SHIFT: usize = 0;
+pub const MSECCFG_MML: usize = 1 << MSECCFG_MML_SHIFT;
+pub const MSECCFG_MMWP_SHIFT: usize = 1;
+pub const MSECCFG_MMWP: usize = 1 << MSECCFG_MMWP_SHIFT;
+pub const MSECCFG_RLB_SHIFT: usize = 2;
+pub const MSECCFG_RLB: usize = 1 << MSECCFG_RLB_SHIFT;
 
 pub const MTVEC_BASE_SHIFT: usize = 2;
 
@@ -430,3 +447,45 @@ pub const SR_FS_DIRTY: usize = 0x00006000;
 
 pub const HCOUNTEREN_TM: usize = 1;
 pub const HCOUNTEREN_TM_MASK: usize = 1 << HCOUNTEREN_TM;
+
+// Compressed extension
+pub const INSN_MATCH_C_LD: usize = 0x6000;
+pub const INSN_MASK_C_LD: usize = 0xe003;
+pub const INSN_MATCH_C_SD: usize = 0xe000;
+pub const INSN_MASK_C_SD: usize = 0xe003;
+pub const INSN_MATCH_C_LW: usize = 0x4000;
+pub const INSN_MASK_C_LW: usize = 0xe003;
+pub const INSN_MATCH_C_SW: usize = 0xc000;
+pub const INSN_MASK_C_SW: usize = 0xe003;
+pub const INSN_MATCH_C_LDSP: usize = 0x6002;
+pub const INSN_MASK_C_LDSP: usize = 0xe003;
+pub const INSN_MATCH_C_SDSP: usize = 0xe002;
+pub const INSN_MASK_C_SDSP: usize = 0xe003;
+pub const INSN_MATCH_C_LWSP: usize = 0x4002;
+pub const INSN_MASK_C_LWSP: usize = 0xe003;
+pub const INSN_MATCH_C_SWSP: usize = 0xc002;
+pub const INSN_MASK_C_SWSP: usize = 0xe003;
+
+pub const INSN_MATCH_LB: usize = 0x3;
+pub const INSN_MASK_LB: usize = 0x707f;
+pub const INSN_MATCH_LH: usize = 0x1003;
+pub const INSN_MASK_LH: usize = 0x707f;
+pub const INSN_MATCH_LW: usize = 0x2003;
+pub const INSN_MASK_LW: usize = 0x707f;
+pub const INSN_MATCH_LBU: usize = 0x4003;
+pub const INSN_MASK_LBU: usize = 0x707f;
+pub const INSN_MATCH_LHU: usize = 0x5003;
+pub const INSN_MASK_LHU: usize = 0x707f;
+pub const INSN_MATCH_SB: usize = 0x23;
+pub const INSN_MASK_SB: usize = 0x707f;
+pub const INSN_MATCH_SH: usize = 0x1023;
+pub const INSN_MASK_SH: usize = 0x707f;
+pub const INSN_MATCH_SW: usize = 0x2023;
+pub const INSN_MASK_SW: usize = 0x707f;
+
+pub const INSN_MATCH_LD: usize = 0x3003;
+pub const INSN_MASK_LD: usize = 0x707f;
+pub const INSN_MATCH_LWU: usize = 0x6003;
+pub const INSN_MASK_LWU: usize = 0x707f;
+pub const INSN_MATCH_SD: usize = 0x3023;
+pub const INSN_MASK_SD: usize = 0x707f;

@@ -16,7 +16,7 @@ pub fn split_memory_into_confidential_and_non_confidential(
 ) -> Result<(), Error> {
     // TODO: read how many PMPs are supported
     const MINIMUM_NUMBER_OF_PMP_REQUIRED: usize = 4;
-    let number_of_pmps = 16;
+    let number_of_pmps = 8;
     debug!("Number of PMPs={}", number_of_pmps);
     ensure!(number_of_pmps >= MINIMUM_NUMBER_OF_PMP_REQUIRED, Error::NotEnoughPmps())?;
 

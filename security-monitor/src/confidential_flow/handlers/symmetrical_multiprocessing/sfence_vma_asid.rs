@@ -5,11 +5,13 @@ use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::handlers::symmetrical_multiprocessing::Ipi;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::GeneralPurposeRegister;
-use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable};
+use crate::core::control_data::{
+    ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialHartRemoteCommandExecutable, ControlDataStorage,
+};
 
 /// Handles a request from one confidential hart to execute sfence.vma instruction on remote confidential harts. It represents an inter hart
 /// request.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct RemoteSfenceVmaAsid {
     ipi: Ipi,
     _start_address: usize,
@@ -27,11 +29,11 @@ impl RemoteSfenceVmaAsid {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        let transformation = confidential_flow
-            .broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteSfenceVmaAsid(self))
-            .and_then(|_| Ok(SbiResponse::success()))
-            .unwrap_or_else(|error| SbiResponse::error(error));
-        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation));
+        let result = ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+            confidential_flow.broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteSfenceVmaAsid(self))
+        })
+        .map_or_else(|error| SbiResponse::error(error), |_| SbiResponse::success());
+        confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(result))
     }
 }
 

@@ -7,14 +7,18 @@ edition = "2021"
 
 [dependencies]
 #rsa = "0.9" # to create lockboxes: encrypt symetric key using public keys of target TEEs
-#rand = "0.8" # to generate symmetric key used to encrypted payload
+
+rand = {version = "0.8", optional=true}
+
+hybrid-array = "=0.2.0-rc.9"
+ml-kem = {version = "=0.2.0", default-features=false, features = [] }
 
 # for symmetric encryption of payload
-aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc"]}
+aes-gcm = {version="0.10.3", default-features = false, features=["aes"]}
 
 # provides macros that help removing boilerplate code in rust error handling
 thiserror-no-std = "2.0"
 
 [features]
 parser = []
-serializer = []
+serializer = ["rand"]

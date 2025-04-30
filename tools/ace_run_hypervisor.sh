@@ -14,7 +14,7 @@ DRIVE=${ACE_DIR}/hypervisor/buildroot/images/rootfs.ext4
 
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
-SMP=2
+SMP=1
 MEMORY=8G
 
 for i in "$@"; do
@@ -56,7 +56,7 @@ echo "Number of cores assigned to the guest: ${SMP}"
 ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -m ${MEMORY} \
     ${INTERACTIVE} \
-    -machine virt -cpu rv64 \
+    -machine virt -cpu rv64,sstc=false,f=true \
     -bios none \
     -kernel ${KERNEL} \
     -global virtio-mmio.force-legacy=false \

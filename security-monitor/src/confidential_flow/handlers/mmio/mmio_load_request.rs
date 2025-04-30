@@ -4,8 +4,8 @@
 use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioLoadPending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::is_bit_enabled;
-use crate::core::architecture::specification::CAUSE_LOAD_ACCESS;
+use crate::core::architecture::specification::{CAUSE_LOAD_ACCESS, *};
+use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -15,33 +15,38 @@ pub struct MmioLoadRequest {
     mtval: usize,
     mtval2: usize,
     mtinst: usize,
+    instruction: usize,
+    instruction_length: usize,
 }
 
 impl MmioLoadRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
+        let fault_address = (confidential_hart.csrs().mtval2.read() << 2) | (confidential_hart.csrs().mtval.read() & 0x3);
+        // debug!("MMIO store: 0x{:x}", fault_address);
+
+        let mtinst = confidential_hart.csrs().mtinst.read();
+        let mepc = confidential_hart.csrs().mepc.read_from_main_memory();
+        let (instruction, instruction_length) = super::read_trapped_instruction(mtinst, mepc);
         Self {
             mcause: confidential_hart.csrs().mcause.read(),
             mtval: confidential_hart.csrs().mtval.read(),
             mtval2: confidential_hart.csrs().mtval2.read(),
-            mtinst: confidential_hart.csrs().mtinst.read(),
+            mtinst,
+            instruction,
+            instruction_length,
         }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
-        assert!(self.mtinst & 0x1 > 0);
-        let instruction = self.mtinst | 0x3;
-        let instruction_length = if is_bit_enabled(self.mtinst, 1) { riscv_decode::instruction_length(instruction as u16) } else { 2 };
-
         let fault_address = (self.mtval2 << 2) | (self.mtval & 0x3);
         if !MmioAccessFault::tried_to_access_valid_mmio_region(confidential_flow.confidential_vm_id(), fault_address) {
-            let mmio_access_fault_handler = MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, instruction_length);
-            confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::MmioAccessFault(mmio_access_fault_handler));
+            MmioAccessFault::new(CAUSE_LOAD_ACCESS.into(), self.mtval, self.mtinst, fault_address).handle(confidential_flow)
         }
 
-        match crate::core::architecture::decode_result_register(instruction) {
+        // According to the RISC-V privilege spec, mtinst encodes faulted instruction (bit 0 is 1) or a pseudo instruction
+        match crate::core::architecture::decode_result_register(self.instruction) {
             Ok(gpr) => confidential_flow
-                .set_resumable_operation(ResumableOperation::MmioLoad(MmioLoadPending::new(instruction_length, gpr)))
+                .set_resumable_operation(ResumableOperation::MmioLoad(MmioLoadPending::new(self.instruction_length, gpr)))
                 .into_non_confidential_flow()
                 .declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::MmioLoadRequest(self)),
             Err(error) => {
@@ -52,12 +57,39 @@ impl MmioLoadRequest {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        use crate::core::architecture::riscv::specification::*;
+        let mut mtinst = if self.instruction & INSN_MASK_LB == INSN_MATCH_LB {
+            INSN_MATCH_LB
+        } else if self.instruction & INSN_MASK_LBU == INSN_MATCH_LBU {
+            INSN_MATCH_LBU
+        } else if self.instruction & INSN_MASK_LH == INSN_MATCH_LH {
+            INSN_MATCH_LH
+        } else if self.instruction & INSN_MASK_LHU == INSN_MATCH_LHU {
+            INSN_MATCH_LHU
+        } else if self.instruction & INSN_MASK_LW == INSN_MATCH_LW {
+            INSN_MATCH_LW
+        } else if self.instruction & INSN_MASK_C_LW == INSN_MATCH_C_LW {
+            INSN_MATCH_LW
+        } else if self.instruction & INSN_MASK_LWU == INSN_MATCH_LWU {
+            INSN_MATCH_LWU
+        } else if self.instruction & INSN_MASK_LD == INSN_MATCH_LD {
+            INSN_MATCH_LD
+        } else if self.instruction & INSN_MASK_C_LD == INSN_MATCH_C_LD {
+            INSN_MATCH_LD
+        } else {
+            debug!("Not supported load instruction {:x}", self.instruction);
+            0
+        };
+
+        mtinst = mtinst | ((GeneralPurposeRegister::a0 as usize) << 7) | 1 << 0;
+        if self.instruction_length != 2 {
+            mtinst = mtinst | 1 << 1;
+        }
+
         // The security monitor exposes `scause` and `stval` via hart's CSRs but `htval` and `htinst` via the NACL shared memory.
         hypervisor_hart.csrs_mut().scause.write(self.mcause);
         hypervisor_hart.csrs_mut().stval.write(self.mtval);
         hypervisor_hart.shared_memory_mut().write_csr(CSR_HTVAL.into(), self.mtval2);
-        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), self.mtinst);
+        hypervisor_hart.shared_memory_mut().write_csr(CSR_HTINST.into(), mtinst);
         SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

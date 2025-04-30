@@ -18,6 +18,7 @@ impl AllowExternalInterrupt {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+        debug!("Enable external interrupts: {:x}", self.interrupt_id);
         match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             Ok(confidential_vm.allow_external_interrupt(self.interrupt_id))
         }) {

@@ -30,23 +30,24 @@ impl SharePageComplete {
         }
     }
 
-    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         let transformation = self
-            .map_shared_page(&confidential_flow)
+            .map_shared_page(&mut confidential_flow)
             .and_then(|_| Ok(SbiResponse::success()))
             .unwrap_or_else(|error| SbiResponse::error(error));
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(transformation))
     }
 
-    fn map_shared_page(&self, confidential_flow: &ConfidentialFlow) -> Result<(), Error> {
+    fn map_shared_page(&self, confidential_flow: &mut ConfidentialFlow) -> Result<(), Error> {
         ensure!(self.response_code == 0, Error::Failed())?;
         // Security: check that the start address is located in the non-confidential memory
         let hypervisor_address = NonConfidentialMemoryAddress::new(self.hypervisor_page_address as *mut usize)?;
 
         ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             let page_size = confidential_vm.memory_protector_mut().map_shared_page(hypervisor_address, self.request.address)?;
-            let request = RemoteHfenceGvmaVmid::all_harts(&self.request.address, page_size, confidential_flow.confidential_vm_id());
-            confidential_vm.broadcast_remote_command(ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
+            let request = RemoteHfenceGvmaVmid::all_harts(None, page_size, confidential_flow.confidential_vm_id());
+            confidential_flow
+                .broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
             Ok(())
         })
     }

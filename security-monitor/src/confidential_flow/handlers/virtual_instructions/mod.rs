@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
 use crate::core::architecture::riscv::specification::WFI_INSTRUCTION;
-use crate::core::control_data::ConfidentialHart;
+use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 
 /// Handles virtual instruction trap that occured during execution of the confidential hart.
 pub struct VirtualInstruction {
@@ -19,7 +19,9 @@ impl VirtualInstruction {
         Self { instruction, instruction_length }
     }
 
-    pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
+    pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
+        confidential_flow.confidential_hart_mut().csrs_mut().mepc.add(self.instruction_length);
+
         let transformation = if self.instruction == WFI_INSTRUCTION {
             ApplyToConfidentialHart::VirtualInstruction(self)
         } else {
@@ -30,7 +32,5 @@ impl VirtualInstruction {
         confidential_flow.apply_and_exit_to_confidential_hart(transformation)
     }
 
-    pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {
-        confidential_hart.csrs_mut().mepc.add(self.instruction_length);
-    }
+    pub fn apply_to_confidential_hart(&self, confidential_hart: &mut ConfidentialHart) {}
 }

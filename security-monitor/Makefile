@@ -6,7 +6,7 @@ CARGO = cargo
 RELEASE = --release
 CHAIN=riscv64gc-unknown-none-elf
 TARGET = --target=$(CHAIN)
-RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie #-Ccode-model=medium
+RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie -Cllvm-args=-align-all-functions=3 #-Ccode-model=medium
 EXEC_NAME = libace.a
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -31,7 +31,7 @@ build: opensbi_bindings fmt
 	echo "Generating OpenSBI bindings" ;\
 	mkdir -p $(SM_WORK_DIR) ; \
 	rm -f $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME); \
-	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) --features verbose ; \
+	RUSTFLAGS='$(RUSTFLAGS)' CARGO_TARGET_DIR=$(SM_WORK_DIR) INSTALL_DIR=$(ACE_DIR) $(CARGO) build $(RELEASE) $(TARGET) ; \
 	cp $(SM_WORK_DIR)/$(CHAIN)/release/$(EXEC_NAME) $(SM_WORK_DIR)/ ; \
 	rm -rf $(OPENSBI_WORK_DIR)/
 
@@ -51,7 +51,7 @@ debug: opensbi_bindings
 
 opensbi: build
 	echo "Compiling OpenSBI" ;\
-	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+	if ! grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hsm.c"; then \
 		echo "Applying patches to OpenSBI" ;\
 		cd $(OPENSBI_SOURCE_DIR); git apply --whitespace=fix $(OPENSBI_PATCH); cd $(MAKEFILE_SOURCE_DIR);\
 	fi ;\
@@ -62,7 +62,7 @@ opensbi: build
 
 opensbi_bindings:
 	echo "Compiling OpenSBI bindings" ;\
-	if grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hart.c"; then \
+	if grep -q ace_setup_this_hart "$(OPENSBI_SOURCE_DIR)/lib/sbi/sbi_hsm.c"; then \
 		echo "Applying patches to OpenSBI bindings" ;\
 		cd $(OPENSBI_SOURCE_DIR); git apply -R --whitespace=fix $(OPENSBI_PATCH); cd $(MAKEFILE_SOURCE_DIR); \
 	fi; \

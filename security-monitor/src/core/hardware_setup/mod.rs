@@ -30,12 +30,12 @@ impl HardwareSetup {
     pub fn check_isa_extensions(prop: &str) -> Result<(), Error> {
         // example prop value rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
         debug!("{}", prop);
-        ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
-        let extensions = &prop.split('_').collect::<Vec<&str>>();
-        Self::REQUIRED_BASE_EXTENSIONS
-            .into_iter()
-            .try_for_each(|ext| ensure!(extensions[0].contains(*ext), Error::MissingCpuExtension()))?;
-        Self::REQUIRED_EXTENSIONS.into_iter().try_for_each(|ext| ensure!(extensions.contains(ext), Error::MissingCpuExtension()))?;
+        // ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
+        // let extensions = &prop.split('_').collect::<Vec<&str>>();
+        // Self::REQUIRED_BASE_EXTENSIONS
+        //     .into_iter()
+        //     .try_for_each(|ext| ensure!(extensions[0].contains(*ext), Error::MissingCpuExtension()))?;
+        // Self::REQUIRED_EXTENSIONS.into_iter().try_for_each(|ext| ensure!(extensions.contains(ext), Error::MissingCpuExtension()))?;
         Ok(())
     }
 
