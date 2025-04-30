@@ -1,10 +1,13 @@
 # Supported hardware
 
 ## SiFive P550 evaluation board
-This RISC-V processor is not compliant with RISC-V CoVE spec because (1) it implement a pre-reatified version of the H extensions, (2) it does not implement the Sstc extension. However, we have a version of ACE that emulates these missing hardware features. Thus, we can run experimentally ACE on SiFive P550.
+This RISC-V processor is not compliant with the RISC-V CoVE specification because (1) it implements a pre-ratified version of the H extension, and (2) it does not support the Sstc extension. However, we have developed a version of ACE that emulates these missing hardware features. As a result, we are able to experimentally run ACE on the SiFive P550.
+
+Below process is not well integrated with YOCTO and requires manual execution of certain steps. We welcome pull requests to provide YOCTO integration.
 
 ### Build SiFive p550 firmware
-We start by building SiFive firmware without any modifications. We use the version `2024.09.00-HFP550` because this is the version that was available when we were working with the P550 evaluation board.
+We begin by building the SiFive firmware without any modifications. We use version `2024.09.00-HFP550`, as it was the version available at the time we worked with the P550 evaluation board.
+
 ```
 export YOCTO_DIR=/tmp/yocto
 mkdir -p $YOCTO_DIR && cd $YOCTO_DIR
