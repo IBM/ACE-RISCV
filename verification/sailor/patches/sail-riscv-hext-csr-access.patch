@@ -1,0 +1,92 @@
+diff --git a/model/riscv_sys_control.sail b/model/riscv_sys_control.sail
+index 1878c78..b65cb1a 100644
+--- a/model/riscv_sys_control.sail
++++ b/model/riscv_sys_control.sail
+@@ -679,6 +679,71 @@ function init_sys() -> unit = {
+   if(sys_enable_hext())
+   then init_hext();
+ 
++  let csr_ids = [0x008, 0xC20, 0xC21, 0xC22, 0x009, 0x00A, 0x00F, 0x000, 0x004, 0x005, 0x040, 0x041, 0x042, 0x043, 0x044, 0x015, 0xC82, 0xC81, 0xC80, 0xC02, 0xC01, 0xC00, 0x180, 0x144, 0x143, 0x142, 0x141, 0x140, 0x10A, 0x106, 0x105, 0x104, 0x103, 0x102, 0x101, 0x100, 0x7a0, 0xB82, 0xB80, 0xB02, 0xB00, 0x344, 0x343, 0x342, 0x341, 0x340, 0x320, 0x30A, 0x306, 0x305, 0x304, 0x303, 0x302, 0x301, 0x300, 0xf15, 0xf14, 0xf13, 0xf12, 0xf11];
++
++  let csr_ids_2 = [0x001, 0x002, 0x003, 0x34A, 0x34B, 0x600, 0x602, 0x603, 0x604, 0x605, 0x606, 0x607, 0x643, 0x644, 0x645, 0x64A, 0xE12, 0x60A, 0x61A, 0x680, 0x615, 0x200, 0x204, 0x205, 0x240, 0x241, 0x242, 0x243, 0x244, 0x280];
++
++  //let csr_ids = [0xC82, 0xC81, 0xC80, 0xC02, 0xC01, 0xC00, 0x180, 0x144, 0x143, 0x142, 0x141, 0x140, 0x10A, 0x106, 0x105, 0x104, 0x103, 0x102, 0x101, 0x100, 0x7a0, 0xB82, 0xB80, 0xB02, 0xB00, 0x344, 0x343, 0x342, 0x341, 0x340, 0x320, 0x30A, 0x306, 0x305, 0x304, 0x303, 0x302, 0x301, 0x300, 0xf15, 0xf14, 0xf13, 0xf12, 0xf11, 0x600, 0x602, 0x603, 0x604, 0x605, 0x606, 0x200, 0x204, 0x205, 0x240, 0x241];
++
++  print("\n");
++  print("Printing CSR Access Results");
++
++  foreach (i from 0 to 54) {
++     let csr_id = csr_ids[i];
++     //print("\n");
++     print(csr_name_map(csr_id) ^ ":");
++
++     print("M-mode");
++     if check_CSR(csr_id, Machine, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Machine, V0, true) then print("Writable") else print("Not Writable");
++
++     print("HS-mode");
++     if check_CSR(csr_id, Supervisor, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, V0, true) then print("Writable") else print("Not Writable");
++
++     print("VS-mode");
++     if check_CSR(csr_id, Supervisor, V1, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, V1, true) then print("Writable") else print("Not Writable");
++
++     print("U-mode");
++     if check_CSR(csr_id, User, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, V0, true) then print("Writable") else print("Not Writable");
++
++     print("VU-mode");
++     if check_CSR(csr_id, User, V1, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, V1, true) then print("Writable") else print("Not Writable");
++  };
++
++  foreach (i from 0 to 29) {
++     let csr_id = csr_ids_2[i];
++     //print("\n");
++     print(csr_name_map(csr_id) ^ ":");
++
++     print("M-mode");
++     if check_CSR(csr_id, Machine, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Machine, V0, true) then print("Writable") else print("Not Writable");
++
++     print("HS-mode");
++     if check_CSR(csr_id, Supervisor, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, V0, true) then print("Writable") else print("Not Writable");
++
++     print("VS-mode");
++     if check_CSR(csr_id, Supervisor, V1, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, V1, true) then print("Writable") else print("Not Writable");
++
++     print("U-mode");
++     if check_CSR(csr_id, User, V0, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, V0, true) then print("Writable") else print("Not Writable");
++
++     print("VU-mode");
++     if check_CSR(csr_id, User, V1, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, V1, true) then print("Writable") else print("Not Writable");
++  };
++
++  print("DONE Printing CSR Access Results");
++  print("\n");
++
++
+   // log compatibility with spike
+   if   get_config_print_reg()
+   then print_reg("CSR mstatus <- " ^ BitStr(mstatus.bits) ^ " (input: " ^ BitStr(zero_extend(0b0) : xlenbits) ^ ")")
+diff --git a/model/riscv_zicsr_control.sail b/model/riscv_zicsr_control.sail
+index 47cf68f..187e237 100644
+--- a/model/riscv_zicsr_control.sail
++++ b/model/riscv_zicsr_control.sail
+@@ -143,9 +143,8 @@ function check_Counteren(csr : csreg, p : Privilege, v : Virtualization) -> bool
+   }
+ 
+ 
+-/* Seed may only be accessed if we are doing a write, and access has been
+- * allowed in the current priv mode
+- */
++//Seed may only be accessed if we are doing a write, and access has been allowed in the current priv mode
++
+ function check_seed_CSR (csr : csreg, p : Privilege, isWrite : bool) -> bool = {
+   if not(csr == 0x015) then {
+     true

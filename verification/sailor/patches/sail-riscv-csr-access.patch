@@ -1,0 +1,60 @@
+diff --git a/model/riscv_sys_control.sail b/model/riscv_sys_control.sail
+index cbe61bcb..217627ad 100644
+--- a/model/riscv_sys_control.sail
++++ b/model/riscv_sys_control.sail
+@@ -547,6 +547,55 @@ function init_sys() -> unit = {
+   // PMP's L and A fields are set to 0 on reset.
+   init_pmp();
+ 
++  // NEELU:
++
++  let csr_ids = [0x008, 0xC20, 0xC21, 0xC22, 0x009, 0x00A, 0x00F, 0x000, 0x004, 0x005, 0x040, 0x041, 0x042, 0x043, 0x044, 0x015, 0xC82, 0xC81, 0xC80, 0xC02, 0xC01, 0xC00, 0x180, 0x144, 0x143, 0x142, 0x141, 0x140, 0x10A, 0x106, 0x105, 0x104, 0x103, 0x102, 0x101, 0x100, 0x7a0, 0xB82, 0xB80, 0xB02, 0xB00, 0x344, 0x343, 0x342, 0x341, 0x340, 0x320, 0x30A, 0x306, 0x305, 0x304, 0x303, 0x302, 0x301, 0x300, 0xf15, 0xf14, 0xf13, 0xf12, 0xf11];
++
++  let csr_ids_2 = [0x001, 0x002, 0x003];
++
++  print("\n");
++  print("Printing CSR Access Results");
++
++  foreach (i from 0 to 59) {
++     let csr_id = csr_ids[i];
++     print(csr_name_map(csr_id) ^ ":");
++
++     print("M-mode");
++     if check_CSR(csr_id, Machine, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Machine, true) then print("Writable") else print("Not Writable");
++
++     print("S-mode");
++     if check_CSR(csr_id, Supervisor, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, true) then print("Writable") else print("Not Writable");
++
++     print("U-mode");
++     if check_CSR(csr_id, User, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, true) then print("Writable") else print("Not Writable");
++
++  };
++
++  foreach (i from 0 to 2) {
++     let csr_id = csr_ids_2[i];
++     //print("\n");
++     print(csr_name_map(csr_id) ^ ":");
++
++     print("M-mode");
++     if check_CSR(csr_id, Machine, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Machine, true) then print("Writable") else print("Not Writable");
++
++     print("S-mode");
++     if check_CSR(csr_id, Supervisor, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, Supervisor, true) then print("Writable") else print("Not Writable");
++
++     print("U-mode");
++     if check_CSR(csr_id, User, false) then print("Readable") else print("Not Readable");
++     if check_CSR(csr_id, User, true) then print("Writable") else print("Not Writable");
++  };
++
++  print("DONE Printing CSR Access Results");
++
++  print("\n");
++
+   // log compatibility with spike
+   if   get_config_print_reg()
+   then print_reg("CSR mstatus <- " ^ BitStr(mstatus.bits) ^ " (input: " ^ BitStr(zero_extend(0b0) : xlenbits) ^ ")")

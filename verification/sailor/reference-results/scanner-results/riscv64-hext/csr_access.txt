@@ -1,0 +1,3225 @@
+Running file test/riscv-tests/rv64ui-p-add.elf.
+ELF Entry @ 0x80000000
+begin_signature: 0x80002000
+end_signature: 0x80002000
+
+
+Printing CSR Access Results
+mvendorid:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+marchid:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mimpid:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mhartid:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+0xf15:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mstatus:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+misa:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+medeleg:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mideleg:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mie:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mtvec:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mcounteren:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+0x30a:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mcountinhibit:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mscratch:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mepc:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mcause:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mtval:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mip:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mcycle:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+minstret:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mcycleh:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+minstreth:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+tselect:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sstatus:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+0x101:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sedeleg:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sideleg:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sie:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+stvec:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+scounteren:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+0x10a:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sscratch:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sepc:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+scause:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+stval:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+sip:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+satp:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+cycle:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+time:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+instret:
+M-mode
+Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+cycleh:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+timeh:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+instreth:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+seed:
+M-mode
+Not Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+uip:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+utval:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+ucause:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+uepc:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+uscratch:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+utvec:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+uie:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+ustatus:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vcsr:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Readable
+Writable
+VU-mode
+Readable
+Writable
+vxrm:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Readable
+Writable
+U-mode
+Readable
+Writable
+VU-mode
+Readable
+Writable
+vsatp:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vsip:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vstval:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vscause:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vsepc:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vsscratch:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vstvec:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vsie:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+vsstatus:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+htimedeltah:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hgatp:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+henvcfgh:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+henvcfg:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hgeip:
+M-mode
+Readable
+Not Writable
+HS-mode
+Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+htinst:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hvip:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hip:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+htval:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hgeie:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hcounteren:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+htimedelta:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hie:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hideleg:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hedeleg:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+hstatus:
+M-mode
+Readable
+Writable
+HS-mode
+Readable
+Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mtval2:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+mtinst:
+M-mode
+Readable
+Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+fcsr:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+frm:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+fflags:
+M-mode
+Not Readable
+Not Writable
+HS-mode
+Not Readable
+Not Writable
+VS-mode
+Not Readable
+Not Writable
+U-mode
+Not Readable
+Not Writable
+VU-mode
+Not Readable
+Not Writable
+DONE Printing CSR Access Results
+
+
+CSR mstatus <- 0x0000000A00000000 (input: 0x0000000000000000)
+mem[E,0x0000000000001000] -> 0x0297
+mem[E,0x0000000000001002] -> 0x0000
+[0] [M]: 0x0000000000001000 (0x00000297) auipc t0, 0x0
+x5 <- 0x0000000000001000
+mem[E,0x0000000000001004] -> 0x8593
+mem[E,0x0000000000001006] -> 0x0202
+[1] [M]: 0x0000000000001004 (0x02028593) addi a1, t0, 0x20
+x11 <- 0x0000000000001020
+mem[E,0x0000000000001008] -> 0x2573
+mem[E,0x000000000000100A] -> 0xF140
+[2] [M]: 0x0000000000001008 (0xF1402573) csrrs a0, mhartid, zero
+CSR mhartid -> 0x0000000000000000
+x10 <- 0x0000000000000000
+mem[E,0x000000000000100C] -> 0xB283
+mem[E,0x000000000000100E] -> 0x0182
+[3] [M]: 0x000000000000100C (0x0182B283) ld t0, 0x18(t0)
+mem[R,0x0000000000001018] -> 0x0000000080000000
+x5 <- 0x0000000080000000
+mem[E,0x0000000000001010] -> 0x8067
+mem[E,0x0000000000001012] -> 0x0002
+[4] [M]: 0x0000000000001010 (0x00028067) jalr zero, 0x0(t0)
+mem[E,0x0000000080000000] -> 0x006F
+mem[E,0x0000000080000002] -> 0x04C0
+[5] [M]: 0x0000000080000000 (0x04C0006F) jal zero, 0x4c
+mem[E,0x000000008000004C] -> 0x2573
+mem[E,0x000000008000004E] -> 0xF140
+[6] [M]: 0x000000008000004C (0xF1402573) csrrs a0, mhartid, zero
+CSR mhartid -> 0x0000000000000000
+x10 <- 0x0000000000000000
+mem[E,0x0000000080000050] -> 0x1063
+mem[E,0x0000000080000052] -> 0x0005
+[7] [M]: 0x0000000080000050 (0x00051063) bne a0, zero, 0x0
+mem[E,0x0000000080000054] -> 0x0297
+mem[E,0x0000000080000056] -> 0x0000
+[8] [M]: 0x0000000080000054 (0x00000297) auipc t0, 0x0
+x5 <- 0x0000000080000054
+mem[E,0x0000000080000058] -> 0x8293
+mem[E,0x000000008000005A] -> 0x0102
+[9] [M]: 0x0000000080000058 (0x01028293) addi t0, t0, 0x10
+x5 <- 0x0000000080000064
+mem[E,0x000000008000005C] -> 0x9073
+mem[E,0x000000008000005E] -> 0x3052
+[10] [M]: 0x000000008000005C (0x30529073) csrrw zero, mtvec, t0
+CSR mtvec -> 0x0000000000000000
+CSR mtvec <- 0x0000000080000064 (input: 0x0000000080000064)
+mem[E,0x0000000080000060] -> 0x5073
+mem[E,0x0000000080000062] -> 0x1800
+[11] [M]: 0x0000000080000060 (0x18005073) csrrwi zero, satp, 0x0
+CSR satp -> 0x0000000000000000
+CSR satp <- 0x0000000000000000 (input: 0x0000000000000000)
+mem[E,0x0000000080000064] -> 0x0297
+mem[E,0x0000000080000066] -> 0x0000
+[12] [M]: 0x0000000080000064 (0x00000297) auipc t0, 0x0
+x5 <- 0x0000000080000064
+mem[E,0x0000000080000068] -> 0x8293
+mem[E,0x000000008000006A] -> 0x01C2
+[13] [M]: 0x0000000080000068 (0x01C28293) addi t0, t0, 0x1c
+x5 <- 0x0000000080000080
+mem[E,0x000000008000006C] -> 0x9073
+mem[E,0x000000008000006E] -> 0x3052
+[14] [M]: 0x000000008000006C (0x30529073) csrrw zero, mtvec, t0
+CSR mtvec -> 0x0000000080000064
+CSR mtvec <- 0x0000000080000080 (input: 0x0000000080000080)
+mem[E,0x0000000080000070] -> 0x0293
+mem[E,0x0000000080000072] -> 0xFFF0
+[15] [M]: 0x0000000080000070 (0xFFF00293) addi t0, zero, 0xfff
+x5 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x0000000080000074] -> 0x9073
+mem[E,0x0000000080000076] -> 0x3B02
+[16] [M]: 0x0000000080000074 (0x3B029073) csrrw zero, pmpaddr0, t0
+CSR pmpaddr0 -> 0x0000000000000000
+CSR pmpaddr0 <- 0x003FFFFFFFFFFFFF (input: 0xFFFFFFFFFFFFFFFF)
+mem[E,0x0000000080000078] -> 0x0293
+mem[E,0x000000008000007A] -> 0x01F0
+[17] [M]: 0x0000000080000078 (0x01F00293) addi t0, zero, 0x1f
+x5 <- 0x000000000000001F
+mem[E,0x000000008000007C] -> 0x9073
+mem[E,0x000000008000007E] -> 0x3A02
+[18] [M]: 0x000000008000007C (0x3A029073) csrrw zero, pmpcfg0, t0
+CSR pmpcfg0 -> 0x0000000000000000
+CSR pmpcfg0 <- 0x000000000000001F (input: 0x000000000000001F)
+mem[E,0x0000000080000080] -> 0x0297
+mem[E,0x0000000080000082] -> 0x0000
+[19] [M]: 0x0000000080000080 (0x00000297) auipc t0, 0x0
+x5 <- 0x0000000080000080
+mem[E,0x0000000080000084] -> 0x8293
+mem[E,0x0000000080000086] -> 0x0182
+[20] [M]: 0x0000000080000084 (0x01828293) addi t0, t0, 0x18
+x5 <- 0x0000000080000098
+mem[E,0x0000000080000088] -> 0x9073
+mem[E,0x000000008000008A] -> 0x3052
+[21] [M]: 0x0000000080000088 (0x30529073) csrrw zero, mtvec, t0
+CSR mtvec -> 0x0000000080000080
+CSR mtvec <- 0x0000000080000098 (input: 0x0000000080000098)
+mem[E,0x000000008000008C] -> 0x5073
+mem[E,0x000000008000008E] -> 0x3020
+[22] [M]: 0x000000008000008C (0x30205073) csrrwi zero, medeleg, 0x0
+CSR medeleg -> 0x0000000000000000
+CSR medeleg <- 0x0000000000000000 (input: 0x0000000000000000)
+mem[E,0x0000000080000090] -> 0x5073
+mem[E,0x0000000080000092] -> 0x3030
+[23] [M]: 0x0000000080000090 (0x30305073) csrrwi zero, mideleg, 0x0
+CSR mideleg -> 0x0000000000001444
+CSR mideleg <- 0x0000000000001444 (input: 0x0000000000000000)
+mem[E,0x0000000080000094] -> 0x5073
+mem[E,0x0000000080000096] -> 0x3040
+[24] [M]: 0x0000000080000094 (0x30405073) csrrwi zero, mie, 0x0
+CSR mie -> 0x0000000000000000
+CSR mie <- 0x0000000000000000 (input: 0x0000000000000000)
+mem[E,0x0000000080000098] -> 0x0193
+mem[E,0x000000008000009A] -> 0x0000
+[25] [M]: 0x0000000080000098 (0x00000193) addi gp, zero, 0x0
+x3 <- 0x0000000000000000
+mem[E,0x000000008000009C] -> 0x0297
+mem[E,0x000000008000009E] -> 0x0000
+[26] [M]: 0x000000008000009C (0x00000297) auipc t0, 0x0
+x5 <- 0x000000008000009C
+mem[E,0x00000000800000A0] -> 0x8293
+mem[E,0x00000000800000A2] -> 0xF682
+[27] [M]: 0x00000000800000A0 (0xF6828293) addi t0, t0, 0xf68
+x5 <- 0x0000000080000004
+mem[E,0x00000000800000A4] -> 0x9073
+mem[E,0x00000000800000A6] -> 0x3052
+[28] [M]: 0x00000000800000A4 (0x30529073) csrrw zero, mtvec, t0
+CSR mtvec -> 0x0000000080000098
+CSR mtvec <- 0x0000000080000004 (input: 0x0000000080000004)
+mem[E,0x00000000800000A8] -> 0x0513
+mem[E,0x00000000800000AA] -> 0x0010
+[29] [M]: 0x00000000800000A8 (0x00100513) addi a0, zero, 0x1
+x10 <- 0x0000000000000001
+mem[E,0x00000000800000AC] -> 0x1513
+mem[E,0x00000000800000AE] -> 0x01F5
+[30] [M]: 0x00000000800000AC (0x01F51513) slli a0, a0, 0x1f
+x10 <- 0x0000000080000000
+mem[E,0x00000000800000B0] -> 0x5863
+mem[E,0x00000000800000B2] -> 0x0005
+[31] [M]: 0x00000000800000B0 (0x00055863) bge a0, zero, 0x10
+mem[E,0x00000000800000C0] -> 0x0297
+mem[E,0x00000000800000C2] -> 0x8000
+[32] [M]: 0x00000000800000C0 (0x80000297) auipc t0, 0x80000
+x5 <- 0x00000000000000C0
+mem[E,0x00000000800000C4] -> 0x8293
+mem[E,0x00000000800000C6] -> 0xF402
+[33] [M]: 0x00000000800000C4 (0xF4028293) addi t0, t0, 0xf40
+x5 <- 0x0000000000000000
+mem[E,0x00000000800000C8] -> 0x8E63
+mem[E,0x00000000800000CA] -> 0x0002
+[34] [M]: 0x00000000800000C8 (0x00028E63) beq t0, zero, 0x1c
+mem[E,0x00000000800000E4] -> 0x5073
+mem[E,0x00000000800000E6] -> 0x3000
+[35] [M]: 0x00000000800000E4 (0x30005073) csrrwi zero, mstatus, 0x0
+CSR mstatus -> 0x0000000A00000000
+CSR mstatus <- 0x0000000A00000000 (input: 0x0000000000000000)
+mem[E,0x00000000800000E8] -> 0x0297
+mem[E,0x00000000800000EA] -> 0x0000
+[36] [M]: 0x00000000800000E8 (0x00000297) auipc t0, 0x0
+x5 <- 0x00000000800000E8
+mem[E,0x00000000800000EC] -> 0x8293
+mem[E,0x00000000800000EE] -> 0x0142
+[37] [M]: 0x00000000800000EC (0x01428293) addi t0, t0, 0x14
+x5 <- 0x00000000800000FC
+mem[E,0x00000000800000F0] -> 0x9073
+mem[E,0x00000000800000F2] -> 0x3412
+[38] [M]: 0x00000000800000F0 (0x34129073) csrrw zero, mepc, t0
+CSR mepc -> 0x0000000000000000
+CSR mepc <- 0x00000000800000FC (input: 0x00000000800000FC)
+mem[E,0x00000000800000F4] -> 0x2573
+mem[E,0x00000000800000F6] -> 0xF140
+[39] [M]: 0x00000000800000F4 (0xF1402573) csrrs a0, mhartid, zero
+CSR mhartid -> 0x0000000000000000
+x10 <- 0x0000000000000000
+mem[E,0x00000000800000F8] -> 0x0073
+mem[E,0x00000000800000FA] -> 0x3020
+[40] [M]: 0x00000000800000F8 (0x30200073) mret
+CSR mstatus <- 0x0000000A00000080
+ret-ing from M (V=0) to U (V=0)
+mem[E,0x00000000800000FC] -> 0x0093
+mem[E,0x00000000800000FE] -> 0x0000
+[41] [U]: 0x00000000800000FC (0x00000093) addi ra, zero, 0x0
+x1 <- 0x0000000000000000
+mem[E,0x0000000080000100] -> 0x0113
+mem[E,0x0000000080000102] -> 0x0000
+[42] [U]: 0x0000000080000100 (0x00000113) addi sp, zero, 0x0
+x2 <- 0x0000000000000000
+mem[E,0x0000000080000104] -> 0x8F33
+mem[E,0x0000000080000106] -> 0x0020
+[43] [U]: 0x0000000080000104 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000000
+mem[E,0x0000000080000108] -> 0x0E93
+mem[E,0x000000008000010A] -> 0x0000
+[44] [U]: 0x0000000080000108 (0x00000E93) addi t4, zero, 0x0
+x29 <- 0x0000000000000000
+mem[E,0x000000008000010C] -> 0x0193
+mem[E,0x000000008000010E] -> 0x0020
+[45] [U]: 0x000000008000010C (0x00200193) addi gp, zero, 0x2
+x3 <- 0x0000000000000002
+mem[E,0x0000000080000110] -> 0x1063
+mem[E,0x0000000080000112] -> 0x4FDF
+[46] [U]: 0x0000000080000110 (0x4FDF1063) bne t5, t4, 0x4e0
+mem[E,0x0000000080000114] -> 0x0093
+mem[E,0x0000000080000116] -> 0x0010
+[47] [U]: 0x0000000080000114 (0x00100093) addi ra, zero, 0x1
+x1 <- 0x0000000000000001
+mem[E,0x0000000080000118] -> 0x0113
+mem[E,0x000000008000011A] -> 0x0010
+[48] [U]: 0x0000000080000118 (0x00100113) addi sp, zero, 0x1
+x2 <- 0x0000000000000001
+mem[E,0x000000008000011C] -> 0x8F33
+mem[E,0x000000008000011E] -> 0x0020
+[49] [U]: 0x000000008000011C (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000002
+mem[E,0x0000000080000120] -> 0x0E93
+mem[E,0x0000000080000122] -> 0x0020
+[50] [U]: 0x0000000080000120 (0x00200E93) addi t4, zero, 0x2
+x29 <- 0x0000000000000002
+mem[E,0x0000000080000124] -> 0x0193
+mem[E,0x0000000080000126] -> 0x0030
+[51] [U]: 0x0000000080000124 (0x00300193) addi gp, zero, 0x3
+x3 <- 0x0000000000000003
+mem[E,0x0000000080000128] -> 0x1463
+mem[E,0x000000008000012A] -> 0x4DDF
+[52] [U]: 0x0000000080000128 (0x4DDF1463) bne t5, t4, 0x4c8
+mem[E,0x000000008000012C] -> 0x0093
+mem[E,0x000000008000012E] -> 0x0030
+[53] [U]: 0x000000008000012C (0x00300093) addi ra, zero, 0x3
+x1 <- 0x0000000000000003
+mem[E,0x0000000080000130] -> 0x0113
+mem[E,0x0000000080000132] -> 0x0070
+[54] [U]: 0x0000000080000130 (0x00700113) addi sp, zero, 0x7
+x2 <- 0x0000000000000007
+mem[E,0x0000000080000134] -> 0x8F33
+mem[E,0x0000000080000136] -> 0x0020
+[55] [U]: 0x0000000080000134 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000000A
+mem[E,0x0000000080000138] -> 0x0E93
+mem[E,0x000000008000013A] -> 0x00A0
+[56] [U]: 0x0000000080000138 (0x00A00E93) addi t4, zero, 0xa
+x29 <- 0x000000000000000A
+mem[E,0x000000008000013C] -> 0x0193
+mem[E,0x000000008000013E] -> 0x0040
+[57] [U]: 0x000000008000013C (0x00400193) addi gp, zero, 0x4
+x3 <- 0x0000000000000004
+mem[E,0x0000000080000140] -> 0x1863
+mem[E,0x0000000080000142] -> 0x4BDF
+[58] [U]: 0x0000000080000140 (0x4BDF1863) bne t5, t4, 0x4b0
+mem[E,0x0000000080000144] -> 0x0093
+mem[E,0x0000000080000146] -> 0x0000
+[59] [U]: 0x0000000080000144 (0x00000093) addi ra, zero, 0x0
+x1 <- 0x0000000000000000
+mem[E,0x0000000080000148] -> 0x8137
+mem[E,0x000000008000014A] -> 0xFFFF
+[60] [U]: 0x0000000080000148 (0xFFFF8137) lui sp, 0xffff8
+x2 <- 0xFFFFFFFFFFFF8000
+mem[E,0x000000008000014C] -> 0x8F33
+mem[E,0x000000008000014E] -> 0x0020
+[61] [U]: 0x000000008000014C (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFFFFFF8000
+mem[E,0x0000000080000150] -> 0x8EB7
+mem[E,0x0000000080000152] -> 0xFFFF
+[62] [U]: 0x0000000080000150 (0xFFFF8EB7) lui t4, 0xffff8
+x29 <- 0xFFFFFFFFFFFF8000
+mem[E,0x0000000080000154] -> 0x0193
+mem[E,0x0000000080000156] -> 0x0050
+[63] [U]: 0x0000000080000154 (0x00500193) addi gp, zero, 0x5
+x3 <- 0x0000000000000005
+mem[E,0x0000000080000158] -> 0x1C63
+mem[E,0x000000008000015A] -> 0x49DF
+[64] [U]: 0x0000000080000158 (0x49DF1C63) bne t5, t4, 0x498
+mem[E,0x000000008000015C] -> 0x00B7
+mem[E,0x000000008000015E] -> 0x8000
+[65] [U]: 0x000000008000015C (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000160] -> 0x0113
+mem[E,0x0000000080000162] -> 0x0000
+[66] [U]: 0x0000000080000160 (0x00000113) addi sp, zero, 0x0
+x2 <- 0x0000000000000000
+mem[E,0x0000000080000164] -> 0x8F33
+mem[E,0x0000000080000166] -> 0x0020
+[67] [U]: 0x0000000080000164 (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000168] -> 0x0EB7
+mem[E,0x000000008000016A] -> 0x8000
+[68] [U]: 0x0000000080000168 (0x80000EB7) lui t4, 0x80000
+x29 <- 0xFFFFFFFF80000000
+mem[E,0x000000008000016C] -> 0x0193
+mem[E,0x000000008000016E] -> 0x0060
+[69] [U]: 0x000000008000016C (0x00600193) addi gp, zero, 0x6
+x3 <- 0x0000000000000006
+mem[E,0x0000000080000170] -> 0x1063
+mem[E,0x0000000080000172] -> 0x49DF
+[70] [U]: 0x0000000080000170 (0x49DF1063) bne t5, t4, 0x480
+mem[E,0x0000000080000174] -> 0x00B7
+mem[E,0x0000000080000176] -> 0x8000
+[71] [U]: 0x0000000080000174 (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000178] -> 0x8137
+mem[E,0x000000008000017A] -> 0xFFFF
+[72] [U]: 0x0000000080000178 (0xFFFF8137) lui sp, 0xffff8
+x2 <- 0xFFFFFFFFFFFF8000
+mem[E,0x000000008000017C] -> 0x8F33
+mem[E,0x000000008000017E] -> 0x0020
+[73] [U]: 0x000000008000017C (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFF7FFF8000
+mem[E,0x0000000080000180] -> 0x0EB7
+mem[E,0x0000000080000182] -> 0xFFFF
+[74] [U]: 0x0000000080000180 (0xFFFF0EB7) lui t4, 0xffff0
+x29 <- 0xFFFFFFFFFFFF0000
+mem[E,0x0000000080000184] -> 0x8E9B
+mem[E,0x0000000080000186] -> 0xFFFE
+[75] [U]: 0x0000000080000184 (0xFFFE8E9B) addiw t4, t4, 0xfff
+x29 <- 0xFFFFFFFFFFFEFFFF
+mem[E,0x0000000080000188] -> 0x9E93
+mem[E,0x000000008000018A] -> 0x00FE
+[76] [U]: 0x0000000080000188 (0x00FE9E93) slli t4, t4, 0xf
+x29 <- 0xFFFFFFFF7FFF8000
+mem[E,0x000000008000018C] -> 0x0193
+mem[E,0x000000008000018E] -> 0x0070
+[77] [U]: 0x000000008000018C (0x00700193) addi gp, zero, 0x7
+x3 <- 0x0000000000000007
+mem[E,0x0000000080000190] -> 0x1063
+mem[E,0x0000000080000192] -> 0x47DF
+[78] [U]: 0x0000000080000190 (0x47DF1063) bne t5, t4, 0x460
+mem[E,0x0000000080000194] -> 0x0093
+mem[E,0x0000000080000196] -> 0x0000
+[79] [U]: 0x0000000080000194 (0x00000093) addi ra, zero, 0x0
+x1 <- 0x0000000000000000
+mem[E,0x0000000080000198] -> 0x8137
+mem[E,0x000000008000019A] -> 0x0000
+[80] [U]: 0x0000000080000198 (0x00008137) lui sp, 0x8
+x2 <- 0x0000000000008000
+mem[E,0x000000008000019C] -> 0x011B
+mem[E,0x000000008000019E] -> 0xFFF1
+[81] [U]: 0x000000008000019C (0xFFF1011B) addiw sp, sp, 0xfff
+x2 <- 0x0000000000007FFF
+mem[E,0x00000000800001A0] -> 0x8F33
+mem[E,0x00000000800001A2] -> 0x0020
+[82] [U]: 0x00000000800001A0 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000007FFF
+mem[E,0x00000000800001A4] -> 0x8EB7
+mem[E,0x00000000800001A6] -> 0x0000
+[83] [U]: 0x00000000800001A4 (0x00008EB7) lui t4, 0x8
+x29 <- 0x0000000000008000
+mem[E,0x00000000800001A8] -> 0x8E9B
+mem[E,0x00000000800001AA] -> 0xFFFE
+[84] [U]: 0x00000000800001A8 (0xFFFE8E9B) addiw t4, t4, 0xfff
+x29 <- 0x0000000000007FFF
+mem[E,0x00000000800001AC] -> 0x0193
+mem[E,0x00000000800001AE] -> 0x0080
+[85] [U]: 0x00000000800001AC (0x00800193) addi gp, zero, 0x8
+x3 <- 0x0000000000000008
+mem[E,0x00000000800001B0] -> 0x1063
+mem[E,0x00000000800001B2] -> 0x45DF
+[86] [U]: 0x00000000800001B0 (0x45DF1063) bne t5, t4, 0x440
+mem[E,0x00000000800001B4] -> 0x00B7
+mem[E,0x00000000800001B6] -> 0x8000
+[87] [U]: 0x00000000800001B4 (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x00000000800001B8] -> 0x809B
+mem[E,0x00000000800001BA] -> 0xFFF0
+[88] [U]: 0x00000000800001B8 (0xFFF0809B) addiw ra, ra, 0xfff
+x1 <- 0x000000007FFFFFFF
+mem[E,0x00000000800001BC] -> 0x0113
+mem[E,0x00000000800001BE] -> 0x0000
+[89] [U]: 0x00000000800001BC (0x00000113) addi sp, zero, 0x0
+x2 <- 0x0000000000000000
+mem[E,0x00000000800001C0] -> 0x8F33
+mem[E,0x00000000800001C2] -> 0x0020
+[90] [U]: 0x00000000800001C0 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000007FFFFFFF
+mem[E,0x00000000800001C4] -> 0x0EB7
+mem[E,0x00000000800001C6] -> 0x8000
+[91] [U]: 0x00000000800001C4 (0x80000EB7) lui t4, 0x80000
+x29 <- 0xFFFFFFFF80000000
+mem[E,0x00000000800001C8] -> 0x8E9B
+mem[E,0x00000000800001CA] -> 0xFFFE
+[92] [U]: 0x00000000800001C8 (0xFFFE8E9B) addiw t4, t4, 0xfff
+x29 <- 0x000000007FFFFFFF
+mem[E,0x00000000800001CC] -> 0x0193
+mem[E,0x00000000800001CE] -> 0x0090
+[93] [U]: 0x00000000800001CC (0x00900193) addi gp, zero, 0x9
+x3 <- 0x0000000000000009
+mem[E,0x00000000800001D0] -> 0x1063
+mem[E,0x00000000800001D2] -> 0x43DF
+[94] [U]: 0x00000000800001D0 (0x43DF1063) bne t5, t4, 0x420
+mem[E,0x00000000800001D4] -> 0x00B7
+mem[E,0x00000000800001D6] -> 0x8000
+[95] [U]: 0x00000000800001D4 (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x00000000800001D8] -> 0x809B
+mem[E,0x00000000800001DA] -> 0xFFF0
+[96] [U]: 0x00000000800001D8 (0xFFF0809B) addiw ra, ra, 0xfff
+x1 <- 0x000000007FFFFFFF
+mem[E,0x00000000800001DC] -> 0x8137
+mem[E,0x00000000800001DE] -> 0x0000
+[97] [U]: 0x00000000800001DC (0x00008137) lui sp, 0x8
+x2 <- 0x0000000000008000
+mem[E,0x00000000800001E0] -> 0x011B
+mem[E,0x00000000800001E2] -> 0xFFF1
+[98] [U]: 0x00000000800001E0 (0xFFF1011B) addiw sp, sp, 0xfff
+x2 <- 0x0000000000007FFF
+mem[E,0x00000000800001E4] -> 0x8F33
+mem[E,0x00000000800001E6] -> 0x0020
+[99] [U]: 0x00000000800001E4 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000080007FFE
+clint::tick mtime <- 0x0000000000000001
+ clint timer pending at mtime 0x0000000000000001
+htif::tick 0x0000000000000000
+mem[E,0x00000000800001E8] -> 0x0EB7
+mem[E,0x00000000800001EA] -> 0x0001
+[100] [U]: 0x00000000800001E8 (0x00010EB7) lui t4, 0x10
+x29 <- 0x0000000000010000
+mem[E,0x00000000800001EC] -> 0x8E9B
+mem[E,0x00000000800001EE] -> 0x001E
+[101] [U]: 0x00000000800001EC (0x001E8E9B) addiw t4, t4, 0x1
+x29 <- 0x0000000000010001
+mem[E,0x00000000800001F0] -> 0x9E93
+mem[E,0x00000000800001F2] -> 0x00FE
+[102] [U]: 0x00000000800001F0 (0x00FE9E93) slli t4, t4, 0xf
+x29 <- 0x0000000080008000
+mem[E,0x00000000800001F4] -> 0x8E93
+mem[E,0x00000000800001F6] -> 0xFFEE
+[103] [U]: 0x00000000800001F4 (0xFFEE8E93) addi t4, t4, 0xffe
+x29 <- 0x0000000080007FFE
+mem[E,0x00000000800001F8] -> 0x0193
+mem[E,0x00000000800001FA] -> 0x00A0
+[104] [U]: 0x00000000800001F8 (0x00A00193) addi gp, zero, 0xa
+x3 <- 0x000000000000000A
+mem[E,0x00000000800001FC] -> 0x1A63
+mem[E,0x00000000800001FE] -> 0x3FDF
+[105] [U]: 0x00000000800001FC (0x3FDF1A63) bne t5, t4, 0x3f4
+mem[E,0x0000000080000200] -> 0x00B7
+mem[E,0x0000000080000202] -> 0x8000
+[106] [U]: 0x0000000080000200 (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000204] -> 0x8137
+mem[E,0x0000000080000206] -> 0x0000
+[107] [U]: 0x0000000080000204 (0x00008137) lui sp, 0x8
+x2 <- 0x0000000000008000
+mem[E,0x0000000080000208] -> 0x011B
+mem[E,0x000000008000020A] -> 0xFFF1
+[108] [U]: 0x0000000080000208 (0xFFF1011B) addiw sp, sp, 0xfff
+x2 <- 0x0000000000007FFF
+mem[E,0x000000008000020C] -> 0x8F33
+mem[E,0x000000008000020E] -> 0x0020
+[109] [U]: 0x000000008000020C (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFF80007FFF
+mem[E,0x0000000080000210] -> 0x8EB7
+mem[E,0x0000000080000212] -> 0x8000
+[110] [U]: 0x0000000080000210 (0x80008EB7) lui t4, 0x80008
+x29 <- 0xFFFFFFFF80008000
+mem[E,0x0000000080000214] -> 0x8E9B
+mem[E,0x0000000080000216] -> 0xFFFE
+[111] [U]: 0x0000000080000214 (0xFFFE8E9B) addiw t4, t4, 0xfff
+x29 <- 0xFFFFFFFF80007FFF
+mem[E,0x0000000080000218] -> 0x0193
+mem[E,0x000000008000021A] -> 0x00B0
+[112] [U]: 0x0000000080000218 (0x00B00193) addi gp, zero, 0xb
+x3 <- 0x000000000000000B
+mem[E,0x000000008000021C] -> 0x1A63
+mem[E,0x000000008000021E] -> 0x3DDF
+[113] [U]: 0x000000008000021C (0x3DDF1A63) bne t5, t4, 0x3d4
+mem[E,0x0000000080000220] -> 0x00B7
+mem[E,0x0000000080000222] -> 0x8000
+[114] [U]: 0x0000000080000220 (0x800000B7) lui ra, 0x80000
+x1 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000224] -> 0x809B
+mem[E,0x0000000080000226] -> 0xFFF0
+[115] [U]: 0x0000000080000224 (0xFFF0809B) addiw ra, ra, 0xfff
+x1 <- 0x000000007FFFFFFF
+mem[E,0x0000000080000228] -> 0x8137
+mem[E,0x000000008000022A] -> 0xFFFF
+[116] [U]: 0x0000000080000228 (0xFFFF8137) lui sp, 0xffff8
+x2 <- 0xFFFFFFFFFFFF8000
+mem[E,0x000000008000022C] -> 0x8F33
+mem[E,0x000000008000022E] -> 0x0020
+[117] [U]: 0x000000008000022C (0x00208F33) add t5, ra, sp
+x30 <- 0x000000007FFF7FFF
+mem[E,0x0000000080000230] -> 0x8EB7
+mem[E,0x0000000080000232] -> 0x7FFF
+[118] [U]: 0x0000000080000230 (0x7FFF8EB7) lui t4, 0x7fff8
+x29 <- 0x000000007FFF8000
+mem[E,0x0000000080000234] -> 0x8E9B
+mem[E,0x0000000080000236] -> 0xFFFE
+[119] [U]: 0x0000000080000234 (0xFFFE8E9B) addiw t4, t4, 0xfff
+x29 <- 0x000000007FFF7FFF
+mem[E,0x0000000080000238] -> 0x0193
+mem[E,0x000000008000023A] -> 0x00C0
+[120] [U]: 0x0000000080000238 (0x00C00193) addi gp, zero, 0xc
+x3 <- 0x000000000000000C
+mem[E,0x000000008000023C] -> 0x1A63
+mem[E,0x000000008000023E] -> 0x3BDF
+[121] [U]: 0x000000008000023C (0x3BDF1A63) bne t5, t4, 0x3b4
+mem[E,0x0000000080000240] -> 0x0093
+mem[E,0x0000000080000242] -> 0x0000
+[122] [U]: 0x0000000080000240 (0x00000093) addi ra, zero, 0x0
+x1 <- 0x0000000000000000
+mem[E,0x0000000080000244] -> 0x0113
+mem[E,0x0000000080000246] -> 0xFFF0
+[123] [U]: 0x0000000080000244 (0xFFF00113) addi sp, zero, 0xfff
+x2 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x0000000080000248] -> 0x8F33
+mem[E,0x000000008000024A] -> 0x0020
+[124] [U]: 0x0000000080000248 (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x000000008000024C] -> 0x0E93
+mem[E,0x000000008000024E] -> 0xFFF0
+[125] [U]: 0x000000008000024C (0xFFF00E93) addi t4, zero, 0xfff
+x29 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x0000000080000250] -> 0x0193
+mem[E,0x0000000080000252] -> 0x00D0
+[126] [U]: 0x0000000080000250 (0x00D00193) addi gp, zero, 0xd
+x3 <- 0x000000000000000D
+mem[E,0x0000000080000254] -> 0x1E63
+mem[E,0x0000000080000256] -> 0x39DF
+[127] [U]: 0x0000000080000254 (0x39DF1E63) bne t5, t4, 0x39c
+mem[E,0x0000000080000258] -> 0x0093
+mem[E,0x000000008000025A] -> 0xFFF0
+[128] [U]: 0x0000000080000258 (0xFFF00093) addi ra, zero, 0xfff
+x1 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x000000008000025C] -> 0x0113
+mem[E,0x000000008000025E] -> 0x0010
+[129] [U]: 0x000000008000025C (0x00100113) addi sp, zero, 0x1
+x2 <- 0x0000000000000001
+mem[E,0x0000000080000260] -> 0x8F33
+mem[E,0x0000000080000262] -> 0x0020
+[130] [U]: 0x0000000080000260 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000000
+mem[E,0x0000000080000264] -> 0x0E93
+mem[E,0x0000000080000266] -> 0x0000
+[131] [U]: 0x0000000080000264 (0x00000E93) addi t4, zero, 0x0
+x29 <- 0x0000000000000000
+mem[E,0x0000000080000268] -> 0x0193
+mem[E,0x000000008000026A] -> 0x00E0
+[132] [U]: 0x0000000080000268 (0x00E00193) addi gp, zero, 0xe
+x3 <- 0x000000000000000E
+mem[E,0x000000008000026C] -> 0x1263
+mem[E,0x000000008000026E] -> 0x39DF
+[133] [U]: 0x000000008000026C (0x39DF1263) bne t5, t4, 0x384
+mem[E,0x0000000080000270] -> 0x0093
+mem[E,0x0000000080000272] -> 0xFFF0
+[134] [U]: 0x0000000080000270 (0xFFF00093) addi ra, zero, 0xfff
+x1 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x0000000080000274] -> 0x0113
+mem[E,0x0000000080000276] -> 0xFFF0
+[135] [U]: 0x0000000080000274 (0xFFF00113) addi sp, zero, 0xfff
+x2 <- 0xFFFFFFFFFFFFFFFF
+mem[E,0x0000000080000278] -> 0x8F33
+mem[E,0x000000008000027A] -> 0x0020
+[136] [U]: 0x0000000080000278 (0x00208F33) add t5, ra, sp
+x30 <- 0xFFFFFFFFFFFFFFFE
+mem[E,0x000000008000027C] -> 0x0E93
+mem[E,0x000000008000027E] -> 0xFFE0
+[137] [U]: 0x000000008000027C (0xFFE00E93) addi t4, zero, 0xffe
+x29 <- 0xFFFFFFFFFFFFFFFE
+mem[E,0x0000000080000280] -> 0x0193
+mem[E,0x0000000080000282] -> 0x00F0
+[138] [U]: 0x0000000080000280 (0x00F00193) addi gp, zero, 0xf
+x3 <- 0x000000000000000F
+mem[E,0x0000000080000284] -> 0x1663
+mem[E,0x0000000080000286] -> 0x37DF
+[139] [U]: 0x0000000080000284 (0x37DF1663) bne t5, t4, 0x36c
+mem[E,0x0000000080000288] -> 0x0093
+mem[E,0x000000008000028A] -> 0x0010
+[140] [U]: 0x0000000080000288 (0x00100093) addi ra, zero, 0x1
+x1 <- 0x0000000000000001
+mem[E,0x000000008000028C] -> 0x0137
+mem[E,0x000000008000028E] -> 0x8000
+[141] [U]: 0x000000008000028C (0x80000137) lui sp, 0x80000
+x2 <- 0xFFFFFFFF80000000
+mem[E,0x0000000080000290] -> 0x011B
+mem[E,0x0000000080000292] -> 0xFFF1
+[142] [U]: 0x0000000080000290 (0xFFF1011B) addiw sp, sp, 0xfff
+x2 <- 0x000000007FFFFFFF
+mem[E,0x0000000080000294] -> 0x8F33
+mem[E,0x0000000080000296] -> 0x0020
+[143] [U]: 0x0000000080000294 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000080000000
+mem[E,0x0000000080000298] -> 0x0E9B
+mem[E,0x000000008000029A] -> 0x0010
+[144] [U]: 0x0000000080000298 (0x00100E9B) addiw t4, zero, 0x1
+x29 <- 0x0000000000000001
+mem[E,0x000000008000029C] -> 0x9E93
+mem[E,0x000000008000029E] -> 0x01FE
+[145] [U]: 0x000000008000029C (0x01FE9E93) slli t4, t4, 0x1f
+x29 <- 0x0000000080000000
+mem[E,0x00000000800002A0] -> 0x0193
+mem[E,0x00000000800002A2] -> 0x0100
+[146] [U]: 0x00000000800002A0 (0x01000193) addi gp, zero, 0x10
+x3 <- 0x0000000000000010
+mem[E,0x00000000800002A4] -> 0x1663
+mem[E,0x00000000800002A6] -> 0x35DF
+[147] [U]: 0x00000000800002A4 (0x35DF1663) bne t5, t4, 0x34c
+mem[E,0x00000000800002A8] -> 0x0093
+mem[E,0x00000000800002AA] -> 0x00D0
+[148] [U]: 0x00000000800002A8 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x00000000800002AC] -> 0x0113
+mem[E,0x00000000800002AE] -> 0x00B0
+[149] [U]: 0x00000000800002AC (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800002B0] -> 0x80B3
+mem[E,0x00000000800002B2] -> 0x0020
+[150] [U]: 0x00000000800002B0 (0x002080B3) add ra, ra, sp
+x1 <- 0x0000000000000018
+mem[E,0x00000000800002B4] -> 0x0E93
+mem[E,0x00000000800002B6] -> 0x0180
+[151] [U]: 0x00000000800002B4 (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x00000000800002B8] -> 0x0193
+mem[E,0x00000000800002BA] -> 0x0110
+[152] [U]: 0x00000000800002B8 (0x01100193) addi gp, zero, 0x11
+x3 <- 0x0000000000000011
+mem[E,0x00000000800002BC] -> 0x9A63
+mem[E,0x00000000800002BE] -> 0x33D0
+[153] [U]: 0x00000000800002BC (0x33D09A63) bne ra, t4, 0x334
+mem[E,0x00000000800002C0] -> 0x0093
+mem[E,0x00000000800002C2] -> 0x00E0
+[154] [U]: 0x00000000800002C0 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x00000000800002C4] -> 0x0113
+mem[E,0x00000000800002C6] -> 0x00B0
+[155] [U]: 0x00000000800002C4 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800002C8] -> 0x8133
+mem[E,0x00000000800002CA] -> 0x0020
+[156] [U]: 0x00000000800002C8 (0x00208133) add sp, ra, sp
+x2 <- 0x0000000000000019
+mem[E,0x00000000800002CC] -> 0x0E93
+mem[E,0x00000000800002CE] -> 0x0190
+[157] [U]: 0x00000000800002CC (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x00000000800002D0] -> 0x0193
+mem[E,0x00000000800002D2] -> 0x0120
+[158] [U]: 0x00000000800002D0 (0x01200193) addi gp, zero, 0x12
+x3 <- 0x0000000000000012
+mem[E,0x00000000800002D4] -> 0x1E63
+mem[E,0x00000000800002D6] -> 0x31D1
+[159] [U]: 0x00000000800002D4 (0x31D11E63) bne sp, t4, 0x31c
+mem[E,0x00000000800002D8] -> 0x0093
+mem[E,0x00000000800002DA] -> 0x00D0
+[160] [U]: 0x00000000800002D8 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x00000000800002DC] -> 0x80B3
+mem[E,0x00000000800002DE] -> 0x0010
+[161] [U]: 0x00000000800002DC (0x001080B3) add ra, ra, ra
+x1 <- 0x000000000000001A
+mem[E,0x00000000800002E0] -> 0x0E93
+mem[E,0x00000000800002E2] -> 0x01A0
+[162] [U]: 0x00000000800002E0 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x00000000800002E4] -> 0x0193
+mem[E,0x00000000800002E6] -> 0x0130
+[163] [U]: 0x00000000800002E4 (0x01300193) addi gp, zero, 0x13
+x3 <- 0x0000000000000013
+mem[E,0x00000000800002E8] -> 0x9463
+mem[E,0x00000000800002EA] -> 0x31D0
+[164] [U]: 0x00000000800002E8 (0x31D09463) bne ra, t4, 0x308
+mem[E,0x00000000800002EC] -> 0x0213
+mem[E,0x00000000800002EE] -> 0x0000
+[165] [U]: 0x00000000800002EC (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x00000000800002F0] -> 0x0093
+mem[E,0x00000000800002F2] -> 0x00D0
+[166] [U]: 0x00000000800002F0 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x00000000800002F4] -> 0x0113
+mem[E,0x00000000800002F6] -> 0x00B0
+[167] [U]: 0x00000000800002F4 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800002F8] -> 0x8F33
+mem[E,0x00000000800002FA] -> 0x0020
+[168] [U]: 0x00000000800002F8 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x00000000800002FC] -> 0x0313
+mem[E,0x00000000800002FE] -> 0x000F
+[169] [U]: 0x00000000800002FC (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x0000000000000018
+mem[E,0x0000000080000300] -> 0x0213
+mem[E,0x0000000080000302] -> 0x0012
+[170] [U]: 0x0000000080000300 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000304] -> 0x0293
+mem[E,0x0000000080000306] -> 0x0020
+[171] [U]: 0x0000000080000304 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000308] -> 0x14E3
+mem[E,0x000000008000030A] -> 0xFE52
+[172] [U]: 0x0000000080000308 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x00000000800002F0] -> 0x0093
+mem[E,0x00000000800002F2] -> 0x00D0
+[173] [U]: 0x00000000800002F0 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x00000000800002F4] -> 0x0113
+mem[E,0x00000000800002F6] -> 0x00B0
+[174] [U]: 0x00000000800002F4 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800002F8] -> 0x8F33
+mem[E,0x00000000800002FA] -> 0x0020
+[175] [U]: 0x00000000800002F8 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x00000000800002FC] -> 0x0313
+mem[E,0x00000000800002FE] -> 0x000F
+[176] [U]: 0x00000000800002FC (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x0000000000000018
+mem[E,0x0000000080000300] -> 0x0213
+mem[E,0x0000000080000302] -> 0x0012
+[177] [U]: 0x0000000080000300 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000304] -> 0x0293
+mem[E,0x0000000080000306] -> 0x0020
+[178] [U]: 0x0000000080000304 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000308] -> 0x14E3
+mem[E,0x000000008000030A] -> 0xFE52
+[179] [U]: 0x0000000080000308 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x000000008000030C] -> 0x0E93
+mem[E,0x000000008000030E] -> 0x0180
+[180] [U]: 0x000000008000030C (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x0000000080000310] -> 0x0193
+mem[E,0x0000000080000312] -> 0x0140
+[181] [U]: 0x0000000080000310 (0x01400193) addi gp, zero, 0x14
+x3 <- 0x0000000000000014
+mem[E,0x0000000080000314] -> 0x1E63
+mem[E,0x0000000080000316] -> 0x2DD3
+[182] [U]: 0x0000000080000314 (0x2DD31E63) bne t1, t4, 0x2dc
+mem[E,0x0000000080000318] -> 0x0213
+mem[E,0x000000008000031A] -> 0x0000
+[183] [U]: 0x0000000080000318 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x000000008000031C] -> 0x0093
+mem[E,0x000000008000031E] -> 0x00E0
+[184] [U]: 0x000000008000031C (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x0000000080000320] -> 0x0113
+mem[E,0x0000000080000322] -> 0x00B0
+[185] [U]: 0x0000000080000320 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000324] -> 0x8F33
+mem[E,0x0000000080000326] -> 0x0020
+[186] [U]: 0x0000000080000324 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000328] -> 0x0013
+mem[E,0x000000008000032A] -> 0x0000
+[187] [U]: 0x0000000080000328 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000032C] -> 0x0313
+mem[E,0x000000008000032E] -> 0x000F
+[188] [U]: 0x000000008000032C (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x0000000000000019
+mem[E,0x0000000080000330] -> 0x0213
+mem[E,0x0000000080000332] -> 0x0012
+[189] [U]: 0x0000000080000330 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000334] -> 0x0293
+mem[E,0x0000000080000336] -> 0x0020
+[190] [U]: 0x0000000080000334 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000338] -> 0x12E3
+mem[E,0x000000008000033A] -> 0xFE52
+[191] [U]: 0x0000000080000338 (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x000000008000031C] -> 0x0093
+mem[E,0x000000008000031E] -> 0x00E0
+[192] [U]: 0x000000008000031C (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x0000000080000320] -> 0x0113
+mem[E,0x0000000080000322] -> 0x00B0
+[193] [U]: 0x0000000080000320 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000324] -> 0x8F33
+mem[E,0x0000000080000326] -> 0x0020
+[194] [U]: 0x0000000080000324 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000328] -> 0x0013
+mem[E,0x000000008000032A] -> 0x0000
+[195] [U]: 0x0000000080000328 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000032C] -> 0x0313
+mem[E,0x000000008000032E] -> 0x000F
+[196] [U]: 0x000000008000032C (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x0000000000000019
+mem[E,0x0000000080000330] -> 0x0213
+mem[E,0x0000000080000332] -> 0x0012
+[197] [U]: 0x0000000080000330 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000334] -> 0x0293
+mem[E,0x0000000080000336] -> 0x0020
+[198] [U]: 0x0000000080000334 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000338] -> 0x12E3
+mem[E,0x000000008000033A] -> 0xFE52
+[199] [U]: 0x0000000080000338 (0xFE5212E3) bne tp, t0, 0x1fe4
+clint::tick mtime <- 0x0000000000000002
+ clint timer pending at mtime 0x0000000000000002
+htif::tick 0x0000000000000000
+mem[E,0x000000008000033C] -> 0x0E93
+mem[E,0x000000008000033E] -> 0x0190
+[200] [U]: 0x000000008000033C (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x0000000080000340] -> 0x0193
+mem[E,0x0000000080000342] -> 0x0150
+[201] [U]: 0x0000000080000340 (0x01500193) addi gp, zero, 0x15
+x3 <- 0x0000000000000015
+mem[E,0x0000000080000344] -> 0x1663
+mem[E,0x0000000080000346] -> 0x2BD3
+[202] [U]: 0x0000000080000344 (0x2BD31663) bne t1, t4, 0x2ac
+mem[E,0x0000000080000348] -> 0x0213
+mem[E,0x000000008000034A] -> 0x0000
+[203] [U]: 0x0000000080000348 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x000000008000034C] -> 0x0093
+mem[E,0x000000008000034E] -> 0x00F0
+[204] [U]: 0x000000008000034C (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000350] -> 0x0113
+mem[E,0x0000000080000352] -> 0x00B0
+[205] [U]: 0x0000000080000350 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000354] -> 0x8F33
+mem[E,0x0000000080000356] -> 0x0020
+[206] [U]: 0x0000000080000354 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000358] -> 0x0013
+mem[E,0x000000008000035A] -> 0x0000
+[207] [U]: 0x0000000080000358 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000035C] -> 0x0013
+mem[E,0x000000008000035E] -> 0x0000
+[208] [U]: 0x000000008000035C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000360] -> 0x0313
+mem[E,0x0000000080000362] -> 0x000F
+[209] [U]: 0x0000000080000360 (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x000000000000001A
+mem[E,0x0000000080000364] -> 0x0213
+mem[E,0x0000000080000366] -> 0x0012
+[210] [U]: 0x0000000080000364 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000368] -> 0x0293
+mem[E,0x000000008000036A] -> 0x0020
+[211] [U]: 0x0000000080000368 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000036C] -> 0x10E3
+mem[E,0x000000008000036E] -> 0xFE52
+[212] [U]: 0x000000008000036C (0xFE5210E3) bne tp, t0, 0x1fe0
+mem[E,0x000000008000034C] -> 0x0093
+mem[E,0x000000008000034E] -> 0x00F0
+[213] [U]: 0x000000008000034C (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000350] -> 0x0113
+mem[E,0x0000000080000352] -> 0x00B0
+[214] [U]: 0x0000000080000350 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000354] -> 0x8F33
+mem[E,0x0000000080000356] -> 0x0020
+[215] [U]: 0x0000000080000354 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000358] -> 0x0013
+mem[E,0x000000008000035A] -> 0x0000
+[216] [U]: 0x0000000080000358 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000035C] -> 0x0013
+mem[E,0x000000008000035E] -> 0x0000
+[217] [U]: 0x000000008000035C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000360] -> 0x0313
+mem[E,0x0000000080000362] -> 0x000F
+[218] [U]: 0x0000000080000360 (0x000F0313) addi t1, t5, 0x0
+x6 <- 0x000000000000001A
+mem[E,0x0000000080000364] -> 0x0213
+mem[E,0x0000000080000366] -> 0x0012
+[219] [U]: 0x0000000080000364 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000368] -> 0x0293
+mem[E,0x000000008000036A] -> 0x0020
+[220] [U]: 0x0000000080000368 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000036C] -> 0x10E3
+mem[E,0x000000008000036E] -> 0xFE52
+[221] [U]: 0x000000008000036C (0xFE5210E3) bne tp, t0, 0x1fe0
+mem[E,0x0000000080000370] -> 0x0E93
+mem[E,0x0000000080000372] -> 0x01A0
+[222] [U]: 0x0000000080000370 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x0000000080000374] -> 0x0193
+mem[E,0x0000000080000376] -> 0x0160
+[223] [U]: 0x0000000080000374 (0x01600193) addi gp, zero, 0x16
+x3 <- 0x0000000000000016
+mem[E,0x0000000080000378] -> 0x1C63
+mem[E,0x000000008000037A] -> 0x27D3
+[224] [U]: 0x0000000080000378 (0x27D31C63) bne t1, t4, 0x278
+mem[E,0x000000008000037C] -> 0x0213
+mem[E,0x000000008000037E] -> 0x0000
+[225] [U]: 0x000000008000037C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000380] -> 0x0093
+mem[E,0x0000000080000382] -> 0x00D0
+[226] [U]: 0x0000000080000380 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000384] -> 0x0113
+mem[E,0x0000000080000386] -> 0x00B0
+[227] [U]: 0x0000000080000384 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000388] -> 0x8F33
+mem[E,0x000000008000038A] -> 0x0020
+[228] [U]: 0x0000000080000388 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x000000008000038C] -> 0x0213
+mem[E,0x000000008000038E] -> 0x0012
+[229] [U]: 0x000000008000038C (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000390] -> 0x0293
+mem[E,0x0000000080000392] -> 0x0020
+[230] [U]: 0x0000000080000390 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000394] -> 0x16E3
+mem[E,0x0000000080000396] -> 0xFE52
+[231] [U]: 0x0000000080000394 (0xFE5216E3) bne tp, t0, 0x1fec
+mem[E,0x0000000080000380] -> 0x0093
+mem[E,0x0000000080000382] -> 0x00D0
+[232] [U]: 0x0000000080000380 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000384] -> 0x0113
+mem[E,0x0000000080000386] -> 0x00B0
+[233] [U]: 0x0000000080000384 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000388] -> 0x8F33
+mem[E,0x000000008000038A] -> 0x0020
+[234] [U]: 0x0000000080000388 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x000000008000038C] -> 0x0213
+mem[E,0x000000008000038E] -> 0x0012
+[235] [U]: 0x000000008000038C (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000390] -> 0x0293
+mem[E,0x0000000080000392] -> 0x0020
+[236] [U]: 0x0000000080000390 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000394] -> 0x16E3
+mem[E,0x0000000080000396] -> 0xFE52
+[237] [U]: 0x0000000080000394 (0xFE5216E3) bne tp, t0, 0x1fec
+mem[E,0x0000000080000398] -> 0x0E93
+mem[E,0x000000008000039A] -> 0x0180
+[238] [U]: 0x0000000080000398 (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x000000008000039C] -> 0x0193
+mem[E,0x000000008000039E] -> 0x0170
+[239] [U]: 0x000000008000039C (0x01700193) addi gp, zero, 0x17
+x3 <- 0x0000000000000017
+mem[E,0x00000000800003A0] -> 0x1863
+mem[E,0x00000000800003A2] -> 0x25DF
+[240] [U]: 0x00000000800003A0 (0x25DF1863) bne t5, t4, 0x250
+mem[E,0x00000000800003A4] -> 0x0213
+mem[E,0x00000000800003A6] -> 0x0000
+[241] [U]: 0x00000000800003A4 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x00000000800003A8] -> 0x0093
+mem[E,0x00000000800003AA] -> 0x00E0
+[242] [U]: 0x00000000800003A8 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x00000000800003AC] -> 0x0113
+mem[E,0x00000000800003AE] -> 0x00B0
+[243] [U]: 0x00000000800003AC (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800003B0] -> 0x0013
+mem[E,0x00000000800003B2] -> 0x0000
+[244] [U]: 0x00000000800003B0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003B4] -> 0x8F33
+mem[E,0x00000000800003B6] -> 0x0020
+[245] [U]: 0x00000000800003B4 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x00000000800003B8] -> 0x0213
+mem[E,0x00000000800003BA] -> 0x0012
+[246] [U]: 0x00000000800003B8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x00000000800003BC] -> 0x0293
+mem[E,0x00000000800003BE] -> 0x0020
+[247] [U]: 0x00000000800003BC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800003C0] -> 0x14E3
+mem[E,0x00000000800003C2] -> 0xFE52
+[248] [U]: 0x00000000800003C0 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x00000000800003A8] -> 0x0093
+mem[E,0x00000000800003AA] -> 0x00E0
+[249] [U]: 0x00000000800003A8 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x00000000800003AC] -> 0x0113
+mem[E,0x00000000800003AE] -> 0x00B0
+[250] [U]: 0x00000000800003AC (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800003B0] -> 0x0013
+mem[E,0x00000000800003B2] -> 0x0000
+[251] [U]: 0x00000000800003B0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003B4] -> 0x8F33
+mem[E,0x00000000800003B6] -> 0x0020
+[252] [U]: 0x00000000800003B4 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x00000000800003B8] -> 0x0213
+mem[E,0x00000000800003BA] -> 0x0012
+[253] [U]: 0x00000000800003B8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x00000000800003BC] -> 0x0293
+mem[E,0x00000000800003BE] -> 0x0020
+[254] [U]: 0x00000000800003BC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800003C0] -> 0x14E3
+mem[E,0x00000000800003C2] -> 0xFE52
+[255] [U]: 0x00000000800003C0 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x00000000800003C4] -> 0x0E93
+mem[E,0x00000000800003C6] -> 0x0190
+[256] [U]: 0x00000000800003C4 (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x00000000800003C8] -> 0x0193
+mem[E,0x00000000800003CA] -> 0x0180
+[257] [U]: 0x00000000800003C8 (0x01800193) addi gp, zero, 0x18
+x3 <- 0x0000000000000018
+mem[E,0x00000000800003CC] -> 0x1263
+mem[E,0x00000000800003CE] -> 0x23DF
+[258] [U]: 0x00000000800003CC (0x23DF1263) bne t5, t4, 0x224
+mem[E,0x00000000800003D0] -> 0x0213
+mem[E,0x00000000800003D2] -> 0x0000
+[259] [U]: 0x00000000800003D0 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x00000000800003D4] -> 0x0093
+mem[E,0x00000000800003D6] -> 0x00F0
+[260] [U]: 0x00000000800003D4 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x00000000800003D8] -> 0x0113
+mem[E,0x00000000800003DA] -> 0x00B0
+[261] [U]: 0x00000000800003D8 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800003DC] -> 0x0013
+mem[E,0x00000000800003DE] -> 0x0000
+[262] [U]: 0x00000000800003DC (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003E0] -> 0x0013
+mem[E,0x00000000800003E2] -> 0x0000
+[263] [U]: 0x00000000800003E0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003E4] -> 0x8F33
+mem[E,0x00000000800003E6] -> 0x0020
+[264] [U]: 0x00000000800003E4 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x00000000800003E8] -> 0x0213
+mem[E,0x00000000800003EA] -> 0x0012
+[265] [U]: 0x00000000800003E8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x00000000800003EC] -> 0x0293
+mem[E,0x00000000800003EE] -> 0x0020
+[266] [U]: 0x00000000800003EC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800003F0] -> 0x12E3
+mem[E,0x00000000800003F2] -> 0xFE52
+[267] [U]: 0x00000000800003F0 (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x00000000800003D4] -> 0x0093
+mem[E,0x00000000800003D6] -> 0x00F0
+[268] [U]: 0x00000000800003D4 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x00000000800003D8] -> 0x0113
+mem[E,0x00000000800003DA] -> 0x00B0
+[269] [U]: 0x00000000800003D8 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800003DC] -> 0x0013
+mem[E,0x00000000800003DE] -> 0x0000
+[270] [U]: 0x00000000800003DC (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003E0] -> 0x0013
+mem[E,0x00000000800003E2] -> 0x0000
+[271] [U]: 0x00000000800003E0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800003E4] -> 0x8F33
+mem[E,0x00000000800003E6] -> 0x0020
+[272] [U]: 0x00000000800003E4 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x00000000800003E8] -> 0x0213
+mem[E,0x00000000800003EA] -> 0x0012
+[273] [U]: 0x00000000800003E8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x00000000800003EC] -> 0x0293
+mem[E,0x00000000800003EE] -> 0x0020
+[274] [U]: 0x00000000800003EC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800003F0] -> 0x12E3
+mem[E,0x00000000800003F2] -> 0xFE52
+[275] [U]: 0x00000000800003F0 (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x00000000800003F4] -> 0x0E93
+mem[E,0x00000000800003F6] -> 0x01A0
+[276] [U]: 0x00000000800003F4 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x00000000800003F8] -> 0x0193
+mem[E,0x00000000800003FA] -> 0x0190
+[277] [U]: 0x00000000800003F8 (0x01900193) addi gp, zero, 0x19
+x3 <- 0x0000000000000019
+mem[E,0x00000000800003FC] -> 0x1A63
+mem[E,0x00000000800003FE] -> 0x1FDF
+[278] [U]: 0x00000000800003FC (0x1FDF1A63) bne t5, t4, 0x1f4
+mem[E,0x0000000080000400] -> 0x0213
+mem[E,0x0000000080000402] -> 0x0000
+[279] [U]: 0x0000000080000400 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000404] -> 0x0093
+mem[E,0x0000000080000406] -> 0x00D0
+[280] [U]: 0x0000000080000404 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000408] -> 0x0013
+mem[E,0x000000008000040A] -> 0x0000
+[281] [U]: 0x0000000080000408 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000040C] -> 0x0113
+mem[E,0x000000008000040E] -> 0x00B0
+[282] [U]: 0x000000008000040C (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000410] -> 0x8F33
+mem[E,0x0000000080000412] -> 0x0020
+[283] [U]: 0x0000000080000410 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x0000000080000414] -> 0x0213
+mem[E,0x0000000080000416] -> 0x0012
+[284] [U]: 0x0000000080000414 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000418] -> 0x0293
+mem[E,0x000000008000041A] -> 0x0020
+[285] [U]: 0x0000000080000418 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000041C] -> 0x14E3
+mem[E,0x000000008000041E] -> 0xFE52
+[286] [U]: 0x000000008000041C (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x0000000080000404] -> 0x0093
+mem[E,0x0000000080000406] -> 0x00D0
+[287] [U]: 0x0000000080000404 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000408] -> 0x0013
+mem[E,0x000000008000040A] -> 0x0000
+[288] [U]: 0x0000000080000408 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000040C] -> 0x0113
+mem[E,0x000000008000040E] -> 0x00B0
+[289] [U]: 0x000000008000040C (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000410] -> 0x8F33
+mem[E,0x0000000080000412] -> 0x0020
+[290] [U]: 0x0000000080000410 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x0000000080000414] -> 0x0213
+mem[E,0x0000000080000416] -> 0x0012
+[291] [U]: 0x0000000080000414 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000418] -> 0x0293
+mem[E,0x000000008000041A] -> 0x0020
+[292] [U]: 0x0000000080000418 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000041C] -> 0x14E3
+mem[E,0x000000008000041E] -> 0xFE52
+[293] [U]: 0x000000008000041C (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x0000000080000420] -> 0x0E93
+mem[E,0x0000000080000422] -> 0x0180
+[294] [U]: 0x0000000080000420 (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x0000000080000424] -> 0x0193
+mem[E,0x0000000080000426] -> 0x01A0
+[295] [U]: 0x0000000080000424 (0x01A00193) addi gp, zero, 0x1a
+x3 <- 0x000000000000001A
+mem[E,0x0000000080000428] -> 0x1463
+mem[E,0x000000008000042A] -> 0x1DDF
+[296] [U]: 0x0000000080000428 (0x1DDF1463) bne t5, t4, 0x1c8
+mem[E,0x000000008000042C] -> 0x0213
+mem[E,0x000000008000042E] -> 0x0000
+[297] [U]: 0x000000008000042C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000430] -> 0x0093
+mem[E,0x0000000080000432] -> 0x00E0
+[298] [U]: 0x0000000080000430 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x0000000080000434] -> 0x0013
+mem[E,0x0000000080000436] -> 0x0000
+[299] [U]: 0x0000000080000434 (0x00000013) addi zero, zero, 0x0
+clint::tick mtime <- 0x0000000000000003
+ clint timer pending at mtime 0x0000000000000003
+htif::tick 0x0000000000000000
+mem[E,0x0000000080000438] -> 0x0113
+mem[E,0x000000008000043A] -> 0x00B0
+[300] [U]: 0x0000000080000438 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x000000008000043C] -> 0x0013
+mem[E,0x000000008000043E] -> 0x0000
+[301] [U]: 0x000000008000043C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000440] -> 0x8F33
+mem[E,0x0000000080000442] -> 0x0020
+[302] [U]: 0x0000000080000440 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000444] -> 0x0213
+mem[E,0x0000000080000446] -> 0x0012
+[303] [U]: 0x0000000080000444 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000448] -> 0x0293
+mem[E,0x000000008000044A] -> 0x0020
+[304] [U]: 0x0000000080000448 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000044C] -> 0x12E3
+mem[E,0x000000008000044E] -> 0xFE52
+[305] [U]: 0x000000008000044C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000430] -> 0x0093
+mem[E,0x0000000080000432] -> 0x00E0
+[306] [U]: 0x0000000080000430 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x0000000080000434] -> 0x0013
+mem[E,0x0000000080000436] -> 0x0000
+[307] [U]: 0x0000000080000434 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000438] -> 0x0113
+mem[E,0x000000008000043A] -> 0x00B0
+[308] [U]: 0x0000000080000438 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x000000008000043C] -> 0x0013
+mem[E,0x000000008000043E] -> 0x0000
+[309] [U]: 0x000000008000043C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000440] -> 0x8F33
+mem[E,0x0000000080000442] -> 0x0020
+[310] [U]: 0x0000000080000440 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000444] -> 0x0213
+mem[E,0x0000000080000446] -> 0x0012
+[311] [U]: 0x0000000080000444 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000448] -> 0x0293
+mem[E,0x000000008000044A] -> 0x0020
+[312] [U]: 0x0000000080000448 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000044C] -> 0x12E3
+mem[E,0x000000008000044E] -> 0xFE52
+[313] [U]: 0x000000008000044C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000450] -> 0x0E93
+mem[E,0x0000000080000452] -> 0x0190
+[314] [U]: 0x0000000080000450 (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x0000000080000454] -> 0x0193
+mem[E,0x0000000080000456] -> 0x01B0
+[315] [U]: 0x0000000080000454 (0x01B00193) addi gp, zero, 0x1b
+x3 <- 0x000000000000001B
+mem[E,0x0000000080000458] -> 0x1C63
+mem[E,0x000000008000045A] -> 0x19DF
+[316] [U]: 0x0000000080000458 (0x19DF1C63) bne t5, t4, 0x198
+mem[E,0x000000008000045C] -> 0x0213
+mem[E,0x000000008000045E] -> 0x0000
+[317] [U]: 0x000000008000045C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000460] -> 0x0093
+mem[E,0x0000000080000462] -> 0x00F0
+[318] [U]: 0x0000000080000460 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000464] -> 0x0013
+mem[E,0x0000000080000466] -> 0x0000
+[319] [U]: 0x0000000080000464 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000468] -> 0x0013
+mem[E,0x000000008000046A] -> 0x0000
+[320] [U]: 0x0000000080000468 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000046C] -> 0x0113
+mem[E,0x000000008000046E] -> 0x00B0
+[321] [U]: 0x000000008000046C (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000470] -> 0x8F33
+mem[E,0x0000000080000472] -> 0x0020
+[322] [U]: 0x0000000080000470 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000474] -> 0x0213
+mem[E,0x0000000080000476] -> 0x0012
+[323] [U]: 0x0000000080000474 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000478] -> 0x0293
+mem[E,0x000000008000047A] -> 0x0020
+[324] [U]: 0x0000000080000478 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000047C] -> 0x12E3
+mem[E,0x000000008000047E] -> 0xFE52
+[325] [U]: 0x000000008000047C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000460] -> 0x0093
+mem[E,0x0000000080000462] -> 0x00F0
+[326] [U]: 0x0000000080000460 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000464] -> 0x0013
+mem[E,0x0000000080000466] -> 0x0000
+[327] [U]: 0x0000000080000464 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000468] -> 0x0013
+mem[E,0x000000008000046A] -> 0x0000
+[328] [U]: 0x0000000080000468 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000046C] -> 0x0113
+mem[E,0x000000008000046E] -> 0x00B0
+[329] [U]: 0x000000008000046C (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000470] -> 0x8F33
+mem[E,0x0000000080000472] -> 0x0020
+[330] [U]: 0x0000000080000470 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000474] -> 0x0213
+mem[E,0x0000000080000476] -> 0x0012
+[331] [U]: 0x0000000080000474 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000478] -> 0x0293
+mem[E,0x000000008000047A] -> 0x0020
+[332] [U]: 0x0000000080000478 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000047C] -> 0x12E3
+mem[E,0x000000008000047E] -> 0xFE52
+[333] [U]: 0x000000008000047C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000480] -> 0x0E93
+mem[E,0x0000000080000482] -> 0x01A0
+[334] [U]: 0x0000000080000480 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x0000000080000484] -> 0x0193
+mem[E,0x0000000080000486] -> 0x01C0
+[335] [U]: 0x0000000080000484 (0x01C00193) addi gp, zero, 0x1c
+x3 <- 0x000000000000001C
+mem[E,0x0000000080000488] -> 0x1463
+mem[E,0x000000008000048A] -> 0x17DF
+[336] [U]: 0x0000000080000488 (0x17DF1463) bne t5, t4, 0x168
+mem[E,0x000000008000048C] -> 0x0213
+mem[E,0x000000008000048E] -> 0x0000
+[337] [U]: 0x000000008000048C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000490] -> 0x0113
+mem[E,0x0000000080000492] -> 0x00B0
+[338] [U]: 0x0000000080000490 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000494] -> 0x0093
+mem[E,0x0000000080000496] -> 0x00D0
+[339] [U]: 0x0000000080000494 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000498] -> 0x8F33
+mem[E,0x000000008000049A] -> 0x0020
+[340] [U]: 0x0000000080000498 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x000000008000049C] -> 0x0213
+mem[E,0x000000008000049E] -> 0x0012
+[341] [U]: 0x000000008000049C (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x00000000800004A0] -> 0x0293
+mem[E,0x00000000800004A2] -> 0x0020
+[342] [U]: 0x00000000800004A0 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800004A4] -> 0x16E3
+mem[E,0x00000000800004A6] -> 0xFE52
+[343] [U]: 0x00000000800004A4 (0xFE5216E3) bne tp, t0, 0x1fec
+mem[E,0x0000000080000490] -> 0x0113
+mem[E,0x0000000080000492] -> 0x00B0
+[344] [U]: 0x0000000080000490 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000494] -> 0x0093
+mem[E,0x0000000080000496] -> 0x00D0
+[345] [U]: 0x0000000080000494 (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000498] -> 0x8F33
+mem[E,0x000000008000049A] -> 0x0020
+[346] [U]: 0x0000000080000498 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x000000008000049C] -> 0x0213
+mem[E,0x000000008000049E] -> 0x0012
+[347] [U]: 0x000000008000049C (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x00000000800004A0] -> 0x0293
+mem[E,0x00000000800004A2] -> 0x0020
+[348] [U]: 0x00000000800004A0 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800004A4] -> 0x16E3
+mem[E,0x00000000800004A6] -> 0xFE52
+[349] [U]: 0x00000000800004A4 (0xFE5216E3) bne tp, t0, 0x1fec
+mem[E,0x00000000800004A8] -> 0x0E93
+mem[E,0x00000000800004AA] -> 0x0180
+[350] [U]: 0x00000000800004A8 (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x00000000800004AC] -> 0x0193
+mem[E,0x00000000800004AE] -> 0x01D0
+[351] [U]: 0x00000000800004AC (0x01D00193) addi gp, zero, 0x1d
+x3 <- 0x000000000000001D
+mem[E,0x00000000800004B0] -> 0x1063
+mem[E,0x00000000800004B2] -> 0x15DF
+[352] [U]: 0x00000000800004B0 (0x15DF1063) bne t5, t4, 0x140
+mem[E,0x00000000800004B4] -> 0x0213
+mem[E,0x00000000800004B6] -> 0x0000
+[353] [U]: 0x00000000800004B4 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x00000000800004B8] -> 0x0113
+mem[E,0x00000000800004BA] -> 0x00B0
+[354] [U]: 0x00000000800004B8 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800004BC] -> 0x0093
+mem[E,0x00000000800004BE] -> 0x00E0
+[355] [U]: 0x00000000800004BC (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x00000000800004C0] -> 0x0013
+mem[E,0x00000000800004C2] -> 0x0000
+[356] [U]: 0x00000000800004C0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004C4] -> 0x8F33
+mem[E,0x00000000800004C6] -> 0x0020
+[357] [U]: 0x00000000800004C4 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x00000000800004C8] -> 0x0213
+mem[E,0x00000000800004CA] -> 0x0012
+[358] [U]: 0x00000000800004C8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x00000000800004CC] -> 0x0293
+mem[E,0x00000000800004CE] -> 0x0020
+[359] [U]: 0x00000000800004CC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800004D0] -> 0x14E3
+mem[E,0x00000000800004D2] -> 0xFE52
+[360] [U]: 0x00000000800004D0 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x00000000800004B8] -> 0x0113
+mem[E,0x00000000800004BA] -> 0x00B0
+[361] [U]: 0x00000000800004B8 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800004BC] -> 0x0093
+mem[E,0x00000000800004BE] -> 0x00E0
+[362] [U]: 0x00000000800004BC (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x00000000800004C0] -> 0x0013
+mem[E,0x00000000800004C2] -> 0x0000
+[363] [U]: 0x00000000800004C0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004C4] -> 0x8F33
+mem[E,0x00000000800004C6] -> 0x0020
+[364] [U]: 0x00000000800004C4 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x00000000800004C8] -> 0x0213
+mem[E,0x00000000800004CA] -> 0x0012
+[365] [U]: 0x00000000800004C8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x00000000800004CC] -> 0x0293
+mem[E,0x00000000800004CE] -> 0x0020
+[366] [U]: 0x00000000800004CC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x00000000800004D0] -> 0x14E3
+mem[E,0x00000000800004D2] -> 0xFE52
+[367] [U]: 0x00000000800004D0 (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x00000000800004D4] -> 0x0E93
+mem[E,0x00000000800004D6] -> 0x0190
+[368] [U]: 0x00000000800004D4 (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x00000000800004D8] -> 0x0193
+mem[E,0x00000000800004DA] -> 0x01E0
+[369] [U]: 0x00000000800004D8 (0x01E00193) addi gp, zero, 0x1e
+x3 <- 0x000000000000001E
+mem[E,0x00000000800004DC] -> 0x1A63
+mem[E,0x00000000800004DE] -> 0x11DF
+[370] [U]: 0x00000000800004DC (0x11DF1A63) bne t5, t4, 0x114
+mem[E,0x00000000800004E0] -> 0x0213
+mem[E,0x00000000800004E2] -> 0x0000
+[371] [U]: 0x00000000800004E0 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x00000000800004E4] -> 0x0113
+mem[E,0x00000000800004E6] -> 0x00B0
+[372] [U]: 0x00000000800004E4 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800004E8] -> 0x0093
+mem[E,0x00000000800004EA] -> 0x00F0
+[373] [U]: 0x00000000800004E8 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x00000000800004EC] -> 0x0013
+mem[E,0x00000000800004EE] -> 0x0000
+[374] [U]: 0x00000000800004EC (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004F0] -> 0x0013
+mem[E,0x00000000800004F2] -> 0x0000
+[375] [U]: 0x00000000800004F0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004F4] -> 0x8F33
+mem[E,0x00000000800004F6] -> 0x0020
+[376] [U]: 0x00000000800004F4 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x00000000800004F8] -> 0x0213
+mem[E,0x00000000800004FA] -> 0x0012
+[377] [U]: 0x00000000800004F8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x00000000800004FC] -> 0x0293
+mem[E,0x00000000800004FE] -> 0x0020
+[378] [U]: 0x00000000800004FC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000500] -> 0x12E3
+mem[E,0x0000000080000502] -> 0xFE52
+[379] [U]: 0x0000000080000500 (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x00000000800004E4] -> 0x0113
+mem[E,0x00000000800004E6] -> 0x00B0
+[380] [U]: 0x00000000800004E4 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x00000000800004E8] -> 0x0093
+mem[E,0x00000000800004EA] -> 0x00F0
+[381] [U]: 0x00000000800004E8 (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x00000000800004EC] -> 0x0013
+mem[E,0x00000000800004EE] -> 0x0000
+[382] [U]: 0x00000000800004EC (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004F0] -> 0x0013
+mem[E,0x00000000800004F2] -> 0x0000
+[383] [U]: 0x00000000800004F0 (0x00000013) addi zero, zero, 0x0
+mem[E,0x00000000800004F4] -> 0x8F33
+mem[E,0x00000000800004F6] -> 0x0020
+[384] [U]: 0x00000000800004F4 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x00000000800004F8] -> 0x0213
+mem[E,0x00000000800004FA] -> 0x0012
+[385] [U]: 0x00000000800004F8 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x00000000800004FC] -> 0x0293
+mem[E,0x00000000800004FE] -> 0x0020
+[386] [U]: 0x00000000800004FC (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x0000000080000500] -> 0x12E3
+mem[E,0x0000000080000502] -> 0xFE52
+[387] [U]: 0x0000000080000500 (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000504] -> 0x0E93
+mem[E,0x0000000080000506] -> 0x01A0
+[388] [U]: 0x0000000080000504 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x0000000080000508] -> 0x0193
+mem[E,0x000000008000050A] -> 0x01F0
+[389] [U]: 0x0000000080000508 (0x01F00193) addi gp, zero, 0x1f
+x3 <- 0x000000000000001F
+mem[E,0x000000008000050C] -> 0x1263
+mem[E,0x000000008000050E] -> 0x0FDF
+[390] [U]: 0x000000008000050C (0x0FDF1263) bne t5, t4, 0xe4
+mem[E,0x0000000080000510] -> 0x0213
+mem[E,0x0000000080000512] -> 0x0000
+[391] [U]: 0x0000000080000510 (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000514] -> 0x0113
+mem[E,0x0000000080000516] -> 0x00B0
+[392] [U]: 0x0000000080000514 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000518] -> 0x0013
+mem[E,0x000000008000051A] -> 0x0000
+[393] [U]: 0x0000000080000518 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000051C] -> 0x0093
+mem[E,0x000000008000051E] -> 0x00D0
+[394] [U]: 0x000000008000051C (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000520] -> 0x8F33
+mem[E,0x0000000080000522] -> 0x0020
+[395] [U]: 0x0000000080000520 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x0000000080000524] -> 0x0213
+mem[E,0x0000000080000526] -> 0x0012
+[396] [U]: 0x0000000080000524 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000528] -> 0x0293
+mem[E,0x000000008000052A] -> 0x0020
+[397] [U]: 0x0000000080000528 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000052C] -> 0x14E3
+mem[E,0x000000008000052E] -> 0xFE52
+[398] [U]: 0x000000008000052C (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x0000000080000514] -> 0x0113
+mem[E,0x0000000080000516] -> 0x00B0
+[399] [U]: 0x0000000080000514 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+clint::tick mtime <- 0x0000000000000004
+ clint timer pending at mtime 0x0000000000000004
+htif::tick 0x0000000000000000
+mem[E,0x0000000080000518] -> 0x0013
+mem[E,0x000000008000051A] -> 0x0000
+[400] [U]: 0x0000000080000518 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000051C] -> 0x0093
+mem[E,0x000000008000051E] -> 0x00D0
+[401] [U]: 0x000000008000051C (0x00D00093) addi ra, zero, 0xd
+x1 <- 0x000000000000000D
+mem[E,0x0000000080000520] -> 0x8F33
+mem[E,0x0000000080000522] -> 0x0020
+[402] [U]: 0x0000000080000520 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000018
+mem[E,0x0000000080000524] -> 0x0213
+mem[E,0x0000000080000526] -> 0x0012
+[403] [U]: 0x0000000080000524 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000528] -> 0x0293
+mem[E,0x000000008000052A] -> 0x0020
+[404] [U]: 0x0000000080000528 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000052C] -> 0x14E3
+mem[E,0x000000008000052E] -> 0xFE52
+[405] [U]: 0x000000008000052C (0xFE5214E3) bne tp, t0, 0x1fe8
+mem[E,0x0000000080000530] -> 0x0E93
+mem[E,0x0000000080000532] -> 0x0180
+[406] [U]: 0x0000000080000530 (0x01800E93) addi t4, zero, 0x18
+x29 <- 0x0000000000000018
+mem[E,0x0000000080000534] -> 0x0193
+mem[E,0x0000000080000536] -> 0x0200
+[407] [U]: 0x0000000080000534 (0x02000193) addi gp, zero, 0x20
+x3 <- 0x0000000000000020
+mem[E,0x0000000080000538] -> 0x1C63
+mem[E,0x000000008000053A] -> 0x0BDF
+[408] [U]: 0x0000000080000538 (0x0BDF1C63) bne t5, t4, 0xb8
+mem[E,0x000000008000053C] -> 0x0213
+mem[E,0x000000008000053E] -> 0x0000
+[409] [U]: 0x000000008000053C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000540] -> 0x0113
+mem[E,0x0000000080000542] -> 0x00B0
+[410] [U]: 0x0000000080000540 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000544] -> 0x0013
+mem[E,0x0000000080000546] -> 0x0000
+[411] [U]: 0x0000000080000544 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000548] -> 0x0093
+mem[E,0x000000008000054A] -> 0x00E0
+[412] [U]: 0x0000000080000548 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x000000008000054C] -> 0x0013
+mem[E,0x000000008000054E] -> 0x0000
+[413] [U]: 0x000000008000054C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000550] -> 0x8F33
+mem[E,0x0000000080000552] -> 0x0020
+[414] [U]: 0x0000000080000550 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000554] -> 0x0213
+mem[E,0x0000000080000556] -> 0x0012
+[415] [U]: 0x0000000080000554 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000558] -> 0x0293
+mem[E,0x000000008000055A] -> 0x0020
+[416] [U]: 0x0000000080000558 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000055C] -> 0x12E3
+mem[E,0x000000008000055E] -> 0xFE52
+[417] [U]: 0x000000008000055C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000540] -> 0x0113
+mem[E,0x0000000080000542] -> 0x00B0
+[418] [U]: 0x0000000080000540 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000544] -> 0x0013
+mem[E,0x0000000080000546] -> 0x0000
+[419] [U]: 0x0000000080000544 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000548] -> 0x0093
+mem[E,0x000000008000054A] -> 0x00E0
+[420] [U]: 0x0000000080000548 (0x00E00093) addi ra, zero, 0xe
+x1 <- 0x000000000000000E
+mem[E,0x000000008000054C] -> 0x0013
+mem[E,0x000000008000054E] -> 0x0000
+[421] [U]: 0x000000008000054C (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000550] -> 0x8F33
+mem[E,0x0000000080000552] -> 0x0020
+[422] [U]: 0x0000000080000550 (0x00208F33) add t5, ra, sp
+x30 <- 0x0000000000000019
+mem[E,0x0000000080000554] -> 0x0213
+mem[E,0x0000000080000556] -> 0x0012
+[423] [U]: 0x0000000080000554 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000558] -> 0x0293
+mem[E,0x000000008000055A] -> 0x0020
+[424] [U]: 0x0000000080000558 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000055C] -> 0x12E3
+mem[E,0x000000008000055E] -> 0xFE52
+[425] [U]: 0x000000008000055C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000560] -> 0x0E93
+mem[E,0x0000000080000562] -> 0x0190
+[426] [U]: 0x0000000080000560 (0x01900E93) addi t4, zero, 0x19
+x29 <- 0x0000000000000019
+mem[E,0x0000000080000564] -> 0x0193
+mem[E,0x0000000080000566] -> 0x0210
+[427] [U]: 0x0000000080000564 (0x02100193) addi gp, zero, 0x21
+x3 <- 0x0000000000000021
+mem[E,0x0000000080000568] -> 0x1463
+mem[E,0x000000008000056A] -> 0x09DF
+[428] [U]: 0x0000000080000568 (0x09DF1463) bne t5, t4, 0x88
+mem[E,0x000000008000056C] -> 0x0213
+mem[E,0x000000008000056E] -> 0x0000
+[429] [U]: 0x000000008000056C (0x00000213) addi tp, zero, 0x0
+x4 <- 0x0000000000000000
+mem[E,0x0000000080000570] -> 0x0113
+mem[E,0x0000000080000572] -> 0x00B0
+[430] [U]: 0x0000000080000570 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000574] -> 0x0013
+mem[E,0x0000000080000576] -> 0x0000
+[431] [U]: 0x0000000080000574 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000578] -> 0x0013
+mem[E,0x000000008000057A] -> 0x0000
+[432] [U]: 0x0000000080000578 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000057C] -> 0x0093
+mem[E,0x000000008000057E] -> 0x00F0
+[433] [U]: 0x000000008000057C (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000580] -> 0x8F33
+mem[E,0x0000000080000582] -> 0x0020
+[434] [U]: 0x0000000080000580 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000584] -> 0x0213
+mem[E,0x0000000080000586] -> 0x0012
+[435] [U]: 0x0000000080000584 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000001
+mem[E,0x0000000080000588] -> 0x0293
+mem[E,0x000000008000058A] -> 0x0020
+[436] [U]: 0x0000000080000588 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000058C] -> 0x12E3
+mem[E,0x000000008000058E] -> 0xFE52
+[437] [U]: 0x000000008000058C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000570] -> 0x0113
+mem[E,0x0000000080000572] -> 0x00B0
+[438] [U]: 0x0000000080000570 (0x00B00113) addi sp, zero, 0xb
+x2 <- 0x000000000000000B
+mem[E,0x0000000080000574] -> 0x0013
+mem[E,0x0000000080000576] -> 0x0000
+[439] [U]: 0x0000000080000574 (0x00000013) addi zero, zero, 0x0
+mem[E,0x0000000080000578] -> 0x0013
+mem[E,0x000000008000057A] -> 0x0000
+[440] [U]: 0x0000000080000578 (0x00000013) addi zero, zero, 0x0
+mem[E,0x000000008000057C] -> 0x0093
+mem[E,0x000000008000057E] -> 0x00F0
+[441] [U]: 0x000000008000057C (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x0000000080000580] -> 0x8F33
+mem[E,0x0000000080000582] -> 0x0020
+[442] [U]: 0x0000000080000580 (0x00208F33) add t5, ra, sp
+x30 <- 0x000000000000001A
+mem[E,0x0000000080000584] -> 0x0213
+mem[E,0x0000000080000586] -> 0x0012
+[443] [U]: 0x0000000080000584 (0x00120213) addi tp, tp, 0x1
+x4 <- 0x0000000000000002
+mem[E,0x0000000080000588] -> 0x0293
+mem[E,0x000000008000058A] -> 0x0020
+[444] [U]: 0x0000000080000588 (0x00200293) addi t0, zero, 0x2
+x5 <- 0x0000000000000002
+mem[E,0x000000008000058C] -> 0x12E3
+mem[E,0x000000008000058E] -> 0xFE52
+[445] [U]: 0x000000008000058C (0xFE5212E3) bne tp, t0, 0x1fe4
+mem[E,0x0000000080000590] -> 0x0E93
+mem[E,0x0000000080000592] -> 0x01A0
+[446] [U]: 0x0000000080000590 (0x01A00E93) addi t4, zero, 0x1a
+x29 <- 0x000000000000001A
+mem[E,0x0000000080000594] -> 0x0193
+mem[E,0x0000000080000596] -> 0x0220
+[447] [U]: 0x0000000080000594 (0x02200193) addi gp, zero, 0x22
+x3 <- 0x0000000000000022
+mem[E,0x0000000080000598] -> 0x1C63
+mem[E,0x000000008000059A] -> 0x05DF
+[448] [U]: 0x0000000080000598 (0x05DF1C63) bne t5, t4, 0x58
+mem[E,0x000000008000059C] -> 0x0093
+mem[E,0x000000008000059E] -> 0x00F0
+[449] [U]: 0x000000008000059C (0x00F00093) addi ra, zero, 0xf
+x1 <- 0x000000000000000F
+mem[E,0x00000000800005A0] -> 0x0133
+mem[E,0x00000000800005A2] -> 0x0010
+[450] [U]: 0x00000000800005A0 (0x00100133) add sp, zero, ra
+x2 <- 0x000000000000000F
+mem[E,0x00000000800005A4] -> 0x0E93
+mem[E,0x00000000800005A6] -> 0x00F0
+[451] [U]: 0x00000000800005A4 (0x00F00E93) addi t4, zero, 0xf
+x29 <- 0x000000000000000F
+mem[E,0x00000000800005A8] -> 0x0193
+mem[E,0x00000000800005AA] -> 0x0230
+[452] [U]: 0x00000000800005A8 (0x02300193) addi gp, zero, 0x23
+x3 <- 0x0000000000000023
+mem[E,0x00000000800005AC] -> 0x1263
+mem[E,0x00000000800005AE] -> 0x05D1
+[453] [U]: 0x00000000800005AC (0x05D11263) bne sp, t4, 0x44
+mem[E,0x00000000800005B0] -> 0x0093
+mem[E,0x00000000800005B2] -> 0x0200
+[454] [U]: 0x00000000800005B0 (0x02000093) addi ra, zero, 0x20
+x1 <- 0x0000000000000020
+mem[E,0x00000000800005B4] -> 0x8133
+mem[E,0x00000000800005B6] -> 0x0000
+[455] [U]: 0x00000000800005B4 (0x00008133) add sp, ra, zero
+x2 <- 0x0000000000000020
+mem[E,0x00000000800005B8] -> 0x0E93
+mem[E,0x00000000800005BA] -> 0x0200
+[456] [U]: 0x00000000800005B8 (0x02000E93) addi t4, zero, 0x20
+x29 <- 0x0000000000000020
+mem[E,0x00000000800005BC] -> 0x0193
+mem[E,0x00000000800005BE] -> 0x0240
+[457] [U]: 0x00000000800005BC (0x02400193) addi gp, zero, 0x24
+x3 <- 0x0000000000000024
+mem[E,0x00000000800005C0] -> 0x1863
+mem[E,0x00000000800005C2] -> 0x03D1
+[458] [U]: 0x00000000800005C0 (0x03D11863) bne sp, t4, 0x30
+mem[E,0x00000000800005C4] -> 0x00B3
+mem[E,0x00000000800005C6] -> 0x0000
+[459] [U]: 0x00000000800005C4 (0x000000B3) add ra, zero, zero
+x1 <- 0x0000000000000000
+mem[E,0x00000000800005C8] -> 0x0E93
+mem[E,0x00000000800005CA] -> 0x0000
+[460] [U]: 0x00000000800005C8 (0x00000E93) addi t4, zero, 0x0
+x29 <- 0x0000000000000000
+mem[E,0x00000000800005CC] -> 0x0193
+mem[E,0x00000000800005CE] -> 0x0250
+[461] [U]: 0x00000000800005CC (0x02500193) addi gp, zero, 0x25
+x3 <- 0x0000000000000025
+mem[E,0x00000000800005D0] -> 0x9063
+mem[E,0x00000000800005D2] -> 0x03D0
+[462] [U]: 0x00000000800005D0 (0x03D09063) bne ra, t4, 0x20
+mem[E,0x00000000800005D4] -> 0x0093
+mem[E,0x00000000800005D6] -> 0x0100
+[463] [U]: 0x00000000800005D4 (0x01000093) addi ra, zero, 0x10
+x1 <- 0x0000000000000010
+mem[E,0x00000000800005D8] -> 0x0113
+mem[E,0x00000000800005DA] -> 0x01E0
+[464] [U]: 0x00000000800005D8 (0x01E00113) addi sp, zero, 0x1e
+x2 <- 0x000000000000001E
+mem[E,0x00000000800005DC] -> 0x8033
+mem[E,0x00000000800005DE] -> 0x0020
+[465] [U]: 0x00000000800005DC (0x00208033) add zero, ra, sp
+mem[E,0x00000000800005E0] -> 0x0E93
+mem[E,0x00000000800005E2] -> 0x0000
+[466] [U]: 0x00000000800005E0 (0x00000E93) addi t4, zero, 0x0
+x29 <- 0x0000000000000000
+mem[E,0x00000000800005E4] -> 0x0193
+mem[E,0x00000000800005E6] -> 0x0260
+[467] [U]: 0x00000000800005E4 (0x02600193) addi gp, zero, 0x26
+x3 <- 0x0000000000000026
+mem[E,0x00000000800005E8] -> 0x1463
+mem[E,0x00000000800005EA] -> 0x01D0
+[468] [U]: 0x00000000800005E8 (0x01D01463) bne zero, t4, 0x8
+mem[E,0x00000000800005EC] -> 0x1C63
+mem[E,0x00000000800005EE] -> 0x0030
+[469] [U]: 0x00000000800005EC (0x00301C63) bne zero, gp, 0x18
+mem[E,0x0000000080000604] -> 0x000F
+mem[E,0x0000000080000606] -> 0x0FF0
+[470] [U]: 0x0000000080000604 (0x0FF0000F) fence iorw, iorw
+mem[E,0x0000000080000608] -> 0x0193
+mem[E,0x000000008000060A] -> 0x0010
+[471] [U]: 0x0000000080000608 (0x00100193) addi gp, zero, 0x1
+x3 <- 0x0000000000000001
+mem[E,0x000000008000060C] -> 0x0073
+mem[E,0x000000008000060E] -> 0x0000
+[472] [U]: 0x000000008000060C (0x00000073) ecall
+trapping from U to M to handle u-call
+handling u-call at priv M with tval 0x0000000000000000 and tinst 0x0000000000000000
+CSR mstatus <- 0x0000000A00000000
+mem[E,0x0000000080000004] -> 0x2F73
+mem[E,0x0000000080000006] -> 0x3420
+[473] [M]: 0x0000000080000004 (0x34202F73) csrrs t5, mcause, zero
+CSR mcause -> 0x0000000000000008
+x30 <- 0x0000000000000008
+mem[E,0x0000000080000008] -> 0x0F93
+mem[E,0x000000008000000A] -> 0x0080
+[474] [M]: 0x0000000080000008 (0x00800F93) addi t6, zero, 0x8
+x31 <- 0x0000000000000008
+mem[E,0x000000008000000C] -> 0x0A63
+mem[E,0x000000008000000E] -> 0x03FF
+[475] [M]: 0x000000008000000C (0x03FF0A63) beq t5, t6, 0x34
+mem[E,0x0000000080000040] -> 0x1F17
+mem[E,0x0000000080000042] -> 0x0000
+[476] [M]: 0x0000000080000040 (0x00001F17) auipc t5, 0x1
+x30 <- 0x0000000080001040
+mem[E,0x0000000080000044] -> 0x2023
+mem[E,0x0000000080000046] -> 0xFC3F
+[477] [M]: 0x0000000080000044 (0xFC3F2023) sw gp, 0xfc0(t5)
+htif[0x0000000080001000] <- 0x00000001
+mem[E,0x0000000080000048] -> 0xF06F
+mem[E,0x000000008000004A] -> 0xFF9F
+[478] [M]: 0x0000000080000048 (0xFF9FF06F) jal zero, 0x1ffff8
+mem[E,0x0000000080000040] -> 0x1F17
+mem[E,0x0000000080000042] -> 0x0000
+[479] [M]: 0x0000000080000040 (0x00001F17) auipc t5, 0x1
+x30 <- 0x0000000080001040
+mem[E,0x0000000080000044] -> 0x2023
+mem[E,0x0000000080000046] -> 0xFC3F
+[480] [M]: 0x0000000080000044 (0xFC3F2023) sw gp, 0xfc0(t5)
+htif[0x0000000080001000] <- 0x00000001
+mem[E,0x0000000080000048] -> 0xF06F
+mem[E,0x000000008000004A] -> 0xFF9F
+[481] [M]: 0x0000000080000048 (0xFF9FF06F) jal zero, 0x1ffff8
+mem[E,0x0000000080000040] -> 0x1F17
+mem[E,0x0000000080000042] -> 0x0000
+[482] [M]: 0x0000000080000040 (0x00001F17) auipc t5, 0x1
+x30 <- 0x0000000080001040
+mem[E,0x0000000080000044] -> 0x2023
+mem[E,0x0000000080000046] -> 0xFC3F
+[483] [M]: 0x0000000080000044 (0xFC3F2023) sw gp, 0xfc0(t5)
+htif[0x0000000080001000] <- 0x00000001
+htif-syscall-proxy cmd: 0x000000000001
+SUCCESS
