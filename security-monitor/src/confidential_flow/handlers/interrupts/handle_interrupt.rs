@@ -24,7 +24,7 @@ impl HandleInterrupt {
         if self.irqs & MIE_MEIP_MASK > 0 {
             confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
         } else if self.irqs & MIE_MSIP_MASK > 0 && confidential_flow.process_confidential_hart_remote_commands() {
-            crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_SSIP_MASK);
+            crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_MSIP_MASK);
             confidential_flow.exit_to_confidential_hart();
         } else {
             // The only interrupts that we can see here are:
