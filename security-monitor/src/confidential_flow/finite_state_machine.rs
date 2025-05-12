@@ -36,6 +36,7 @@ use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
 };
+use crate::core::interrupt_controller::InterruptController;
 use crate::core::timer_controller::TimerController;
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
@@ -260,9 +261,18 @@ impl<'a> ConfidentialFlow<'a> {
         if confidential_hart_remote_command.is_hart_selected(sender_confidential_hart_id) {
             self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
         }
-        // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
-        self.hardware_hart
-            .opensbi_context(|| confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command))
+        let hart_mask = confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command)?;
+        if hart_mask != 0 {
+            // Confidential harts that should receive an ConfidentialHartRemoteCommand are currently running on a hardware
+            // harts. We interrupt such hardware harts with IPIs. Consequently, hardware harts running target confidential
+            // harts will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target harts.
+            self.hardware_hart.opensbi_context(|| {
+                InterruptController::try_read(|controller| controller.send_ipis(hart_mask, 0))?;
+                Ok(())
+            })?;
+        }
+
+        Ok(())
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to

@@ -257,7 +257,7 @@ impl ConfidentialHart {
 
     /// Returns true if this confidential hart can be scheduled on the physical hart.
     pub fn is_executable(&self) -> bool {
-        !self.is_dummy() && HartLifecycleState::STATES_ALLOWED_TO_EXECUTE.contains(&self.lifecycle_state)
+        HartLifecycleState::STATES_ALLOWED_TO_EXECUTE.contains(&self.lifecycle_state)
     }
 }
 

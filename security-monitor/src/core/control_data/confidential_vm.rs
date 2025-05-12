@@ -193,14 +193,12 @@ impl ConfidentialVm {
     /// IPI failed.
     pub fn broadcast_remote_command(
         &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
-    ) -> Result<(), Error> {
+    ) -> Result<usize, Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
             .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
-            .try_for_each(|confidential_hart_id| {
-                if self.confidential_harts[confidential_hart_id].hardware_hart_id().is_some()
-                    || self.confidential_harts[confidential_hart_id].is_executable()
-                {
+            .map(|confidential_hart_id| {
+                if self.confidential_harts[confidential_hart_id].is_executable() {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
                         ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
                         if remote_commands.iter().find(|c| **c == remote_command).is_none() {
@@ -208,16 +206,10 @@ impl ConfidentialVm {
                         }
                         Ok(())
                     })?;
-
-                    if let Some(hardware_hart_id) = self.confidential_harts[confidential_hart_id].hardware_hart_id() {
-                        // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
-                        // hart. We interrupt that hardware hart with IPI. Consequently, the hardware hart running the target confidential
-                        // hart will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target hart.
-                        InterruptController::try_read(|controller| controller.send_ipi(hardware_hart_id))?;
-                    }
                 }
-                Ok(())
+                Ok(self.confidential_harts[confidential_hart_id].hardware_hart_id().and_then(|id| Some(1 << id)).unwrap_or(0))
             })
+            .try_fold(0, |acc, x: Result<usize, Error>| Ok(acc | x?))
     }
 
     pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
