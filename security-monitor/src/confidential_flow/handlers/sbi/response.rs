@@ -15,7 +15,12 @@ pub struct SbiResponse {
 
 impl SbiResponse {
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        Self { a0: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0), a1: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) }
+        Self {
+            // We never care about the hypervisor's result of the SBI call when resuming a confidential VM.
+            // Such SBI calls are always only to inform the hypervisor about certain event, such as "enable interrupts"
+            // or "remove mmio region" but must not carry any response.
+            Self { a0: 0, a1: 0 }
+        }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
