@@ -254,7 +254,8 @@ impl<'a> ConfidentialFlow<'a> {
     ///
     /// This function must only be called when the hypervisor requested resume of confidential hart's execution or when
     /// a hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
-    fn process_confidential_hart_remote_commands(&mut self) {
+    pub fn process_confidential_hart_remote_commands(&mut self) -> bool {
+        let mut requests_processed = false;
         ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
@@ -263,6 +264,7 @@ impl<'a> ConfidentialFlow<'a> {
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
                         // is assigned to the hardware hart.
                         self.confidential_hart_mut().execute(&confidential_hart_remote_command);
+                        requests_processed = true;
                     });
                     Ok(())
                 },
@@ -272,6 +274,7 @@ impl<'a> ConfidentialFlow<'a> {
         // confidential flow of the finite state machine (FSM) that guarantees it and 2) the processing of inter hart
         // requests always succeeds.
         .unwrap();
+        requests_processed
     }
 }
 
