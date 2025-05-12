@@ -94,7 +94,7 @@ impl ConfidentialVm {
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
-    /// # Guarantees
+    /// # Safety
     ///
     /// The physical hart is configured to enforce memory access control so that the confidential VM has access only to its own memory.
     pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
@@ -107,20 +107,13 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
-        // Heavy context switch:
-        // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
-        hardware_hart.hypervisor_hart_mut().save_in_main_memory();
-
-        // 2) Load control and status registers (CSRs) of confidential hart from the physical hart executing this code.
-        self.confidential_harts[confidential_hart_id].restore_from_main_memory();
-
-        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
-
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
         // machine and the virtual hart is assigned to the hardware hart.
         unsafe { self.memory_protector.enable() };
+
+        // Assign the confidential hart to the hardware hart.
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
         Ok(())
     }
@@ -136,23 +129,8 @@ impl ConfidentialVm {
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
-
         // Return the confidential hart to the confidential machine.
         core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
-
-        // Heavy context switch:
-        // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
-        self.confidential_harts[confidential_hart_id].save_in_main_memory();
-
-        // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
-        hardware_hart.hypervisor_hart_mut().restore_from_main_memory();
-
-        // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
-        // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
-        // associated with a dummy virtual hart.
-        // It is safe to invoke below unsafe code because at this point we are transitioning from the confidential flow part of the
-        // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
-        unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
 }
 
@@ -214,14 +192,12 @@ impl ConfidentialVm {
     /// IPI failed.
     pub fn broadcast_remote_command(
         &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
-    ) -> Result<(), Error> {
+    ) -> Result<usize, Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
             .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
-            .try_for_each(|confidential_hart_id| {
-                if self.confidential_harts[confidential_hart_id].hardware_hart_id().is_some()
-                    || self.confidential_harts[confidential_hart_id].is_executable()
-                {
+            .map(|confidential_hart_id| {
+                if self.confidential_harts[confidential_hart_id].is_executable() {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
                         ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
                         if remote_commands.iter().find(|c| **c == remote_command).is_none() {
@@ -229,16 +205,10 @@ impl ConfidentialVm {
                         }
                         Ok(())
                     })?;
-
-                    if let Some(hardware_hart_id) = self.confidential_harts[confidential_hart_id].hardware_hart_id() {
-                        // The confidential hart that should receive an ConfidentialHartRemoteCommand is currently running on a hardware
-                        // hart. We interrupt that hardware hart with IPI. Consequently, the hardware hart running the target confidential
-                        // hart will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target hart.
-                        InterruptController::try_read(|controller| controller.send_ipi(hardware_hart_id))?;
-                    }
                 }
-                Ok(())
+                Ok(self.confidential_harts[confidential_hart_id].hardware_hart_id().and_then(|id| Some(1 << id)).unwrap_or(0))
             })
+            .try_fold(0, |acc, x: Result<usize, Error>| Ok(acc | x?))
     }
 
     pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>

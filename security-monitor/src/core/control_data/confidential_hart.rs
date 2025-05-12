@@ -134,10 +134,8 @@ impl ConfidentialHart {
         let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory);
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
         confidential_hart_state.set_gprs(shared_memory.gprs());
-        // this register is cleared as it can contain undeterministic address of TEE Attestation Payload that would destroy integrity
-        // measurements
         confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, id);
-        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, 0);
+        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, fdt_address.usize());
         confidential_hart_state.csrs_mut().vsstatus.save_nacl_value_in_main_memory(&shared_memory);
         confidential_hart_state.csrs_mut().vsie.save_nacl_value_in_main_memory(&shared_memory);
         confidential_hart_state.csrs_mut().vstvec.save_nacl_value_in_main_memory(&shared_memory);
@@ -148,7 +146,6 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().vsatp.save_nacl_value_in_main_memory(&shared_memory);
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted.
         confidential_hart_state.csrs_mut().mepc.save_value_in_main_memory(program_counter);
-        confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a1, fdt_address.usize());
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
         confidential_hart
     }
@@ -249,9 +246,8 @@ impl ConfidentialHart {
         self.confidential_vm_id.is_none()
     }
 
-    /// Returns true if this confidential hart can be scheduled on the physical hart.
     pub fn is_executable(&self) -> bool {
-        !self.is_dummy() && HartLifecycleState::STATES_ALLOWED_TO_EXECUTE.contains(&self.lifecycle_state)
+        HartLifecycleState::STATES_ALLOWED_TO_EXECUTE.contains(&self.lifecycle_state)
     }
 }
 

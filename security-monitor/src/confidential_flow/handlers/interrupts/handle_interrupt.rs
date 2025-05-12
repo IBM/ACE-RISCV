@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::ConfidentialFlow;
-use crate::core::architecture::specification::SCAUSE_INTERRUPT_MASK;
+use crate::core::architecture::specification::{MIE_MSIP_MASK, SCAUSE_INTERRUPT_MASK};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 
@@ -19,11 +19,18 @@ impl HandleInterrupt {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
+        use crate::core::architecture::specification::MIE_SSIP_MASK;
+        if self.pending_interrupts & MIE_SSIP_MASK > 0 {
+            crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_SSIP_MASK);
+            confidential_flow.resume_confidential_hart_execution();
+        } else {
+            confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
+        }
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        hypervisor_hart.csrs_mut().scause.write(self.pending_interrupts | SCAUSE_INTERRUPT_MASK);
+        let scause = hypervisor_hart.csrs().scause.read_from_main_memory();
+        hypervisor_hart.csrs_mut().scause.write(scause | self.pending_interrupts | SCAUSE_INTERRUPT_MASK);
         SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);
     }
 }

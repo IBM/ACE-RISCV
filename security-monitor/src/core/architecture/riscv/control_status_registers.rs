@@ -186,7 +186,7 @@ impl ControlStatusRegisters {
         self.vsepc.save_in_main_memory();
         self.vscause.save_in_main_memory();
         self.vstval.save_in_main_memory();
-        self.vsatp.save_in_main_memory();
+        self.vsatp.save_value_in_main_memory(self.vsatp.read_and_clear_bits(usize::MAX));
     }
 
     pub fn restore_from_main_memory(&self) {
@@ -227,7 +227,7 @@ impl ControlStatusRegisters {
         self.htinst.restore_from_main_memory();
         // self.hgeip.restore_from_main_memory();
         self.henvcfg.restore_from_main_memory();
-        self.hgatp.restore_from_main_memory();
+        // self.hgatp.restore_from_main_memory();
         // DEBUG extension should never be present due to security concerns.
         // self.hcontext.restore_from_main_memory();
         self.htimedelta.restore_from_main_memory();
