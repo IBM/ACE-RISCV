@@ -139,11 +139,18 @@ impl<'a> ConfidentialFlow<'a> {
         hardware_hart: &'a mut HardwareHart, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
     ) -> Result<(usize, Self), (&'a mut HardwareHart, Error)> {
         assert!(hardware_hart.confidential_hart().is_dummy());
+        // Now, we are going to change the context between security domains.
+        // 1) Store the hypervisor hart state that executed on this physical hart to the main memory.
+        hardware_hart.hypervisor_hart_mut().save_in_main_memory();
         match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
             confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
             Ok(confidential_vm.allowed_external_interrupts())
         }) {
-            Ok(allowed_external_interrupts) => Ok((allowed_external_interrupts, Self { hardware_hart })),
+            Ok(allowed_external_interrupts) => {
+                // 2) Load confidential hart state from main memory to the physical hart executing this code.
+                hardware_hart.confidential_hart_mut().restore_from_main_memory();
+                Ok((allowed_external_interrupts, Self { hardware_hart }))
+            }
             Err(error) => Err((hardware_hart, error)),
         }
     }
@@ -157,14 +164,20 @@ impl<'a> ConfidentialFlow<'a> {
 
         TimerController::new(&mut self).store_vs_timer();
 
-        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
-            // Run heavy context switch when giving back the confidential hart to the confidential VM.
-            confidential_vm.return_confidential_hart(self.hardware_hart);
-            Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier))
+        // Now, we are going to change the context between security domains.
+        // 1) Store the confidential hart state that executed on this physical hart to the main memory.
+        self.hardware_hart.confidential_hart_mut().save_in_main_memory();
+        let _ = ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+            Ok(confidential_vm.return_confidential_hart(self.hardware_hart))
         })
         // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
         // the given id exists in the control data.
-        .unwrap()
+        .unwrap();
+        // Enable memory access control for the hypervisor
+        unsafe { self.hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
+        // 2) Load hypervisor hart state from main memory to the physical hart executing this code.
+        self.hardware_hart.hypervisor_hart_mut().restore_from_main_memory();
+        NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier)
     }
 
     /// Resumes execution of the confidential hart after the confidential hart was not running on any physical hart.

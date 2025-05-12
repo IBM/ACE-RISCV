@@ -107,20 +107,13 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
-        // Heavy context switch:
-        // 1) Dump control and status registers (CSRs) of the hypervisor hart to the main memory.
-        hardware_hart.hypervisor_hart_mut().save_in_main_memory();
-
-        // 2) Load control and status registers (CSRs) of confidential hart from the physical hart executing this code.
-        self.confidential_harts[confidential_hart_id].restore_from_main_memory();
-
-        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
-
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
         // machine and the virtual hart is assigned to the hardware hart.
         unsafe { self.memory_protector.enable() };
+
+        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
 
         Ok(())
     }
@@ -139,20 +132,6 @@ impl ConfidentialVm {
 
         // Return the confidential hart to the confidential machine.
         core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
-
-        // Heavy context switch:
-        // 1) Dump control and status registers (CSRs) of the confidential hart to the main memory.
-        self.confidential_harts[confidential_hart_id].save_in_main_memory();
-
-        // 2) Load control and status registers (CSRs) of the hypervisor hart into the physical hart executing this code.
-        hardware_hart.hypervisor_hart_mut().restore_from_main_memory();
-
-        // Reconfigure the memory access control configuration to enable access to memory regions owned by the hypervisor because we
-        // are now transitioning into the non-confidential flow part of the finite state machine where the hardware hart is
-        // associated with a dummy virtual hart.
-        // It is safe to invoke below unsafe code because at this point we are transitioning from the confidential flow part of the
-        // finite state machine to the non-confidential part and the virtual hart is still assigned to the hardware hart.
-        unsafe { hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
     }
 }
 
