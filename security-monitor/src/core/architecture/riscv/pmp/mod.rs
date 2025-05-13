@@ -7,6 +7,9 @@ use crate::core::architecture::riscv::specification::{
 use crate::core::architecture::CSR;
 use crate::error::Error;
 
+const OPEN_PMP_MASK: usize = (PMP_OFF_MASK | PMP_PERMISSION_RWX_MASK) | (PMP_TOR_MASK | PMP_PERMISSION_RWX_MASK) << (1 * PMP_CONFIG_SHIFT);
+const CLOSE_PMP_MASK: usize = PMP_PERMISSION_RWX_MASK | (PMP_PERMISSION_RWX_MASK << (1 * PMP_CONFIG_SHIFT));
+
 // OpenSBI set already PMPs to isolate OpenSBI firmware from the rest of the
 // system PMP0 protects OpenSBI memory region while PMP1 defines the system
 // range We will use PMP0 and PMP1 to protect the confidential memory region,
@@ -31,14 +34,12 @@ pub fn split_memory_into_confidential_and_non_confidential(
 }
 
 pub fn open_access_to_confidential_memory() {
-    let mask = (PMP_OFF_MASK | PMP_PERMISSION_RWX_MASK) | (PMP_TOR_MASK | PMP_PERMISSION_RWX_MASK) << (1 * PMP_CONFIG_SHIFT);
-    CSR.pmpcfg0.read_and_set_bits(mask);
+    CSR.pmpcfg0.read_and_set_bits(OPEN_PMP_MASK);
     clear_caches();
 }
 
 pub fn close_access_to_confidential_memory() {
-    let mask = PMP_PERMISSION_RWX_MASK | (PMP_PERMISSION_RWX_MASK << (1 * PMP_CONFIG_SHIFT));
-    CSR.pmpcfg0.read_and_clear_bits(mask);
+    CSR.pmpcfg0.read_and_clear_bits(CLOSE_PMP_MASK);
     clear_caches();
 }
 
@@ -46,5 +47,4 @@ fn clear_caches() {
     // See Section 3.7.2 of RISC-V privileged specification v1.12.
     // PMP translations can be cached and address translation can be done speculatively. Thus, it is adviced to flush caching structures.
     super::fence::sfence_vma();
-    super::fence::hfence_gvma();
 }

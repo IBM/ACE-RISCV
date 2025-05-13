@@ -4,5 +4,4 @@
 
 pub fn clear_hart_tlbs() {
     super::fence::hfence_gvma();
-    super::fence::hfence_vvma();
 }

@@ -113,8 +113,13 @@ impl ConfidentialVm {
         unsafe { self.memory_protector.enable() };
 
         // Assign the confidential hart to the hardware hart.
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
-
+        // core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
+        unsafe {
+            core::ptr::swap(
+                hardware_hart.confidential_hart_mut() as *mut ConfidentialHart,
+                &mut self.confidential_harts[confidential_hart_id] as *mut ConfidentialHart,
+            );
+        }
         Ok(())
     }
 
@@ -129,8 +134,13 @@ impl ConfidentialVm {
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
-        // Return the confidential hart to the confidential machine.
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
+
+        unsafe {
+            core::ptr::swap(
+                hardware_hart.confidential_hart_mut() as *mut ConfidentialHart,
+                &mut self.confidential_harts[confidential_hart_id] as *mut ConfidentialHart,
+            );
+        }
     }
 }
 
@@ -194,8 +204,9 @@ impl ConfidentialVm {
         &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<usize, Error> {
         (0..self.confidential_harts.len())
-            .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
-            .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
+            .filter(|confidential_hart_id| {
+                remote_command.is_hart_selected(*confidential_hart_id) && *confidential_hart_id != sender_confidential_hart_id
+            })
             .map(|confidential_hart_id| {
                 if self.confidential_harts[confidential_hart_id].is_executable() {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {

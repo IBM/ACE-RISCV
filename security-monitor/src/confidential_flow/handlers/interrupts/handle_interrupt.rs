@@ -21,8 +21,8 @@ impl HandleInterrupt {
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         use crate::core::architecture::specification::MIE_SSIP_MASK;
         if self.pending_interrupts & MIE_MSIP_MASK > 0 && confidential_flow.process_confidential_hart_remote_commands() {
-                crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_SSIP_MASK);
-                confidential_flow.resume_confidential_hart_execution();
+            crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_SSIP_MASK);
+            confidential_flow.resume_confidential_hart_execution();
         } else {
             confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
         }
