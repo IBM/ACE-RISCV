@@ -227,7 +227,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
     pub fn broadcast_remote_command(
-        &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+        &mut self, confidential_vm: &ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
         let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
         // check if the remote command is also dedicated for the currently executing confidential hart
@@ -256,7 +256,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// a hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
     pub fn process_confidential_hart_remote_commands(&mut self) -> bool {
         let mut requests_processed = false;
-        ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |confidential_vm| {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {

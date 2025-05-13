@@ -94,7 +94,7 @@ impl ConfidentialVm {
     /// is reconfigured to enforce memory access control for the confidential VM. Returns error if the confidential VM's
     /// virtual hart has been already stolen or is in the `Stopped` state.
     ///
-    /// # Safety
+    /// # Guarantees
     ///
     /// The physical hart is configured to enforce memory access control so that the confidential VM has access only to its own memory.
     pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
@@ -112,14 +112,14 @@ impl ConfidentialVm {
         // machine and the virtual hart is assigned to the hardware hart.
         unsafe { self.memory_protector.enable() };
 
-        // Assign the confidential hart to the hardware hart.
-        // core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
+        // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
         unsafe {
             core::ptr::swap(
                 hardware_hart.confidential_hart_mut() as *mut ConfidentialHart,
                 &mut self.confidential_harts[confidential_hart_id] as *mut ConfidentialHart,
             );
         }
+
         Ok(())
     }
 
@@ -135,6 +135,7 @@ impl ConfidentialVm {
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
 
+        // Return the confidential hart to the confidential machine.
         unsafe {
             core::ptr::swap(
                 hardware_hart.confidential_hart_mut() as *mut ConfidentialHart,
@@ -201,12 +202,11 @@ impl ConfidentialVm {
     /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
     pub fn broadcast_remote_command(
-        &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
+        &self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<usize, Error> {
         (0..self.confidential_harts.len())
-            .filter(|confidential_hart_id| {
-                remote_command.is_hart_selected(*confidential_hart_id) && *confidential_hart_id != sender_confidential_hart_id
-            })
+            .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
+            .filter(|confidential_hart_id| *confidential_hart_id != sender_confidential_hart_id)
             .map(|confidential_hart_id| {
                 if self.confidential_harts[confidential_hart_id].is_executable() {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
@@ -222,7 +222,7 @@ impl ConfidentialVm {
             .try_fold(0, |acc, x: Result<usize, Error>| Ok(acc | x?))
     }
 
-    pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
+    pub fn try_confidential_hart_remote_commands<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand>>) -> Result<F, Error> {
         op(self.remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
