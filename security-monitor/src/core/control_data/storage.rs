@@ -14,7 +14,7 @@ static CONTROL_DATA_STORAGE: Once<RwLock<ControlDataStorage>> = Once::new();
 /// Access to it variable is exposed to other modules with try_read_*() and try_write_*(). These functions synchronize
 /// accesses to the control data region descriptor requested from multiple physical harts.
 pub struct ControlDataStorage {
-    confidential_vms: BTreeMap<ConfidentialVmId, Mutex<ConfidentialVm>>,
+    confidential_vms: BTreeMap<ConfidentialVmId, RwLock<ConfidentialVm>>,
 }
 
 impl ControlDataStorage {
@@ -40,12 +40,16 @@ impl ControlDataStorage {
     pub fn insert_confidential_vm(&mut self, confidential_vm: ConfidentialVm) -> Result<ConfidentialVmId, Error> {
         let id = confidential_vm.confidential_vm_id();
         ensure!(!self.confidential_vms.contains_key(&id), Error::InvalidConfidentialVmId())?;
-        self.confidential_vms.insert(id, Mutex::new(confidential_vm));
+        self.confidential_vms.insert(id, RwLock::new(confidential_vm));
         Ok(id)
     }
 
-    pub fn confidential_vm(&self, id: ConfidentialVmId) -> Result<MutexGuard<'_, ConfidentialVm>, Error> {
-        self.confidential_vms.get(&id).ok_or(Error::InvalidConfidentialVmId()).and_then(|v| Ok(v.lock()))
+    pub fn confidential_vm(&self, id: ConfidentialVmId) -> Result<RwLockReadGuard<'_, ConfidentialVm>, Error> {
+        Ok(self.confidential_vms.get(&id).ok_or(Error::InvalidConfidentialVmId()).and_then(|v| Ok(v.read()))?)
+    }
+
+    pub fn confidential_vm_mut(&self, id: ConfidentialVmId) -> Result<RwLockWriteGuard<'_, ConfidentialVm>, Error> {
+        self.confidential_vms.get(&id).ok_or(Error::InvalidConfidentialVmId()).and_then(|v| Ok(v.write()))
     }
 
     pub fn remove_confidential_vm(confidential_vm_id: ConfidentialVmId) -> Result<(), Error> {
@@ -68,12 +72,12 @@ impl ControlDataStorage {
     }
 
     pub fn try_confidential_vm<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
-    where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
+    where O: FnOnce(RwLockReadGuard<'_, ConfidentialVm>) -> Result<F, Error> {
         Self::try_read(|mr| op(mr.confidential_vm(confidential_vm_id)?))
     }
 
     pub fn try_confidential_vm_mut<F, O>(confidential_vm_id: ConfidentialVmId, op: O) -> Result<F, Error>
-    where O: FnOnce(MutexGuard<'_, ConfidentialVm>) -> Result<F, Error> {
-        Self::try_read(|m| op(m.confidential_vm(confidential_vm_id)?))
+    where O: FnOnce(RwLockWriteGuard<'_, ConfidentialVm>) -> Result<F, Error> {
+        Self::try_read(|m| op(m.confidential_vm_mut(confidential_vm_id)?))
     }
 }

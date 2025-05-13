@@ -122,7 +122,7 @@ impl<'a> ConfidentialFlow<'a> {
         // Now, we are going to change the context between security domains.
         // 1) Store the hypervisor hart state that executed on this physical hart to the main memory.
         hardware_hart.hypervisor_hart_mut().save_in_main_memory();
-        match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
             Ok(confidential_vm.allowed_external_interrupts())
         }) {
@@ -145,7 +145,7 @@ impl<'a> ConfidentialFlow<'a> {
         // Now, we are going to change the context between security domains.
         // 1) Store the confidential hart state that executed on this physical hart to the main memory.
         self.hardware_hart.confidential_hart_mut().save_in_main_memory();
-        let _ = ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+        let _ = ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
             Ok(confidential_vm.return_confidential_hart(self.hardware_hart))
         })
         // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
@@ -256,7 +256,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// a hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
     pub fn process_confidential_hart_remote_commands(&mut self) -> bool {
         let mut requests_processed = false;
-        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+        ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
