@@ -113,7 +113,12 @@ impl ConfidentialVm {
         unsafe { self.memory_protector.enable() };
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id]);
+        unsafe {
+            core::ptr::swap(
+                hardware_hart.confidential_hart_mut() as *mut ConfidentialHart,
+                &mut self.confidential_harts[confidential_hart_id] as *mut ConfidentialHart,
+            );
+        }
 
         Ok(())
     }
