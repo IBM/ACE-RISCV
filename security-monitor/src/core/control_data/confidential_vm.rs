@@ -110,9 +110,7 @@ impl ConfidentialVm {
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        unsafe {
-            core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
-        }
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
 
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
@@ -136,9 +134,7 @@ impl ConfidentialVm {
 
         // Return the confidential hart to the confidential machine.
         let mut confidential_hart = self.confidential_harts[confidential_hart_id].write();
-        unsafe {
-            core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
-        }
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
     }
 }
 
