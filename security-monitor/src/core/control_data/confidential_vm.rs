@@ -10,8 +10,9 @@ use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::Error;
 use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
+use core::sync::atomic::AtomicPtr;
 use riscv_cove_tap::Secret;
-use spin::{Mutex, MutexGuard};
+use spin::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
@@ -19,7 +20,7 @@ pub struct ConfidentialVm {
     _measurements: StaticMeasurements,
     secrets: Vec<Secret>,
     remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
-    memory_protector: ConfidentialVmMemoryProtector,
+    memory_protector: RwLock<ConfidentialVmMemoryProtector>,
     allowed_external_interrupts: usize,
     mmio_regions: Vec<ConfidentialVmMmioRegion>,
 }
@@ -56,7 +57,7 @@ impl ConfidentialVm {
             _measurements,
             secrets,
             remote_commands,
-            memory_protector,
+            memory_protector: RwLock::new(memory_protector),
             allowed_external_interrupts: 0,
             mmio_regions: Vec::with_capacity(8),
         }
@@ -66,12 +67,12 @@ impl ConfidentialVm {
         self.id
     }
 
-    pub fn memory_protector(&self) -> &ConfidentialVmMemoryProtector {
-        &self.memory_protector
+    pub fn memory_protector(&self) -> RwLockReadGuard<'_, ConfidentialVmMemoryProtector> {
+        self.memory_protector.read()
     }
 
-    pub fn memory_protector_mut(&mut self) -> &mut ConfidentialVmMemoryProtector {
-        &mut self.memory_protector
+    pub fn memory_protector_mut(&self) -> RwLockWriteGuard<'_, ConfidentialVmMemoryProtector> {
+        self.memory_protector.write()
     }
 
     pub fn secret(&self, secret_id: usize) -> Result<Vec<u8>, Error> {
@@ -84,7 +85,7 @@ impl ConfidentialVm {
     }
 
     pub(super) fn deallocate(self) {
-        self.memory_protector.into_root_page_table().deallocate();
+        self.memory_protector.into_inner().into_root_page_table().deallocate();
     }
 }
 
@@ -110,7 +111,7 @@ impl ConfidentialVm {
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
         // machine and the virtual hart is assigned to the hardware hart.
-        unsafe { self.memory_protector.enable() };
+        unsafe { self.memory_protector().enable() };
 
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
         unsafe {
