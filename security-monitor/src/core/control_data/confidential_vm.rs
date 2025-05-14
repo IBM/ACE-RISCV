@@ -97,9 +97,9 @@ impl ConfidentialVm {
     /// # Guarantees
     ///
     /// The physical hart is configured to enforce memory access control so that the confidential VM has access only to its own memory.
-    pub fn steal_confidential_hart(&mut self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
+    pub fn steal_confidential_hart(&self, confidential_hart_id: usize, hardware_hart: &mut HardwareHart) -> Result<(), Error> {
         ensure!(confidential_hart_id < self.confidential_harts.len(), Error::InvalidHartId())?;
-        let confidential_hart = self.confidential_harts[confidential_hart_id].get_mut();
+        let mut confidential_hart = self.confidential_harts[confidential_hart_id].write();
         // The hypervisor might try to schedule the same confidential hart on different physical harts. We detect it
         // because after a confidential_hart is scheduled for the first time, its token is stolen and the
         // ConfidentialVM is left with a dummy confidential_hart. A dummy confidential hart is a hart not associated
@@ -107,13 +107,12 @@ impl ConfidentialVm {
         ensure_not!(confidential_hart.is_dummy(), Error::HartAlreadyRunning())?;
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
-        unsafe {
-            core::ptr::swap(hardware_hart.confidential_hart_mut() as *mut ConfidentialHart, confidential_hart as *mut ConfidentialHart);
-            // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
-            // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
-            // machine and the virtual hart is assigned to the hardware hart.
-            self.memory_protector().enable()
-        };
+
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
+        // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
+        // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
+        // machine and the virtual hart is assigned to the hardware hart.
+        unsafe { self.memory_protector().enable() };
         Ok(())
     }
 
@@ -123,15 +122,12 @@ impl ConfidentialVm {
     /// # Safety
     ///
     /// A confidential hart belongs to this confidential VM and is currently assigned to the hardware hart.
-    pub fn return_confidential_hart(&mut self, hardware_hart: &mut HardwareHart) {
+    pub fn return_confidential_hart(&self, hardware_hart: &mut HardwareHart) {
         assert!(!hardware_hart.confidential_hart().is_dummy());
         assert!(Some(self.id) == hardware_hart.confidential_hart().confidential_vm_id());
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
-        let confidential_hart = self.confidential_harts[confidential_hart_id].get_mut();
-        unsafe {
-            core::ptr::swap(hardware_hart.confidential_hart_mut() as *mut ConfidentialHart, confidential_hart as *mut ConfidentialHart);
-        }
+        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id].write());
     }
 }
 
