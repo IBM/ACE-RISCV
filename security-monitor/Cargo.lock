@@ -634,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "security-monitor"
-version = "0.16.0"
+version = "0.17.0"
 dependencies = [
  "flattened_device_tree",
  "memoffset 0.9.1",

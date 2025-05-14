@@ -34,7 +34,7 @@ impl SbiHsmHartStart {
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         // We expect the confidential hart to be inside the control data (not assigned to a hardware hart), otherwise there is no need to
         // start this confidential hart.
-        match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref confidential_vm| {
             confidential_vm.start_confidential_hart(self.confidential_hart_id, self.start_address, self.opaque)
         }) {
             Ok(_) => confidential_flow
