@@ -143,7 +143,7 @@ impl<'a> ConfidentialFlow<'a> {
         // Now, we are going to change the context between security domains.
         // 1) Store the hypervisor hart state that executed on this physical hart to the main memory.
         hardware_hart.hypervisor_hart_mut().save_in_main_memory();
-        match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm_mut(confidential_vm_id, |mut confidential_vm| {
             confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
             Ok(confidential_vm.allowed_external_interrupts())
         }) {
@@ -168,7 +168,7 @@ impl<'a> ConfidentialFlow<'a> {
         // Now, we are going to change the context between security domains.
         // 1) Store the confidential hart state that executed on this physical hart to the main memory.
         self.hardware_hart.confidential_hart_mut().save_in_main_memory();
-        let _ = ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+        let _ = ControlDataStorage::try_confidential_vm_mut(self.confidential_vm_id(), |mut confidential_vm| {
             Ok(confidential_vm.return_confidential_hart(self.hardware_hart))
         })
         // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
@@ -254,7 +254,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
     pub fn broadcast_remote_command(
-        &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+        &mut self, confidential_vm: &ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
         let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
         // check if the remote command is also dedicated for the currently executing confidential hart
@@ -262,15 +262,13 @@ impl<'a> ConfidentialFlow<'a> {
             self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
         }
         let hart_mask = confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command)?;
-        if hart_mask != 0 {
-            // Confidential harts that should receive an ConfidentialHartRemoteCommand are currently running on a hardware
-            // harts. We interrupt such hardware harts with IPIs. Consequently, hardware harts running target confidential
-            // harts will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target harts.
-            self.hardware_hart.opensbi_context(|| {
-                InterruptController::try_read(|controller| controller.send_ipis(hart_mask, 0))?;
-                Ok(())
-            })?;
-        }
+        // Confidential harts that should receive an ConfidentialHartRemoteCommand are currently running on a hardware
+        // harts. We interrupt such hardware harts with IPIs. Consequently, hardware harts running target confidential
+        // harts will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target harts.
+        self.hardware_hart.opensbi_context(|| {
+            InterruptController::try_read(|controller| controller.send_ipis(hart_mask, 0))?;
+            Ok(())
+        })?;
 
         Ok(())
     }

@@ -20,8 +20,8 @@ impl RemoteFenceI {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        let result = ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_flow.broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteFenceI(self))
+        let result = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |confidential_vm| {
+            confidential_flow.broadcast_remote_command(&confidential_vm, ConfidentialHartRemoteCommand::RemoteFenceI(self))
         })
         .map_or_else(|error| SbiResponse::error(error), |_| SbiResponse::success());
         confidential_flow.apply_and_exit_to_confidential_hart(ApplyToConfidentialHart::SbiResponse(result))

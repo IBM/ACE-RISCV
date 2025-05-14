@@ -23,9 +23,13 @@ impl HandleInterrupt {
         use crate::core::architecture::specification::*;
         if self.irqs & MIE_MEIP_MASK > 0 {
             confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
-        } else if self.irqs & MIE_MSIP_MASK > 0 && confidential_flow.process_confidential_hart_remote_commands() {
-            crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_MSIP_MASK);
-            confidential_flow.exit_to_confidential_hart();
+        } else if self.irqs & MIE_MSIP_MASK > 0 {
+            if confidential_flow.process_confidential_hart_remote_commands() {
+                crate::core::architecture::CSR.mip.read_and_clear_bits(MIE_MSIP_MASK);
+                confidential_flow.exit_to_confidential_hart();
+            } else {
+                confidential_flow.into_non_confidential_flow().declassify_and_exit_to_hypervisor(DeclassifyToHypervisor::Interrupt(self))
+            }
         } else {
             // The only interrupts that we can see here are:
             // * M-mode timer that the security monitor set to preemt execution of a confidential VM
@@ -43,7 +47,7 @@ impl HandleInterrupt {
     }
 
     pub fn declassify_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart) {
-        let scause = hypervisor_hart.csrs().scause.read_from_main_memory();
+        let scause = 0; //hypervisor_hart.csrs().scause.read_from_main_memory();
         hypervisor_hart.csrs_mut().scause.write(scause | self.irqs | SCAUSE_INTERRUPT_MASK);
         hypervisor_hart.csrs_mut().sip.read_and_set_bits(self.irqs);
         SbiResponse::success().declassify_to_hypervisor_hart(hypervisor_hart);

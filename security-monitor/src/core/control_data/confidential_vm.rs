@@ -197,7 +197,7 @@ impl ConfidentialVm {
     /// Returns error when 1) a queue that stores the confidential hart's ConfidentialHartRemoteCommands is full, 2) when sending an
     /// IPI failed.
     pub fn broadcast_remote_command(
-        &mut self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
+        &self, sender_confidential_hart_id: usize, remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<usize, Error> {
         (0..self.confidential_harts.len())
             .filter(|confidential_hart_id| remote_command.is_hart_selected(*confidential_hart_id))
@@ -217,7 +217,7 @@ impl ConfidentialVm {
             .try_fold(0, |acc, x: Result<usize, Error>| Ok(acc | x?))
     }
 
-    pub fn try_confidential_hart_remote_commands<F, O>(&mut self, confidential_hart_id: usize, op: O) -> Result<F, Error>
+    pub fn try_confidential_hart_remote_commands<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand>>) -> Result<F, Error> {
         op(self.remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
