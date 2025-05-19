@@ -7,8 +7,9 @@ use crate::core::architecture::riscv::sbi::CovhExtension::*;
 use crate::core::architecture::riscv::sbi::NaclExtension::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
-use crate::core::architecture::TrapCause;
+use crate::core::architecture::specification::CAUSE_SUPERVISOR_ECALL;
 use crate::core::architecture::TrapCause::*;
+use crate::core::architecture::{TrapCause, CSR};
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::cove_host_extension::{
@@ -24,10 +25,6 @@ extern "C" {
     /// never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
     /// KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
     fn exit_to_hypervisor_asm() -> !;
-
-    /// Currently, we rely on OpenSBI to handle some of the interrupts or exceptions. Below function is the entry point
-    /// to OpenSBI trap handler.
-    fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;
 }
 
 /// Represents the non-confidential part of the finite state machine (FSM), implementing router and exit nodes. It encapsulates the
@@ -37,8 +34,6 @@ pub struct NonConfidentialFlow<'a> {
 }
 
 impl<'a> NonConfidentialFlow<'a> {
-    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: invalid argument provided by the assembly context switch";
-
     /// Creates an instance of the `NonConfidentialFlow`. A confidential hart must not be assigned to the hardware hart.
     pub fn create(hardware_hart: &'a mut HardwareHart) -> Self {
         assert!(hardware_hart.confidential_hart().is_dummy());
@@ -59,7 +54,15 @@ impl<'a> NonConfidentialFlow<'a> {
         // hardware hart's dump area in main memory. This area in main memory is exclusively owned by the physical hart executing this code.
         // Specifically, every physical hart has its own are in the main memory and its `mscratch` register stores the address. See the
         // `initialization` procedure for more details.
-        let mut flow = unsafe { Self::create(hart_ptr.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG)) };
+        let hardware_hart = unsafe { &mut *hart_ptr };
+        // Performance optimziation: we do not want to add overhead when delegating calls to OpenSBI, thus make sure we do not
+        // create extra objects on heap or make unnecessary load/stores.
+        if CSR.mcause.read() != CAUSE_SUPERVISOR_ECALL.into() {
+            hardware_hart.call_opensbi_trap_handler();
+            unsafe { exit_to_hypervisor_asm() };
+        }
+
+        let mut flow = Self::create(hardware_hart);
         match TrapCause::from_hart_architectural_state(flow.hypervisor_hart().hypervisor_hart_state()) {
             HsEcall(Base(ProbeExtension)) => ProbeSbiExtension::from_hypervisor_hart(flow.hypervisor_hart_mut()).handle(flow),
             HsEcall(Covh(TsmGetInfo)) => GetSecurityMonitorInfo::from_hypervisor_hart(flow.hypervisor_hart()).handle(flow),
@@ -75,13 +78,7 @@ impl<'a> NonConfidentialFlow<'a> {
     }
 
     pub fn delegate_to_opensbi(self) -> ! {
-        // Safety: We play with fire here. We must statically make sure that OpenSBI's input structure is bitwise same as ACE's hart state.
-        let trap_regs = self.hardware_hart.hypervisor_hart_mut().hypervisor_hart_state_mut() as *mut _ as *mut sbi_trap_regs;
-        let _ = self.hardware_hart.opensbi_context(|| {
-            Ok(unsafe {
-                sbi_trap_handler(trap_regs);
-            })
-        });
+        self.hardware_hart.call_opensbi_trap_handler();
         unsafe { exit_to_hypervisor_asm() }
     }
 

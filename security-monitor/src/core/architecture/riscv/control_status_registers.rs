@@ -301,6 +301,8 @@ pub struct ControlStatusRegister {
     pub mvendorid: ReadWriteRiscvCsr<CSR_MVENDORID>,
     pub marchid: ReadWriteRiscvCsr<CSR_MARCHID>,
     pub mimpid: ReadWriteRiscvCsr<CSR_MIMPID>,
+    pub mcause: ReadWriteRiscvCsr<CSR_MCAUSE>,
+    pub mstatus: ReadWriteRiscvCsr<CSR_MSTATUS>,
     pub mscratch: ReadWriteRiscvCsr<CSR_MSCRATCH>,
     pub hgatp: ReadWriteRiscvCsr<CSR_HGATP>,
     pub pmpcfg0: ReadWriteRiscvCsr<CSR_PMPCFG0>,
@@ -313,6 +315,8 @@ pub const CSR: &ControlStatusRegister = &ControlStatusRegister {
     mvendorid: ReadWriteRiscvCsr::new(),
     marchid: ReadWriteRiscvCsr::new(),
     mimpid: ReadWriteRiscvCsr::new(),
+    mcause: ReadWriteRiscvCsr::new(),
+    mstatus: ReadWriteRiscvCsr::new(),
     mscratch: ReadWriteRiscvCsr::new(),
     hgatp: ReadWriteRiscvCsr::new(),
     pmpcfg0: ReadWriteRiscvCsr::new(),
@@ -412,6 +416,17 @@ impl<const V: u16> ReadWriteRiscvCsr<V> {
                  rd = out(reg) r,
                  csr = const V,
                  rs1 = in(reg) bitmask);
+        }
+        r
+    }
+
+    pub fn swap(&self, value: usize) -> usize {
+        let r: usize;
+        unsafe {
+            asm!("csrrw {rd}, {csr}, {rs1}",
+                     rd = out(reg) r,
+                     csr = const V,
+                     rs1 = in(reg) value);
         }
         r
     }

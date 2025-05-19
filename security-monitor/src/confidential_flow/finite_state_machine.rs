@@ -25,8 +25,9 @@ use crate::core::architecture::riscv::sbi::IpiExtension::*;
 use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
+use crate::core::architecture::specification::CSR_MSTATUS_MPV;
 use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{HartLifecycleState, TrapCause};
+use crate::core::architecture::{is_bit_enabled, HartLifecycleState, TrapCause, CSR};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
@@ -54,7 +55,6 @@ pub struct ConfidentialFlow<'a> {
 }
 
 impl<'a> ConfidentialFlow<'a> {
-    const CTX_SWITCH_ERROR_MSG: &'static str = "Bug: Invalid argument provided by the assembly context switch";
     const DUMMY_HART_ERROR_MSG: &'static str = "Bug: Found dummy hart instead of a confidential hart";
 
     /// Routes the control flow to a handler that will process the confidential hart interrupt or exception. This is an entry point to
@@ -65,8 +65,18 @@ impl<'a> ConfidentialFlow<'a> {
     /// ConfidentialFlow but accessible to the assembly code performing the context switch.
     #[no_mangle]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
-        let flow = Self { hardware_hart: unsafe { hardware_hart_pointer.as_mut().expect(Self::CTX_SWITCH_ERROR_MSG) } };
+        let flow = Self { hardware_hart: unsafe { &mut *hardware_hart_pointer } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());
+
+        if !is_bit_enabled(CSR.mstatus.read(), CSR_MSTATUS_MPV) {
+            debug!(
+                "TSM exception {} when executing confidential hart {}",
+                flow.confidential_hart().confidential_hart_state().csrs().mcause.read(),
+                flow.confidential_hart().confidential_hart_id(),
+            );
+            ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
+        }
+
         match TrapCause::from_hart_architectural_state(flow.confidential_hart().confidential_hart_state()) {
             Interrupt => HandleInterrupt::from_confidential_hart(flow.confidential_hart()).handle(flow),
             VsEcall(Base(GetSpecVersion)) => SbiGetSpecVersion::from_confidential_hart(flow.confidential_hart()).handle(flow),
@@ -100,13 +110,7 @@ impl<'a> ConfidentialFlow<'a> {
             VirtualInstruction => VirtualInstruction::from_confidential_hart(flow.confidential_hart()).handle(flow),
             GuestStorePageFault => MmioStoreRequest::from_confidential_hart(flow.confidential_hart()).handle(flow),
             trap_reason => {
-                debug!(
-                    "Bug when executing confidential hart {}. Not supported trap cause {:?}. mepc={:x} mtval={:x}",
-                    flow.confidential_hart().confidential_hart_id(),
-                    trap_reason,
-                    flow.confidential_hart().csrs().mepc.read_from_main_memory(),
-                    flow.confidential_hart().csrs().mtval.read()
-                );
+                debug!("Not supported trap cause {:?}", trap_reason);
                 ShutdownRequest::from_confidential_hart(flow.confidential_hart()).handle(flow)
             }
         }
