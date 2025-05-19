@@ -11,21 +11,24 @@ use crate::error::Error;
 /// Provides the confidential VM with a secret that was decoded from the attestation payload during the promotion of the VM to confidential
 /// VM. Secret is written to the buffer allocated by the confidential VM and passed as arguments to the call.
 pub struct RetrieveSecretRequest {
-    output_buffer_address: ConfidentialVmPhysicalAddress,
+    output_buffer_address: usize,
     output_buffer_size: usize,
 }
 
 impl RetrieveSecretRequest {
+    pub const ADDRESS_ALIGNMENT: usize = core::mem::size_of::<usize>();
+
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self {
-            output_buffer_address: ConfidentialVmPhysicalAddress::new(confidential_hart.gprs().read(GeneralPurposeRegister::a0)),
+            output_buffer_address: confidential_hart.gprs().read(GeneralPurposeRegister::a0),
             output_buffer_size: confidential_hart.gprs().read(GeneralPurposeRegister::a1),
         }
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         let transformation = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref confidential_vm| {
-            // ensure!(self.output_buffer_address.is_aligned_to(PageSize::Size4KiB.in_bytes()), Error::AddressNotAligned())?;
+            let output_buffer_address = ConfidentialVmPhysicalAddress::new(self.output_buffer_address)?;
+            ensure!(output_buffer_address.is_aligned_to(Self::ADDRESS_ALIGNMENT), Error::AddressNotAligned())?;
             ensure!(self.output_buffer_size <= PageSize::Size4KiB.in_bytes(), Error::AddressNotAligned())?;
             let secret = confidential_vm.secret(0)?;
             ensure!(secret.len() <= self.output_buffer_size, Error::AddressNotAligned())?;
@@ -35,7 +38,7 @@ impl RetrieveSecretRequest {
                 (0..end_boundary).for_each(|i| buffer[i] = secret[offset + i]);
                 (end_boundary..8).for_each(|i| buffer[i] = 0u8);
                 let confidential_memory_address =
-                    confidential_vm.memory_protector().translate_address(&self.output_buffer_address.add(offset))?;
+                    confidential_vm.memory_protector().translate_address(&output_buffer_address.add(offset))?;
                 unsafe { confidential_memory_address.write_volatile(usize::from_le_bytes(buffer)) };
             }
             Ok(SbiResponse::success_with_code(secret.len()))

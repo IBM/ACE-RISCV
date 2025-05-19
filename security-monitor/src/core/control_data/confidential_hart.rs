@@ -127,7 +127,7 @@ impl ConfidentialHart {
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
     pub fn from_vm_hart(
-        id: usize, program_counter: usize, fdt_address: ConfidentialVmPhysicalAddress, htimedelta: usize, shared_memory: &NaclSharedMemory,
+        id: usize, program_counter: usize, fdt_address: &ConfidentialVmPhysicalAddress, htimedelta: usize, shared_memory: &NaclSharedMemory,
     ) -> Self {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.

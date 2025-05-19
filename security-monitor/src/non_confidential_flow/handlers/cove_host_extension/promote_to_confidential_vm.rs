@@ -29,8 +29,8 @@ use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
 /// * The address of the flattened device tree must be aligned to 8 bytes.
 /// * The address of the authentication blob must be either `0` or aligned to 8 bytes.
 pub struct PromoteToConfidentialVm {
-    fdt_address: ConfidentialVmPhysicalAddress,
-    attestation_payload_address: Option<ConfidentialVmPhysicalAddress>,
+    fdt_address: usize,
+    tap_address: usize,
     program_counter: usize,
     htimedelta: usize,
     hgatp: Hgatp,
@@ -43,11 +43,8 @@ impl PromoteToConfidentialVm {
 
     pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
         Self {
-            fdt_address: ConfidentialVmPhysicalAddress::new(hypervisor_hart.gprs().read(GeneralPurposeRegister::a0)),
-            attestation_payload_address: match hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) {
-                0 => None,
-                address => Some(ConfidentialVmPhysicalAddress::new(address)),
-            },
+            fdt_address: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0),
+            tap_address: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1),
             program_counter: hypervisor_hart.gprs().read(GeneralPurposeRegister::a2),
             htimedelta: 0_i64.wrapping_sub(TimeController::read_time() as i64) as usize,
             hgatp: Hgatp::from(hypervisor_hart.csrs().hgatp.read()),
@@ -55,9 +52,17 @@ impl PromoteToConfidentialVm {
     }
 
     pub fn handle(self, non_confidential_flow: NonConfidentialFlow) -> ! {
+        let mut large_page = match PageAllocator::acquire_page(PageSize::Size2MiB) {
+            Ok(page) => page.zeroize(),
+            Err(err) => {
+                non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::PromoteResponse((self, SbiResponse::error(err))))
+            }
+        };
+
         // TODO: careful with use of PQC in local attestation. Some PQC algorithms might use float pointing unit (FPU).
-        // in such a case, we should store and restore the FPU state.
-        let sbi_response = match self.create_confidential_vm(non_confidential_flow.shared_memory()) {
+        // In such a case, we should store and restore the FPU state, because usual assumption is that M-mode does not
+        // change the FPU state of the callee.
+        let sbi_response = match self.create_confidential_vm(&mut large_page, non_confidential_flow.shared_memory()) {
             Ok(confidential_vm_id) => {
                 debug!("Created new confidential VM[id={:?}]", confidential_vm_id);
                 SbiResponse::success_with_code(confidential_vm_id.usize())
@@ -67,35 +72,41 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
+        PageAllocator::release_pages(alloc::vec![large_page.deallocate()]);
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::PromoteResponse((self, sbi_response)))
     }
 
-    fn create_confidential_vm(&self, shared_memory: &NaclSharedMemory) -> Result<ConfidentialVmId, Error> {
+    fn create_confidential_vm(
+        &self, large_page: &mut Page<Allocated>, shared_memory: &NaclSharedMemory,
+    ) -> Result<ConfidentialVmId, Error> {
         debug!("Promoting a VM to a confidential VM");
         // Copying the entire VM's state to the confidential memory, recreating the MMU configuration
         let mut memory_protector = ConfidentialVmMemoryProtector::from_vm_state(&self.hgatp)?;
 
         // The pointer to the flattened device tree (FDT) as well as the entire FDT must be treated as an untrusted input, which measurement
         // is reflected during attestation. We can parse FDT only after moving VM's data (and the FDT) to the confidential memory.
-        let (vm_memory_layout, number_of_confidential_harts) = self.process_device_tree(&memory_protector)?;
+        let fdt_address = ConfidentialVmPhysicalAddress::new(self.fdt_address)?;
+        let (vm_memory_layout, number_of_confidential_harts) = self.process_device_tree(large_page, &memory_protector, &fdt_address)?;
 
         debug!("Number of confidential harts: {}", number_of_confidential_harts);
         // We create a fixed number of harts (all but the boot hart are in the reset state).
         let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
             .map(|id| match id {
                 Self::BOOT_HART_ID => {
-                    ConfidentialHart::from_vm_hart(id, self.program_counter, self.fdt_address, self.htimedelta, shared_memory)
+                    ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
                 }
                 _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
             })
             .collect();
 
-        let attestation_payload =
-            self.read_attestation_payload(&memory_protector).inspect_err(|e| debug!("TAP reading failed: {:?}", e)).unwrap_or(None);
+        let payload = self
+            .read_attestation_payload(large_page, &memory_protector)
+            .inspect_err(|e| debug!("TAP reading failed: {:?}", e))
+            .unwrap_or(None);
         let measurements = self.measure(&mut memory_protector, &vm_memory_layout, &confidential_harts)?;
 
         let secrets = self
-            .authenticate_and_authorize_vm(attestation_payload, &measurements)
+            .authenticate_and_authorize_vm(payload, &measurements)
             .inspect_err(|e| debug!("Local attestation failed: {:?}", e))
             .unwrap_or(alloc::vec![]);
 
@@ -118,9 +129,12 @@ impl PromoteToConfidentialVm {
         Ok(measurements)
     }
 
-    fn process_device_tree(&self, memory_protector: &ConfidentialVmMemoryProtector) -> Result<(ConfidentialVmMemoryLayout, usize), Error> {
-        debug!("Reading flatten device tree (FDT) at memory address {:?}", self.fdt_address);
-        let address_in_confidential_memory = memory_protector.translate_address(&self.fdt_address)?;
+    fn process_device_tree(
+        &self, large_page: &mut Page<Allocated>, memory_protector: &ConfidentialVmMemoryProtector,
+        fdt_address: &ConfidentialVmPhysicalAddress,
+    ) -> Result<(ConfidentialVmMemoryLayout, usize), Error> {
+        debug!("Reading flatten device tree (FDT) at memory address {:?}", fdt_address);
+        let address_in_confidential_memory = memory_protector.translate_address(fdt_address)?;
         // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be within
         // the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 4 bytes).
         ensure!(address_in_confidential_memory.is_aligned_to(Self::FDT_ALIGNMENT_IN_BYTES), Error::FdtNotAlignedTo64Bits())?;
@@ -131,23 +145,19 @@ impl PromoteToConfidentialVm {
 
         // To work with FDT, we must have it as a continous chunk of memory. We accept only FDTs that fit within 2 MiB
         ensure!(fdt_total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::FdtInvalidSize())?;
-        let large_page = Self::relocate(memory_protector, &self.fdt_address, fdt_total_size, false)?;
+        Self::relocate(large_page, memory_protector, fdt_address, fdt_total_size, false)?;
 
         // Security note: We parse untrusted FDT using an external library. A vulnerability in this library might blow up our security
         // guarantees! Below unsafe is ok because the FDT address aligned to (at least) the size of the FDT header and all FDT is in a
         // continuous chunk of memory. See the safety requirements of `FlattenedDeviceTree::from_raw_pointer`.
-        let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(large_page.address().to_ptr()) }?;
+        let device_tree = unsafe { FlattenedDeviceTree::from_raw_pointer(large_page.address().to_ptr())? };
 
         let number_of_confidential_harts = device_tree.harts().count();
         let kernel = device_tree.memory().and_then(|r| r.into_range())?;
         let initrd = device_tree.initrd().ok();
 
-        let vm_memory_layout =
-            ConfidentialVmMemoryLayout::new(kernel, (self.fdt_address.usize(), self.fdt_address.usize() + fdt_total_size), initrd);
+        let vm_memory_layout = ConfidentialVmMemoryLayout::new(kernel, (fdt_address.usize(), fdt_address.usize() + fdt_total_size), initrd);
         debug!("Virtual machine's memory layout: {:?}", vm_memory_layout);
-
-        // Clean up, deallocate pages
-        PageAllocator::release_pages(alloc::vec![large_page.deallocate()]);
 
         ensure!(number_of_confidential_harts > 0, Error::InvalidNumberOfHartsInFdt())?;
         ensure!(number_of_confidential_harts < ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
@@ -155,11 +165,13 @@ impl PromoteToConfidentialVm {
         Ok((vm_memory_layout, number_of_confidential_harts))
     }
 
-    fn read_attestation_payload(&self, memory_protector: &ConfidentialVmMemoryProtector) -> Result<Option<AttestationPayload>, Error> {
-        match self.attestation_payload_address {
-            Some(attestation_payload_address) => {
-                debug!("Reading TEE attestation payload (TAP) at memory address {:?}", attestation_payload_address);
-                let address_in_confidential_memory = memory_protector.translate_address(&attestation_payload_address)?;
+    fn read_attestation_payload(
+        &self, large_page: &mut Page<Allocated>, memory_protector: &ConfidentialVmMemoryProtector,
+    ) -> Result<Option<AttestationPayload>, Error> {
+        match ConfidentialVmPhysicalAddress::new(self.tap_address) {
+            Ok(tap_address) => {
+                debug!("Reading TEE attestation payload (TAP) at memory address {:?}", tap_address);
+                let address_in_confidential_memory = memory_protector.translate_address(&tap_address)?;
                 // Make sure that the address is 8-bytes aligned. Once we ensure this, we can safely read 8 bytes because they must be
                 // within the page boundary. These 8 bytes should contain the `magic` (first 4 bytes) and `size` (next 2
                 // bytes).
@@ -172,15 +184,13 @@ impl PromoteToConfidentialVm {
                 // To work with the authentication blob, we must have it as a continous chunk of memory. We accept only authentication blobs
                 // that fit within 2MiB
                 ensure!(total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
-                let large_page = Self::relocate(memory_protector, &attestation_payload_address, total_size, true)?;
+                Self::relocate(large_page, memory_protector, &tap_address, total_size, true)?;
                 // TODO: replace the hardcoded decapsulation key with a key or interface to device-specific decapsulation key
                 let mut parser = unsafe { AttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)? };
                 let attestation_payload = parser.parse_and_verify(TEST_DECAPSULATION_KEY)?;
-                // Clean up, deallocate pages
-                PageAllocator::release_pages(alloc::vec![large_page.deallocate()]);
                 Ok(Some(attestation_payload))
             }
-            None => Ok(None),
+            Err(_) => Ok(None),
         }
     }
 
@@ -216,11 +226,10 @@ impl PromoteToConfidentialVm {
     /// Safety:
     ///   * The caller of this function is responsible for deallocating the page returned from this function.
     fn relocate(
-        memory_protector: &ConfidentialVmMemoryProtector, base_address: &ConfidentialVmPhysicalAddress, number_of_bytes_to_copy: usize,
-        clear: bool,
-    ) -> Result<Page<Allocated>, Error> {
+        large_page: &mut Page<Allocated>, memory_protector: &ConfidentialVmMemoryProtector, base_address: &ConfidentialVmPhysicalAddress,
+        number_of_bytes_to_copy: usize, clear: bool,
+    ) -> Result<(), Error> {
         ensure!((base_address.usize() as *const u8).is_aligned_to(core::mem::size_of::<usize>()), Error::AddressNotAligned())?;
-        let mut large_page = PageAllocator::acquire_page(PageSize::Size2MiB)?.zeroize();
         // Let's copy a blob from confidential VM's pages into the newly allocated huge page. We will copy in chunks of 8-bytes (usize).
         let mut copied_bytes = 0;
         while copied_bytes < number_of_bytes_to_copy {
@@ -233,7 +242,7 @@ impl PromoteToConfidentialVm {
             large_page.write(copied_bytes, value)?;
             copied_bytes += core::mem::size_of::<usize>();
         }
-        Ok(large_page)
+        Ok(())
     }
 
     pub fn apply_to_hypervisor_hart(&self, hypervisor_hart: &mut HypervisorHart, sbi_response: SbiResponse) {

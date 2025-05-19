@@ -9,8 +9,6 @@ use crate::core::control_data::{
 };
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
-use core::mem;
-
 pub struct MmioAccessFault {
     cause: usize,
     mtval: usize,
@@ -19,7 +17,7 @@ pub struct MmioAccessFault {
 }
 
 impl MmioAccessFault {
-    pub const ADDRESS_ALIGNMENT: usize = mem::size_of::<usize>();
+    pub const ADDRESS_ALIGNMENT: usize = core::mem::size_of::<usize>();
 
     pub fn new(cause: usize, mtval: usize, mtinst: usize, fault_address: usize) -> Self {
         Self { cause, mtval, mtinst, fault_address }
@@ -27,7 +25,7 @@ impl MmioAccessFault {
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
         match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |confidential_vm| {
-            let confidential_vm_physical_address = ConfidentialVmPhysicalAddress::new(self.fault_address);
+            let confidential_vm_physical_address = ConfidentialVmPhysicalAddress::new(self.fault_address)?;
             let page_size = confidential_vm.memory_protector_mut().map_empty_page(confidential_vm_physical_address, PageSize::Size4KiB)?;
             let request = RemoteHfenceGvmaVmid::all_harts(None, page_size, confidential_flow.confidential_vm_id());
             confidential_flow.broadcast_remote_command(&confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
@@ -51,7 +49,7 @@ impl MmioAccessFault {
 
     pub fn tried_to_access_valid_mmio_region(confidential_vm_id: ConfidentialVmId, fault_address: usize) -> bool {
         ControlDataStorage::try_confidential_vm(confidential_vm_id, |confidential_vm| {
-            Ok(confidential_vm.is_mmio_region_defined(&ConfidentialVmMmioRegion::new(fault_address, Self::ADDRESS_ALIGNMENT)))
+            Ok(confidential_vm.is_mmio_region_defined(&ConfidentialVmMmioRegion::new(fault_address, Self::ADDRESS_ALIGNMENT)?))
         })
         .unwrap_or(false)
     }
