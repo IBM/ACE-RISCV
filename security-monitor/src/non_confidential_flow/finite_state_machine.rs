@@ -121,6 +121,7 @@ impl<'a> NonConfidentialFlow<'a> {
         match transformation {
             ApplyToHypervisorHart::SbiResponse(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
             ApplyToHypervisorHart::SetSharedMemory(v) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut()),
+            ApplyToHypervisorHart::PromoteResponse((v, r)) => v.apply_to_hypervisor_hart(self.hypervisor_hart_mut(), r),
         }
         unsafe { exit_to_hypervisor_asm() }
     }
