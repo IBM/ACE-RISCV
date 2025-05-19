@@ -5,6 +5,13 @@ use crate::core::architecture::CSR;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
+use opensbi_sys::sbi_trap_regs;
+
+extern "C" {
+    /// Currently, we rely on OpenSBI to handle some of the interrupts or exceptions. Below function is the entry point
+    /// to OpenSBI trap handler.
+    fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;
+}
 
 pub const HART_STACK_ADDRESS_OFFSET: usize = memoffset::offset_of!(HardwareHart, stack_address);
 
@@ -46,22 +53,31 @@ impl HardwareHart {
         }
     }
 
-    /// Calling OpenSBI handler to process the SBI call requires setting the mscratch register to a specific value which
-    /// we replaced during the system initialization. We store the original mscratch value expected by the OpenSBI in
-    /// the previous_mscratch field.
-    pub fn swap_mscratch(&mut self) {
-        let previous_mscratch = self.previous_mscratch;
-        let current_mscratch = CSR.mscratch.read();
-        CSR.mscratch.write(previous_mscratch);
-        self.previous_mscratch = current_mscratch;
+    // Safety: this function can be called only once during initialization. We cannot do it in constructor, because physical harts art not
+    // initialized yet then.
+    pub fn set_ace_mscratch(&mut self, value: usize) {
+        self.previous_mscratch = CSR.mscratch.swap(value);
     }
 
+    #[inline(always)]
     pub fn opensbi_context<F>(&mut self, function: F) -> Result<(), crate::error::Error>
     where F: FnOnce() -> Result<(), crate::error::Error> {
-        self.swap_mscratch();
+        let ace_mscratch = CSR.mscratch.swap(self.previous_mscratch);
         let result = function();
-        self.swap_mscratch();
+        CSR.mscratch.write(ace_mscratch);
         result
+    }
+
+    #[inline(always)]
+    pub fn call_opensbi_trap_handler(&mut self) {
+        // Safety: We play with fire here. We must make sure statically that the OpenSBI's input structure is bitwise same as the ACE's hart
+        // state.
+        let trap_regs = self.hypervisor_hart_mut().hypervisor_hart_state_mut() as *mut _ as *mut sbi_trap_regs;
+        let _ = self.opensbi_context(|| {
+            Ok(unsafe {
+                sbi_trap_handler(trap_regs);
+            })
+        });
     }
 
     pub fn confidential_hart(&self) -> &ConfidentialHart {
