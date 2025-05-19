@@ -97,8 +97,6 @@ pub enum Error {
     /* Internal errors exposed to the outside as a failure */
     #[error("The operation failed for unknown reasons")]
     Failed(),
-    #[error("Not enough memory to allocate on heap")]
-    OutOfMemory(),
     #[error("Not enough memory to allocate a page")]
     OutOfPages(),
     #[error("Reached max number of remote hart requests")]

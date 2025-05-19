@@ -176,7 +176,7 @@ impl<'a> ConfidentialFlow<'a> {
         // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
         use crate::core::control_data::ResumableOperation::*;
         match self.confidential_hart_mut().take_resumable_operation() {
-            Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
+            Some(SbiRequest()) => SbiResponse::success().handle(self),
             Some(ResumeHart(v)) => v.handle(self),
             Some(MmioLoad(v)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
             Some(MmioStore(v)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),

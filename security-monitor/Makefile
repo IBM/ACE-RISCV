@@ -6,7 +6,7 @@ CARGO = cargo
 RELEASE = --release
 CHAIN=riscv64gc-unknown-none-elf
 TARGET = --target=$(CHAIN)
-RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Ctarget-feature=+h -Crelocation-model=pie #-Ccode-model=medium
+RUSTFLAGS = -Clink-arg=-Tsrc/platform/qemu/virt.lds -Crelocation-model=pie #-Ccode-model=medium
 EXEC_NAME = libace.a
 MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MAKEFILE_SOURCE_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))

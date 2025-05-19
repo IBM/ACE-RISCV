@@ -4,7 +4,7 @@
 use crate::core::control_data::{ConfidentialVm, ConfidentialVmId};
 use crate::error::Error;
 use alloc::collections::BTreeMap;
-use spin::{Mutex, MutexGuard, Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 static CONTROL_DATA_STORAGE: Once<RwLock<ControlDataStorage>> = Once::new();
 

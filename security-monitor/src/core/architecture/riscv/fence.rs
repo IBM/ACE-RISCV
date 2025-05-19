@@ -3,16 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #![allow(unused)]
 
-pub fn fence_ow() {
-    unsafe { core::arch::asm!("fence ow,ow") };
-}
-
 pub fn fence_wo() {
     unsafe { core::arch::asm!("fence w,o") };
-}
-
-pub fn fence_ro() {
-    unsafe { core::arch::asm!("fence r,r") };
 }
 
 pub fn hfence_gvma() {

@@ -2,8 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-FileContributor: Heavily based on https://os.phil-opp.com/allocator-designs/
 // SPDX-License-Identifier: Apache-2.0
-use crate::error::Error;
-use pointers_utility::{ptr_align, ptr_byte_add_mut, ptr_byte_offset};
 
 ///! TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
 ///! is safer and prevents fragmentation.
@@ -56,17 +54,6 @@ impl LinkedListAllocator {
     /// Creates an empty LinkedListAllocator.
     pub const fn new() -> Self {
         Self { head: ListNode::new(0) }
-    }
-
-    /// Initialize the allocator with the given heap bounds.
-    ///
-    /// This function is unsafe because the caller must guarantee that the given
-    /// heap bounds are valid and that the heap is unused. This method must be
-    /// called only once.
-    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        unsafe {
-            self.add_free_region(heap_start, heap_size);
-        }
     }
 
     /// Adds the given memory region to the front of the list.
