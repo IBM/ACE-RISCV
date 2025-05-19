@@ -24,7 +24,7 @@ impl RetrieveSecretRequest {
     }
 
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
-        let transformation = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref mut confidential_vm| {
+        let transformation = ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |ref confidential_vm| {
             // ensure!(self.output_buffer_address.is_aligned_to(PageSize::Size4KiB.in_bytes()), Error::AddressNotAligned())?;
             ensure!(self.output_buffer_size <= PageSize::Size4KiB.in_bytes(), Error::AddressNotAligned())?;
             let secret = confidential_vm.secret(0)?;

@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::DeclassifyToConfidentialVm;
+use crate::core::architecture::specification::*;
 use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, ConfidentialVmId, HypervisorHart};
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
@@ -53,7 +54,7 @@ impl RunConfidentialHart {
         // We write directly to the CSR because we are after the heavy context switch
         confidential_hart.sstc_mut().stimecmp.write(self.stimecmp + delay);
 
-        // Inject external interrupts
-        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(self.hvip & self.allowed_external_interrupts);
+        let hvip = self.hvip & !(MIE_VSSIP_MASK | MIE_VSTIP_MASK) & self.allowed_external_interrupts;
+        confidential_hart.csrs_mut().hvip.save_value_in_main_memory(hvip);
     }
 }

@@ -32,17 +32,6 @@ impl ConfidentialMemoryAddress {
         Self(address)
     }
 
-    // TODO: check if needed. If yes, make sure the raw pointer is not used incorrectly
-    // Currently we only use it during creation of the heap allocator structure. It
-    // would be good to get rid of this because it requires extra safety guarantees for
-    // parallel execution of the security monitor
-    #[rr::params("l")]
-    #[rr::args("l")]
-    #[rr::returns("l")]
-    pub unsafe fn into_mut_ptr(self) -> *mut usize {
-        self.0
-    }
-
     #[rr::params("l")]
     #[rr::args("#l")]
     #[rr::returns("l")]

@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::CSR;
 use crate::error::Error;
 use spin::{Once, RwLock, RwLockReadGuard};
 
@@ -35,14 +34,7 @@ impl<'a> InterruptController {
         Ok(Self {})
     }
 
-    pub fn send_ipi(&self, target_hart_id: usize) -> Result<(), Error> {
-        // TODO: delay the IPI by random quant of time to prevent time-stepping the confidential VM.
-        if target_hart_id == CSR.mhartid.read() {
-            return Ok(());
-        }
-        let hart_mask = 1;
-        let hart_mask_base = target_hart_id;
-        // For now we rely on the underlying OpenSBI to send IPIs to hardware harts.
+    pub fn send_ipis(&self, hart_mask: usize, hart_mask_base: usize) -> Result<(), Error> {
         match unsafe { sbi_ipi_send_smode(hart_mask, hart_mask_base) } {
             0 => Ok(()),
             code => Err(Error::InterruptSendingError(code)),

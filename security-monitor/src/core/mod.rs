@@ -10,5 +10,5 @@ pub mod page_allocator;
 mod hardware_setup;
 mod heap_allocator;
 mod initialization;
-mod interrupt_controller;
+pub mod interrupt_controller;
 mod panic;

@@ -15,7 +15,7 @@ impl HypervisorMemoryProtector {
         Self {}
     }
 
-    /// Configures the memory protection mechanism on the hart which executes this function.  
+    /// Configures the memory protection mechanism on the hart which executes this function.
     ///
     /// # Safety
     ///

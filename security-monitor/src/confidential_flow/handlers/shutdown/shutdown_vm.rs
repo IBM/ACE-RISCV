@@ -24,8 +24,8 @@ impl ShutdownRequest {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
-            confidential_flow.broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::ShutdownRequest(self))
+        match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |confidential_vm| {
+            confidential_flow.broadcast_remote_command(&confidential_vm, ConfidentialHartRemoteCommand::ShutdownRequest(self))
         }) {
             Ok(_) => shutdown_confidential_hart(confidential_flow),
             Err(error) => {

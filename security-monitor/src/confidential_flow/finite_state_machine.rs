@@ -31,6 +31,7 @@ use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
 };
+use crate::core::interrupt_controller::InterruptController;
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
 
@@ -118,11 +119,18 @@ impl<'a> ConfidentialFlow<'a> {
         hardware_hart: &'a mut HardwareHart, confidential_vm_id: ConfidentialVmId, confidential_hart_id: usize,
     ) -> Result<(usize, Self), (&'a mut HardwareHart, Error)> {
         assert!(hardware_hart.confidential_hart().is_dummy());
-        match ControlDataStorage::try_confidential_vm(confidential_vm_id, |mut confidential_vm| {
+        // Now, we are going to change the context between security domains.
+        // 1) Store the hypervisor hart state that executed on this physical hart to the main memory.
+        hardware_hart.hypervisor_hart_mut().save_in_main_memory();
+        match ControlDataStorage::try_confidential_vm(confidential_vm_id, |confidential_vm| {
             confidential_vm.steal_confidential_hart(confidential_hart_id, hardware_hart)?;
             Ok(confidential_vm.allowed_external_interrupts())
         }) {
-            Ok(allowed_external_interrupts) => Ok((allowed_external_interrupts, Self { hardware_hart })),
+            Ok(allowed_external_interrupts) => {
+                // 2) Load confidential hart state from main memory to the physical hart executing this code.
+                hardware_hart.confidential_hart_mut().restore_from_main_memory();
+                Ok((allowed_external_interrupts, Self { hardware_hart }))
+            }
             Err(error) => Err((hardware_hart, error)),
         }
     }
@@ -134,14 +142,20 @@ impl<'a> ConfidentialFlow<'a> {
         let declassifier =
             DeclassifyToHypervisor::EnabledInterrupts(ExposeEnabledInterrupts::from_confidential_hart(self.confidential_hart()));
 
-        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
-            // Run heavy context switch when giving back the confidential hart to the confidential VM.
-            confidential_vm.return_confidential_hart(self.hardware_hart);
-            Ok(NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier))
+        // Now, we are going to change the context between security domains.
+        // 1) Store the confidential hart state that executed on this physical hart to the main memory.
+        self.hardware_hart.confidential_hart_mut().save_in_main_memory();
+        let _ = ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |confidential_vm| {
+            Ok(confidential_vm.return_confidential_hart(self.hardware_hart))
         })
         // Below unwrap is safe because we are in the confidential flow that guarantees that the confidential VM with
         // the given id exists in the control data.
-        .unwrap()
+        .unwrap();
+        // Enable memory access control for the hypervisor
+        unsafe { self.hardware_hart.hypervisor_hart().enable_hypervisor_memory_protector() };
+        // 2) Load hypervisor hart state from main memory to the physical hart executing this code.
+        self.hardware_hart.hypervisor_hart_mut().restore_from_main_memory();
+        NonConfidentialFlow::create(self.hardware_hart).declassify_to_hypervisor_hart(declassifier)
     }
 
     /// Resumes execution of the confidential hart after the confidential hart was not running on any physical hart.
@@ -162,7 +176,7 @@ impl<'a> ConfidentialFlow<'a> {
         // load) to the hypervisor. We must handle the response or resume confidential hart's execution.
         use crate::core::control_data::ResumableOperation::*;
         match self.confidential_hart_mut().take_resumable_operation() {
-            Some(SbiRequest()) => SbiResponse::from_hypervisor_hart(self.hypervisor_hart()).handle(self),
+            Some(SbiRequest()) => SbiResponse::success().handle(self),
             Some(ResumeHart(v)) => v.handle(self),
             Some(MmioLoad(v)) => MmioLoadResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
             Some(MmioStore(v)) => MmioStoreResponse::from_hypervisor_hart(self.hypervisor_hart(), v).handle(self),
@@ -200,8 +214,7 @@ impl<'a> ConfidentialFlow<'a> {
         // We must restore the control and status registers (CSRs) that might have changed during execution of the security monitor.
         // We call it here because it is just before exiting to the assembly context switch, so we are sure that these CSRs have their
         // final values.
-        let interrupts =
-            self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().vsip.read_from_main_memory();
+        let interrupts = self.confidential_hart().csrs().hvip.read_from_main_memory() | self.confidential_hart().csrs().pending_vssip_irqs;
         let address = self.confidential_hart_mut().address();
         self.confidential_hart().csrs().hvip.write(interrupts);
         self.confidential_hart().csrs().sscratch.write(address);
@@ -214,7 +227,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// Broadcasts the inter hart request to confidential harts of the currently executing confidential VM. Returns error if sending an IPI
     /// to other confidential hart failed or if there is too many pending IPI queued.
     pub fn broadcast_remote_command(
-        &mut self, confidential_vm: &mut ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
+        &mut self, confidential_vm: &ConfidentialVm, confidential_hart_remote_command: ConfidentialHartRemoteCommand,
     ) -> Result<(), Error> {
         let sender_confidential_hart_id = self.hardware_hart.confidential_hart().confidential_hart_id();
         // check if the remote command is also dedicated for the currently executing confidential hart
@@ -222,8 +235,18 @@ impl<'a> ConfidentialFlow<'a> {
             self.hardware_hart.confidential_hart_mut().execute(&confidential_hart_remote_command);
         }
         // For the time-being, we rely on the OpenSBI's implementation of broadcasting IPIs to hardware harts.
-        self.hardware_hart
-            .opensbi_context(|| confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command))
+        let hart_mask = confidential_vm.broadcast_remote_command(sender_confidential_hart_id, confidential_hart_remote_command)?;
+        if hart_mask != 0 {
+            // Confidential harts that should receive an ConfidentialHartRemoteCommand are currently running on a hardware
+            // harts. We interrupt such hardware harts with IPIs. Consequently, hardware harts running target confidential
+            // harts will trap into the security monitor, which will execute ConfidentialHartRemoteCommands on the target harts.
+            self.hardware_hart.opensbi_context(|| {
+                InterruptController::try_read(|controller| controller.send_ipis(hart_mask, 0))?;
+                Ok(())
+            })?;
+        }
+
+        Ok(())
     }
 
     /// Processes pending requests from other confidential harts by applying the corresponding state transformation to
@@ -231,8 +254,9 @@ impl<'a> ConfidentialFlow<'a> {
     ///
     /// This function must only be called when the hypervisor requested resume of confidential hart's execution or when
     /// a hardware hart executing a confidential hart is interrupted with the inter-processor-interrupt (IPI).
-    fn process_confidential_hart_remote_commands(&mut self) {
-        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |mut confidential_vm| {
+    pub fn process_confidential_hart_remote_commands(&mut self) -> bool {
+        let mut requests_processed = false;
+        ControlDataStorage::try_confidential_vm(self.confidential_vm_id(), |confidential_vm| {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
@@ -240,6 +264,7 @@ impl<'a> ConfidentialFlow<'a> {
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
                         // is assigned to the hardware hart.
                         self.confidential_hart_mut().execute(&confidential_hart_remote_command);
+                        requests_processed = true;
                     });
                     Ok(())
                 },
@@ -249,6 +274,7 @@ impl<'a> ConfidentialFlow<'a> {
         // confidential flow of the finite state machine (FSM) that guarantees it and 2) the processing of inter hart
         // requests always succeeds.
         .unwrap();
+        requests_processed
     }
 }
 

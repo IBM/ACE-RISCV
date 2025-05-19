@@ -26,12 +26,11 @@ impl MmioAccessFault {
     }
 
     pub fn handle(self, mut confidential_flow: ConfidentialFlow) -> ! {
-        match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
+        match ControlDataStorage::try_confidential_vm(confidential_flow.confidential_vm_id(), |confidential_vm| {
             let confidential_vm_physical_address = ConfidentialVmPhysicalAddress::new(self.fault_address);
             let page_size = confidential_vm.memory_protector_mut().map_empty_page(confidential_vm_physical_address, PageSize::Size4KiB)?;
             let request = RemoteHfenceGvmaVmid::all_harts(None, page_size, confidential_flow.confidential_vm_id());
-            confidential_flow
-                .broadcast_remote_command(&mut confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
+            confidential_flow.broadcast_remote_command(&confidential_vm, ConfidentialHartRemoteCommand::RemoteHfenceGvmaVmid(request))?;
             Ok(())
         }) {
             Ok(_) => confidential_flow.resume_confidential_hart_execution(),

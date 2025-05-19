@@ -14,10 +14,6 @@ pub struct SbiResponse {
 }
 
 impl SbiResponse {
-    pub fn from_hypervisor_hart(hypervisor_hart: &HypervisorHart) -> Self {
-        Self { a0: hypervisor_hart.gprs().read(GeneralPurposeRegister::a0), a1: hypervisor_hart.gprs().read(GeneralPurposeRegister::a1) }
-    }
-
     pub fn handle(self, confidential_flow: ConfidentialFlow) -> ! {
         confidential_flow.declassify_and_exit_to_confidential_hart(DeclassifyToConfidentialVm::SbiResponse(self))
     }
