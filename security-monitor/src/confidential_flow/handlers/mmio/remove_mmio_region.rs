@@ -26,7 +26,7 @@ impl RemoveMmioRegion {
         match ControlDataStorage::try_confidential_vm_mut(confidential_flow.confidential_vm_id(), |mut confidential_vm| {
             ensure!(self.region_start_address % PageSize::Size4KiB.in_bytes() == 0, Error::AddressNotAligned())?;
             ensure!(self.region_length % PageSize::Size4KiB.in_bytes() == 0, Error::AddressNotAligned())?;
-            Ok(confidential_vm.remove_mmio_region(&ConfidentialVmMmioRegion::new(self.region_start_address, self.region_length)))
+            Ok(confidential_vm.remove_mmio_region(&ConfidentialVmMmioRegion::new(self.region_start_address, self.region_length)?))
         }) {
             Ok(_) => confidential_flow
                 .set_resumable_operation(ResumableOperation::SbiRequest())

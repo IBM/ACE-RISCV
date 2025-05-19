@@ -177,9 +177,9 @@ impl PageTable {
     /// The caller of this function must ensure that he synchronizes changes to page table configuration, i.e., by clearing address
     /// translation caches.
     pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: &ConfidentialVmPhysicalAddress,
     ) -> Result<PageSize, Error> {
-        let shared_page = SharedPage::new(hypervisor_address, confidential_vm_physical_address)?;
+        let shared_page = SharedPage::new(hypervisor_address, confidential_vm_physical_address.clone())?;
         let shared_page_size = shared_page.page_size();
         self.map_page(&confidential_vm_physical_address, &shared_page_size, LogicalPageTableEntry::PageSharedWithHypervisor(shared_page))?;
         Ok(shared_page_size)

@@ -51,7 +51,7 @@ impl ConfidentialVmMemoryProtector {
     /// non-confidential memory. To guarantee confidential VM's correctness, the caller must ensure that he will perform `TLB shutdown` on
     /// all confidential harts, so that all confidential harts see the newly mapped shared page.
     pub fn map_shared_page(
-        &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: ConfidentialVmPhysicalAddress,
+        &mut self, hypervisor_address: NonConfidentialMemoryAddress, confidential_vm_physical_address: &ConfidentialVmPhysicalAddress,
     ) -> Result<PageSize, Error> {
         Ok(self.root_page_table.map_shared_page(hypervisor_address, confidential_vm_physical_address)?)
     }

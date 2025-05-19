@@ -16,14 +16,14 @@ use crate::non_confidential_flow::DeclassifyToHypervisor;
 /// allocate a page of non-confidential memory and return back the `host physical address` of this page. Control flows back to the
 /// confidential hart if the request was invalid, e.g., the `guest physical address` was not correct.
 pub struct SharePageRequest {
-    pub address: ConfidentialVmPhysicalAddress,
+    pub confidential_vm_physical_address: usize,
     pub size: usize,
 }
 
 impl SharePageRequest {
     pub fn from_confidential_hart(confidential_hart: &ConfidentialHart) -> Self {
         Self {
-            address: ConfidentialVmPhysicalAddress::new(confidential_hart.gprs().read(GeneralPurposeRegister::a0)),
+            confidential_vm_physical_address: confidential_hart.gprs().read(GeneralPurposeRegister::a0),
             size: confidential_hart.gprs().read(GeneralPurposeRegister::a1),
         }
     }
@@ -41,8 +41,9 @@ impl SharePageRequest {
     }
 
     fn share_page_sbi_request(&self) -> Result<SbiRequest, Error> {
-        ensure!(self.address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
+        let address = ConfidentialVmPhysicalAddress::new(self.confidential_vm_physical_address)?;
+        ensure!(address.usize() % SharedPage::SIZE.in_bytes() == 0, Error::AddressNotAligned())?;
         ensure!(self.size == SharedPage::SIZE.in_bytes(), Error::InvalidParameter())?;
-        Ok(SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_SHARE_MEMORY, self.address.usize(), self.size))
+        Ok(SbiRequest::new(CovgExtension::EXTID, CovgExtension::SBI_EXT_COVG_SHARE_MEMORY, address.usize(), self.size))
     }
 }
