@@ -18,4 +18,4 @@ aes-gcm = "0.10.3" # for symmetric encryption of payload
 
 riscv_cove_tap = {path="../../security-monitor/rust-crates/riscv_cove_tap", features=["parser", "serializer"]}
 
-thiserror = "1.0"  # provides macros that help removing boilerplate code in the rust error handling
+thiserror = "2.0"  # provides macros that help removing boilerplate code in the rust error handling
