@@ -5,15 +5,17 @@
 
 # This script runs all tests in harness
 
-declare -a TESTS=("test_esm")
+declare -a TESTS=("test_attestation")
 
 for i in "${TESTS[@]}"; do
-    ./$i.sh 2>&1 > $i.log 
+    ./$i.sh 2>&1 > $i.log
     RESULT=$?
     if [ $RESULT -eq 0 ]; then
         echo "$i: success"
     else
         echo "$i: failed"
-        cat $i.log  
+        echo ""
+        echo "======= Logs: ======="
+        cat $i.log
     fi
 done
