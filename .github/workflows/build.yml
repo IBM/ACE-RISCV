@@ -46,4 +46,4 @@ jobs:
     - name: build confidential vms
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make confidential_vms
     - name: run tests on confidential vms
-      run: ACE_DIR=$(pwd)/build/ ace test
+      run: $(pwd)/build/ace test
