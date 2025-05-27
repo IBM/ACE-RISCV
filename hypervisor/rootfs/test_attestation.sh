@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 . common.sh
 
-/root/run_linux_vm_qemu.sh --daemonize 2>&1 > tmp_run_vm.log &
+/root/run_linux_vm_qemu.sh -s=1 -m=256M --daemonize 2>&1 > tmp_run_vm.log &
 sleep 5
 
 TVM_USER="root"
