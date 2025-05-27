@@ -40,6 +40,8 @@ jobs:
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/setup-coq.sh
     - name: Install RefinedRust type system
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-typesystem.sh
+    - name: Check cargo version
+      run: cargo --version 
     - name: Install RefinedRust stdlib
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-stdlib.sh
     - name: Generate stdlib metadata
