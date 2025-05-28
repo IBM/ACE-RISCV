@@ -31,8 +31,6 @@ jobs:
       run: rustup target add riscv64gc-unknown-none-elf
     - name: install rust nightly
       run: rustup component add rustfmt
-    - name: install cargo utils
-      run: cargo install cargo-binutils
     - name: build riscv toolchain
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make devtools
     - name: build emulator
