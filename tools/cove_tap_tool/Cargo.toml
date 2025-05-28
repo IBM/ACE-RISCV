@@ -6,16 +6,10 @@ description = "Tool to create TVM attestation payload for CoVE's confidential VM
 edition = "2021"
 
 [dependencies]
-clap = { version="4", features = ["derive"] } # for command line argument parsing
-clap-num = "1.1.1"
-
+clap = { version="4.5", features = ["derive"] } # for command line argument parsing
+clap-num = "1.2.0"
 byteorder = "1.5" # to serialize numbers using little/big endianness
 sha2 = "0.10" # to calculate integrity measurements of kernel, initramfs etc.
-hmac = "0.12" # to calculate HMAC over encrypted payload
-rsa = "0.9" # to create lockboxes: encrypt symetric key using public keys of target TEEs
-rand = "0.8" # to generate symmetric key used to encrypted payload
-aes-gcm = "0.10.3" # for symmetric encryption of payload
-
 riscv_cove_tap = {path="../../security-monitor/rust-crates/riscv_cove_tap", features=["parser", "serializer"]}
 
 thiserror = "1.0"  # provides macros that help removing boilerplate code in the rust error handling

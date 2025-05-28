@@ -6,10 +6,6 @@
 pub enum Error {
     #[error("IO Error")]
     IoError(#[from] std::io::Error),
-    #[error("PKCS1 Error")]
-    Pkcs1Error(#[from] rsa::pkcs1::Error),
-    #[error("RSA Error")]
-    RsaError(#[from] rsa::Error),
     #[error("Invalid parameter")]
     InvalidParameter(String),
     #[error("Tap Error")]

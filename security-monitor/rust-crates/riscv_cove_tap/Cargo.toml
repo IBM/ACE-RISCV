@@ -6,15 +6,13 @@ description = "Library to parse the RISC-V CoVE's TEE attestation payload"
 edition = "2021"
 
 [dependencies]
-#rsa = "0.9" # to create lockboxes: encrypt symetric key using public keys of target TEEs
-
-rand = {version = "0.8", optional=true}
+rand = {version = "0.8.5", optional=true}
 
 hybrid-array = "=0.2.0-rc.9"
 ml-kem = {version = "=0.2.0", default-features=false, features = [] }
 
 # for symmetric encryption of payload
-aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc"]}
+aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc", "rand_core"]}
 
 # provides macros that help removing boilerplate code in rust error handling
 thiserror-no-std = "2.0"
