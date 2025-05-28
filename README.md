@@ -1,5 +1,6 @@
 # Assured Confidential Execution (ACE) for RISC-V
 ![Build Status](https://github.com/IBM/ACE-RISCV/actions/workflows/build.yml/badge.svg?branch=main)
+![Build Status](https://github.com/IBM/ACE-RISCV/actions/workflows/verify.yml/badge.svg?branch=main)
 
 <img src=".github/ace.png" align="right" width="100" height="100">
 
@@ -14,7 +15,7 @@ This project implements the RISC-V CoVE spec's deployment model 3 referenced in 
 We are currently building on RISC-V 64-bit with integer (I), atomic (A) and hypervisor extentions (H), physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc).
 
 **RISC-V hardware to run ACE:**
-* SiFive P550 evaluation board, [see instructions](security-monitor/platform/p550).
+* HiFive Premiere P550 evaluation board, [see instructions](security-monitor/platform/p550).
 
 ## Quick Start
 Follow instructions to run one of the sample [confidential workloads](confidential-vms) under an [untrusted Linux KVM hypervisor](hypervisor/) in an emulated RISC-V environment.
