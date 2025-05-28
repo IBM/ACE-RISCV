@@ -14,15 +14,15 @@ jobs:
       with:
         submodules: 'true'
     - name: install build dependencies
-      run: sudo apt -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
+      run: sudo apt-get update -y && sudo apt-get -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev
     - name: install OpenSBI dependencies
-      run: sudo apt -qq -y install clang
+      run: sudo apt-get update -y && sudo apt-get -qq -y install clang
     - name: install Qemu dependencies
-      run: sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev xz-utils
+      run: sudo apt-get update -y && sudo apt-get -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev xz-utils
     - name: install Buildroot dependencies
-      run: sudo apt -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
+      run: sudo apt-get update -y && sudo apt-get -qq -y install unzip sed binutils diffutils build-essential bash patch gzip bzip2 perl tar cpio unzip rsync file bc findutils
     - name: install utilities
-      run: sudo apt install -y sshpass
+      run: sudo apt-get update -y && sudo apt-get -qq install -y sshpass
     - name: install rust
       run: curl https://sh.rustup.rs -sSf | sh -s -- -y
     - name: install rust nightly
@@ -31,8 +31,6 @@ jobs:
       run: rustup target add riscv64gc-unknown-none-elf
     - name: install rust nightly
       run: rustup component add rustfmt
-    - name: install cargo utils
-      run: cargo install cargo-binutils
     - name: build riscv toolchain
       run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make devtools
     - name: build emulator

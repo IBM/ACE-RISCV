@@ -15,7 +15,7 @@ jobs:
         persist-credentials: false
         submodules: 'true'
     - name: Install opam dependencies
-      run: sudo apt update -y && sudo apt install -y pkg-config git rsync tar unzip m4 time curl ocaml build-essential bubblewrap gawk libgmp-dev python2.7 python3 python3-distutils libmpfr-dev
+      run: sudo apt update -y && sudo apt install -y pkg-config git rsync tar unzip m4 time curl ocaml build-essential bubblewrap gawk libgmp-dev python3 python-is-python3 libmpfr-dev && python3 -m pip install setuptools
     - name: Install opam
       run: curl "https://github.com/ocaml/opam/releases/download/2.1.5/opam-2.1.5-x86_64-linux" -Lo /usr/local/bin/opam && chmod +x /usr/local/bin/opam
     - name: Setup opam
@@ -40,6 +40,8 @@ jobs:
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/setup-coq.sh
     - name: Install RefinedRust type system
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-typesystem.sh
+    - name: Check cargo version
+      run: cargo --version 
     - name: Install RefinedRust stdlib
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-stdlib.sh
     - name: Generate stdlib metadata
