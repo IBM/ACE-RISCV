@@ -25,7 +25,7 @@ pointers_utility = {path = "rust-crates/pointers_utility"}
 riscv-decode = "0.2"
 
 # The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
-spin = {version="0.9", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
+spin = {version="0.10", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 
 # This crates provides functionality to parse TVM attestation payload (TAP).
 riscv_cove_tap = {path = "rust-crates/riscv_cove_tap", features = ["parser"]}

@@ -1,4 +1,4 @@
-name: ACE Build
+name: Functional tests
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: 'true'
     - name: install build dependencies
@@ -32,14 +32,18 @@ jobs:
     - name: install rust nightly
       run: rustup component add rustfmt
     - name: build riscv toolchain
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make devtools
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 devtools
     - name: build emulator
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make emulator
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 emulator
     - name: build tools
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make tools
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 tools
     - name: build hypervisor
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make hypervisor
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 hypervisor
     - name: build firmware
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make firmware
-    - name: build confidential_vms
-      run: ACE_DIR=$(pwd)/build/ MAKEFLAGS="--silent -j4" make confidential_vms
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 firmware
+    - name: build confidential vms
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8 confidential_vms
+    - name: rebuild all to include changes to cvm disk
+      run: ACE_DIR=$(pwd)/build/ make --silent -j8
+    - name: run tests on confidential vms
+      run: ACE_DIR=$(pwd)/build/ PATH=$PATH:$(pwd)/build/tools ace test

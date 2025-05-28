@@ -3,16 +3,11 @@
 # SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 # SPDX-License-Identifier: Apache-2.0
 
-QEMU_CMD=qemu-system-riscv64
-KERNEL=/root/linux_vm/Image
-DRIVE=/root/linux_vm/rootfs.ext2
-INITRAMFS=/root/linux_vm/rootfs.cpio
-TAP=/root/linux_vm/cove_tap_qemu
-
 HOST_PORT="$((3000 + RANDOM % 3000))"
 INTERACTIVE="-nographic"
 SMP=2
 MEMORY=1G
+ID=""
 
 for i in "$@"; do
   case $i in
@@ -34,6 +29,10 @@ for i in "$@"; do
       MEMORY="${i#*=}"
       shift
       ;;
+    -i=*|--id=*)
+      ID="${i#*=}"
+      shift
+      ;;
     --daemonize*)
       INTERACTIVE="-daemonize"
       shift
@@ -47,8 +46,19 @@ for i in "$@"; do
   esac
 done
 
+if [ ! -f "/root/linux_vm${ID}" ]; then
+  cp -rf /root/linux_vm /root/linux_vm${ID}
+fi
+
+QEMU_CMD=qemu-system-riscv64
+KERNEL=/root/linux_vm${ID}/Image
+DRIVE=/root/linux_vm${ID}/rootfs.ext2
+INITRAMFS=/root/linux_vm${ID}/rootfs.cpio
+TAP=/root/linux_vm${ID}/cove_tap_qemu
+
 echo "SSH port: ${HOST_PORT}"
 echo "Number of cores assigned to the guest: ${SMP}"
+echo "${INTERACTIVE}"
 
 ${QEMU_CMD} ${DEBUG_OPTIONS} \
     ${INTERACTIVE} \
@@ -61,5 +71,4 @@ ${QEMU_CMD} ${DEBUG_OPTIONS} \
     -device virtio-blk-pci,drive=hd0,iommu_platform=on,disable-legacy=on,disable-modern=off \
     -drive if=none,format=raw,file=${DRIVE},id=hd0 \
     -device virtio-net-pci,netdev=net0,iommu_platform=on,disable-legacy=on,disable-modern=off \
-    -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22 \
-    -nographic
+    -netdev user,id=net0,net=192.168.100.1/24,dhcpstart=192.168.100.128,hostfwd=tcp::${HOST_PORT}-:22
