@@ -5,7 +5,7 @@
 
 # This script runs all tests in harness
 
-declare -a TESTS=("test_attestation")
+declare -a TESTS=("test_attestation" "test_smp")
 
 for i in "${TESTS[@]}"; do
     ./$i.sh 2>&1 > $i.log

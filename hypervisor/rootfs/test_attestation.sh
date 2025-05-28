@@ -20,6 +20,7 @@ $SSH_CMD -p${TVM_PORT} ${TVM_USER}@${TVM_HOST} 'dmesg | grep Secret' > tmp_dmesg
 ATTESTATION_RESULT="$(grep 'Secret=0xc0ffee' tmp_dmesg.log | wc -l)"
 
 kill_confidential_vm
+sleep 5
 
 if [[ "x$ATTESTATION_RESULT" == "x1" ]]; then
     echo "Attestation test succeeded"

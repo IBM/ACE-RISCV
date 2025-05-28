@@ -19,6 +19,15 @@ function wait_for_ssh () {
     done
 }
 
+function kill_users_qemu () {
+    USER="$(whoami)"
+    PID="$(ps aux | grep qemu | grep ${USER} | awk -F' ' '{ print $2  }')"
+    if [ "$PID" != "" ]; then
+        kill -9 $PID
+        wait $PID 2>/dev/null
+    fi
+}
+
 # Usage: kill_qemu "22"
 function kill_qemu () {
     PORT=$1
