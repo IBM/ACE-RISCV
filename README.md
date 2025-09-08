@@ -194,7 +194,8 @@ This repository is distributed under the terms of the Apache 2.0 License, see [L
 @misc{kalani2025sailor,
     author = {Kalani, Neelu and Bourgeat, Thomas and Hunt, Guerney D.H. and Ozga, Wojciech},
     title = {Save what must be saved: Secure context switching with Sailor},
-    year = 2025,
-    howpublished = {\url{https://arxiv.org/pdf/2502.06609}}
+    booktitle = {34nd USENIX Security Symposium (USENIX Security 25)},
+    publisher = {USENIX Association},
+    year = 2025
 }
 ```
