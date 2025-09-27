@@ -9,7 +9,7 @@ edition = "2021"
 rand = {version = "0.8.5", optional=true}
 
 hybrid-array = "=0.2.0-rc.9"
-ml-kem = {version = "=0.2.0", default-features=false, features = [] }
+ml-kem = {version = "=0.2.1", default-features=false, features = [] }
 
 # for symmetric encryption of payload
 aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc", "rand_core"]}
