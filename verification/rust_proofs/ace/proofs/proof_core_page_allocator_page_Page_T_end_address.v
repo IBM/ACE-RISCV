@@ -17,7 +17,12 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
-  { rewrite /page_size_in_bytes_Z /page_size_in_bytes_nat; solve_goal. all: shelve. }
+  { revert select (_ < (conf_end _).2).
+    specialize (conf_end_in_usize x).
+    rewrite /page_size_in_bytes_Z /page_size_in_bytes_nat; solve_goal. }
+  { revert select (_ < (conf_end _).2).
+    specialize (conf_end_in_usize x).
+    rewrite /page_size_in_bytes_Z /page_size_in_bytes_nat; solve_goal. }
   Unshelve. all: print_remaining_sidecond.
 Admitted. (* admitted due to admit_proofs config flag *)
 End proof.

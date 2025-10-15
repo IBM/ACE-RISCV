@@ -22,7 +22,7 @@ impl<A> Locked<A> {
         Locked { inner: spin::Mutex::new(inner) }
     }
 
-    pub fn lock(&self) -> spin::MutexGuard<A> {
+    pub fn lock(&self) -> spin::MutexGuard<'_, A> {
         self.inner.lock()
     }
 }

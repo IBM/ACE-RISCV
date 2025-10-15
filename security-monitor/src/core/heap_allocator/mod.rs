@@ -8,7 +8,7 @@ mod allocator;
 
 /// global allocator allocates memory on the security monitor's heap.
 #[global_allocator]
-static mut HEAP_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+static HEAP_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub(super) fn init_heap(start_address: ConfidentialMemoryAddress, heap_size: usize) {
     debug!("Heap {:x}-{:x}", start_address.as_usize(), start_address.as_usize() + heap_size);

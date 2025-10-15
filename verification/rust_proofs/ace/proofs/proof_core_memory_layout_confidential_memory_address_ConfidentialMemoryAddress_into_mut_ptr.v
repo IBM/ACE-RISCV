@@ -12,7 +12,10 @@ Lemma core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_i
 Proof.
   core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_into_mut_ptr_prelude.
 
-  repeat liRStep; liShow.
+  rep <- 10 liRStep; liShow.
+  (* TODO: this shouldn't have to be done manually *)
+  simp_ltypes.
+  repeat liRStep.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

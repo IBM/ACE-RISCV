@@ -105,7 +105,7 @@ impl Console {
         let ci8: Option<i8> = c.try_into().ok();
         if let Some(v) = ci8 {
             unsafe {
-                opensbi_sys::sbi_putc(v);
+                opensbi_sys::sbi_putc(c);
             }
         }
     }

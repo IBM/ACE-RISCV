@@ -1,10 +1,9 @@
 dump_borrowck_info=false
 log_dir = "./log"
 output_dir = "./rust_proofs"
-shims = "rr_shims.json"
 run_check = false
 admit_proofs = true
 skip_unsupported_features = false
 extra_specs = "./extra_specs.v"
 generate_dune_project = false
-lib_load_paths = ["./refinedrust/stdlib/"]
+lib_load_paths = ["./refinedrust/stdlib/", "./rust_proofs"]

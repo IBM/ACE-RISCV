@@ -16,15 +16,20 @@ Definition bit_to_bv (b : bool) : bv 1 :=
 
 (** ** Paging system *)
 (* Currently we only include the supported paging systems *)
-Inductive paging_system :=
+Inductive paging_system : Type :=
+  | Sv48
   | Sv57.
+Canonical Structure paging_systemRT := directRT paging_system.
 
+Global Instance paging_system_inhabited : Inhabited paging_system.
+Proof. exact (populate Sv57). Qed.
 Global Instance paging_system_eqdec : EqDecision paging_system.
 Proof. unfold EqDecision, Decision. intros. destruct x, y; decide equality. Qed.
 
 (** The virtual address length *)
 Definition paging_system_virtual_address_length (sys : paging_system) : N :=
   match sys with
+  | Sv48 => 48
   | Sv57 => 57
   end.
 
@@ -207,12 +212,13 @@ Record shared_page : Type := {
 }.
 
 (** Level of page tables *)
-Inductive page_table_level :=
+Inductive page_table_level : Type :=
   | PTLevel5
   | PTLevel4
   | PTLevel3
   | PTLevel2
   | PTLevel1.
+Canonical Structure page_table_levelRT := directRT page_table_level.
 
 Global Instance page_table_level_eqdec : EqDecision page_table_level.
 Proof. solve_decision. Defined.
@@ -231,7 +237,8 @@ Definition page_table_level_lower (pt : page_table_level) : option page_table_le
 (** The highest level for this paging system *)
 Definition paging_system_highest_level (system : paging_system) : page_table_level :=
   match system with
-  | Sv57x4 => PTLevel5
+  | Sv57 => PTLevel5
+  | Sv48 => PTLevel4
   end.
 
 Definition number_of_page_table_entries (system : paging_system) (level : page_table_level) : nat :=
@@ -343,7 +350,7 @@ Lemma make_empty_page_tree_wf system level loc :
   page_table_wf (make_empty_page_tree system level loc).
 Proof.
   split_and!; simpl.
-  - rewrite replicate_length//.
+  - rewrite length_replicate//.
   - split; first done. apply Forall_Forall_cb.
     apply Forall_replicate. done.
   - split; first done. apply Forall_Forall_cb.
@@ -413,7 +420,7 @@ Proof.
   intros (Hlen & Hlv & Hsys).
   split_and!.
   - rewrite pt_set_entry_system pt_set_entry_level.
-    rewrite pt_set_entry_entries insert_length//.
+    rewrite pt_set_entry_entries length_insert//.
   - rewrite pt_set_entry_level.
     destruct pt; simpl in *. split; first done.
     apply Forall_Forall_cb. apply Forall_insert.

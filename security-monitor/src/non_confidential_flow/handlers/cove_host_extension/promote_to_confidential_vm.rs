@@ -186,7 +186,7 @@ impl PromoteToConfidentialVm {
                 ensure!(total_size.div_ceil(PageSize::Size2MiB.in_bytes()) == 1, Error::AuthBlobInvalidSize())?;
                 Self::relocate(large_page, memory_protector, &tap_address, total_size, true)?;
                 // TODO: replace the hardcoded decapsulation key with a key or interface to device-specific decapsulation key
-                let mut parser = unsafe { AttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)? };
+                let mut parser = AttestationPayloadParser::from_raw_pointer(large_page.address().to_ptr(), total_size)?;
                 let attestation_payload = parser.parse_and_verify(TEST_DECAPSULATION_KEY)?;
                 Ok(Some(attestation_payload))
             }

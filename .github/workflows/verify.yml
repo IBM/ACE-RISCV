@@ -22,8 +22,6 @@ jobs:
       run: opam init -y
     - name: Setup opam switch
       run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
-    - name: Install coq
-      run: eval $(opam env) && opam update && opam pin add coq 8.17.1 -y
     - name: ls
       run: ls -la .
     - name: Install openssl dependency
@@ -44,8 +42,6 @@ jobs:
       run: cargo --version 
     - name: Install RefinedRust stdlib
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-stdlib.sh
-    - name: Generate stdlib metadata
-      run: eval $(opam env) && make -C verification/refinedrust/stdlib generate_stdlib
     - name: Exclude RefinedRust from dune build
       run: echo "(dirs :standard \ generated_code.bak refinedrust)" > verification/dune
     - name: install build dependencies
@@ -59,4 +55,4 @@ jobs:
     - name: make devtools
       run: source "$HOME/.cargo/env" && eval $(opam env) && make devtools
     - name: Translate specified files using RefinedRust and check proofs
-      run: source "$HOME/.cargo/env" && eval $(opam env) && make verify
+      run: source "$HOME/.cargo/env" && eval $(opam env) && DUNEFLAGS="-j 1" make verify
