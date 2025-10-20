@@ -11,8 +11,9 @@ use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 #[derive(Debug, Copy, Clone)]
 #[rr::refined_by("paging_system")]
 pub enum PagingSystem {
+    #[rr::pattern("Sv48")]
     Sv48x4,
-    #[rr::pattern("Sv57x4")]
+    #[rr::pattern("Sv57")]
     Sv57x4,
 }
 
@@ -31,10 +32,7 @@ impl PagingSystem {
         }
     }
 
-    #[rr::skip]
-    #[rr::params("system")]
-    #[rr::args("#system")]
-    #[rr::returns("paging_system_highest_level system")]
+    #[rr::returns("paging_system_highest_level self")]
     pub fn levels(&self) -> PageTableLevel {
         match self {
             PagingSystem::Sv48x4 => PageTableLevel::Level4,

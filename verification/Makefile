@@ -10,6 +10,8 @@ REFINEDRUST_RUSTC ?= refinedrust-rustc
 
 REFINEDRUST_GENERATED_DIR ?= generated_code
 
+DUNEFLAGS ?= 
+
 # TODO: currently, this builds in-tree.
 # It would be good if we could build in the ACE_DIR
 # Main Problem: generating the RefinedRust files there.
@@ -23,11 +25,15 @@ backup_build_artifacts:
 	rm -rf $(REFINEDRUST_GENERATED_DIR).bak
 	@[ ! -d $(REFINEDRUST_GENERATED_DIR) ] || (echo "Backing up generated files to $(REFINEDRUST_GENERATED_DIR).bak" && cp -r $(REFINEDRUST_GENERATED_DIR) $(REFINEDRUST_GENERATED_DIR).bak)
 
-generate: echo_toolchain backup_build_artifacts
+generate: echo_toolchain backup_build_artifacts generate_ptrs
 	RR_CONFIG=$(MAKEFILE_SOURCE_DIR)/RefinedRust.toml PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) $(MAKE) -C ../security-monitor refinedrust
 
+generate_ptrs:
+	cd ../security-monitor/rust-crates/pointers_utility; RR_CONFIG=$(MAKEFILE_SOURCE_DIR)/RefinedRust.toml PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" ACE_DIR=$(ACE_DIR) CROSS_COMPILE=$(CROSS_COMPILE) PLATFORM_RISCV_XLEN=$(PLATFORM_RISCV_XLEN) PLATFORM_RISCV_ISA=$(PLATFORM_RISCV_ISA) PLATFORM_RISCV_ABI=$(PLATFORM_RISCV_ABI) cargo refinedrust
+
+
 verify: generate
-	@dune build --display short
+	@dune build $(DUNEFLAGS) --display short rust_proofs
 	@echo "✅︎ Verification succeeded"
 
 

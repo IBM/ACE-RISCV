@@ -20,10 +20,7 @@ pub enum PageTableLevel {
 }
 
 impl PageTableLevel {
-    #[rr::trust_me]
-    #[rr::params("x")]
-    #[rr::args("#x")]
-    #[rr::returns("<#>@{option} (page_table_level_lower x)")]
+    #[rr::returns("page_table_level_lower self")]
     pub fn lower(&self) -> Option<Self> {
         match self {
             Self::Level5 => Some(Self::Level4),
