@@ -3,16 +3,16 @@
 This directory contains work-in-progress on verifying the security monitor.
 Currently, the verification is in early stages.
 
-We use the tool [RefinedRust](https://plv.mpi-sws.org/refinedrust/) in the [Coq proof assistant](https://coq.inria.fr/) for verification.
+We use the tool [RefinedRust](https://plv.mpi-sws.org/refinedrust/) in the [Rocq prover](https://rocq-prover.org/) for verification.
 
 ## Architecture
 Our approach to proving code in the security monitor is to add verification annotations to the Rust source code.
 These include invariants as well as pre- and postconditions.
 
-Afterwards, RefinedRust translates the Rust source code and annotations into a representation in the Coq proof assistant.
+Afterwards, RefinedRust translates the Rust source code and annotations into a representation in the Rocq prover.
 This is initiated by running `make verify` in the root directory of the repository.
 
-The generated Coq code is placed in the [`verification/rust_proofs/ace`](/verification/rust_proofs/ace) folder.
+The generated Rocq code is placed in the [`verification/rust_proofs/ace`](/verification/rust_proofs/ace) folder.
 There are two subfolders, [`generated`](/verification/rust_proofs/ace/generated) and [`proofs`](/verification/rust_proofs/ace/proofs).
 The [`generated`](/verification/rust_proofs/ace/generated) subfolder contains the automatically generated model of the Rust code, the translated specifications, and proof templates.
 It is re-generated on every run of `make verify` and thus should not be modified manually.
@@ -28,7 +28,7 @@ These files are manually created and written, and imported into RefinedRust thro
 |                     | Location |
 |---------------------|----------|
 | Rust source file    | [`security_monitor/src/core/page_allocator/page.rs`](/security-monitor/src/core/page_allocator/page.rs)         |
-| Extra Coq theories  | [`verification/theories/memory_tracker/page/page_extra.v`](/verification/theories/memory_tracker/page/page_extra.v)        |
+| Extra Rocq theories  | [`verification/theories/memory_tracker/page/page_extra.v`](/verification/theories/memory_tracker/page/page_extra.v)        |
 | Generated files     |          |
 | \|- generated code  | [`verification/rust_proofs/ace/generated/rust_proofs_ace.v`](/verification/rust_proofs/ace/generated/rust_proofs_ace.v)         |
 | \|- generated specs | [`verification/rust_proofs/ace/generated/generated_specs_ace.v`](/verification/rust_proofs/ace/generated/generated_specs_ace.v)        |
@@ -39,7 +39,7 @@ As a more concrete example, let us consider the `Page` structure and the `Page::
 For the `Page` structure, RefinedRust generates the following code:
 1. in generated code: the definition `Page_sls` describing the layout of the `Page` struct
 2. in generated specs: the definition `Page_ty` and `Page_inv_t` describing the `Page` struct type and the type containing the invariant specified through the annotations on the struct
-The definition of the invariant on `Page` uses some extra (manually written) Coq theories, for instance the definition of the `page_size` Coq type.
+The definition of the invariant on `Page` uses some extra (manually written) Rocq theories, for instance the definition of the `page_size` Rocq type.
 
 For the `Page::read` function, RefinedRust generates the following code:
 1. in generated code: the definition `core_page_allocator_page_Page_core_page_allocator_page_T_read_def` containing the source code of the function translated into RefinedRust's operational model Radium
@@ -102,7 +102,7 @@ There are several efforts which are complementary to the aims of this project:
 
 **Software**
 * Hypervisor verification: While our security monitor architecture can ensure confidentiality of VMs without trusting the hypervisor, VMs may still need to communicate with the hypervisor (e.g. for IO). One may want to prove that the hypervisor is still trustworthy or that it responds correctly to hypercalls.
-  Our architecture assumes that the hypervisor retains control over threads scheduling, so it is in control over the availability of confidential VMs. One might try to prove the correctness of the hypervisor in order to get availability guarantees.
+  Our architecture assumes that the hypervisor retains control over thread scheduling, so it is in control over the availability of confidential VMs. One might try to prove the correctness of the hypervisor in order to get availability guarantees.
 * VM verification: In order to actually run a secure workload end-to-end, one would have to verify the code of confidential VMs protected by the security monitor.
 * Low-level firmware/bootloader verification: Our security monitor currently builds on OpenSBI, which we trust.
   In future work, we would like to deprivilege firmware (see discussions in the RISC-V community on M-mode partitioning or M-mode lightweight isolation) or reimplement and prove the minimal set of required functionalities of the M-mode firmware (e.g., OpenSBI).
@@ -129,13 +129,13 @@ In the current stage of the project, we do not yet verify the inline Assembly se
 Accurate verification of multi-language programs and verification of system software against authoritative ISA semantics are an open research problem under active research.
 
 ### Trusted Computing Base
-RefinedRust's is a foundational verification tool (i.e., the proofs are done in a proof assistant with a small proof kernel; concretely, the Coq proof assistant), and as such its trusted computing base is fairly small.
+RefinedRust's is a foundational verification tool (i.e., the proofs are done in a proof assistant with a small proof kernel; concretely, the Rocq prover), and as such its trusted computing base is fairly small.
 The risk of unintentional soundness bugs is much lower compared to tools relying on, e.g., SMT solvers.
 
 Nevertheless, there are some code parts which have to be trusted:
 - the formalization of Rust's operational semantics in RefinedRust
 - the statement of RefinedRust's top-level soundness statement
-- the translation from Rust's MIR intermediate representation to RefinedRust's Coq code
+- the translation from Rust's MIR intermediate representation to RefinedRust's Rocq code
 
 If you want to validate the behavior of the generated machine code with the verification, you have to add the translation from MIR to machine code in the Rust compiler.
 On the other hand, if you want to validate that your surface-level Rust code has the correct behavior, you have to add the translation from surface-level Rust to MIR.
