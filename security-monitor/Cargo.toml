@@ -1,9 +1,9 @@
 [package]
 name = "security-monitor"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
 description = "Assured Confidential Execution (ACE): security monitor implementation targetting RISC-V"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 # Below crate provides a parser of flattened device tree (FDT) data. It is used in the initialization procedure
@@ -31,7 +31,8 @@ spin = {version="0.10", default-features = false, features = ["once", "rwlock", 
 riscv_cove_tap = {path = "rust-crates/riscv_cove_tap", features = ["parser"]}
 
 # Used to measure confidential VM, required for attestation
-sha2 = { version = "0.10", default-features = false }
+sha3 = { version = "0.10.8", default-features = false }
+generic-array = "0.14"
 
 # provides macros that help removing boilerplate code in the rust error handling
 thiserror-no-std = "2.0"

@@ -2,9 +2,9 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::{ConfidentialFlow, DeclassifyToConfidentialVm};
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::architecture::riscv::sbi::SBI_SUCCESS;
 use crate::core::architecture::riscv::specification::ECALL_INSTRUCTION_LENGTH;
-use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::error::Error;
 

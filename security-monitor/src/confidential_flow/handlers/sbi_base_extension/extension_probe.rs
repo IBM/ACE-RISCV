@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::SbiResponse;
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::riscv::sbi::*;
 use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::riscv::sbi::*;
 use crate::core::control_data::ConfidentialHart;
 
 /// Returns information whether the confidential VM has access to the specific SBI extension.

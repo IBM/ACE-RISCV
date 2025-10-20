@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 #![rr::import("ace.theories.page_table", "page_table")]
 use super::specification::*;
-use crate::core::architecture::mmu::page_table::PageTable;
 use crate::core::architecture::SharedPage;
+use crate::core::architecture::mmu::page_table::PageTable;
 use crate::core::memory_layout::NonConfidentialMemoryAddress;
 use crate::core::page_allocator::{Allocated, Page};
 use crate::error::Error;

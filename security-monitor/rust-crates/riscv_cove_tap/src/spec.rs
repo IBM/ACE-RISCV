@@ -27,7 +27,7 @@ pub struct Lockbox {
 
 impl Lockbox {
     #[cfg(feature = "serializer")]
-    pub fn new(lockbox_algorithm: LockboxAlgorithm, encapsulation_key: &Vec<u8>, tsk: &Vec<u8>) -> Result<Self, TapError> {
+    pub fn new(lockbox_algorithm: LockboxAlgorithm, encapsulation_key: &Vec<u8>, tsk: &mut Vec<u8>) -> Result<Self, TapError> {
         let (esk, nonce, tag, tsk) = lockbox_algorithm.encode(encapsulation_key, tsk)?;
         Ok(Self {
             name: 0,
@@ -57,7 +57,7 @@ impl LockboxAlgorithm {
     }
 
     #[cfg(feature = "serializer")]
-    pub fn encode(&self, encapsulation_key: &Vec<u8>, tsk: &Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>), TapError> {
+    pub fn encode(&self, encapsulation_key: &Vec<u8>, tsk: &mut Vec<u8>) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>), TapError> {
         use alloc::vec;
         match self {
             LockboxAlgorithm::Debug => {
@@ -65,6 +65,8 @@ impl LockboxAlgorithm {
             }
             LockboxAlgorithm::MlKem1024Aes256 => {
                 use rand::rngs::OsRng;
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
                 use ml_kem::{MlKem1024, KemCore, MlKem1024Params, Encoded, EncodedSizeUser, kem::{Encapsulate, EncapsulationKey}};
 
                 let ek_bytes = Encoded::<EncapsulationKey::<MlKem1024Params>>::try_from(encapsulation_key.as_slice())?;
@@ -74,15 +76,17 @@ impl LockboxAlgorithm {
                     Err(_) => return Err(TapError::KemError())
                 };
 
-                use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, AeadCore};
-                let mut tsk = tsk.to_vec();
-                let key: &Key<Aes256Gcm> = Key::<Aes256Gcm>::from_slice(aes_key.as_slice());
+                use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
+                use aes_gcm::aead::inout::InOutBuf;
+                let mut nonce = [0u8; 12];
+                rng.fill(&mut nonce);
+                let key: &Key<Aes256Gcm> = &Key::<Aes256Gcm>::try_from(aes_key.as_slice())?;
                 let cipher = Aes256Gcm::new(&key);
-                let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-                let nonce = aes_gcm::Nonce::from_slice(&nonce);
-                let tag = cipher.encrypt_in_place_detached(&nonce, b"", &mut tsk)?;
+                //let nonce = Aes256Gcm::generate_nonce_with_rng(&mut OsRng);
+                let nonce = aes_gcm::Nonce::try_from(nonce.as_slice())?;
+                let tag = cipher.encrypt_inout_detached(&nonce, b"", InOutBuf::from(tsk.as_mut_slice()))?;
 
-                Ok((esk.to_vec(), nonce.as_slice().to_vec(), tag.as_slice().to_vec(), tsk))
+                Ok((esk.to_vec(), nonce.as_slice().to_vec(), tag.as_slice().to_vec(), tsk.to_vec()))
             }
         }
     }
@@ -94,7 +98,8 @@ impl LockboxAlgorithm {
                 Ok(())
             },
             LockboxAlgorithm::MlKem1024Aes256 => {
-                use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
+                use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit, Tag, Nonce};
+                use aes_gcm::aead::inout::InOutBuf;
                 use hybrid_array::Array;
                 use ml_kem::{MlKem1024, KemCore, MlKem1024Params, Encoded, EncodedSizeUser,kem::{Decapsulate, DecapsulationKey}};
 
@@ -106,8 +111,8 @@ impl LockboxAlgorithm {
                     Err(_) => return Err(TapError::KemError())
                 };
 
-                let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(sk.as_slice()));
-                cipher.decrypt_in_place_detached(Nonce::from_slice(nonce), b"", tsk, &Tag::from_slice(tag)).unwrap();
+                let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::try_from(sk.as_slice())?);
+                cipher.decrypt_inout_detached(&Nonce::try_from(nonce)?, b"", InOutBuf::from(tsk.as_mut_slice()), &Tag::try_from(tag)?).unwrap();
                 Ok(())
             }
         }

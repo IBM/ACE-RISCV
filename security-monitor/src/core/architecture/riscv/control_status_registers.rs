@@ -231,7 +231,7 @@ impl ControlStatusRegisters {
 
     /// Extends the measurement digest with the context of all CSRs.
     pub fn measure(&self, digest: &mut MeasurementDigest) {
-        use sha2::Digest;
+        use sha3::Digest;
         let mut hasher = DigestType::new_with_prefix(digest.clone());
         hasher.update(self.mepc.read_from_main_memory().to_le_bytes());
         hasher.update(self.mcause.read_from_main_memory().to_le_bytes());

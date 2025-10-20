@@ -9,22 +9,14 @@ use core::fmt::{Error, Write};
 #[macro_export]
 macro_rules! ensure {
     ($cond:expr, $error:expr) => {
-        if !$cond {
-            Err($error)
-        } else {
-            Ok(())
-        }
+        if !$cond { Err($error) } else { Ok(()) }
     };
 }
 
 #[macro_export]
 macro_rules! ensure_not {
     ($cond:expr, $error:expr) => {
-        if $cond {
-            Err($error)
-        } else {
-            Ok(())
-        }
+        if $cond { Err($error) } else { Ok(()) }
     };
 }
 

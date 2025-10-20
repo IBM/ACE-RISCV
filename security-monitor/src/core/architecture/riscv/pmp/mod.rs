@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::CSR;
 use crate::core::architecture::riscv::specification::{
     PMP_ADDRESS_SHIFT, PMP_CONFIG_SHIFT, PMP_OFF_MASK, PMP_PERMISSION_RWX_MASK, PMP_TOR_MASK,
 };
-use crate::core::architecture::CSR;
 use crate::error::Error;
 
 const OPEN_PMP_MASK: usize = (PMP_OFF_MASK | PMP_PERMISSION_RWX_MASK) | (PMP_TOR_MASK | PMP_PERMISSION_RWX_MASK) << (1 * PMP_CONFIG_SHIFT);

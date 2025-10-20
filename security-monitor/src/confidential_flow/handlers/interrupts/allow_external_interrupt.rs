@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::handlers::sbi::{SbiRequest, SbiResponse};
 use crate::confidential_flow::{ApplyToConfidentialHart, ConfidentialFlow};
-use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::architecture::GeneralPurposeRegister;
+use crate::core::architecture::riscv::sbi::CovgExtension;
 use crate::core::control_data::{ConfidentialHart, ControlDataStorage, ResumableOperation};
 use crate::non_confidential_flow::DeclassifyToHypervisor;
 

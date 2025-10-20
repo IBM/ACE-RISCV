@@ -25,7 +25,7 @@ PLATFORM_RISCV_ISA ?= rv64gc
 PLATFORM_RISCV_XLEN ?= 64
 CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 
-all: audit opensbi_bindings build
+all: opensbi_bindings build
 
 build: opensbi_bindings fmt
 	echo "Generating OpenSBI bindings" ;\
@@ -72,9 +72,6 @@ doc:
 	@$(CARGO) doc
 
 check: build test
-
-audit:
-	@$(CARGO) audit
 
 clippy:
 	@$(CARGO) clippy

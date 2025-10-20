@@ -4,10 +4,10 @@
 use crate::error::Error;
 use std::fs::OpenOptions;
 
-use sha2::digest::crypto_common::generic_array::GenericArray;
-pub type DigestType = sha2::Sha384;
+use sha3::digest::crypto_common::generic_array::GenericArray;
+pub type DigestType = sha3::Sha3_384;
 pub type MeasurementDigest =
-    GenericArray<u8, <DigestType as sha2::digest::OutputSizeUser>::OutputSize>;
+    GenericArray<u8, <DigestType as sha3::digest::OutputSizeUser>::OutputSize>;
 
 pub fn measure(kernel_file: String, embedded_tap: bool, base_address: u64) -> Result<(), Error> {
     use std::io::BufReader;
@@ -31,7 +31,7 @@ pub fn measure(kernel_file: String, embedded_tap: bool, base_address: u64) -> Re
         }
 
         if buffer.iter().find(|b| **b != 0).is_some() {
-            use sha2::Digest;
+            use sha3::Digest;
             let mut hasher = DigestType::new_with_prefix(digest.clone());
             hasher.update(address.to_le_bytes());
             hasher.update(&buffer);

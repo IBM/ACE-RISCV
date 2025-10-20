@@ -81,8 +81,8 @@ impl AttestationPayloadSerializer {
     }
 
     fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>) -> Result<Vec<u8>, TapError> {
-        use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit};
-        // use rand::rngs::OsRng;
+        use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
+        use aes_gcm::aead::inout::InOutBuf;
 
         let mut encrypted_part = vec![];
         encrypted_part.append(&mut digests);
@@ -95,9 +95,9 @@ impl AttestationPayloadSerializer {
         let cipher = Aes256Gcm::new(&key);
         let nonce = [0u8; 12];
         // let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-        let nonce = aes_gcm::Nonce::from_slice(&nonce);
+        let nonce = aes_gcm::Nonce::try_from(nonce.as_slice())?;
         let tag = cipher
-            .encrypt_in_place_detached(&nonce, b"", &mut encrypted_part)
+            .encrypt_inout_detached(&nonce, b"", InOutBuf::from(encrypted_part.as_mut_slice()))
             .unwrap();
 
         let mut result = vec![];

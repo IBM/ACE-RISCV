@@ -74,7 +74,7 @@ impl HypervisorHart {
     pub unsafe fn enable_hypervisor_memory_protector(&self) {
         use crate::core::architecture::Hgatp;
         let hgatp = Hgatp::from(self.csrs().hgatp.read_from_main_memory());
-        self.hypervisor_memory_protector.enable(&hgatp);
+        unsafe { self.hypervisor_memory_protector.enable(&hgatp) };
     }
 
     pub fn address(&self) -> usize {

@@ -2,10 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![rr::import("ace.theories.page_table", "page_table")]
+use crate::core::architecture::mmu::HgatpMode;
 use crate::core::architecture::mmu::page_table_entry::{LogicalPageTableEntry, PageTableEntry};
 use crate::core::architecture::mmu::page_table_level::PageTableLevel;
 use crate::core::architecture::mmu::paging_system::PagingSystem;
-use crate::core::architecture::mmu::HgatpMode;
 use crate::core::architecture::{PageSize, SharedPage};
 use crate::core::control_data::{ConfidentialVmMemoryLayout, MeasurementDigest, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
@@ -13,7 +13,6 @@ use crate::core::page_allocator::{Allocated, Page, PageAllocator, UnAllocated};
 use crate::error::Error;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use sha2::digest::crypto_common::generic_array::GenericArray;
 
 /// Represents an architectural 2nd level page table that defines the guest physical to real address translation. The security monitor fully
 /// controls these mappings for confidential VMs. These page tables are stored in confidential memory (use `Page<Allocated>`).
@@ -264,7 +263,7 @@ impl PageTable {
     pub fn finalize(
         &mut self, measurements: &mut StaticMeasurements, vm_memory_layout: &ConfidentialVmMemoryLayout, address: usize,
     ) -> Result<(), Error> {
-        use sha2::Digest;
+        use sha3::Digest;
         self.logical_representation.iter_mut().enumerate().try_for_each(|(i, entry)| {
             let guest_physical_address = address + i * self.paging_system.data_page_size(self.level).in_bytes();
             match entry {

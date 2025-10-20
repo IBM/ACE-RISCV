@@ -25,7 +25,7 @@ impl GeneralPurposeRegisters {
 
     /// Extends the measurement digest with the context of all GPRs.
     pub fn measure(&self, digest: &mut MeasurementDigest) {
-        use sha2::Digest;
+        use sha3::Digest;
         let mut hasher = DigestType::new_with_prefix(digest.clone());
         self.0.iter().for_each(|gpr_value| hasher.update(gpr_value.to_le_bytes()));
         hasher.finalize_into(digest);

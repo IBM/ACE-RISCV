@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::PageSize;
 use crate::core::architecture::mmu::{Hgatp, PageTable};
 use crate::core::architecture::riscv::{mmu, pmp, tlb};
-use crate::core::architecture::PageSize;
 use crate::core::control_data::{ConfidentialVmId, ConfidentialVmMemoryLayout, StaticMeasurements};
 use crate::core::memory_layout::{ConfidentialMemoryAddress, ConfidentialVmPhysicalAddress, NonConfidentialMemoryAddress};
 use crate::error::Error;

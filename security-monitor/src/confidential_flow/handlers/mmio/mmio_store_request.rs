@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::confidential_flow::ConfidentialFlow;
 use crate::confidential_flow::handlers::mmio::{MmioAccessFault, MmioStorePending};
 use crate::confidential_flow::handlers::sbi::SbiResponse;
-use crate::confidential_flow::ConfidentialFlow;
 use crate::core::architecture::specification::CAUSE_STORE_ACCESS;
-use crate::core::architecture::{is_bit_enabled, GeneralPurposeRegister};
+use crate::core::architecture::{GeneralPurposeRegister, is_bit_enabled};
 use crate::core::control_data::{ConfidentialHart, HypervisorHart, ResumableOperation};
 use crate::error::Error;
 use crate::non_confidential_flow::DeclassifyToHypervisor;

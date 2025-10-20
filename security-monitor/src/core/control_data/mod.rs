@@ -8,7 +8,7 @@ pub use confidential_vm_id::ConfidentialVmId;
 pub use confidential_vm_measurement::{DigestType, MeasurementDigest, StaticMeasurements};
 pub use confidential_vm_memory_layout::ConfidentialVmMemoryLayout;
 pub use confidential_vm_mmio_region::ConfidentialVmMmioRegion;
-pub use hardware_hart::{HardwareHart, HART_STACK_ADDRESS_OFFSET};
+pub use hardware_hart::{HART_STACK_ADDRESS_OFFSET, HardwareHart};
 pub use hypervisor_hart::HypervisorHart;
 pub use resumable_operation::ResumableOperation;
 pub use storage::ControlDataStorage;

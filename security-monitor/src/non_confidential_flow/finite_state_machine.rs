@@ -2,14 +2,14 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::confidential_flow::ConfidentialFlow;
+use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
 use crate::core::architecture::riscv::sbi::CovhExtension::*;
 use crate::core::architecture::riscv::sbi::NaclExtension::*;
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::specification::CAUSE_SUPERVISOR_ECALL;
-use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{TrapCause, CSR};
+use crate::core::architecture::{CSR, TrapCause};
 use crate::core::control_data::{ConfidentialVmId, HardwareHart, HypervisorHart};
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::cove_host_extension::{
@@ -18,9 +18,8 @@ use crate::non_confidential_flow::handlers::cove_host_extension::{
 use crate::non_confidential_flow::handlers::nested_acceleration_extension::{NaclProbeFeature, NaclSetupSharedMemory};
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::{InvalidCall, ProbeSbiExtension};
 use crate::non_confidential_flow::{ApplyToHypervisorHart, DeclassifyToHypervisor};
-use opensbi_sys::sbi_trap_regs;
 
-extern "C" {
+unsafe extern "C" {
     /// To ensure safety, specify all possible valid states that KVM expects to see and prove that security monitor
     /// never returns to KVM with other state. For example, only a subset of exceptions/interrupts can be handled by KVM.
     /// KVM kill the vcpu if it receives unexpected exception because it does not know what to do with it.
@@ -48,7 +47,7 @@ impl<'a> NonConfidentialFlow<'a> {
     /// * A confidential hart must not be assigned to the hardware hart.
     /// * This function must only be invoked by the assembly lightweight context switch.
     /// * Pointer is a not null and points to a memory region owned by the physical hart executing this code.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     unsafe extern "C" fn route_trap_from_hypervisor_or_vm(hart_ptr: *mut HardwareHart) -> ! {
         // Below unsafe is ok because the lightweight context switch (assembly) guarantees that it provides us with a valid pointer to the
         // hardware hart's dump area in main memory. This area in main memory is exclusively owned by the physical hart executing this code.

@@ -13,7 +13,7 @@ use crate::core::hardware_setup::HardwareSetup;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 use crate::error::Error;
 
-extern "C" {
+unsafe extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
     fn enter_from_confidential_hart_asm();
 }
@@ -278,11 +278,7 @@ impl ConfidentialHart {
 // more details.
 impl ConfidentialHart {
     pub fn lifecycle_state(&self) -> &HartLifecycleState {
-        if self.is_dummy() {
-            &HartLifecycleState::Started
-        } else {
-            &self.lifecycle_state
-        }
+        if self.is_dummy() { &HartLifecycleState::Started } else { &self.lifecycle_state }
     }
 
     /// Changes the lifecycle state of the hart into the `StartPending` state. Confidential hart's state is set as if
