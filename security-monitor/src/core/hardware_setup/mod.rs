@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::riscv::specification::*;
 use crate::core::architecture::HardwareExtension;
+use crate::core::architecture::riscv::specification::*;
 use crate::error::Error;
 use alloc::vec::Vec;
 use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};

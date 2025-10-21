@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::confidential_flow::ConfidentialFlow;
+use crate::confidential_flow::handlers::sbi::SbiRequest;
 use crate::core::architecture::riscv::sbi::SrstExtension;
 use crate::core::control_data::ControlDataStorage;
 use crate::non_confidential_flow::DeclassifyToHypervisor;

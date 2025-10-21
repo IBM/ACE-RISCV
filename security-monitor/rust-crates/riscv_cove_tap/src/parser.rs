@@ -83,7 +83,8 @@ impl AttestationPayloadParser {
     }
 
     fn decrypt_aes_gcm_256(&mut self, symmetric_key: &[u8]) -> Result<(), TapError> {
-        use aes_gcm::{AeadInPlace, Aes256Gcm, Key, KeyInit, Tag, Nonce};
+        use aes_gcm::{Aes256Gcm, AeadInOut, Key, KeyInit, Tag, Nonce};
+        use aes_gcm::aead::inout::InOutBuf;
 
         let nonce_size = self.read_u16()? as usize;
         ensure!(nonce_size < 100_000, TapError::InvalidSize())?;
@@ -95,11 +96,11 @@ impl AttestationPayloadParser {
         ensure!(payload_size < 100_000, TapError::InvalidSize())?;
 
         ensure!(symmetric_key.len() == 32, TapError::InvalidTskSize())?;
-        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(symmetric_key));
-        let nonce = Nonce::from_slice(&nonce);
-        let tag = Tag::from_slice(&tag);
-        let mut data_slice = unsafe{ core::slice::from_raw_parts_mut(self.pointer as *mut u8, payload_size) };
-        cipher.decrypt_in_place_detached(nonce, b"", &mut data_slice, &tag)?;
+        let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::try_from(symmetric_key)?);
+        let nonce = Nonce::try_from(nonce.as_slice())?;
+        let tag = Tag::try_from(tag.as_slice())?;
+        let data_slice = unsafe{ core::slice::from_raw_parts_mut(self.pointer as *mut u8, payload_size) };
+        cipher.decrypt_inout_detached(&nonce, b"", InOutBuf::from(data_slice), &tag)?;
         Ok(())
     }
 

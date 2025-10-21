@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::mmu::page_table_level::PageTableLevel;
-use crate::core::architecture::mmu::HgatpMode;
 use crate::core::architecture::PageSize;
+use crate::core::architecture::mmu::HgatpMode;
+use crate::core::architecture::mmu::page_table_level::PageTableLevel;
 use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
 // TODO: add more 2nd-level paging systems corresponding to 3 and 4 level page
@@ -42,11 +42,7 @@ impl PagingSystem {
 
     pub fn memory_page_size(&self, level: PageTableLevel) -> PageSize {
         assert!(level <= self.levels());
-        if level == self.levels() {
-            PageSize::Size16KiB
-        } else {
-            PageSize::Size4KiB
-        }
+        if level == self.levels() { PageSize::Size16KiB } else { PageSize::Size4KiB }
     }
 
     // returns the size of the entry in bytes

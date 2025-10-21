@@ -18,6 +18,7 @@ use crate::confidential_flow::handlers::symmetrical_multiprocessing::{
 };
 use crate::confidential_flow::handlers::virtual_instructions::VirtualInstruction;
 use crate::confidential_flow::{ApplyToConfidentialHart, DeclassifyToConfidentialVm};
+use crate::core::architecture::TrapCause::*;
 use crate::core::architecture::riscv::sbi::BaseExtension::*;
 use crate::core::architecture::riscv::sbi::CovgExtension::*;
 use crate::core::architecture::riscv::sbi::HsmExtension::*;
@@ -26,8 +27,7 @@ use crate::core::architecture::riscv::sbi::RfenceExtension::*;
 use crate::core::architecture::riscv::sbi::SbiExtension::*;
 use crate::core::architecture::riscv::sbi::SrstExtension::*;
 use crate::core::architecture::specification::CSR_MSTATUS_MPV;
-use crate::core::architecture::TrapCause::*;
-use crate::core::architecture::{is_bit_enabled, HartLifecycleState, TrapCause, CSR};
+use crate::core::architecture::{CSR, HartLifecycleState, TrapCause, is_bit_enabled};
 use crate::core::control_data::{
     ConfidentialHart, ConfidentialHartRemoteCommand, ConfidentialVm, ConfidentialVmId, ControlDataStorage, HardwareHart, HypervisorHart,
     ResumableOperation,
@@ -36,7 +36,7 @@ use crate::core::interrupt_controller::InterruptController;
 use crate::error::Error;
 use crate::non_confidential_flow::{DeclassifyToHypervisor, NonConfidentialFlow};
 
-extern "C" {
+unsafe extern "C" {
     fn exit_to_confidential_hart_asm() -> !;
 }
 
@@ -64,7 +64,7 @@ impl<'a> ConfidentialFlow<'a> {
     /// Creates the mutable reference to HardwareHart by casting a raw pointer obtained from the context switch (assembly), see safety
     /// requirements of the asembly context switch. This is a private function, not accessible to the Rust code from the outside of the
     /// ConfidentialFlow but accessible to the assembly code performing the context switch.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     unsafe extern "C" fn route_trap_from_confidential_hart(hardware_hart_pointer: *mut HardwareHart) -> ! {
         let flow = Self { hardware_hart: unsafe { &mut *hardware_hart_pointer } };
         assert!(!flow.hardware_hart.confidential_hart().is_dummy());

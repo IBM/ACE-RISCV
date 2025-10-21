@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::architecture::riscv::sbi::SBI_SUCCESS;
 use crate::core::architecture::riscv::specification::ECALL_INSTRUCTION_LENGTH;
-use crate::core::architecture::GeneralPurposeRegister;
 use crate::core::control_data::HypervisorHart;
 use crate::error::Error;
 

@@ -43,11 +43,7 @@ pub fn decode_result_register(mtinst: usize) -> Result<GeneralPurposeRegister, E
 
             let log_regbytes = 3; // for 64b!
             let shift_right = |x: usize, y: isize| {
-                if y < 0 {
-                    x << -y
-                } else {
-                    x >> y
-                }
+                if y < 0 { x << -y } else { x >> y }
             };
             let reg_mask = (1 << (5 + log_regbytes)) - (1 << log_regbytes);
             let rv_x = |x: usize, s: usize, n: usize| (((x) >> (s)) & ((1 << (n)) - 1));

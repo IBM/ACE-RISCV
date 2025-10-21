@@ -79,11 +79,13 @@ impl MemoryLayout {
     #[rr::exists("res", "maybe_mem_layout")]
     /// Postcondition: failure due to low memory can occur if there is no sufficiently aligned
     /// confidential address
-    #[rr::ensures("if_Err res (λ err, (confidential_memory_start.2 - confidential_memory_end.2 ≤ page_size_in_bytes_Z Size4KiB)%Z ∧ err = error_Error_NotEnoughMemory)")]
+    #[rr::ensures(
+        "if_Err res (λ err, (confidential_memory_start.2 - confidential_memory_end.2 ≤ page_size_in_bytes_Z Size4KiB)%Z ∧ err = error_Error_NotEnoughMemory)"
+    )]
     /// Postcondition: if we return Ok, we get a new confidential memory range that is correctly
     /// aligned for the smallest page size and is a subrange of [conf_start, conf_end)
     #[rr::ensures(
-        "if_Ok res (λ ok, 
+        "if_Ok res (λ ok,
             ∃ mem_layout,
             maybe_mem_layout = Some mem_layout ∧
             mem_layout.(conf_start) `aligned_to` (page_size_in_bytes_nat Size4KiB) ∧
@@ -200,7 +202,7 @@ impl MemoryLayout {
         let usize_alligned_offsets = (0..memory_size).step_by(core::mem::size_of::<usize>());
         usize_alligned_offsets.for_each(|offset_in_bytes| {
             let _ = ptr_byte_add_mut(self.confidential_memory_start, offset_in_bytes, self.confidential_memory_end)
-                .and_then(|ptr| Ok(ptr.write_volatile(0)));
+                .and_then(|ptr| Ok(unsafe { ptr.write_volatile(0) }));
         });
     }
 

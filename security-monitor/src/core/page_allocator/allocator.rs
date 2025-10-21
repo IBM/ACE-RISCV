@@ -87,7 +87,7 @@ impl PageAllocator {
     pub unsafe fn initialize(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
         ensure_not!(PAGE_ALLOCATOR.is_completed(), Error::Reinitialization())?;
         let mut page_allocator = Self::empty();
-        page_allocator.add_memory_region(memory_start, memory_end)?;
+        unsafe { page_allocator.add_memory_region(memory_start, memory_end)? };
         // NOTE: We initialize the invariant here.
         PAGE_ALLOCATOR.call_once(|| RwLock::new(page_allocator));
         Ok(())
@@ -189,9 +189,8 @@ impl PageAllocator {
             // Otherwise, we must check the boundary condition: Are we creating the last page token over a memory whose last byte
             // (`address`+`page_size.in_bytes()`) is next to the end of the memory region (`memory_region_end`)?
             if memory_address.is_some() || can_create_page(&address, &page_size) {
-                let new_page_token = Page::<UnAllocated>::init(address, page_size.clone());
-                // NOTE We show that the page token is within the range of
-                // the allocator
+                let new_page_token = unsafe { Page::<UnAllocated>::init(address, page_size.clone()) };
+                // NOTE: We show that the page token is within the range of the allocator
                 self.root.store_page_token(self.base_address, self.page_size, new_page_token);
             }
         }

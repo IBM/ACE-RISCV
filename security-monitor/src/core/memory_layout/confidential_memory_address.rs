@@ -88,7 +88,7 @@ impl ConfidentialMemoryAddress {
     #[rr::requires(#iris "self ◁ₗ[π, Shared lft_el] #z @ ◁ int usize")]
     #[rr::returns("z")]
     pub unsafe fn read_volatile<'a>(&'a self) -> usize {
-        self.0.read_volatile()
+        unsafe { self.0.read_volatile() }
     }
 
     /// Writes usize-sized sequence of bytes to the confidential memory region.
@@ -100,6 +100,6 @@ impl ConfidentialMemoryAddress {
     #[rr::requires(#type "self" : "z" @ "int usize")]
     #[rr::ensures(#type "self" : "value" @ "int usize")]
     pub unsafe fn write_volatile(&self, value: usize) {
-        self.0.write_volatile(value);
+        unsafe { self.0.write_volatile(value) };
     }
 }

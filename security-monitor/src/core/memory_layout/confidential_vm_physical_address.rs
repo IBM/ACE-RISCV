@@ -8,11 +8,7 @@ pub struct ConfidentialVmPhysicalAddress(usize);
 
 impl ConfidentialVmPhysicalAddress {
     pub fn new(confidential_vm_physical_address: usize) -> Result<Self, Error> {
-        if confidential_vm_physical_address == 0 {
-            Err(Error::InvalidParameter())
-        } else {
-            Ok(Self(confidential_vm_physical_address))
-        }
+        if confidential_vm_physical_address == 0 { Err(Error::InvalidParameter()) } else { Ok(Self(confidential_vm_physical_address)) }
     }
 
     pub fn add(&self, offset: usize) -> Self {

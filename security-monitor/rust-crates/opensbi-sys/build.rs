@@ -18,19 +18,19 @@ fn main() {
     if !Path::new(&lib_dir).exists() {
         panic!("The directory with library does not exist: {}. Specify the environmental variable {} and check {}/opensbi", lib_dir, INSTALL_DIR, install_dir);
     }
- 
+
     let include_dir = format!("{}/opensbi-rust-bindings/include", install_dir);
     if !Path::new(&include_dir).exists() {
         panic!("The directory with headers does not exist: {}", include_dir);
     }
- 
+
     println!("cargo:rustc-link-search=native={}", lib_dir);
     println!("cargo:rustc-link-lib={}={}", "dylib", "sbi");
     println!("cargo:include={}", include_dir);
- 
+
     let bindings = bindgen::Builder::default()
         .header("src/wrapper.h")
-        .clang_arg(format!("-I{}", include_dir)) 
+        .clang_arg(format!("-I{}", include_dir))
         .ctypes_prefix("core::ffi")
         .derive_debug(true)
         .derive_default(true)
@@ -38,7 +38,6 @@ fn main() {
         .generate()
         .expect("Unable to generate bindings");
 
-        
     let out_path = PathBuf::from(env::var("OUT_DIR").expect("Couldn't create output directory"));
     bindings.write_to_file(out_path.join("bindings.rs")).expect("Couldn't write bindings!");
 }

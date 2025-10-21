@@ -1,10 +1,10 @@
 [package]
 name = "opensbi-sys"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
 description = "Rust FFI bindings to the RISC-V OpenSBI"
 build = "build.rs"
-edition = "2021"
+edition = "2024"
 
 [build-dependencies]
-bindgen = "0.60.1"
+bindgen = "0.72.0"

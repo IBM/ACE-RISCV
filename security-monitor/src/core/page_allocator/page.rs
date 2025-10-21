@@ -191,7 +191,7 @@ impl Page<UnAllocated> {
         assert!(from_pages[0].address.is_aligned_to(new_size.in_bytes()));
         assert!(new_size.in_bytes() / from_pages[0].size.in_bytes() == from_pages.len());
         assert!(from_pages[0].start_address() + new_size.in_bytes() == from_pages[from_pages.len() - 1].end_address());
-        Self::init(from_pages.swap_remove(0).address, new_size)
+        unsafe { Self::init(from_pages.swap_remove(0).address, new_size) }
     }
 }
 
@@ -309,7 +309,7 @@ impl<T: PageState> Page<T> {
 
     /// Extends the digest with the guest physical address and the content of the page.
     pub fn measure(&self, digest: &mut MeasurementDigest, guest_physical_address: usize) {
-        use sha2::Digest;
+        use sha3::Digest;
         let mut hasher = DigestType::new_with_prefix(digest.clone());
         // below unsafe is ok because the page has been initialized and it owns the entire memory region.
         // We are creating a slice of bytes, so the number of elements in the slice is the same as the size of the page.

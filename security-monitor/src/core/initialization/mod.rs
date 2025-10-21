@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::fence::fence_wo;
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::{HardwareExtension, PageSize, CSR};
+use crate::core::architecture::{CSR, HardwareExtension, PageSize};
 use crate::core::control_data::{ControlDataStorage, HardwareHart};
 use crate::core::hardware_setup::HardwareSetup;
 use crate::core::interrupt_controller::InterruptController;
@@ -19,7 +19,7 @@ use spin::{Mutex, Once};
 
 const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
 
-extern "C" {
+unsafe extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
     fn enter_from_hypervisor_or_vm_asm() -> !;
 }
@@ -38,7 +38,7 @@ static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
 /// OpenSBI) during the boot process to initialize ACE. After the return, the control flow returns to the booting
 /// firmware, which eventually passes the execution control to untrusted code (hypervisor). After the return of this
 /// function, the security properties of ACE hold.
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_address: *const u8) {
     debug!("Initializing the CoVE security monitor");
     if cold_boot {
@@ -208,7 +208,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 
 /// Enables entry points to the security monitor by taking control over some interrupts and protecting confidential
 /// memory region using hardware isolation mechanisms. This function executes on every single physical hart.
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
     while !HARTS_STATES.is_completed() {

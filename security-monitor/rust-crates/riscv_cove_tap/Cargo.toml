@@ -1,18 +1,19 @@
 [package]
 name = "riscv_cove_tap"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
 description = "Library to parse the RISC-V CoVE's TEE attestation payload"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 rand = {version = "0.8.5", optional=true}
 
-hybrid-array = "=0.2.0-rc.9"
-ml-kem = {version = "=0.2.0", default-features=false, features = [] }
+hybrid-array = "0.2.3"
+ml-kem = {version = "0.3.0-pre", default-features=false, features = [] }
 
 # for symmetric encryption of payload
-aes-gcm = {version="0.10.3", default-features = false, features=["aes", "alloc", "rand_core"]}
+aes-gcm = {version="0.11.0-rc.1", default-features = false, features=["aes", "alloc", "rand_core"]}
+generic-array = "1"
 
 # provides macros that help removing boilerplate code in rust error handling
 thiserror-no-std = "2.0"

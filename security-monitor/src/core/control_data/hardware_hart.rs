@@ -7,7 +7,7 @@ use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
 use opensbi_sys::sbi_trap_regs;
 
-extern "C" {
+unsafe extern "C" {
     /// Currently, we rely on OpenSBI to handle some of the interrupts or exceptions. Below function is the entry point
     /// to OpenSBI trap handler.
     fn sbi_trap_handler(regs: *mut sbi_trap_regs) -> *mut sbi_trap_regs;

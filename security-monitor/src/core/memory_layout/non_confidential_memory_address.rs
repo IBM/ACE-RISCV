@@ -69,7 +69,7 @@ impl NonConfidentialMemoryAddress {
     /// We need to ensure the pointer is not used by two threads simultaneously. See `ptr::read_volatile` for safety
     /// concerns.
     pub unsafe fn read(&self) -> usize {
-        self.0.read_volatile()
+        unsafe { self.0.read_volatile() }
     }
 
     /// Writes usize-sized sequence of bytes to the non-confidential memory region.
@@ -79,7 +79,7 @@ impl NonConfidentialMemoryAddress {
     /// We need to ensure the pointer is not used by two threads simultaneously. See `ptr::write_volatile` for safety
     /// concerns.
     pub unsafe fn write(&self, value: usize) {
-        self.0.write_volatile(value);
+        unsafe { self.0.write_volatile(value) };
     }
 
     #[rr::returns("self")]
