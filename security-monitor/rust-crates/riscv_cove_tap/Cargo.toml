@@ -8,7 +8,7 @@ edition = "2024"
 [dependencies]
 rand = {version = "0.8.5", optional=true}
 
-hybrid-array = "0.2.3"
+hybrid-array = "0.4.0"
 ml-kem = {version = "0.3.0-pre", default-features=false, features = [] }
 
 # for symmetric encryption of payload
