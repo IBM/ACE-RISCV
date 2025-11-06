@@ -19,5 +19,5 @@ Proof.
   Unshelve. all: sidecond_hammer.
   all: unsafe_unfold_common_caesium_defs; simpl; lia. 
   Unshelve. all: print_remaining_sidecond.
-Admitted. (* admitted due to admit_proofs config flag *)
+Qed.
 End proof.

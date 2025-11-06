@@ -14,6 +14,7 @@ use crate::core::control_data::{ConfidentialHart, ConfidentialHartRemoteCommand,
 /// shutdown (lifecycle state `Shutdown`). To do so, we send `Shutdown IPI` to all confidential harts. The last
 /// confidential hart that shutdowns itself, will remove the entire confidential VM from the control data.
 #[derive(Clone, PartialEq)]
+#[rr::skip]
 pub struct ShutdownRequest {
     calling_hart_id: usize,
 }

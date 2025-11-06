@@ -9,6 +9,7 @@
 /// additional lifecycle state `Shutdown` that represents a final state of the confidential hart that has been shutdown
 /// as part of the `VM shutdown` procedure.
 #[derive(PartialEq, Clone)]
+#[rr::skip]
 pub enum HartLifecycleState {
     Started,
     Stopped,

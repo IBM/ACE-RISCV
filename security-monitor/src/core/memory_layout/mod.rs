@@ -149,10 +149,10 @@ impl MemoryLayout {
 
     /// Offsets an address in the confidential memory by a given number of bytes. Returns an error if the resulting
     /// address is outside the confidential memory region or exceeds the given upper bound.
-    #[rr::trust_me]
+    #[rr::only_spec]
     #[rr::ok]
     /// Precondition: The offset address is in confidential memory.
-    #[rr::requires("address.2 + offset_in_bytes < self.(conf_end).2")]
+    #[rr::requires("address.2 + offset_in_bytes < upper_bound.2")]
     /// Precondition: The bounds we are checking are within confidential memory.
     #[rr::requires("upper_bound.2 ≤ self.(conf_end).2")]
     /// Postcondition: Then we can correctly offset the address and ensure it is in confidential
@@ -162,7 +162,7 @@ impl MemoryLayout {
         &self, address: &ConfidentialMemoryAddress, offset_in_bytes: usize, upper_bound: *const usize,
     ) -> Result<ConfidentialMemoryAddress, Error> {
         ensure!(upper_bound <= self.confidential_memory_end, Error::AddressNotInConfidentialMemory())?;
-        Ok(self.confidential_address_at_offset(address, offset_in_bytes)?)
+        Ok(address.add(offset_in_bytes, upper_bound).map_err(|_| Error::AddressNotInConfidentialMemory())?)
     }
 
     /// Offsets an address in the non-confidential memory by given number of bytes. Returns an error if the resulting
@@ -199,8 +199,8 @@ impl MemoryLayout {
         // We can safely cast the below offset to usize because the constructor guarantees that the confidential memory
         // range is valid, and so the memory size must be a valid usize
         let memory_size = ptr_byte_offset(self.confidential_memory_end, self.confidential_memory_start) as usize;
-        let usize_alligned_offsets = (0..memory_size).step_by(core::mem::size_of::<usize>());
-        usize_alligned_offsets.for_each(|offset_in_bytes| {
+        let usize_aligned_offsets = (0..memory_size).step_by(core::mem::size_of::<usize>());
+        usize_aligned_offsets.for_each(|offset_in_bytes| {
             let _ = ptr_byte_add_mut(self.confidential_memory_start, offset_in_bytes, self.confidential_memory_end)
                 .and_then(|ptr| Ok(unsafe { ptr.write_volatile(0) }));
         });

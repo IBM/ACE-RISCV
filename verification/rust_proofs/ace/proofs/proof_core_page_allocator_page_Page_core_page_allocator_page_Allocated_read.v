@@ -30,14 +30,14 @@ Proof.
   Unshelve. all: sidecond_hammer.
   { 
     revert select (_ + off' * 8 < _ + page_size_in_bytes_Z _).
-    rewrite /page_size_in_bytes_Z/page_size_in_bytes_nat.
+    rewrite /page_size_in_bytes_nat.
     rewrite bytes_per_addr_eq. nia. }
   { rewrite /name_hint.
     rewrite bytes_per_int_usize bytes_per_addr_eq.
     apply Z.divide_factor_r. }
   { rewrite /name_hint.
     assert (off' * 8 < page_size_in_bytes_Z self0) as Hx by lia.
-    revert Hx. unfold page_size_in_bytes_Z.
+    revert Hx.
     specialize (page_size_in_bytes_div_8 self0) as (? & ->).
     rewrite bytes_per_int_usize.
     rewrite bytes_per_addr_eq. lia. }
@@ -45,13 +45,13 @@ Proof.
     rewrite bytes_per_int_usize bytes_per_addr_eq.
     split; last done. nia. }
   { rewrite /name_hint.
-    rename select (¬ _ < _ < _) into Hnlt.
+    rename select (¬ _ < _ ≤ _) into Hnlt.
     intros []. apply Hnlt. split. { 
       enough (bytes_per_int usize > 0) by lia. 
       rewrite bytes_per_int_usize bytes_per_addr_eq.
       lia. }
-    revert select (_ < (conf_end _).2).
-    unfold page_size_in_bytes_Z. lia. }
+    revert select (_ ≤ (conf_end _).2).
+    lia. }
   { rewrite /name_hint.
     intros []. 
     rename select (offset_in_bytes `rem` 8 ≠ 0) into Hen.
@@ -59,5 +59,5 @@ Proof.
     apply Z.rem_divide; done. }
 
   Unshelve. all: print_remaining_sidecond.
-Admitted.
+Qed.
 End proof.

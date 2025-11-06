@@ -25,12 +25,9 @@ Proof.
   rep <-! liRStep; liShow.
   apply_update (updateable_copy_lft "plft22" "ulft5").
   rep <-! liRStep; liShow.
-  rename select (if_Err _ _) into Herr.
-  rename select (if_Ok _ _) into Hok.
-  destruct x' as [ | x']; first last.
-  { exfalso. simpl in *. apply Herr. split; last lia.
-    move: Hinrange Hpage_end. unfold page_size_in_bytes_Z. lia. }
-  simpl in *. revert Hok.
+  apply_update (updateable_copy_lft "vlft29" "ulft5").
+  rep <-! liRStep. liShow.
+  apply_update (updateable_copy_lft "vlft30" "ulft5").
   rep liRStep.
 
   all: print_remaining_goal.
@@ -39,10 +36,16 @@ Proof.
   - (* add *)
     eapply aligned_to_offset.
     { apply Haligned. }
-    rewrite page_size_align_is_size /page_size_in_bytes_Z.
+    rewrite page_size_align_is_size.
     apply Z.divide_factor_r.
-  - move: Hinrange Hpage_end. rewrite /page_size_in_bytes_Z. nia.
+  - exfalso.
+    rename select (¬ _ < _ ≤ _) into Herr.
+    apply Herr.
+    split; last lia.
+    move: Hinrange.
+    specialize (page_size_in_bytes_nat_ge capture_smaller_page_size_).
+    nia.
 
   Unshelve. all: print_remaining_sidecond.
-Admitted. (* admitted due to admit_proofs config flag *)
+Qed.
 End proof.

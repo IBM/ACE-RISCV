@@ -7,12 +7,13 @@ Set Default Proof Using "Type".
 
 Section proof.
 Context `{!refinedrustGS Σ}.
+
 Lemma core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_init_proof (π : thread_id) :
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_init_lemma π.
 Proof.
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_init_prelude.
 
-  repeat liRStep; liShow.
+  repeat liRStep; liShow. 
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

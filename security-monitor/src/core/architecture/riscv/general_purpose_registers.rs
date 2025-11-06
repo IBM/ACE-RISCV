@@ -40,6 +40,7 @@ impl GeneralPurposeRegisters {
 #[allow(unused)]
 #[allow(non_camel_case_types)]
 #[repr(usize)]
+#[rr::skip]
 pub enum GeneralPurposeRegister {
     zero = 0,
     ra,
