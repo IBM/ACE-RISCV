@@ -12,11 +12,11 @@ Lemma core_page_allocator_page_Page_core_page_allocator_page_Allocated_deallocat
 Proof.
   core_page_allocator_page_Page_core_page_allocator_page_Allocated_deallocate_prelude.
 
-  repeat liRStep; liShow.
+  rep <-! liRStep; liShow.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   Unshelve. all: print_remaining_sidecond.
-Admitted. (* admitted due to admit_proofs config flag *)
+Qed.
 End proof.

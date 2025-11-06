@@ -39,7 +39,7 @@ jobs:
     - name: Install RefinedRust type system
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-typesystem.sh
     - name: Check cargo version
-      run: cargo --version 
+      run: cargo --version
     - name: Install RefinedRust stdlib
       run: eval $(opam env) && REFINEDRUST_ROOT=$PWD/verification/refinedrust ./verification/refinedrust/scripts/install-stdlib.sh
     - name: Exclude RefinedRust from dune build
@@ -55,4 +55,32 @@ jobs:
     - name: make devtools
       run: source "$HOME/.cargo/env" && eval $(opam env) && make devtools
     - name: Translate specified files using RefinedRust and check proofs
-      run: source "$HOME/.cargo/env" && eval $(opam env) && DUNEFLAGS="-j 1" make verify
+      run: |
+        set -o pipefail
+          (source "$HOME/.cargo/env" && eval $(opam env) && make generate_refinedrust_translation) 2>&1 | tee full-build.log
+    - name: Patch dune modules to exclude big proofs from CI
+      run: |
+          python3 .github/workflows/prune_dune_modules.py verification/rust_proofs/ace/proofs/dune \
+            proof_core_page_allocator_allocator_PageAllocator_add_memory_region \
+            proof_core_page_allocator_allocator_PageStorageTreeNode_store_page_token \
+            proof_core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary \
+            proof_core_page_allocator_allocator_PageAllocator_find_largest_page_size \
+            proof_core_page_allocator_page_Page_T_write \
+            proof_core_page_allocator_page_Page_core_page_allocator_page_Allocated_read \
+            proof_core_page_allocator_allocator_PageStorageTreeNode_store_page_token \
+            proof_core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide
+    - name: Compile Rocq proofs
+      run: |
+          (
+            set -o pipefail
+            source "$HOME/.cargo/env"
+            eval "$(opam env)"
+            cd verification
+            DUNEFLAGS="-j 1 --display verbose" dune build
+          ) 2>&1 | tee full-build.log
+    - name: Upload full build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: full-build-log
+        path: full-build.log

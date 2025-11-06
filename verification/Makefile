@@ -10,7 +10,7 @@ REFINEDRUST_RUSTC ?= refinedrust-rustc
 
 REFINEDRUST_GENERATED_DIR ?= generated_code
 
-DUNEFLAGS ?= 
+DUNEFLAGS ?= --display short 
 
 # TODO: currently, this builds in-tree.
 # It would be good if we could build in the ACE_DIR
@@ -33,7 +33,7 @@ generate_ptrs:
 
 
 verify: generate
-	@dune build $(DUNEFLAGS) --display short rust_proofs
+	@dune build $(DUNEFLAGS) rust_proofs
 	@echo "✅︎ Verification succeeded"
 
 

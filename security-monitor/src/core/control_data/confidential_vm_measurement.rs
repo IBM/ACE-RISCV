@@ -47,6 +47,7 @@ impl StaticMeasurements {
     }
 }
 
+#[rr::skip]
 impl core::fmt::Debug for StaticMeasurements {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.iter().enumerate().for_each(|(id, value)| {
