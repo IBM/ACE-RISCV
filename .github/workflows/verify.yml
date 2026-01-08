@@ -80,7 +80,7 @@ jobs:
           ) 2>&1 | tee full-build.log
     - name: Upload full build log
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: full-build-log
         path: full-build.log
