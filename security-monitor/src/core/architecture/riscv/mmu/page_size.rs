@@ -8,6 +8,23 @@
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[rr::refined_by("page_size")]
+// PEq
+#[rr::derive_instantiate("PEq" := "λ a b, bool_decide (a = b)")]
+// Eq
+#[rr::derive_instantiate("PEq_refl" := #proof "intros ??; solve_goal")]
+#[rr::derive_instantiate("PEq_sym" := #proof "intros ???; solve_goal")]
+#[rr::derive_instantiate("PEq_trans" := #proof "intros ????; solve_goal")]
+// POrd
+#[rr::derive_instantiate("POrd" := "λ a b, Some (page_size_cmp a b)")]
+#[rr::derive_instantiate("POrd_eq_cons" := #proof "intros ? [] []; simpl; done")]
+// Ord
+#[rr::derive_instantiate("Ord" := "page_size_cmp")]
+#[rr::derive_instantiate("Ord_POrd" := #proof "intros ???; solve_goal")]
+#[rr::derive_instantiate("Ord_lt_trans" := #proof "intros ????; solve_goal")]
+#[rr::derive_instantiate("Ord_eq_trans" := #proof "intros ????; solve_goal")]
+#[rr::derive_instantiate("Ord_gt_trans" := #proof "intros ????; solve_goal")]
+#[rr::derive_instantiate("Ord_leibniz" := #proof "intros ? [] []; simpl; done")]
+#[rr::derive_instantiate("Ord_antisym" := #proof "intros ???; solve_goal")]
 pub enum PageSize {
     #[rr::pattern("Size4KiB")]
     Size4KiB,

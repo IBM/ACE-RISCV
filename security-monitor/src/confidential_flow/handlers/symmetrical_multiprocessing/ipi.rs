@@ -10,6 +10,7 @@ use crate::core::control_data::{
 
 /// Handles a request from one confidential hart to execute IPI on other confidential harts.
 #[derive(PartialEq, Debug, Clone)]
+#[rr::skip]
 pub struct Ipi {
     hart_mask: usize,
     hart_mask_base: usize,

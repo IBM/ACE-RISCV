@@ -8,6 +8,7 @@ use crate::core::memory_layout::ConfidentialVmPhysicalAddress;
 
 /// An inter hart request sent by the security monitor to clear G-stage level cached address translations.
 #[derive(Clone, PartialEq)]
+#[rr::skip]
 pub struct RemoteHfenceGvmaVmid {
     ipi: Ipi,
     _start_address: Option<ConfidentialVmPhysicalAddress>,

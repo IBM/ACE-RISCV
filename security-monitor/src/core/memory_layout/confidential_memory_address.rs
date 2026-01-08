@@ -6,7 +6,7 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 
 /// The wrapper over a raw pointer that is guaranteed to be an address located in the confidential memory region.
 #[repr(transparent)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 /// Model: The memory address is represented by the location in memory.
 #[rr::refined_by("l" : "loc")]
 /// We require the ghost state for the global memory layout to be available.
@@ -70,12 +70,12 @@ impl ConfidentialMemoryAddress {
     /// Precondition: The offset address is in the given range.
     #[rr::requires("self.2 + offset_in_bytes < upper_bound.2")]
     /// Precondition: The maximum (and thus the offset address) is in the confidential memory range.
-    #[rr::requires("upper_bound.2 < MEMORY_CONFIG.(conf_end).2")]
+    #[rr::requires("upper_bound.2 ≤ MEMORY_CONFIG.(conf_end).2")]
     /// Postcondition: The offset pointer is in the confidential memory range.
     #[rr::ensures("ret = self +ₗ offset_in_bytes")]
     pub fn add(&self, offset_in_bytes: usize, upper_bound: *const usize) -> Result<ConfidentialMemoryAddress, Error> {
-        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(|_| Error::AddressNotInConfidentialMemory())?;
-        Ok(ConfidentialMemoryAddress(pointer))
+        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(#[rr::verify] |_| Error::AddressNotInConfidentialMemory())?;
+        Ok(Self::new(pointer))
     }
 
     /// Reads usize-sized sequence of bytes from the confidential memory region.

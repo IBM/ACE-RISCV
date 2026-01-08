@@ -1,7 +1,6 @@
 # Verification of the Security Monitor
 
 This directory contains work-in-progress on verifying the security monitor.
-Currently, the verification is in early stages.
 
 We use the tool [RefinedRust](https://plv.mpi-sws.org/refinedrust/) in the [Rocq prover](https://rocq-prover.org/) for verification.
 
@@ -48,6 +47,17 @@ For the `Page::read` function, RefinedRust generates the following code:
 4. the file [`proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v`](/verification/rust_proofs/ace/proofs/proof_core_page_allocator_page_Page_core_page_allocator_page_T_read.v) in [`verification/rust_proofs/ace/proofs/`](/verification/rust_proofs/ace/proofs) contains the proof of the lemma for the function.
   The default proof that RefinedRust generates will use the proof script from step 3 and then call into RefinedRust's generic automation.
 
+### RefinedRust proof annotations
+
+Rust functions are only translated and verified by RefinedRust if RefinedRust annotations (`#[rr::...]`) are attached to them.
+If a function is annotated, the function is verified against that specification, except if one of the following opt-out annotations is present:
+- `#[rr::only_spec]`: only the specification is generated, but the code is not translated and not verified
+- `#[rr::trust_me]`: the specification and code are generated, but the code is not verified against the specification
+
+These opt-out annotations help to progressively cover code with specification and delay the work on the verification itself. Eventually, a fully verified security monitor would not have any of the opt-out annotations and RefinedRust will verify that.
+
+
+
 ## Getting Started
 The [setup](setup.md) document details how to set the verification setup up on your system.
 
@@ -67,8 +77,8 @@ The Rust source path is relative to [`security_monitor/src`](/security_monitor/s
 | Module                     | Rust source | Status                     | Remarks |
 |----------------------------|-------------|----------------------------|---------|
 | Memory isolation config       |           | Specififed, partly verified                           |         |
-| \|- Page token                 | [`core/page_allocator/page.rs`](/security-monitor/src/core/page_allocator/page.rs)            | Specified, partly verified |         |
-| \|- Page allocator             | [`core/page_allocator/allocator.rs`](/security-monitor/src/core/page_allocator/allocator.rs)            | Specified, not verified    |         |
+| \|- Page token                 | [`core/page_allocator/page.rs`](/security-monitor/src/core/page_allocator/page.rs)            | Largely verified |         |
+| \|- Page allocator             | [`core/page_allocator/allocator.rs`](/security-monitor/src/core/page_allocator/allocator.rs)            | Largely verified    |         |
 | \|- Page table encoding        | [`core/architecture/riscv/mmu`](/security-monitor/src/core/architecture/riscv/mmu)            | Specified, not verified    |         |
 | Initialization             | [`core/initialization`](/security-monitor/src/core/initialization)            | Specified, partly verified |         |
 | VM Interactions            |             | Unspecified                |         |
@@ -76,14 +86,17 @@ The Rust source path is relative to [`security_monitor/src`](/security_monitor/s
 | \|- Confidential flow      | [`confidential_flow`](/security-monitor/src/confidential_flow)            |                            |         |
 | \|- Non-confidential flow | [`non_confidential_flow`](/security-monitor/src/non_confidential_flow)            |                            |         |
 
-### RefinedRust proof annotations
+## Bugs found
 
-Rust functions are only translated and verified by RefinedRust if RefinedRust annotations (`#[rr::...]`) are attached to them.
-If a function is annotated, the function is verified against that specification, except if one of the following opt-out annotations is present:
-- `#[rr::only_spec]`: only the specification is generated, but the code is not translated and not verified
-- `#[rr::trust_me]`: the specification and code are generated, but the code is not verified against the specification
+### Page allocator
+- [`MemoryLayout::confidential_address_at_offset_bounded` did not correctly check the upper bound](https://github.com/IBM/ACE-RISCV/blob/b831232f1ae31162d4cb03b8785154b7942a7406/security-monitor/src/core/memory_layout/mod.rs#L161) of the memory region within which to offset.
+  Interestingly, this bug in the code also got reflected into the initial specification, which correctly abstracted the incorrect code, but contradicted the existing comment describing the intended behaviour. 
+  Potential impact: `PageAllocator::add_memory_region` uses the check in this method for checking whether it exceeds the given memory regions. 
+  If there was another confidential memory region after the page token region, we would create overlapping memory regions.
+  Currently not an issue, as `page_allocator_end = confidential_memory_end`, but could be critical in combination with other bugs or with future changes.
 
-These opt-out annotations help to progressively cover code with specification and delay the work on the verification itself. Eventually, a fully verified security monitor would not have any of the opt-out annotations and RefinedRust will verify that.
+- [In the second loop inside `PageAllocator::add_memory_region`](https://github.com/IBM/ACE-RISCV/blob/b831232f1ae31162d4cb03b8785154b7942a7406/security-monitor/src/core/page_allocator/allocator.rs#L182), the loop condition is slightly wrong, leading the code to not decrease the page size to allocate at in some case.
+    Potential impact: as the bounds are verified again afterwards, no illegal allocation is made, but the tail part of the memory region is potentially wasted when it could be allocated.
 
 ## Guarantees
 

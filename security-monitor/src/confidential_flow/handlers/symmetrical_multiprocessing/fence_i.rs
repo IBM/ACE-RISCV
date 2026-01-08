@@ -10,6 +10,7 @@ use crate::core::control_data::{
 
 /// Handles a request from one confidential hart to execute fence.i instruction on remote confidential harts.
 #[derive(Clone, PartialEq)]
+#[rr::skip]
 pub struct RemoteFenceI {
     ipi: Ipi,
 }
