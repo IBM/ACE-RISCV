@@ -1,4 +1,4 @@
-(coq.theory
+(rocq.theory
  (name ace.theories.base)
  (package ace)
  (flags -w -notation-overridden -w -redundant-canonical-projection)

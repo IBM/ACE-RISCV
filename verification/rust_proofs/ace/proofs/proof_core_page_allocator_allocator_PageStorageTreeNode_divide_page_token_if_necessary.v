@@ -7,6 +7,7 @@ Set Default Proof Using "Type".
 Section proof.
 Context `{RRGS : !refinedrustGS Σ}.
 
+(* !start proof(page_allocator.divide_page_token_if_necessary) *)
 Lemma divide_page_token_neutral node sz children smaller_size :
   page_size_smaller node.(max_node_size) = Some smaller_size →
   page_storage_node_invariant_case node sz None children →
@@ -20,9 +21,9 @@ Proof.
   - intros [_ (? & [= <-] & -> & Hlt & ? & ?)].
     cbn. rewrite page_size_min_l; first done.
     apply page_size_smaller_page_size_variant in Hsmaller.
-    apply Z.ord_lt_iff in Hlt.
-    apply Z.ord_le_iff.  lia.
+    lia.
 Qed.
+(* !end proof *)
 
 Lemma core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary_proof (π : thread_id) :
   core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary_lemma π.
@@ -30,12 +31,15 @@ Proof.
   core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary_prelude.
 
   repeat liRStep.
-  1: liInst Hevar (mk_page_node self.(max_node_size) self.(base_address) (PageTokenPartiallyAvailable smaller_size) true).
-  2: liInst Hevar self.
+  (* !start proof(page_allocator.divide_page_token_if_necessary) *)
+  1: liInst Hevar_rf (mk_page_node self.(max_node_size) self.(base_address) (PageTokenPartiallyAvailable smaller_size) true).
+  2: liInst Hevar_rf self.
   all: repeat liRStep; liShow.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
+  (* !start proof(page_allocator.divide_page_token_if_necessary) *)
   Unshelve. all: try lia.
   all: try rename select (subdivided_pages _ _) into Hsubdivided.
 
@@ -49,7 +53,6 @@ Proof.
   all: rename select (children_initialized self = true) into Hchildren.
   all: rewrite Hchildren in INV_INIT_CHILDREN.
   all: try rename x'3 into child_index.
-
 
   - right.
     opose proof (subdivided_pages_lookup_size_lt (length prefix) _ _ _ _ _ Hsubdivided _) as Ha.
@@ -83,7 +86,7 @@ Proof.
 
     odestruct (lookup_lt_is_Some_2 children (length prefix) _) as (child & Hchild).
     { lia. }
-    opose proof (page_storage_node_children_wf_child_lookup (length prefix) _ _ _ _ _ _ INV_WF Hchild) as [Hchild_sz Hchild_loc].
+    opose proof (page_storage_node_children_wf_child_lookup (length prefix) _ _ _ _ _ _ INV_WF Hchild) as (Hchild_sz & Hchild_loc & ?).
     { done. }
 
     apply page_within_range_inv in Hrange; last done.
@@ -106,7 +109,7 @@ Proof.
 
     odestruct (lookup_lt_is_Some_2 children (length prefix) _) as (child & Hchild).
     { rewrite INV_INIT_CHILDREN. lia. }
-    opose proof (page_storage_node_children_wf_child_lookup (length prefix) _ _ _ _ _ _ INV_WF Hchild) as [Hchild_sz Hchild_loc].
+    opose proof (page_storage_node_children_wf_child_lookup (length prefix) _ _ _ _ _ _ INV_WF Hchild) as (Hchild_sz  &Hchild_loc & ?).
     { done. }
 
     opose proof (subdivided_pages_lookup_base_address (length prefix) _ _ _ _ _ Hsubdivided _) as Hloc.
@@ -122,8 +125,6 @@ Proof.
     rewrite Hchild_loc.
     simpl in Hloc. rewrite Hloc.
     rewrite /child_base_address. lia.
-  - apply subdivided_pages_length in Hsubdivided.
-    solve_goal.
   - rename select (page_within_range _ _ _) into Hrange.
 
     opose proof (subdivided_pages_lookup_size_lt (length prefix) _ _ _ _ _ Hsubdivided _) as Hsz.
@@ -154,9 +155,8 @@ Proof.
     rewrite app_nil_r.
     by apply page_storage_node_children_wf_upd_state.
   - eexists. done.
-  - unfold name_hint. lia.
-  - unfold name_hint.
-    rewrite skipn_all2; last lia.
+  - lia.
+  - rewrite skipn_all2; last lia.
     rewrite app_nil_r.
     simplify_eq.
 
@@ -165,25 +165,23 @@ Proof.
     unfold page_storage_node_invariant_case.
     rewrite Hstate. simpl.
     normalize_and_simpl_goal.
-    eexists. split_and!; [done | done | | done | ].
-    { apply Z.cmp_less_iff. lia. }
+    eexists. split_and!; [done | done | lia | done | ].
     setoid_rewrite list_lookup_fmap.
     opose proof (lookup_lt_is_Some_2 children 0%nat _) as (child & Hchild).
     { specialize (page_size_multiplier_ge (max_node_size self)). lia. }
     eexists 0%nat, (page_node_update_state child PageTokenAvailable).
     rewrite Hchild.
     split; first done.
-    opose proof (page_storage_node_children_wf_child_lookup 0%nat _ _ _ _ _ _ INV_WF Hchild) as [Hchild_sz Hchild_loc].
+    opose proof (page_storage_node_children_wf_child_lookup 0%nat _ _ _ _ _ _ INV_WF Hchild) as (Hchild_sz & Hchild_loc & ?).
     { done. }
     rewrite -Hchild_sz//.
   - rename select (allocation_state self = _) into Hstate.
     rewrite Hstate. done.
   - eexists. done.
-  - solve_goal.
-  - solve_goal.
   - erewrite divide_page_token_neutral; [ | done | done].
     destruct self as [? ? state ?].
     simpl. simpl in Hchildren. rewrite Hchildren//.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

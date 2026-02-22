@@ -1,4 +1,4 @@
-(lang dune 3.8)
+(lang dune 3.21)
 (name ace)
 (package (name ace))
-(using coq 0.8)
+(using rocq 0.11)

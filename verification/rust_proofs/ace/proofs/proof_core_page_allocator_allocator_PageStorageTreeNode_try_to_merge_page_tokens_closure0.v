@@ -17,10 +17,12 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page_allocator.try_to_merge_page_tokens) *)
   { split.
     - intros ?. revert INV_CASE. sidecond_hammer.
     - intros (? & ->). revert INV_CASE. unfold page_storage_node_invariant_case.
       destruct (allocation_state child) eqn:Heq; simpl; sidecond_hammer. }
+  (* !end proof *)
   Unshelve. all: print_remaining_sidecond.
 Qed.
 End proof.

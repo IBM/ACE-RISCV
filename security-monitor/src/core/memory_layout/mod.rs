@@ -28,11 +28,11 @@ static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
 /// non-confidential memory.
 #[rr::refined_by("ml" : "memory_layout")]
 /// Invariant: The starts of the region have addresses less-or-equal-to the ends of the regions.
-#[rr::invariant("ml.(non_conf_start).2 ≤ ml.(non_conf_end).2")]
-#[rr::invariant("ml.(conf_start).2 ≤ ml.(conf_end).2")]
+#[rr::invariant("ml.(non_conf_start).(loc_a) ≤ ml.(non_conf_end).(loc_a)")]
+#[rr::invariant("ml.(conf_start).(loc_a) ≤ ml.(conf_end).(loc_a)")]
 /// Invariant: the non-confidential memory region comes before the confidential memory region.
 // TODO: this could be generalized to the regions being disjoint
-#[rr::invariant("ml.(non_conf_end).2 ≤ ml.(conf_start).2")]
+#[rr::invariant("ml.(non_conf_end).(loc_a) ≤ ml.(conf_start).(loc_a)")]
 /// Invariant: the bounds of the confidential memory region are aligned to 4KiB pages
 #[rr::invariant("ml.(conf_start) `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
 #[rr::invariant("ml.(conf_end) `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
@@ -68,11 +68,11 @@ impl MemoryLayout {
     /// This function must be called only once by the initialization procedure during the boot of the system.
     #[rr::only_spec]
     /// Precondition: The non-confidential memory should have positive size.
-    #[rr::requires("non_confidential_memory_start.2 < non_confidential_memory_end.2")]
+    #[rr::requires("non_confidential_memory_start.(loc_a) < non_confidential_memory_end.(loc_a)")]
     /// Precondition: The non-condidential memory should preceed and not overlap with confidential memory.
-    #[rr::requires("non_confidential_memory_end.2 ≤ confidential_memory_start.2")]
+    #[rr::requires("non_confidential_memory_end.(loc_a) ≤ confidential_memory_start.(loc_a)")]
     /// Precondition: The confidential memory should have positive size.
-    #[rr::requires("confidential_memory_start.2 < confidential_memory_end.2")]
+    #[rr::requires("confidential_memory_start.(loc_a) < confidential_memory_end.(loc_a)")]
     /// Precondition: The global MEMORY_LAYOUT has not been initialized yet.
     #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" None")]
     /// Postcondition: There exists a result -- failure is always an option
@@ -80,7 +80,7 @@ impl MemoryLayout {
     /// Postcondition: failure due to low memory can occur if there is no sufficiently aligned
     /// confidential address
     #[rr::ensures(
-        "if_Err res (λ err, (confidential_memory_start.2 - confidential_memory_end.2 ≤ page_size_in_bytes_Z Size4KiB)%Z ∧ err = error_Error_NotEnoughMemory)"
+        "if_Err res (λ err, (confidential_memory_start.(loc_a) - confidential_memory_end.(loc_a) ≤ page_size_in_bytes_Z Size4KiB)%Z ∧ err = error_Error_NotEnoughMemory)"
     )]
     /// Postcondition: if we return Ok, we get a new confidential memory range that is correctly
     /// aligned for the smallest page size and is a subrange of [conf_start, conf_end)
@@ -90,9 +90,9 @@ impl MemoryLayout {
             maybe_mem_layout = Some mem_layout ∧
             mem_layout.(conf_start) `aligned_to` (page_size_in_bytes_nat Size4KiB) ∧
             mem_layout.(conf_end) `aligned_to` (page_size_in_bytes_nat Size4KiB) ∧
-            confidential_memory_start.2 ≤ mem_layout.(conf_start).2 ∧
-            mem_layout.(conf_end).2 ≤ confidential_memory_end.2 ∧
-            mem_layout.(conf_start).2 ≤ mem_layout.(conf_end).2 ∧
+            confidential_memory_start.(loc_a) ≤ mem_layout.(conf_start).(loc_a) ∧
+            mem_layout.(conf_end).(loc_a) ≤ confidential_memory_end.(loc_a) ∧
+            mem_layout.(conf_start).(loc_a) ≤ mem_layout.(conf_end).(loc_a) ∧
             ok = *[ mem_layout.(conf_start); mem_layout.(conf_end)])%Z"
     )]
     /// Postcondition: if we return Ok, the MEMORY_LAYOUT has been initialized.
@@ -138,7 +138,7 @@ impl MemoryLayout {
     #[rr::only_spec]
     #[rr::ok]
     /// Precondition: The offset address is in confidential memory.
-    #[rr::requires("address.2 + offset_in_bytes < self.(conf_end).2")]
+    #[rr::requires("address.(loc_a) + offset_in_bytes < self.(conf_end).(loc_a)")]
     /// Postcondition: The offset pointer is in confidential memory.
     #[rr::ensures("ret = address +ₗ offset_in_bytes")]
     pub fn confidential_address_at_offset(
@@ -152,9 +152,9 @@ impl MemoryLayout {
     #[rr::only_spec]
     #[rr::ok]
     /// Precondition: The offset address is in confidential memory.
-    #[rr::requires("address.2 + offset_in_bytes < upper_bound.2")]
+    #[rr::requires("address.(loc_a) + offset_in_bytes < upper_bound.(loc_a)")]
     /// Precondition: The bounds we are checking are within confidential memory.
-    #[rr::requires("upper_bound.2 ≤ self.(conf_end).2")]
+    #[rr::requires("upper_bound.(loc_a) ≤ self.(conf_end).(loc_a)")]
     /// Postcondition: Then we can correctly offset the address and ensure it is in confidential
     /// memory.
     #[rr::ensures("ret = address +ₗ offset_in_bytes")]
@@ -170,7 +170,7 @@ impl MemoryLayout {
     #[rr::only_spec]
     #[rr::ok]
     /// Precondition: The offset address is in non-confidential memory.
-    #[rr::requires("address.2 + offset_in_bytes < self.(non_conf_end).2")]
+    #[rr::requires("address.(loc_a) + offset_in_bytes < self.(non_conf_end).(loc_a)")]
     /// Postcondition: Then we can correctly offset the address and ensure it is in
     /// non-confidential memory.
     #[rr::ensures("ret = address +ₗ offset_in_bytes")]
@@ -183,7 +183,7 @@ impl MemoryLayout {
 
     /// Returns true if the raw pointer is inside the non-confidential memory.
     #[rr::only_spec]
-    #[rr::returns("bool_decide (self.(non_conf_start).2 ≤ address.2 ∧ address.2 < self.(non_conf_end).2)")]
+    #[rr::returns("bool_decide (self.(non_conf_start).(loc_a) ≤ address.(loc_a) ∧ address.(loc_a) < self.(non_conf_end).(loc_a))")]
     pub fn is_in_non_confidential_range(&self, address: *const usize) -> bool {
         self.non_confidential_memory_start as *const usize <= address && address < self.non_confidential_memory_end
     }
@@ -219,7 +219,7 @@ impl MemoryLayout {
 
     /// Get the boundaries of confidential memory as a (start, end) tuple.
     #[rr::only_spec]
-    #[rr::returns(" *[self.(conf_start).2; self.(conf_end).2]")]
+    #[rr::returns(" *[self.(conf_start).(loc_a); self.(conf_end).(loc_a)]")]
     pub fn confidential_memory_boundary(&self) -> (usize, usize) {
         (self.confidential_memory_start as usize, self.confidential_memory_end as usize)
     }

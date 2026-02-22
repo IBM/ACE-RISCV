@@ -364,7 +364,7 @@ Definition encode_logical_page_table_entry_bv (pte : logical_page_table_entry) :
       (* This is not a leaf *)
       encode_pte (pt_get_serialized_addr pt) (to_pte_flags true ptc pt_permission_pointer)
   | PageWithConfidentialVmData pg ptc ptp =>
-      encode_pte pg.(page_loc).2 (to_pte_flags true ptc ptp)
+      encode_pte pg.(page_loc).(loc_a) (to_pte_flags true ptc ptp)
   | PageSharedWithHypervisor sp ptc ptp =>
       encode_pte sp.(shared_page_hv_address) (to_pte_flags true ptc ptp)
   | NotValid =>
@@ -380,7 +380,7 @@ Definition encode_page_table_entries (entries : list logical_page_table_entry) :
 (** Relation that states that [pt_byte] is a valid byte-level representation of [pt_logical]'s entries. *)
 Definition is_byte_level_representation (pt_logical : page_table_tree) (pt_byte : page) :=
   (* The physical address matches up *)
-  pt_byte.(page_loc).2 = pt_get_serialized_addr pt_logical ∧
+  pt_byte.(page_loc).(loc_a) = pt_get_serialized_addr pt_logical ∧
   (* The logical representation is well-formed *)
   page_table_wf pt_logical ∧
   (* We have a 16KiB page for Level 5, and 4KiB pages otherwise *)

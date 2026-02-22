@@ -17,12 +17,11 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
-  { revert select (_ ≤ (conf_end _).2).
-    specialize (conf_end_in_usize x0).
+  (* !start proof(page.accessors) *)
+  { revert select (_ ≤ (conf_end _).(loc_a)).
+    specialize (conf_end_in_usize MEMORY_CONFIG).
     rewrite /page_size_in_bytes_nat; solve_goal. }
-  { revert select (_ ≤ (conf_end _).2).
-    specialize (conf_end_in_usize x0).
-    rewrite /page_size_in_bytes_nat; solve_goal. }
+  (* !end proof *)
   Unshelve. all: print_remaining_sidecond.
 Qed.
 End proof.

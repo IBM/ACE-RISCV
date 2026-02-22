@@ -17,7 +17,9 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page_size.number_of_smaller_pages) *)
   all: unsafe_unfold_common_caesium_defs; simpl; lia. 
+  (* !end proof *)
   Unshelve. all: print_remaining_sidecond.
 Qed.
 End proof.

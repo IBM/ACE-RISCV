@@ -17,44 +17,22 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page_allocator.child_address_and_size) *)
   all: rename select (page_size_smaller _ = Some _) into Hsz.
-  - move: INV_IN_RANGE.
-    opose proof (page_size_multiplier_size_in_bytes (max_node_size self) _ _) as ->.
+  - opose proof (page_size_multiplier_size_in_bytes this_node_page_size _ _) as Heq.
     { rewrite Hsz//. }
-    move: INV_INIT_CHILDREN. rewrite H_child_init.
+    specialize (page_size_in_bytes_nat_in_usize this_node_page_size) as [].
     nia.
   - (* samei *)
     move: INV_IN_RANGE.
-    opose proof (page_size_multiplier_size_in_bytes (max_node_size self) _ _) as ->.
+    opose proof (page_size_multiplier_size_in_bytes this_node_page_size _ _) as ->.
     { rewrite Hsz//. }
-    move: INV_INIT_CHILDREN. rewrite H_child_init.
-    nia.
-  - move: INV_IN_RANGE.
-    opose proof (page_size_multiplier_size_in_bytes (max_node_size self) _ _) as ->.
-    { rewrite Hsz//. }
-    move: INV_INIT_CHILDREN. rewrite H_child_init.
-    nia.
-  - move: INV_IN_RANGE.
-    opose proof (page_size_multiplier_size_in_bytes (max_node_size self) _ _) as ->.
-    { rewrite Hsz//. }
-    move: INV_INIT_CHILDREN. rewrite H_child_init.
     nia.
   - unfold child_base_address.
     f_equiv. rewrite Z.mul_comm. f_equiv.
     congruence.
   - congruence.
-  - move: Hsz.
-    revert select (max_node_size self = Size4KiB).
-    intros ->.
-    simpl. done.
-  - move: Hsz.
-    revert select (max_node_size self = Size4KiB).
-    intros ->.
-    simpl. done.
-  - move: Hsz.
-    revert select (max_node_size self = Size4KiB).
-    intros ->.
-    simpl. done.
+  (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.
 Qed.

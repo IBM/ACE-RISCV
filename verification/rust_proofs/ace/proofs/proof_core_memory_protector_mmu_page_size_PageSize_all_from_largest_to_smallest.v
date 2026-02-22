@@ -13,8 +13,10 @@ Proof.
   core_memory_protector_mmu_page_size_PageSize_all_from_largest_to_smallest_prelude.
 
   repeat liRStep; liShow.
+  (* !start proof(page_size.all_from_largest_to_smallest) *)
   liInst Hevar0 (core_memory_protector_mmu_page_size_PageSize_ty).
   repeat liRStep; liShow.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

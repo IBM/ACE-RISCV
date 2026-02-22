@@ -7,6 +7,7 @@ Set Default Proof Using "Type".
 Section proof.
 Context `{RRGS : !refinedrustGS Σ}.
 
+(* !start proof(page_allocator.calculate_child_index) *)
 Lemma rem_le_a_minus_b a b z :
   0 ≤ b →
   0 < a →
@@ -33,23 +34,23 @@ Proof.
 Qed.
 
 Lemma page_within_range_offset base off sz p child_sz :
-  (page_size_in_bytes_Z (page_sz p) | (page_loc p).2) →
+  (page_size_in_bytes_Z (page_sz p) | (page_loc p).(loc_a)) →
   (page_size_in_bytes_Z sz | base) →
   page_size_smaller sz = Some child_sz →
   p.(page_sz) ≤ₚ child_sz →
-  off = ((p.(page_loc).2 - base) `quot` page_size_in_bytes_Z child_sz) * page_size_in_bytes_Z child_sz →
+  off = ((p.(page_loc).(loc_a) - base) `quot` page_size_in_bytes_Z child_sz) * page_size_in_bytes_Z child_sz →
   page_within_range base sz p →
   page_within_range (base + off) child_sz p.
 Proof.
-  set (i := ((p.(page_loc).2 - base) `quot` page_size_in_bytes_Z child_sz)).
+  set (i := ((p.(page_loc).(loc_a) - base) `quot` page_size_in_bytes_Z child_sz)).
   intros Hal1 Hal2 Hsmaller Hle -> [Hran1 Hran2].
   split; first lia.
 
-  assert (p.(page_loc).2 - base ≤ i * page_size_in_bytes_Z child_sz + Z.rem (p.(page_loc).2 - base) (page_size_in_bytes_Z child_sz)).
+  assert (p.(page_loc).(loc_a) - base ≤ i * page_size_in_bytes_Z child_sz + Z.rem (p.(page_loc).(loc_a) - base) (page_size_in_bytes_Z child_sz)).
   { subst i.
-    specialize (Z.quot_rem' ((page_loc p).2 - base) (page_size_in_bytes_Z child_sz)) as Heq.
+    specialize (Z.quot_rem' ((page_loc p).(loc_a) - base) (page_size_in_bytes_Z child_sz)) as Heq.
     rewrite {1}Heq. lia. }
-  enough (page_size_in_bytes_Z child_sz - page_size_in_bytes_Z (page_sz p) >= ((page_loc p).2 - base) `rem` page_size_in_bytes_Z child_sz) by lia.
+  enough (page_size_in_bytes_Z child_sz - page_size_in_bytes_Z (page_sz p) >= ((page_loc p).(loc_a) - base) `rem` page_size_in_bytes_Z child_sz) by lia.
 
   rewrite Z.rem_mod_nonneg; [ | lia | ]; first last.
   { specialize (page_size_in_bytes_nat_ge child_sz). lia. }
@@ -64,6 +65,7 @@ Proof.
       etrans; first done.
       left. by apply page_size_smaller_lt.
 Qed.
+(* !end proof *)
 
 Lemma core_page_allocator_allocator_PageStorageTreeNode_calculate_child_index_proof (π : thread_id) :
   core_page_allocator_allocator_PageStorageTreeNode_calculate_child_index_lemma π.
@@ -75,39 +77,30 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page_allocator.calculate_child_index) *)
   { move: Hrange; unfold page_within_range. solve_goal. }
-  { move: Hrange; unfold page_within_range; solve_goal. }
   { simplify_eq. specialize (page_size_in_words_nat_ge child_node_sz). sidecond_hammer. }
   { simplify_eq. specialize (page_size_in_words_nat_ge child_node_sz). sidecond_hammer. }
-  { (* compute the index *)
-    simplify_eq.
-    etrans; last apply Z.quot_pos; first done; first lia.
-    specialize (page_size_in_bytes_nat_ge child_node_sz).
-    lia. }
   { simplify_eq.
     specialize (page_size_in_bytes_nat_ge child_node_sz) as ?.
-    apply Z.quot_le_upper_bound; first lia.
-    nia. }
+    split.
+    - nia.
+    - apply Z.quot_le_upper_bound; first lia. nia. }
   { simplify_eq.
     specialize (page_size_in_bytes_nat_ge child_node_sz) as ?.
-    apply Z.quot_lt_upper_bound; [lia | lia | ].
+    apply Z.quot_lt_upper_bound; [solve_goal| lia | ].
     opose proof (page_size_multiplier_size_in_bytes this_node_page_size child_node_sz _) as  Ha.
     { by rewrite Hchild. }
     rewrite -Nat2Z.inj_mul. rewrite -Ha.
-
     destruct Hrange as [Hran1 Hran2].
     move: Hran2. simpl.
     specialize (page_size_in_bytes_nat_ge page_token0).
-    lia.
-  }
+    lia. }
   { simplify_eq.
     eapply page_within_range_offset; simpl; [ | | done..].
     - rewrite -page_size_align_is_size. done.
     - eexists. done. }
-  { destruct Hsz_lt as [Hsz_lt |Hsz_eq].
-    - apply Z.cmp_less_iff in Hsz_lt. lia.
-    - apply Z.cmp_equal_iff in Hsz_eq. apply page_size_variant_inj in Hsz_eq.
-      simplify_eq. lia. }
+  (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.
 Qed.
