@@ -12,7 +12,7 @@ Lemma core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_n
 Proof.
   core_memory_layout_confidential_memory_address_ConfidentialMemoryAddress_new_prelude.
 
-  repeat liRStep; liShow.
+  rep <-! liRStep; liShow.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

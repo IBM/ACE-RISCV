@@ -13,15 +13,19 @@ Proof.
   core_page_allocator_allocator_PageAllocator_empty_prelude.
 
   repeat liRStep; liShow.
-  liInst Hevar Size128TiB.
-  liInst Hevar0 0.
+  (* !start proof(page_allocator.empty) *)
+  liInst Hevar_x1 Size128TiB.
+  liInst Hevar_x2 0.
   repeat liRStep; liShow.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. 
+  (* !start proof(page_allocator.empty) *)
   { exists 0. lia. }
   { apply page_size_in_bytes_nat_in_usize. }
+  (* !end proof *)
   all: sidecond_hammer.
   Unshelve. all: print_remaining_sidecond.
 Qed.

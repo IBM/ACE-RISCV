@@ -4,3 +4,5 @@ log
 rustc-ice-*
 generated_code.bak
 _CoqProject
+.lia.cache
+.nia.cache

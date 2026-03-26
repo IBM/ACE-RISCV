@@ -78,7 +78,7 @@ The Rust source path is relative to [`security_monitor/src`](/security_monitor/s
 |----------------------------|-------------|----------------------------|---------|
 | Memory isolation config       |           | Specififed, partly verified                           |         |
 | \|- Page token                 | [`core/page_allocator/page.rs`](/security-monitor/src/core/page_allocator/page.rs)            | Largely verified |         |
-| \|- Page allocator             | [`core/page_allocator/allocator.rs`](/security-monitor/src/core/page_allocator/allocator.rs)            | Largely verified    |         |
+| \|- Page allocator             | [`core/page_allocator/allocator.rs`](/security-monitor/src/core/page_allocator/allocator.rs)            | Fully verified    |         |
 | \|- Page table encoding        | [`core/architecture/riscv/mmu`](/security-monitor/src/core/architecture/riscv/mmu)            | Specified, not verified    |         |
 | Initialization             | [`core/initialization`](/security-monitor/src/core/initialization)            | Specified, partly verified |         |
 | VM Interactions            |             | Unspecified                |         |

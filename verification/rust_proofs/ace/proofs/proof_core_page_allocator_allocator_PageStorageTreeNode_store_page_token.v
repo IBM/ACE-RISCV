@@ -7,6 +7,7 @@ Set Default Proof Using "Type".
 Section proof.
 Context `{RRGS : !refinedrustGS Σ}.
 
+(* !start proof(page_allocator.store_page_token) *)
 Lemma page_storage_node_invariant_case_store_token sz base state children max_alloc opt_page new_state new_max_alloc (i : nat) child child' child_alloc child_alloc' :
   children !! i = Some child →
   page_node_can_allocate child = child_alloc →
@@ -31,7 +32,7 @@ Proof.
   - normalize_and_simpl_goal.
     eexists. split_and!; try done.
     apply max_by_r. apply not_ord_gt_iff.
-    left. by apply Z.cmp_less_iff.
+    left. by apply Z.compare_lt_iff.
   - intros (-> & (allocable_sz & [= <-] & -> & ? & _ & Ha)).
     split; first done.
     destruct (decide (available_sz ≤ₚ child_alloc')) as [Hlt' | Hnlt].
@@ -106,23 +107,24 @@ Proof.
     erewrite page_storage_node_invariant_case_can_allocate; last done.
     by eapply page_node_invariant_case_sized_bounded.
 Qed.
+(* !end proof *)
 
 Lemma core_page_allocator_allocator_PageStorageTreeNode_store_page_token_proof (π : thread_id) :
   core_page_allocator_allocator_PageStorageTreeNode_store_page_token_lemma π.
 Proof.
   core_page_allocator_allocator_PageStorageTreeNode_store_page_token_prelude.
 
+  (* !start proof(page_allocator.store_page_token) *)
   rep liRStep; liShow.
   2: repeat liRStep.
   3: repeat liRStep.
-  1: liInst Hevar self; rep liRStep; liShow.
-  1: liInst Hevar (mk_page_node self.(max_node_size) self.(base_address) PageTokenAvailable self.(children_initialized)); rep liRStep.
+  1: liInst Hevar_rf self; rep liRStep; liShow.
+  1: liInst Hevar_rf (mk_page_node self.(max_node_size) self.(base_address) PageTokenAvailable self.(children_initialized)); rep liRStep.
   (* there is a smaller page size *)
   rep <-! liRStep.
   2: repeat liRStep.
-  rep liRStep.
-  liInst Hevar (mk_page_node self.(max_node_size) self.(base_address) self.(allocation_state) true).
   rep <-! liRStep.
+  
   match goal with
   | H : page_node_can_allocate _ = Some ?a |- _ =>
       rename a into allocable_sz_rec
@@ -130,25 +132,17 @@ Proof.
   set (new_state := (PageTokenPartiallyAvailable allocable_sz_rec) ⊔ self.(allocation_state)).
 
   repeat liRStep. liShow.
-  liInst Hevar (mk_page_node self.(max_node_size) self.(base_address) new_state true).
+  liInst Hevar_rf (mk_page_node self.(max_node_size) self.(base_address) new_state true).
   repeat liRStep.
-  liInst Hevar (mk_page_node (max_node_size self) (base_address self) x'1 true).
-  rename x'1 into updated_node_state.
+  liInst Hevar_rf (mk_page_node (max_node_size self) (base_address self) x'2 true).
+  rename x'2 into updated_node_state.
   repeat liRStep.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
-  Unshelve. all: try lia.
+  Unshelve. all: sidecond_hammer.
+  all: clear_layout.
 
-  all: try match goal with
-    | H : page_storage_node_children_wf _ _ ?x,
-      H2: page_storage_node_invariant_case (mk_page_node _ _ _ _) _ _ ?x,
-      H3: length ?x = page_size_multiplier _ |- _ =>
-          rename x into children;
-          rename H2 into INV_CASE2;
-          rename H into INV_WF2;
-          rename H3 into INV_INIT_CHILDREN2
-    end.
   all: try rename x' into child_index.
   all: try set (child := children !!! Z.to_nat child_index).
   all: try match goal with
@@ -156,71 +150,42 @@ Proof.
         rename x into child_size; rename H into Hsmaller
     end.
   all: try match goal with
-    | H : ?x = PageTokenPartiallyAvailable _ ∨ ?x = PageTokenAvailable,
-      H1 : page_storage_node_invariant_case (mk_page_node _ _ ?x _) _ _ _ |- _ =>
+    | H : ?x = _ ∨ ?x = PageTokenAvailable |- _ =>
         rename x into merged_state;
-        rename H1 into INV_CASE_MERGED;
         rename H into Hmerged
+    end.
+  all: try match goal with
+    | H1: ?x = _ ∨ _,
+      H : page_storage_node_invariant_case (mk_page_node _ _ ?x _) (Some ?p') _ _ |- _ =>
+        rename H into Hcase_merged;
+        rename p' into merged_available_sz
     end.
 
   - apply page_within_range_inv in Hrange; simpl in Hrange; done.
   - destruct Hsz_le as [Hsz_lt | Hsz_eq%Z.ord_eq_iff].
-    + apply Z.ord_lt_iff in Hsz_lt. move: Hsz_lt. lia.
+    + lia.
     + apply page_size_variant_inj in Hsz_eq. done.
   - eexists. done.
-  - done.
-  - move: INV_CASE.
-    unfold page_storage_node_invariant_case.
-    solve_goal.
-  - eexists. done.
-  - done.
-  - done.
   - erewrite page_storage_node_invariant_case_can_allocate; last done.
     by eapply page_node_invariant_case_sized_bounded.
-  - rename select (_ ∨_) into Hsz.
-    destruct Hsz as [Hsz | <-]; last done.
-    unfold ord_le, ord_lt, ord_eq.
-    move: Hsz.
-    unfold page_size_cmp.
-    match goal with
-    | H: page_size_variant _ = page_size_variant (max_node_size self) - 1 |- _ => rewrite H
-    end.
-    clear.
-    solve_goal.
   - rewrite -page_size_align_is_size.
     eexists. done.
-  - rename select (_ ∨_) into Hsz.
-    destruct Hsz as [Hsz | <-]; last done.
-    move: Hsz.
-    rename select (max_node_size self = _) into Hsz. rewrite Hsz.
-    destruct page_token0; done.
-  - eexists. done.
-  - done.
-  - destruct INV_WF2 as [INV_WF1 INV_WF2].
-    odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as [Ha Hb].
+  - destruct INV_WF as [INV_WF1 INV_WF2].
+    odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as (Ha & Hb & Hc).
     { done. }
     { assert (Z.to_nat child_index < length children); last solve_goal.
-      rewrite INV_INIT_CHILDREN2.
+      rewrite INV_INIT_CHILDREN.
       specialize (page_size_multiplier_ge (max_node_size self)); lia. }
     rewrite Hb.
     unfold child_base_address.
     lia.
-  - destruct INV_WF2 as [INV_WF1 INV_WF2].
-    odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as [Ha Hb].
+  - destruct INV_WF as [INV_WF1 INV_WF2].
+    odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as (Ha & Hb & Hc).
     { done. }
     { assert (Z.to_nat child_index < length children); last solve_goal.
-      rewrite INV_INIT_CHILDREN2.
+      rewrite INV_INIT_CHILDREN.
       specialize (page_size_multiplier_ge (max_node_size self)); lia. }
     done.
-  - opose proof (list_lookup_lookup_total_lt children (Z.to_nat child_index) _) as Hlook_child.
-    { lia. }
-    fold child in Hlook_child.
-    opose proof (page_storage_node_children_wf_child_lookup _ _ _ _ children _ _ _ _) as Hchild; [ | done | apply Hlook_child | ]; first done.
-    destruct Hchild as [-> _].
-    apply Z.ord_le_iff.
-    move: Hsz_le. unfold ord_le.
-    normalize_and_simpl_goal.
-    lia.
   - match goal with
     | H: page_within_range (base_address self + _) _ _ |- _ => rename H into Hran
     end.
@@ -228,9 +193,23 @@ Proof.
     unfold child_base_address.
     rewrite Z.mul_comm.
     done.
+  - rename select (_ ∨_) into Hsz.
+    destruct Hsz as [Hsz | <-]; last done.
+    move: Hsz.
+    rename select (max_node_size self = _) into Hsz. rewrite Hsz.
+    solve_goal.
   - eapply page_storage_node_children_wf_insert; last done.
-    all: done.
-  - eexists _. done.
+    1-2: done.
+    destruct INV_WF as [INV_WF1 INV_WF2].
+    odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as (Ha & Hb & Hc).
+    { done. }
+    { assert (Z.to_nat child_index < length children); last solve_goal.
+      rewrite INV_INIT_CHILDREN.
+      specialize (page_size_multiplier_ge (max_node_size self)); lia. }
+    rename select (page_node_can_allocate x'1 = _) into Heq1.
+    rename select (max_node_size x'1 = _) into Heq2.
+    rewrite Heq1 Heq2. solve_goal.
+  - eexists. done.
   - opose proof (list_lookup_lookup_total_lt children (Z.to_nat child_index) _) as Hlook_child.
     { lia. }
     fold child in Hlook_child.
@@ -249,29 +228,18 @@ Proof.
         apply not_ord_lt_iff. left. done.
       - eapply max_by_r. apply not_ord_gt_iff.
         move: Ha.
-        destruct (option_cmp page_size_cmp _ (Some allocable_sz_rec)) eqn:Heq; first done.
+        destruct (option_cmp page_size_cmp _ (Some allocable_sz_rec)) eqn:Heq.
         + right. done.
+        + done. 
         + left. by apply correct_ord_antisym. }
     { done. }
-  - match goal with
-    | H : ?x = new_state ∨ ?x = PageTokenAvailable |- _ =>
-        rename x into new_state';
-        rename H into Hnew_state'
-    end.
-    exfalso. move: Hnew_state'.
-    rename select (page_storage_node_invariant_case (mk_page_node _ _ new_state' _) _ _ _) into Hcase'.
+  - exfalso. move: Hmerged.
+    rename select (page_storage_node_invariant_case (mk_page_node _ _ merged_state _) _ _ _) into Hcase'.
     apply page_storage_node_invariant_not_available in Hcase' as [Ha ->].
     simpl in Ha. rewrite Ha. subst new_state.
     clear. intros [? | ?]; last done.
     destruct (allocation_state self); done.
-  - eexists. done.
-  - done.
   - (* did a merge, now it's available *)
-    match goal with
-    | H : page_storage_node_invariant_case _ (Some ?p') _ _ |- _ =>
-        rename H into Hcase_merged;
-        rename p into merged_available_sz
-    end.
     eapply available_sz_lower_bound.
     + apply INV_CASE.
     + apply Hcase_merged.
@@ -279,48 +247,18 @@ Proof.
     + simpl.
       move: Hsz_le. unfold ord_le. normalize_and_simpl_goal.
     + solve_goal.
-  - match goal with
-    | H : page_storage_node_invariant_case _ (Some ?p') _ _ |- _ =>
-        rename H into Hcase_merged;
-        rename p into merged_available_sz
-    end.
-    match goal with
-    | H : updated_node_state = new_state ∨ _ |- _ =>
-        rename H into Hmerged
-    end.
-    by eapply page_storage_node_invariant_case_can_allocate.
-  - (* same as above *)
-    match goal with
-    | H : page_storage_node_invariant_case _ (Some ?p') _ _ |- _ =>
-        rename H into Hcase_merged;
-        rename p into merged_available_sz
-    end.
-    eapply available_sz_lower_bound.
-    + apply INV_CASE.
-    + apply Hcase_merged.
-    + done.
-    + simpl. move: Hsz_le. unfold ord_le. normalize_and_simpl_goal.
-    + solve_goal.
-  - match goal with
-    | H : page_storage_node_invariant_case _ (Some ?p') _ _ |- _ =>
-        rename H into Hcase_merged;
-        rename p into merged_available_sz
-    end.
-    opose proof (available_sz_lower_bound _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) as Ha.
+  - by eapply page_storage_node_invariant_case_can_allocate.
+  - opose proof (available_sz_lower_bound _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) as Ha.
     + apply INV_CASE.
     + apply Hcase_merged.
     + done.
     + simpl. move: Hsz_le. unfold ord_le. normalize_and_simpl_goal.
     + solve_goal.
     + destruct Ha as [_ Ha]. apply Ha.
-  - match goal with
-    | H : page_storage_node_invariant_case _ (Some ?p') _ _ |- _ =>
-        rename H into Hcase_merged;
-        rename p into merged_available_sz
-    end.
-    opose proof (page_node_invariant_case_sized_bounded _ _ _ _ _) as Ha.
+  - opose proof (page_node_invariant_case_sized_bounded _ _ _ _ _) as Ha.
     { apply Hcase_merged. }
     done.
+  (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.
 (*Qed.*)

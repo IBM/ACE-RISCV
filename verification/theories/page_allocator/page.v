@@ -1,9 +1,11 @@
 From refinedrust Require Import typing.
 From rrstd.cmp.theories Require Import ordering.
 From ace.theories.base Require Import base.
+From Stdlib Require Import ZifyClasses ZifyComparison.
 
 (** * Extra theories for page sizes and pages *)
 
+(* !start spec(page_size.page_size) *)
 (* This reflects the page sizes in [core/architecture/riscv/mmu/page_size.rs] *)
 Inductive page_size : Set :=
   | Size4KiB
@@ -20,12 +22,12 @@ Global Instance page_size_eqdec : EqDecision page_size.
 Proof. solve_decision. Defined.
 Definition page_size_variant (a : page_size) : Z :=
   match a with
-  | Size4KiB => 0
-  | Size16KiB => 1
-  | Size2MiB => 2
-  | Size1GiB => 3
-  | Size512GiB => 4
-  | Size128TiB => 5
+  | Size4KiB => 1
+  | Size16KiB => 2
+  | Size2MiB => 3
+  | Size1GiB => 4
+  | Size512GiB => 5
+  | Size128TiB => 6
   end
 .
 Global Instance page_size_countable : Countable page_size.
@@ -33,12 +35,12 @@ Proof.
   refine (inj_countable (λ a, Z.to_nat (page_size_variant a))
     (λ a,
     match a with
-    | 0 => Some Size4KiB
-    | 1 => Some Size16KiB
-    | 2 => Some Size2MiB
-    | 3 => Some Size1GiB
-    | 4 => Some Size512GiB
-    | 5 => Some Size128TiB
+    | 1 => Some Size4KiB
+    | 2 => Some Size16KiB
+    | 3 => Some Size2MiB
+    | 4 => Some Size1GiB
+    | 5 => Some Size512GiB
+    | 6 => Some Size128TiB
     | _ => None
     end%nat) _).
   intros []; naive_solver.
@@ -52,11 +54,17 @@ Proof.
 Qed.
 
 Definition page_size_cmp (a b : page_size) : ordering :=
-  Z.cmp (page_size_variant a) (page_size_variant b).
+  Z.compare (page_size_variant a) (page_size_variant b).
 Arguments page_size_cmp : simpl never.
 
 Definition page_size_eq (a b : page_size) : bool :=
   bool_decide (a = b).
+
+Notation "a '<ₚ' b" := (a <o{page_size_cmp} b) (at level 50).
+Notation "a '=ₚ' b" := (a =o{page_size_cmp} b) (at level 50).
+Notation "a '>ₚ' b" := (a >o{page_size_cmp} b) (at level 50).
+Notation "a '≤ₚ' b" := (a ≤o{page_size_cmp} b) (at level 60).
+Notation "a '≥ₚ' b" := (a ≥o{page_size_cmp} b) (at level 50).
 
 Global Instance page_size_eq_correct : CorrectEq page_size_eq.
 Proof.
@@ -65,6 +73,7 @@ Proof.
   - intros ?. naive_solver.
   - intros ??. naive_solver.
   - intros ???. naive_solver.
+  - intros ??. solve_goal.
 Qed.
 Global Instance page_size_cmp_correct : CorrectOrd page_size_eq page_size_cmp.
 Proof.
@@ -75,32 +84,7 @@ Proof.
   - intros ???. solve_goal.
   - intros ???. solve_goal.
   - solve_goal.
-  - solve_goal.
 Qed.
-
-Notation "a '<ₚ' b" := (a <o{page_size_cmp} b) (at level 50).
-Notation "a '=ₚ' b" := (a =o{page_size_cmp} b) (at level 50).
-Notation "a '>ₚ' b" := (a >o{page_size_cmp} b) (at level 50).
-Notation "a '≤ₚ' b" := (a ≤o{page_size_cmp} b) (at level 60).
-Notation "a '≥ₚ' b" := (a ≥o{page_size_cmp} b) (at level 50).
-
-Lemma page_size_le_max p :
-  p ≤ₚ Size128TiB.
-Proof.
-  unfold ord_le.
-  destruct p; last (by right); left.
-  all: apply Z.cmp_less_iff.
-  all: simpl; lia.
-Qed.
-Lemma page_size_le_min p :
-  Size4KiB ≤ₚ p.
-Proof.
-  unfold ord_le.
-  destruct p; first (by right); left.
-  all: apply Z.cmp_less_iff.
-  all: simpl; lia.
-Qed.
-
 
 (** Number of 64-bit machine words in a page size *)
 Definition page_size_in_words_nat_def (sz : page_size) : nat :=
@@ -120,6 +104,165 @@ Definition page_size_in_bytes_nat (sz : page_size) : nat :=
   bytes_per_addr * page_size_in_words_nat sz.
 Notation page_size_in_bytes_Z sz :=
   (Z.of_nat (page_size_in_bytes_nat sz)).
+
+(** Join on page sizes (maximum) *)
+Definition page_size_max (sz1 sz2 : page_size) : page_size :=
+  match sz1, sz2 with
+  | Size128TiB, _ => Size128TiB
+  | _ , Size128TiB => Size128TiB
+  | Size512GiB, _ => Size512GiB
+  | _, Size512GiB => Size512GiB
+  | Size1GiB, _ => Size1GiB
+  | _, Size1GiB => Size1GiB
+  | Size2MiB, _ => Size2MiB
+  | _, Size2MiB => Size2MiB
+  | Size16KiB, _ => Size16KiB
+  | _, Size16KiB => Size16KiB
+  | _, _ => Size4KiB
+  end.
+Global Instance page_size_join : Join page_size := page_size_max.
+
+(** Meet on page sizes (minimum) *)
+Definition page_size_min (sz1 sz2 : page_size) : page_size :=
+  match sz1, sz2 with
+  | Size4KiB, _ => Size4KiB
+  | _, Size4KiB => Size4KiB
+  | Size16KiB, _ => Size16KiB
+  | _, Size16KiB => Size16KiB
+  | Size2MiB, _ => Size2MiB
+  | _, Size2MiB => Size2MiB
+  | Size1GiB, _ => Size1GiB
+  | _, Size1GiB => Size1GiB
+  | Size512GiB, _ => Size512GiB
+  | _, Size512GiB => Size512GiB
+  |_, _ => Size128TiB
+  end.
+Global Instance page_size_meet : Meet page_size := page_size_min.
+
+(** The next smaller page size *)
+Definition page_size_smaller (sz : page_size) : option page_size :=
+  match sz with
+  | Size4KiB => None
+  | Size16KiB => Some Size4KiB
+  | Size2MiB => Some Size16KiB
+  | Size1GiB => Some Size2MiB
+  | Size512GiB => Some Size1GiB
+  | Size128TiB => Some Size512GiB
+  end.
+
+(** The next larger page size *)
+Definition page_size_larger (sz : page_size) : option page_size :=
+  match sz with
+  | Size4KiB => Some Size16KiB
+  | Size16KiB => Some Size2MiB
+  | Size2MiB => Some Size1GiB
+  | Size1GiB => Some Size512GiB
+  | Size512GiB => Some Size128TiB
+  | Size128TiB => None
+  end.
+
+(** Zify support *)
+#[global] Program Instance Inj_page_size_Z : InjTyp page_size Z :=
+  mkinj _ _ page_size_variant (fun x => 1 <= x ∧ x < 7) _.
+Next Obligation.
+  intros []; simpl; lia.
+Qed.
+Add Zify InjTyp Inj_page_size_Z.
+
+#[global] Program Instance Inj_option_page_size_Z : InjTyp (option page_size) Z :=
+  mkinj _ _ (λ x, match x with | None => 0 | Some x => page_size_variant x end) (fun x => 0 <= x ∧ x < 7) _.
+Next Obligation.
+  intros [[] | ]; simpl; lia.
+Qed.
+Add Zify InjTyp Inj_option_page_size_Z.
+
+#[global] Program Instance BinOp_page_size_cmp : BinOp page_size_cmp :=
+  { TBOp := ZcompareZ }.
+Next Obligation. done. Qed.
+Add Zify BinOp BinOp_page_size_cmp.
+
+Definition page_size_compareZ (x y : page_size) :=
+  Z_of_comparison (page_size_cmp x y).
+
+#[global] Program Instance page_size_compareSpec : BinOpSpec page_size_compareZ :=
+  {| BPred := λ x y r, (x =ₚ y → r = 0%Z) ∧
+                       (x >ₚ y → r = 1%Z) ∧
+                       (x <ₚ y → r = (-1)%Z) |}.
+Next Obligation.
+  unfold ord_eq, ord_lt, ord_gt, page_size_cmp.
+  unfold page_size_compareZ, Z_of_comparison.
+  unfold page_size_cmp.
+  intros x y.
+  destruct (page_size_variant x ?= page_size_variant y) eqn:C; simpl.
+  all: solve_goal.
+Qed.
+Add Zify BinOpSpec page_size_compareSpec.
+
+#[global] Program Instance page_size_ge_op : BinRel (ord_ge page_size_cmp) := { TR := Z.ge; }.
+Next Obligation.
+  intros; apply Z.ord_ge_iff.
+Qed.
+Add Zify BinRel page_size_ge_op.
+
+#[global] Program Instance page_size_gt_op : BinRel (ord_gt page_size_cmp) := { TR := Z.gt; }.
+Next Obligation.
+  intros; apply Z.ord_gt_iff.
+Qed.
+Add Zify BinRel page_size_gt_op.
+
+#[global] Program Instance page_size_lt_op : BinRel (ord_lt page_size_cmp) := { TR := Z.lt; }.
+Next Obligation.
+  intros; apply Z.ord_lt_iff.
+Qed.
+Add Zify BinRel page_size_lt_op.
+
+#[global] Program Instance page_size_le_op : BinRel (ord_le page_size_cmp) := { TR := Z.le; }.
+Next Obligation.
+  intros; apply Z.ord_le_iff.
+Qed.
+Add Zify BinRel page_size_le_op.
+
+#[global] Program Instance page_size_eq_op : BinRel (ord_eq page_size_cmp) := { TR := Z.eq; }.
+Next Obligation.
+  intros; apply Z.ord_eq_iff.
+Qed.
+Add Zify BinRel page_size_eq_op.
+
+#[global] Program Instance page_size_eq_op' : BinRel (@eq page_size) := { TR := Z.eq; }.
+Next Obligation.
+  intros. simpl.
+  destruct n, m; simpl; try solve_goal.
+Qed.
+Add Zify BinRel page_size_eq_op'.
+
+#[global] Program Instance page_size_smaller_unop : UnOp page_size_smaller :=
+  { TUOp := Z.pred }.
+Next Obligation.
+  intros []; simpl; lia.
+Qed.
+Add Zify UnOp page_size_smaller_unop.
+
+#[global] Program Instance page_size_max_binop : BinOp page_size_max :=
+  { TBOp := Z.max }.
+Next Obligation.
+  intros [] []; simpl; lia.
+Qed.
+Add Zify BinOp page_size_max_binop.
+
+#[global] Program Instance page_size_min_binop : BinOp page_size_min :=
+  { TBOp := Z.min }.
+Next Obligation.
+  intros [] []; simpl; lia.
+Qed.
+Add Zify BinOp page_size_min_binop.
+
+(** Lemmas *)
+Lemma page_size_le_max p :
+  p ≤ₚ Size128TiB.
+Proof. lia. Qed.
+Lemma page_size_le_min p :
+  Size4KiB ≤ₚ p.
+Proof. lia. Qed.
 
 Lemma page_size_in_bytes_div_8 sz :
   (8 | page_size_in_bytes_nat sz).
@@ -141,6 +284,16 @@ Proof.
   rewrite bytes_per_addr_eq.
   specialize (page_size_in_words_nat_ge sz).
   lia.
+Qed.
+Lemma page_size_in_bytes_nat_in_isize sz :
+  (Z.of_nat $ page_size_in_bytes_nat sz) ∈ isize.
+Proof.
+  rewrite /page_size_in_bytes_nat page_size_in_words_nat_unfold /page_size_in_words_nat_def.
+  rewrite bytes_per_addr_eq.
+  split.
+  all: unsafe_unfold_common_caesium_defs.
+  all: unfold it_signed, it_byte_size_log, bytes_per_addr_log.
+  all: destruct sz; try lia.
 Qed.
 Lemma page_size_in_bytes_nat_in_usize sz :
   (Z.of_nat $ page_size_in_bytes_nat sz) ∈ usize.
@@ -189,18 +342,18 @@ Lemma page_size_le_size_in_bytes sz1 sz2 :
   page_size_in_bytes_Z sz1 ≤ page_size_in_bytes_Z sz2.
 Proof.
   intros [Hlt | Heq].
-  - apply Z.cmp_less_iff in Hlt.
+  - apply Z.compare_lt_iff in Hlt.
     apply page_size_in_bytes_Z_mono in Hlt. lia.
-  - apply Z.cmp_equal_iff in Heq. apply page_size_variant_inj in Heq. subst.
+  - apply Z.compare_eq_iff in Heq. apply page_size_variant_inj in Heq. subst.
     lia.
 Qed.
 Lemma page_size_in_words_nat_lt_divide sz1 sz2 :
   sz1 <ₚ sz2 →
   Nat.divide (page_size_in_words_nat sz1) (page_size_in_words_nat sz2).
 Proof.
-  intros Ha. apply Z.cmp_less_iff in Ha.
+  intros Ha. apply Z.compare_lt_iff in Ha.
   unfold page_size_in_bytes_nat.
-  destruct sz1, sz2; simpl in *; try lia.
+  destruct sz1, sz2; simpl in *; try lia; try done.
   all: rewrite page_size_in_words_nat_unfold /page_size_in_words_nat_def.
   - exists 4%nat. lia.
   - exists 512%nat. lia.
@@ -224,7 +377,7 @@ Lemma page_size_in_words_nat_le_divide sz1 sz2 :
 Proof.
   intros [Hlt | Heq].
   - by eapply page_size_in_words_nat_lt_divide.
-  - apply Z.cmp_equal_iff in Heq.
+  - apply Z.compare_eq_iff in Heq.
     apply page_size_variant_inj in Heq as <-.
     done.
 Qed.
@@ -240,17 +393,6 @@ Proof.
   apply Z.mul_divide_mono_l.
   done.
 Qed.
-
-(** The next smaller page size *)
-Definition page_size_smaller (sz : page_size) : option page_size :=
-  match sz with
-  | Size4KiB => None
-  | Size16KiB => Some Size4KiB
-  | Size2MiB => Some Size16KiB
-  | Size1GiB => Some Size2MiB
-  | Size512GiB => Some Size1GiB
-  | Size128TiB => Some Size512GiB
-  end.
 
 Lemma page_size_smaller_None sz :
   page_size_smaller sz = None ↔ sz = Size4KiB.
@@ -268,20 +410,10 @@ Proof.
   intros Hsmaller.
   apply page_size_smaller_page_size_variant in Hsmaller.
   unfold ord_lt, page_size_cmp.
-  apply Z.cmp_less_iff.
+  apply Z.compare_lt_iff.
   lia.
 Qed.
 
-(** The next larger page size *)
-Definition page_size_larger (sz : page_size) : option page_size :=
-  match sz with
-  | Size4KiB => Some Size16KiB
-  | Size16KiB => Some Size2MiB
-  | Size2MiB => Some Size1GiB
-  | Size1GiB => Some Size512GiB
-  | Size512GiB => Some Size128TiB
-  | Size128TiB => None
-  end.
 Lemma page_size_larger_None sz :
   page_size_larger sz = None ↔ sz = Size128TiB.
 Proof. destruct sz; done. Qed.
@@ -298,7 +430,7 @@ Proof.
   intros Hlarger.
   apply page_size_larger_page_size_variant in Hlarger.
   unfold ord_gt, page_size_cmp.
-  apply Z.cmp_greater_iff.
+  apply Z.compare_gt_iff.
   lia.
 Qed.
 
@@ -325,91 +457,77 @@ Proof.
   destruct sz; simpl; lia.
 Qed.
 
-(** Join on page sizes (maximum) *)
-Definition page_size_max (sz1 sz2 : page_size) : page_size :=
-  match sz1, sz2 with
-  | Size128TiB, _ => Size128TiB
-  | _ , Size128TiB => Size128TiB
-  | Size512GiB, _ => Size512GiB
-  | _, Size512GiB => Size512GiB
-  | Size1GiB, _ => Size1GiB
-  | _, Size1GiB => Size1GiB
-  | Size2MiB, _ => Size2MiB
-  | _, Size2MiB => Size2MiB
-  | Size16KiB, _ => Size16KiB
-  | _, Size16KiB => Size16KiB
-  | _, _ => Size4KiB
-  end.
-Global Instance page_size_join : Join page_size := page_size_max.
-
 Lemma page_size_max_ge_l sz1 sz2 :
   sz1 ≤ₚ sz1 ⊔ sz2.
 Proof.
-  unfold ord_le.
-  destruct sz1, sz2; cbn; naive_solver.
+  unfold join, page_size_join. lia.
 Qed.
 Lemma page_size_max_ge_r sz1 sz2 :
   sz2 ≤ₚ sz1 ⊔ sz2.
 Proof.
-  unfold ord_le.
-  destruct sz1, sz2; cbn; naive_solver.
+  unfold join, page_size_join. lia.
 Qed.
 Lemma page_size_max_l sz1 sz2 :
   sz2 ≤ₚ sz1 → sz1 ⊔ sz2 = sz1.
 Proof.
   intros [Hlt | Heq].
-  - apply Z.cmp_less_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
-  - apply Z.cmp_equal_iff in Heq. destruct sz1, sz2; simpl; try done.
+  - apply Z.compare_lt_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_eq_iff in Heq. destruct sz1, sz2; simpl; try done.
 Qed.
 Lemma page_size_max_r sz1 sz2 :
   sz1 ≤ₚ sz2 → sz1 ⊔ sz2 = sz2.
 Proof.
   intros [Hlt | Heq].
-  - apply Z.cmp_less_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
-  - apply Z.cmp_equal_iff in Heq. destruct sz1, sz2; simpl; try done.
+  - apply Z.compare_lt_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_eq_iff in Heq. destruct sz1, sz2; simpl; try done.
 Qed.
-
-(** Meet on page sizes (minimum) *)
-Definition page_size_min (sz1 sz2 : page_size) : page_size :=
-  match sz1, sz2 with
-  | Size4KiB, _ => Size4KiB
-  | _, Size4KiB => Size4KiB
-  | Size16KiB, _ => Size16KiB
-  | _, Size16KiB => Size16KiB
-  | Size2MiB, _ => Size2MiB
-  | _, Size2MiB => Size2MiB
-  | Size1GiB, _ => Size1GiB
-  | _, Size1GiB => Size1GiB
-  | Size512GiB, _ => Size512GiB
-  | _, Size512GiB => Size512GiB
-  |_, _ => Size128TiB
-  end.
-Global Instance page_size_meet : Meet page_size := page_size_min.
+Lemma page_size_max_le_glb s a b :
+  a ≤ₚ s → b ≤ₚ s → a ⊔ b ≤ₚ s.
+Proof.
+  destruct s, a, b; simpl; done.
+Qed.
+Lemma page_size_max_lt_glb s a b :
+  a <ₚ s → b <ₚ s → a ⊔ b <ₚ s.
+Proof.
+  destruct s, a, b; simpl; done.
+Qed.
 
 Lemma page_size_min_le_l sz1 sz2 :
   sz1 ⊓ sz2 ≤ₚ sz1.
 Proof.
-  unfold ord_le. destruct sz1, sz2; cbn; naive_solver.
+  unfold meet, page_size_meet. lia.
 Qed.
 Lemma page_size_min_le_r sz1 sz2 :
   sz1 ⊓ sz2 ≤ₚ sz2.
 Proof.
-  unfold ord_le. destruct sz1, sz2; cbn; naive_solver.
+  unfold meet, page_size_meet. lia.
 Qed.
 Lemma page_size_min_l sz1 sz2 :
   sz1 ≤ₚ sz2 → sz1 ⊓ sz2 = sz1.
 Proof.
   intros [Hlt | Heq].
-  - apply Z.cmp_less_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
-  - apply Z.cmp_equal_iff in Heq. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_lt_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_eq_iff in Heq. destruct sz1, sz2; simpl in *; try done.
 Qed.
 Lemma page_size_min_r sz1 sz2 :
   sz2 ≤ₚ sz1 → sz1 ⊓ sz2 = sz2.
 Proof.
   intros [Hlt | Heq].
-  - apply Z.cmp_less_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
-  - apply Z.cmp_equal_iff in Heq. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_lt_iff in Hlt. destruct sz1, sz2; simpl in *; try done.
+  - apply Z.compare_eq_iff in Heq. destruct sz1, sz2; simpl in *; try done.
 Qed.
+Lemma page_size_min_le_lub s a b :
+  s ≤ₚ a → s ≤ₚ b → s ≤ₚ a ⊓ b.
+Proof.
+  destruct s, a, b; simpl; done.
+Qed.
+Lemma page_size_min_lt_lub s a b :
+  s <ₚ a → s <ₚ b → s <ₚ a ⊓ b.
+Proof.
+  destruct s, a, b; simpl; done.
+Qed.
+(* !end spec *)
+(* !start spec(page.page) *)
 
 (** The maximum address at which a page may be located (one-past-the-end address), limited by the page allocator implementation. *)
 (* Sealed because it is big and will slow down Coq *)
@@ -437,8 +555,6 @@ Record page : Type := mk_page {
 Canonical Structure pageRT := directRT page.
 Global Instance loc_eqdec : EqDecision loc.
 Proof. solve_decision. Defined.
-Global Instance loc_countable : Countable loc.
-Proof. unfold loc. apply prod_countable. Qed.
 Global Instance page_inh : Inhabited page.
 Proof. exact (populate (mk_page inhabitant inhabitant inhabitant)). Qed.
 Global Instance page_eqdec : EqDecision page.
@@ -545,6 +661,41 @@ Proof.
   f_equiv. by apply page_size_multiplier_align_log.
 Qed.
 
+Lemma page_size_in_words_is_power_of_two sz :
+  is_power_of_two (page_size_in_words_nat sz).
+Proof.
+  rewrite page_size_in_words_nat_unfold.
+  rewrite /page_size_in_words_nat_def.
+  assert (is_power_of_two 512).
+  { exists 9%nat. done. }
+  assert (is_power_of_two 256).
+  { exists 8%nat. done. }
+  assert (is_power_of_two 4).
+  { exists 2%nat. done. }
+  destruct sz.
+  all: repeat first [done | apply is_power_of_two_mult; split].
+Qed.
+Lemma page_size_in_bytes_is_power_of_two sz :
+  is_power_of_two (page_size_in_bytes_nat sz).
+Proof.
+  rewrite /page_size_in_bytes_nat.
+  apply is_power_of_two_mult.
+  split; last apply page_size_in_words_is_power_of_two.
+  exists 3%nat. done.
+Qed.
+Global Instance simpl_page_size_in_words_is_power_of_two sz :
+  SimplBoth (is_power_of_two (page_size_in_words_nat sz)) True.
+Proof.
+  rewrite /SimplBoth. split; first done.
+  intros. apply page_size_in_words_is_power_of_two.
+Qed.
+Global Instance simpl_page_size_in_bytes_is_power_of_two sz :
+  SimplBoth (is_power_of_two (page_size_in_bytes_nat sz)) True.
+Proof.
+  rewrite /SimplBoth. split; first done.
+  intros. apply page_size_in_bytes_is_power_of_two.
+Qed.
+
 Lemma page_size_multiplier_quot sz smaller_sz :
   smaller_sz = default sz (page_size_smaller sz) →
   page_size_multiplier sz = Z.to_nat (page_size_in_bytes_Z sz `quot` page_size_in_bytes_Z smaller_sz).
@@ -588,12 +739,12 @@ Qed.
 (** States that the page is in the given memory range *)
 (* TODO unify all the memory range stuff *)
 Definition page_within_range (base_address : Z) (sz : page_size) (p : page) : Prop :=
-  (base_address ≤ p.(page_loc).2 ∧ p.(page_loc).2 + page_size_in_bytes_Z p.(page_sz) ≤ base_address + page_size_in_bytes_Z sz)%Z.
+  (base_address ≤ p.(page_loc).(loc_a) ∧ p.(page_loc).(loc_a) + page_size_in_bytes_Z p.(page_sz) ≤ base_address + page_size_in_bytes_Z sz)%Z.
 
 Lemma page_within_range_inv base sz p :
   page_within_range base sz p →
   p.(page_sz) = sz →
-  p.(page_loc).2 = base.
+  p.(page_loc).(loc_a) = base.
 Proof.
   unfold page_within_range.
   intros [] <-.
@@ -662,14 +813,14 @@ Proof.
   destruct (page_size_smaller p.(page_sz)) eqn:Heq.
   - eapply page_size_smaller_lt in Heq. left. done.
   - simpl. right.
-    apply Z.cmp_equal_iff. done.
+    apply Z.compare_eq_iff. done.
 Qed.
 
 Lemma subdivided_pages_lookup_base_address (i : nat) p ps p' sz' :
   page_size_smaller p.(page_sz) = Some sz' →
   subdivided_pages p ps →
   ps !! i = Some p' →
-  (page_loc p').2 = p.(page_loc).2 + (i * page_size_in_bytes_nat sz').
+  (page_loc p').(loc_a) = p.(page_loc).(loc_a) + (i * page_size_in_bytes_nat sz').
 Proof.
   unfold subdivided_pages.
   intros -> [Ha Hb] Hlook.
@@ -692,7 +843,7 @@ Lemma subdivided_pages_page_within_range (i : nat) p ps p' :
   page_size_smaller p.(page_sz) = Some p'.(page_sz) →
   subdivided_pages p ps →
   ps !! i = Some p' →
-  page_within_range (p.(page_loc).2 + i * page_size_in_bytes_Z p'.(page_sz)) p'.(page_sz) p'.
+  page_within_range (p.(page_loc).(loc_a) + i * page_size_in_bytes_Z p'.(page_sz)) p'.(page_sz) p'.
 Proof.
   intros ? Hsubdivided Hlook.
   opose proof (subdivided_pages_lookup_base_address i _ _ _ _ _ Hsubdivided _) as Hl.
@@ -705,7 +856,7 @@ Lemma subdivided_pages_page_within_range' i p ps p' sz base :
   page_size_smaller sz = Some p'.(page_sz) →
   subdivided_pages p ps →
   ps !! i = Some p' →
-  base = p.(page_loc).2 →
+  base = p.(page_loc).(loc_a) →
   sz = p.(page_sz) →
   page_within_range base sz p'.
 Proof.
@@ -728,7 +879,7 @@ Lemma subdivided_pages_lookup_inv p sz base ps p' (i : nat) (j : Z) :
   subdivided_pages p ps →
   ps !! i = Some p' →
   p'.(page_sz) = sz →
-  base = p.(page_loc).2 →
+  base = p.(page_loc).(loc_a) →
   page_within_range (base + j * page_size_in_bytes_Z sz) sz p' →
   i = Z.to_nat j.
 Proof.
@@ -739,6 +890,7 @@ Proof.
   specialize (page_size_in_bytes_nat_ge p'.(page_sz)).
   nia.
 Qed.
+(* !end spec *)
 
 
 (** Stronger functional specification *)
@@ -874,6 +1026,7 @@ Qed.
 
 
 (** Lithium automation *)
+(* !start spec(page.page) *)
 Global Instance simpl_exist_page Q :
   SimplExist page Q (∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
     Q (mk_page page_loc page_sz page_val)).
@@ -915,3 +1068,4 @@ Global Instance simpl_both_page_size_larger_none sz :
 Proof.
   split; destruct sz; simpl; done.
 Qed.
+(* !end spec *)

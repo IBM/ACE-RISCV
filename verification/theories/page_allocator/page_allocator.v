@@ -3,53 +3,8 @@ From refinedrust Require Import ghost_var_dfrac.
 From rrstd.cmp.theories Require Import ordering.
 From ace.theories.page_allocator Require Import page.
 
-(** * Page allocator ghost state *)
-
-Record memory_region := {
-  mreg_start : Z;
-  mreg_size : nat;
-}.
-Definition mreg_end (mreg : memory_region) : Z :=
-  mreg.(mreg_start) + mreg.(mreg_size).
-
-Class memory_regionG Σ := {
-  mreg_ghost_var :: ghost_varG Σ memory_region;
-}.
-Section page_allocator.
-  Context `{!typeGS Σ}.
-  Context `{!memory_regionG Σ}.
-
-  Definition has_memory_region_def (γ : gname) (mreg : memory_region) :=
-    ghost_var γ DfracDiscarded mreg.
-  Definition has_memory_region_aux : seal (@has_memory_region_def). Proof. by eexists. Qed.
-  Definition has_memory_region := has_memory_region_aux.(unseal).
-  Definition has_memory_region_eq : @has_memory_region = @has_memory_region_def := has_memory_region_aux.(seal_eq).
-
-  Lemma has_memory_region_alloc mreg :
-    ⊢ |==> ∃ γ, has_memory_region γ mreg.
-  Proof.
-    rewrite has_memory_region_eq.
-    iMod (ghost_var_alloc mreg) as (γ) "Hvar".
-    iExists γ. by iApply ghost_var_discard.
-  Qed.
-
-  Lemma has_memory_region_agree γ mreg1 mreg2 :
-    has_memory_region γ mreg1 -∗
-    has_memory_region γ mreg2 -∗
-    ⌜mreg1 = mreg2⌝.
-  Proof.
-    rewrite has_memory_region_eq.
-    iApply ghost_var_agree.
-  Qed.
-
-  Global Instance has_memory_region_pers γ mreg : Persistent (has_memory_region γ mreg).
-  Proof.
-    rewrite has_memory_region_eq.
-    apply _.
-  Qed.
-End page_allocator.
-
 (** * Page allocator invariants *)
+(* !start spec(page_allocator.page_allocator) *)
 Inductive node_allocation_state :=
 (** This page node is completely allocated *)
 | PageTokenUnavailable
@@ -84,6 +39,173 @@ Global Instance node_allocation_state_meet : Meet node_allocation_state := λ s1
   | _, _ => PageTokenAvailable
   end.
 
+Definition node_allocation_state_cmp (s1 s2 : node_allocation_state) : comparison :=
+  match s1, s2 with
+  | PageTokenUnavailable, PageTokenUnavailable =>
+      Eq
+  | PageTokenUnavailable, _ =>
+      Lt
+  | PageTokenPartiallyAvailable sz1, PageTokenUnavailable =>
+      Gt
+  | PageTokenPartiallyAvailable sz1, PageTokenPartiallyAvailable sz2 =>
+      page_size_cmp sz1 sz2
+  | PageTokenPartiallyAvailable sz1, PageTokenAvailable =>
+      Lt
+  | PageTokenAvailable, PageTokenAvailable =>
+      Eq
+  | PageTokenAvailable, _ =>
+      Gt
+  end.
+
+Global Instance simpl_page_token_partially_available_le s1 s2 :
+  SimplBoth (PageTokenPartiallyAvailable s1 ≤o{node_allocation_state_cmp} PageTokenPartiallyAvailable s2) (s1 ≤ₚ s2).
+Proof. done. Qed.
+Global Instance simpl_page_token_partially_available_lt s1 s2 :
+  SimplBoth (PageTokenPartiallyAvailable s1 <o{node_allocation_state_cmp} PageTokenPartiallyAvailable s2) (s1 <ₚ s2).
+Proof. done. Qed.
+Global Instance simpl_page_token_partially_available_eq s1 s2 :
+  SimplBoth (PageTokenPartiallyAvailable s1 =o{node_allocation_state_cmp} PageTokenPartiallyAvailable s2) (s1 =ₚ s2).
+Proof. done. Qed.
+
+Global Instance node_allocation_state_correct_ord : CorrectOrd (λ a b, bool_decide (a = b)) node_allocation_state_cmp.
+Proof.
+  econstructor.
+  - econstructor.
+    + intros ?. solve_goal.
+    + intros ??. solve_goal.
+    + intros ???. solve_goal.
+    + intros ??. solve_goal.
+  - intros [] []. all: try solve_goal.
+    normalize_and_simpl_goal.
+    split; congruence.
+  - intros [] [] []. all: try solve_goal.
+  - intros [] [] []. all: try solve_goal.
+  - intros [] []. all: try solve_goal.
+Qed.
+
+Lemma node_allocation_state_meet_le_l s1 s2 :
+  s1 ⊓ s2 ≤o{node_allocation_state_cmp} s1.
+Proof.
+  unfold meet, node_allocation_state_meet.
+  unfold ord_le.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  destruct (decide ((sz1 ⊓ sz2) <ₚ sz1)) as [Hlt | Hnlt].
+  + left. solve_goal.
+  + apply not_ord_lt_iff in Hnlt. right.
+    rewrite page_size_min_l; first last.
+    { etrans; first apply Hnlt. apply page_size_min_le_r. }
+    solve_goal.
+Qed.
+Lemma node_allocation_state_meet_le_r s1 s2 :
+  s1 ⊓ s2 ≤o{node_allocation_state_cmp} s2.
+Proof.
+  unfold meet, node_allocation_state_meet.
+  unfold ord_le.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  destruct (decide ((sz1 ⊓ sz2) <ₚ sz2)) as [Hlt | Hnlt].
+  + left. solve_goal.
+  + apply not_ord_lt_iff in Hnlt. right.
+    rewrite page_size_min_r; first last.
+    { etrans; first apply Hnlt. apply page_size_min_le_l. }
+    solve_goal.
+Qed.
+Lemma node_allocation_state_meet_l s1 s2 :
+  s1 ≤o{node_allocation_state_cmp} s2 → s1 ⊓ s2 = s1.
+Proof.
+  unfold ord_le.
+  unfold meet, node_allocation_state_meet.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  intros Ha. f_equiv. rewrite page_size_min_l//.
+Qed.
+Lemma node_allocation_state_meet_r s1 s2 :
+  s2 ≤o{node_allocation_state_cmp} s1 → s1 ⊓ s2 = s2.
+Proof.
+  unfold ord_le.
+  unfold meet, node_allocation_state_meet.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  intros Ha. f_equiv. rewrite page_size_min_r//.
+Qed.
+
+Lemma node_allocation_state_join_ge_l s1 s2 :
+  s1 ≤o{node_allocation_state_cmp} (s1 ⊔ s2).
+Proof.
+  unfold join, node_allocation_state_join.
+  unfold ord_le.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  destruct (decide (sz1 <ₚ (sz1 ⊔ sz2))) as [Hlt | Hnlt].
+  + left. solve_goal.
+  + apply not_ord_lt_iff in Hnlt. right.
+    rewrite page_size_max_l; first last.
+    { etrans; last apply Hnlt. apply page_size_max_ge_r. }
+    solve_goal.
+Qed.
+Lemma node_allocation_state_join_ge_r s1 s2 :
+  s2 ≤o{node_allocation_state_cmp} (s1 ⊔ s2).
+Proof.
+  unfold join, node_allocation_state_join.
+  unfold ord_le.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  destruct (decide (sz2 <ₚ (sz1 ⊔ sz2))) as [Hlt | Hnlt].
+  + left. solve_goal.
+  + apply not_ord_lt_iff in Hnlt. right.
+    rewrite page_size_max_r; first last.
+    { etrans; last apply Hnlt. apply page_size_max_ge_l. }
+    solve_goal.
+Qed.
+Lemma node_allocation_state_join_l s1 s2 :
+  s2 ≤o{node_allocation_state_cmp} s1 → s1 ⊔ s2 = s1.
+Proof.
+  unfold ord_le.
+  unfold join, node_allocation_state_join.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  intros Ha. f_equiv. rewrite page_size_max_l//.
+Qed.
+Lemma node_allocation_state_join_r s1 s2 :
+  s1 ≤o{node_allocation_state_cmp} s2 → s1 ⊔ s2 = s2.
+Proof.
+  unfold ord_le.
+  unfold join, node_allocation_state_join.
+  destruct s1 as [ | | sz1], s2 as [ | | sz2]; simpl; try solve_goal.
+  intros Ha. f_equiv. rewrite page_size_max_r//.
+Qed.
+
+Lemma node_allocation_state_meet_le_lub s a b :
+  s ≤o{node_allocation_state_cmp} a →
+  s ≤o{node_allocation_state_cmp} b →
+  s ≤o{node_allocation_state_cmp} a ⊓ b.
+Proof.
+  destruct s, a, b; simpl; try done.
+  normalize_and_simpl_goal.
+  by apply page_size_min_le_lub.
+Qed.
+Lemma node_allocation_state_meet_lt_lub s a b :
+  s <o{node_allocation_state_cmp} a →
+  s <o{node_allocation_state_cmp} b →
+  s <o{node_allocation_state_cmp} a ⊓ b.
+Proof.
+  destruct s, a, b; simpl; try done.
+  normalize_and_simpl_goal.
+  by apply page_size_min_lt_lub.
+Qed.
+Lemma node_allocation_state_join_le_glb s a b :
+  a ≤o{node_allocation_state_cmp} s →
+  b ≤o{node_allocation_state_cmp} s →
+  (a ⊔ b) ≤o{node_allocation_state_cmp} s.
+Proof.
+  destruct s, a, b; simpl; try done.
+  normalize_and_simpl_goal.
+  by apply page_size_max_le_glb.
+Qed.
+Lemma node_allocation_state_join_lt_glb s a b :
+  a <o{node_allocation_state_cmp} s →
+  b <o{node_allocation_state_cmp} s →
+  (a ⊔ b) <o{node_allocation_state_cmp} s.
+Proof.
+  destruct s, a, b; simpl; try done.
+  normalize_and_simpl_goal.
+  by apply page_size_max_lt_glb.
+Qed.
+
 (** Our logical representation of storage nodes *)
 Record page_storage_node : Type := mk_page_node {
   (* The size of memory this node controls *)
@@ -108,6 +230,28 @@ Qed.
 Definition page_node_update_state (node : page_storage_node) (new_state : node_allocation_state)  : page_storage_node :=
   mk_page_node node.(max_node_size) node.(base_address) new_state node.(children_initialized).
 
+(** Computes the maximum size this page node can allocate *)
+Definition node_allocation_state_can_allocate (node : node_allocation_state) (max_sz : page_size) : option page_size :=
+  match node with
+  | PageTokenUnavailable => None
+  | PageTokenAvailable => Some max_sz
+  | PageTokenPartiallyAvailable allocable => Some allocable
+  end.
+Definition page_node_can_allocate (node : page_storage_node) : option page_size :=
+  node_allocation_state_can_allocate node.(allocation_state) node.(max_node_size).
+
+Lemma page_node_can_allocate_lb sz node :
+  Some sz ≤o{option_cmp page_size_cmp} page_node_can_allocate node →
+  PageTokenPartiallyAvailable sz ≤o{node_allocation_state_cmp} node.(allocation_state).
+Proof.
+  unfold page_node_can_allocate.
+  simpl.
+  generalize (allocation_state node).
+  intros []; simpl.
+  all: try solve_goal.
+  intros. left. done.
+Qed.
+
 (** Compute the base address of a child node *)
 Definition child_base_address (parent_base_address : Z) (child_size : page_size) (child_index : Z) : Z :=
   parent_base_address + (page_size_in_bytes_Z child_size * child_index).
@@ -122,7 +266,8 @@ Definition page_storage_node_children_wf (parent_base_address : Z) (parent_node_
     (* Then all children are sorted *)
     (∀ (i : nat) child, children !! i = Some child →
       child.(max_node_size) = child_node_size ∧
-      child.(base_address) = child_base_address parent_base_address child_node_size i)) ∧
+      child.(base_address) = child_base_address parent_base_address child_node_size i ∧
+      page_node_can_allocate child ≤o{option_cmp page_size_cmp} Some child_node_size)) ∧
   (* If there can't be any children, there are no children *)
   (page_size_smaller parent_node_size = None →
     children = [])
@@ -132,7 +277,8 @@ Lemma page_storage_node_children_wf_child_lookup (i : nat) sz child_node_size ba
   page_storage_node_children_wf base sz children →
   children !! i = Some child →
   max_node_size child = child_node_size ∧
-  base_address child = child_base_address base child_node_size i.
+  base_address child = child_base_address base child_node_size i ∧
+  page_node_can_allocate child ≤o{option_cmp page_size_cmp} Some child_node_size.
 Proof.
   intros Hsmaller Hchildren Hchild.
   destruct Hchildren as [Hchildren _].
@@ -140,18 +286,21 @@ Proof.
   done.
 Qed.
 Lemma page_storage_node_children_wf_upd_state base sz children s :
+  (∀ child_sz, page_size_smaller sz = Some child_sz → node_allocation_state_can_allocate s child_sz ≤o{option_cmp page_size_cmp} Some child_sz) →
   page_storage_node_children_wf base sz children →
   page_storage_node_children_wf base sz ((λ node, page_node_update_state node s) <$> children).
 Proof.
   unfold page_storage_node_children_wf.
+  intros Hbound.
   destruct (page_size_smaller sz) as [smaller_size | ] eqn:Heq.
   - simpl. intros [Ha _]. split; last done.
     intros child_sz [=<-] i child Hlook.
     apply list_lookup_fmap_Some_1 in Hlook as (node & -> & Hlook).
     ospecialize (Ha _ _ _ _ Hlook).
     { done. }
-    destruct Ha as [<- Ha].
-    done.
+    destruct Ha as (<- & Ha & Hb).
+    split_and!; [done.. | ].
+    by apply Hbound.
   - intros [_ Ha].
     split; first done.
     intros _. rewrite Ha; done.
@@ -159,27 +308,26 @@ Qed.
 Lemma page_storage_node_children_wf_insert base sz children child' (i : nat) :
   max_node_size child' = max_node_size (children !!! i) →
   base_address child' = base_address (children !!! i) →
+  page_node_can_allocate child' ≤o{option_cmp page_size_cmp} Some (max_node_size child') →
   page_storage_node_children_wf base sz children →
   page_storage_node_children_wf base sz (<[i := child']> children).
 Proof.
-  intros Hsz Haddr [Hwf1 Hwf2]. split.
+  intros Hsz Haddr Hbound [Hwf1 Hwf2]. split.
   - intros child_sz Hsmaller j ? Hlook.
     apply list_lookup_insert_Some in Hlook as [(<- & -> & ?) | (? & ?)]; first last.
     { by eapply Hwf1. }
     rewrite Haddr Hsz.
     opose proof (lookup_lt_is_Some_2 children i _) as (child' & ?); first done.
     erewrite list_lookup_total_correct; last done.
-    by eapply Hwf1.
+    opose proof* Hwf1 as (Hsz' & Haddr' & ?); [done.. | ].
+    split; first done. split; first done.
+    rewrite -Hsz'.
+    move: Hsz.
+    erewrite list_lookup_total_correct; last done.
+    intros <-.
+    done.
   - intros Hnone. specialize (Hwf2 Hnone). rewrite Hwf2. done.
 Qed.
-
-(** Computes the maximum size this page node can allocate *)
-Definition page_node_can_allocate (node : page_storage_node) : option page_size :=
-  match node.(allocation_state) with
-  | PageTokenUnavailable => None
-  | PageTokenAvailable => Some node.(max_node_size)
-  | PageTokenPartiallyAvailable allocable => Some allocable
-  end.
 
 (** The logical invariant on a page node *)
 Definition page_storage_node_invariant_case
@@ -190,9 +338,11 @@ Definition page_storage_node_invariant_case
       (* No allocation is possible *)
       maybe_page_token = None ∧ max_sz = None
 
+      (* NOTE: This (and the matching requirement in the Available state below) are quite annoying to establish.
+         If we do `store_page_token_in_this_node`, we have to traverse the whole subtree and use reasoning about
+         exclusivity of memory ownership in order to get this. *)
       (* all children are unavailable *)
-      (* TODO do we need this *)
-      (*Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children*)
+      (*∧ Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children*)
   else if decide (node.(allocation_state) = PageTokenAvailable)
   then
       (* This node is completely available *)
@@ -202,10 +352,10 @@ Definition page_storage_node_invariant_case
         (* the allocable size spans the whole page *)
         max_sz = Some (node.(max_node_size)) ∧
         (* the token spans the whole node *)
-        token.(page_loc).2 = node.(base_address) ∧
+        token.(page_loc).(loc_a) = node.(base_address) ∧
         token.(page_sz) = node.(max_node_size)
         (* all children are unavailable *)
-        (*Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children*)
+        (*∧ Forall (λ child, child.(allocation_state) = PageTokenUnavailable) children*)
   else
 
       (* This node is partially available with initialized children *)
@@ -237,7 +387,17 @@ Lemma page_node_invariant_case_sized_bounded node max_sz tok children :
   max_sz ≤o{option_cmp page_size_cmp} Some (max_node_size node).
 Proof.
   unfold page_storage_node_invariant_case, page_node_can_allocate.
+  unfold ord_le.
   destruct (allocation_state node) eqn:Heq; simpl; solve_goal.
+Qed.
+
+Lemma page_node_invariant_case_can_allocate_bounded node max_sz tok children :
+  page_storage_node_invariant_case node max_sz tok children →
+  page_node_can_allocate node ≤o{option_cmp page_size_cmp} Some (max_node_size node).
+Proof.
+  unfold page_node_can_allocate.
+  unfold page_storage_node_invariant_case.
+  destruct allocation_state; solve_goal.
 Qed.
 
 Global Typeclasses Opaque page_storage_node_children_wf.
@@ -262,7 +422,9 @@ Definition page_storage_node_invariant
   (* invariant depending on the allocation state: *)
   name_hint "INV_CASE" (page_storage_node_invariant_case node max_sz maybe_page_token children)
 .
+(* !end spec *)
 
+(* !start proof(page_allocator.page_allocator) *)
 Lemma page_storage_node_invariant_empty node_size base_address :
   (page_size_align node_size | base_address) →
   page_storage_node_invariant (mk_page_node node_size base_address PageTokenUnavailable false) None None [].
@@ -272,10 +434,21 @@ Proof.
   apply Nat2Z.divide. done.
 Qed.
 
+Lemma page_storage_node_invariant_no_tok node max_sz children :
+  page_storage_node_invariant_case node max_sz None children →
+  max_sz <o{option_cmp page_size_cmp} Some node.(max_node_size) ∧ node.(allocation_state) ≠ PageTokenAvailable.
+Proof.
+  unfold page_storage_node_invariant_case.
+  repeat case_decide; [ | solve_goal..].
+  intros (_ & ->).
+  split; first done.
+  congruence.
+Qed.
+
 Lemma page_storage_node_invariant_case_available_inv node max_sz maybe_tok children :
   node.(allocation_state) = PageTokenAvailable →
   page_storage_node_invariant_case node max_sz maybe_tok children →
-  ∃ tok, maybe_tok = Some tok ∧ max_sz = Some node.(max_node_size) ∧ tok.(page_loc).2 = node.(base_address) ∧ tok.(page_sz) = node.(max_node_size).
+  ∃ tok, maybe_tok = Some tok ∧ max_sz = Some node.(max_node_size) ∧ tok.(page_loc).(loc_a) = node.(base_address) ∧ tok.(page_sz) = node.(max_node_size).
 Proof.
   unfold page_storage_node_invariant_case.
   intros ->. naive_solver.
@@ -287,7 +460,7 @@ Global Instance page_storage_node_invariant_simpl_available node max_sz maybe_to
     max_sz = Some node.(max_node_size) →
     ∀ tok,
     maybe_tok = Some tok →
-    tok.(page_loc).2 = node.(base_address) →
+    tok.(page_loc).(loc_a) = node.(base_address) →
     tok.(page_sz) = node.(max_node_size) →
     T).
 Proof.
@@ -306,7 +479,7 @@ Lemma page_storage_node_invariant_has_token node max_sz tok children :
   page_storage_node_invariant_case node max_sz (Some tok) children →
   node.(allocation_state) = PageTokenAvailable ∧
   node.(max_node_size) = tok.(page_sz) ∧
-  node.(base_address) = tok.(page_loc).2.
+  node.(base_address) = tok.(page_loc).(loc_a).
 Proof.
   unfold page_storage_node_invariant_case.
   repeat case_decide; simpl.
@@ -330,6 +503,24 @@ Lemma page_storage_node_invariant_case_partially_available_inv node max_sz maybe
 Proof.
   unfold page_storage_node_invariant_case.
   intros ->. naive_solver.
+Qed.
+
+Lemma page_storage_node_invariant_case_at_most_partially_available_inv node max_sz maybe_tok children sz :
+  node.(allocation_state) ≤o{node_allocation_state_cmp} PageTokenPartiallyAvailable sz →
+  page_storage_node_invariant_case node max_sz maybe_tok children →
+  max_sz ≤o{option_cmp page_size_cmp} Some sz ∧ maybe_tok = None.
+Proof.
+  intros Hbound.
+  unfold page_storage_node_invariant_case.
+  repeat case_decide.
+  - solve_goal.
+  - intros (tok & -> & -> & ? & ?).
+    rename select (allocation_state node = PageTokenAvailable) into Hstate.
+    move: Hbound. rewrite Hstate.
+    intros []; done.
+  - intros (-> & (alloca & Hstate & -> & Hlt & _)).
+    move: Hbound. rewrite Hstate.
+    normalize_and_simpl_goal.
 Qed.
 
 Global Instance page_storage_node_invariant_simpl_partially_available node max_sz maybe_tok children sz `{!TCDone (node.(allocation_state) = PageTokenPartiallyAvailable sz)} `{!IsVar max_sz} `{!IsVar maybe_tok} :
@@ -374,3 +565,4 @@ Proof.
       simpl. naive_solver.
   - naive_solver.
 Qed.
+(* !end proof *)

@@ -14,6 +14,7 @@ Proof.
   core_page_allocator_page_Page_core_page_allocator_page_Allocated_read_prelude.
 
   rep <-! liRStep; liShow.
+  (* !start proof(page.read) *)
   { (* accessing the element of the array for the read requires manual reasoning *)
     rename select (offset_in_bytes `rem` 8 = 0) into Hoffset.
     apply Z.rem_divide in Hoffset; last done.
@@ -24,10 +25,12 @@ Proof.
     repeat liRStep; liShow.
   }
   all: repeat liRStep; liShow.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page.read) *)
   {
     revert select (_ + off' * 8 < _ + page_size_in_bytes_Z _).
     rewrite /page_size_in_bytes_nat.
@@ -44,6 +47,7 @@ Proof.
     rename select (offset_in_bytes `rem` 8 ≠ 0) into Hen.
     apply Hen. unfold name_hint in *.
     apply Z.rem_divide; done. }
+  (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.
 Qed.

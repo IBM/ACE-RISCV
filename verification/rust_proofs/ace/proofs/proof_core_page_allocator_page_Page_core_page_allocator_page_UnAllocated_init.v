@@ -18,6 +18,9 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
+  (* !start proof(page.init) *)
+  specialize (MEMORY_CONFIG.(conf_start_in_usize)); solve_goal.
+  (* !end proof(page.init) *)
   Unshelve. all: print_remaining_sidecond.
 Qed.
 End proof.

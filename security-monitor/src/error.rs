@@ -4,6 +4,7 @@
 use crate::core::architecture::riscv::sbi::*;
 use thiserror_no_std::Error;
 
+#[rr::verify]
 #[derive(Error, Debug)]
 pub enum Error {
     /* Initialization-related errors */
@@ -111,6 +112,7 @@ pub enum Error {
     InvalidGprId(),
 }
 
+// !start skip(error.error)
 impl Error {
     pub fn sbi_error_code(&self) -> usize {
         match &self {
@@ -144,3 +146,4 @@ impl Error {
         }
     }
 }
+// !end skip

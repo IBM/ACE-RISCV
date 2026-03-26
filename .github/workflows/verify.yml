@@ -17,7 +17,7 @@ jobs:
     - name: Install opam dependencies
       run: sudo apt update -y && sudo apt install -y pkg-config git rsync tar unzip m4 time curl ocaml build-essential bubblewrap gawk libgmp-dev python3 python-is-python3 libmpfr-dev && python3 -m pip install setuptools
     - name: Install opam
-      run: curl "https://github.com/ocaml/opam/releases/download/2.1.5/opam-2.1.5-x86_64-linux" -Lo /usr/local/bin/opam && chmod +x /usr/local/bin/opam
+      run: curl "https://github.com/ocaml/opam/releases/download/2.5.0/opam-2.5.0-x86_64-linux" -Lo /usr/local/bin/opam && chmod +x /usr/local/bin/opam
     - name: Setup opam
       run: opam init -y
     - name: Setup opam switch
@@ -62,13 +62,16 @@ jobs:
       run: |
           python3 .github/workflows/prune_dune_modules.py verification/rust_proofs/ace/proofs/dune \
             proof_core_page_allocator_allocator_PageAllocator_add_memory_region \
+            proof_core_page_allocator_allocator_PageAllocator_release_pages_closure0 \
             proof_core_page_allocator_allocator_PageStorageTreeNode_store_page_token \
+            proof_core_page_allocator_allocator_PageStorageTreeNode_acquire_page_token \
             proof_core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary \
+            proof_core_page_allocator_allocator_PageStorageTreeNode_try_to_merge_page_tokens \
             proof_core_page_allocator_allocator_PageAllocator_find_largest_page_size \
             proof_core_page_allocator_page_Page_T_write \
             proof_core_page_allocator_page_Page_core_page_allocator_page_Allocated_read \
-            proof_core_page_allocator_allocator_PageStorageTreeNode_store_page_token \
-            proof_core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide
+            proof_core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide \
+            proof_core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_merge
     - name: Compile Rocq proofs
       run: |
           (

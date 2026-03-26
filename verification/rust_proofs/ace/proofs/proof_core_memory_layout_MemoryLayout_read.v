@@ -14,9 +14,11 @@ Proof.
   core_memory_layout_MemoryLayout_read_prelude.
 
   repeat liRStep; liShow.
+  (* !start proof(memory_layout.read) *)
   liInst Hevar1 (MemoryLayout_inv_t).
   liInst Hevar2 Spin_ty.
   repeat liRStep; liShow.
+  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

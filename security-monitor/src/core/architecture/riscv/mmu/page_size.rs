@@ -14,6 +14,7 @@
 #[rr::derive_instantiate("PEq_refl" := #proof "intros ??; solve_goal")]
 #[rr::derive_instantiate("PEq_sym" := #proof "intros ???; solve_goal")]
 #[rr::derive_instantiate("PEq_trans" := #proof "intros ????; solve_goal")]
+#[rr::derive_instantiate("PEq_leibniz" := #proof "intros ? [] []; simpl; done")]
 // POrd
 #[rr::derive_instantiate("POrd" := "λ a b, Some (page_size_cmp a b)")]
 #[rr::derive_instantiate("POrd_eq_cons" := #proof "intros ? [] []; simpl; done")]
@@ -23,7 +24,6 @@
 #[rr::derive_instantiate("Ord_lt_trans" := #proof "intros ????; solve_goal")]
 #[rr::derive_instantiate("Ord_eq_trans" := #proof "intros ????; solve_goal")]
 #[rr::derive_instantiate("Ord_gt_trans" := #proof "intros ????; solve_goal")]
-#[rr::derive_instantiate("Ord_leibniz" := #proof "intros ? [] []; simpl; done")]
 #[rr::derive_instantiate("Ord_antisym" := #proof "intros ???; solve_goal")]
 pub enum PageSize {
     #[rr::pattern("Size4KiB")]

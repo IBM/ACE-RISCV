@@ -16,9 +16,9 @@ mod error;
 use core::mem::size_of;
 pub use crate::error::PointerError;
 
-/// Calculates the offset in bytes between two pointers. 
+/// Calculates the offset in bytes between two pointers.
 #[rr::only_spec]
-#[rr::returns("wrap_to_it (pointer1.2 - pointer2.2) isize")]
+#[rr::returns("wrap_to_it (pointer1.(loc_a) - pointer2.(loc_a)) isize")]
 pub fn ptr_byte_offset(pointer1: *const usize, pointer2: *const usize) -> isize {
     // TODO: we should use wrapping arithmetic here, as it might overflow
     (pointer1.addr() as isize) - (pointer2.addr() as isize)
@@ -38,7 +38,7 @@ pub fn ptr_align(pointer: *mut usize, align_in_bytes: usize, owned_region_end: *
 /// of size one, if the original pointer is valid. Additional checks are required for making
 /// larger memory accesses.
 #[rr::ok]
-#[rr::requires("pointer.2 + offset_in_bytes < owned_region_end.2")]
+#[rr::requires("pointer.(loc_a) + offset_in_bytes < owned_region_end.(loc_a)")]
 #[rr::ensures("ret = (pointer +ₗ offset_in_bytes)")]
 pub fn ptr_byte_add_mut(
     pointer: *mut usize, offset_in_bytes: usize, owned_region_end: *const usize,
@@ -61,7 +61,7 @@ pub fn ptr_byte_add_mut(
 /// of size one, if the original pointer is valid. Additional checks are required for making
 /// larger memory accesses.
 #[rr::ok]
-#[rr::requires("pointer.2 + offset_in_bytes < owned_region_end.2")]
+#[rr::requires("pointer.(loc_a) + offset_in_bytes < owned_region_end.(loc_a)")]
 #[rr::ensures("ret = (pointer +ₗ offset_in_bytes)")]
 pub fn ptr_byte_add(
     pointer: *const usize, offset_in_bytes: usize, owned_region_end: *const usize,
