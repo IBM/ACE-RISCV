@@ -1,5 +1,4 @@
 From refinedrust Require Import typing.
-From refinedrust Require Import ghost_var_dfrac.
 From rrstd.cmp.theories Require Import ordering.
 From ace.theories.page_allocator Require Import page.
 
@@ -431,7 +430,6 @@ Lemma page_storage_node_invariant_empty node_size base_address :
 Proof.
   intros.
   split_and!; simpl; last split_and!; try done.
-  apply Nat2Z.divide. done.
 Qed.
 
 Lemma page_storage_node_invariant_no_tok node max_sz children :
