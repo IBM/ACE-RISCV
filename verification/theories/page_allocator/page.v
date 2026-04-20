@@ -291,7 +291,7 @@ Proof.
   rewrite /page_size_in_bytes_nat page_size_in_words_nat_unfold /page_size_in_words_nat_def.
   rewrite bytes_per_addr_eq.
   split.
-  all: unsafe_unfold_common_caesium_defs.
+  all: unsafe_unfold_common_radium_defs.
   all: unfold it_signed, it_byte_size_log, bytes_per_addr_log.
   all: destruct sz; try lia.
 Qed.
@@ -301,7 +301,7 @@ Proof.
   rewrite /page_size_in_bytes_nat page_size_in_words_nat_unfold /page_size_in_words_nat_def.
   rewrite bytes_per_addr_eq.
   split.
-  all: unsafe_unfold_common_caesium_defs.
+  all: unsafe_unfold_common_radium_defs.
   all: unfold it_signed, it_byte_size_log, bytes_per_addr_log.
   all: destruct sz; try lia.
 Qed.
@@ -725,7 +725,7 @@ Proof.
   unfold page_size_multiplier.
   destruct sz; simpl.
   all: split.
-  all: unsafe_unfold_common_caesium_defs; simpl.
+  all: unsafe_unfold_common_radium_defs; simpl.
   all: lia.
 Qed.
 
