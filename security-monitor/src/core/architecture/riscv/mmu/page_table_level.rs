@@ -4,6 +4,7 @@
 
 // Safety:
 //   - Maintain lexicographic ordering based on the top-to-bottom declaration to ensure that PartialOrd derivative works correctly.
+#[rr::skip] // TODO: needs attributes for trait impls
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[rr::refined_by("page_table_level")]
 pub enum PageTableLevel {

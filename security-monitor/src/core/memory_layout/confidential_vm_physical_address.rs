@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::Error;
 
+#[rr::skip]
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub struct ConfidentialVmPhysicalAddress(usize);
 

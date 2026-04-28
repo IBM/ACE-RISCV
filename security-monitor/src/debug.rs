@@ -88,7 +88,8 @@ macro_rules! debug {
     ($fmt:expr, $($args:tt)+) => {{}};
 }
 
-pub(crate) use {_debug, debug};
+pub(crate) use _debug;
+pub(crate) use debug;
 
 pub struct Console {}
 

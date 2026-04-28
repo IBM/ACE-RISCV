@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
+use super::MemoryLayout;
 use crate::error::Error;
 use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
-use super::MemoryLayout;
 
 /// The wrapper over a raw pointer that is guaranteed to be an address located in the confidential memory region.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy)]
+#[rr::derive_instantiate("PEq" := "λ a b, bool_decide (a.(loc_a) = b.(loc_a))")]
 /// Model: The memory address is represented by the location in memory.
 #[rr::refined_by("l" : "loc")]
 /// We require the ghost state for the global memory layout to be available.
@@ -37,7 +38,6 @@ impl ConfidentialMemoryAddress {
     pub fn to_ptr(&self) -> *const u8 {
         self.0 as *const u8
     }
-
 
     #[rr::returns("self.(loc_a)")]
     pub fn as_usize(&self) -> usize {
