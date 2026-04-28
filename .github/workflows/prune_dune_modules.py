@@ -2,12 +2,16 @@
 import re
 import sys
 
-if len(sys.argv) < 3:
-    print("usage: prune_dune_modules.py <dune-file> <module1> [module2 ...]")
+if len(sys.argv) < 2:
+    print("usage: prune_dune_modules.py <dune-file> [module1 module2 ...]")
     sys.exit(1)
 
 path = sys.argv[1]
-remove = set(sys.argv[2:])
+remove = set(sys.argv[2:])  # may be empty
+
+# If nothing to remove, exit early (no-op)
+if not remove:
+    sys.exit(0)
 
 with open(path) as f:
     text = f.read()
