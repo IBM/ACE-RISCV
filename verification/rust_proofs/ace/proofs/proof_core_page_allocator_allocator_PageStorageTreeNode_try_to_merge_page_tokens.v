@@ -43,7 +43,7 @@ Proof.
       injection Heq. intros ->. done. }
     iPoseProof (big_sepL2_elim_r with "Ha") as "Ha".
     (*iPoseProof (big_sepL2_from_zip with "Ha") as "Ha".*)
-    rewrite /ObsList. 
+    rewrite /ObsList.
     iApply big_sepL2_from_zip. { rewrite /new_children length_fmap//. }
     rewrite zip_flip big_sepL_fmap. rewrite zip_fmap_r big_sepL_fmap.
     iApply (big_sepL_impl with "Ha").
@@ -86,15 +86,6 @@ Proof.
     rewrite /child_base_address/=.
     rewrite Z.mul_0_r Z.add_0_r.
     eexists. done.
-  - rename select (_ !! i = Some pg) into Htok_i.
-    rewrite snd_zip in Htok_i; last lia.
-    opose proof* Forall2_lookup_r as Hlook1; [apply Hf | apply Htok_i | ].
-    destruct Hlook1 as ([child_node ?] & Hlook_child & _ & Hsz & Hloc).
-    apply lookup_zip_Some in Hlook_child as [Hlook_child _].
-    destruct INV_WF as [INV_WF _].
-    opose proof (INV_WF _ _ i _ _) as Hchild; [done | done | ].
-    destruct Hchild as (Hchild_sz & Hchild_addr & _).
-    rewrite Hsz Hchild_sz//.
   - (* use invariant *)
     rewrite length_zip Nat.min_l in Hlen; last lia.
     specialize (page_size_multiplier_ge (max_node_size self)) as Hge.
@@ -107,8 +98,9 @@ Proof.
     apply lookup_zip_Some in Hlook_child as [Hlook_child _].
 
     rename select (_ !! i = Some _) into Htok_i.
-    rewrite snd_zip in Htok_i; last solve_goal.
-    opose proof* Forall2_lookup_r as Hlook2; [apply Hf | apply Htok_i | ].
+    apply lookup_zip_Some in Htok_i as [Htok_i1 Htok_i2].
+    (*rewrite snd_zip in Htok_i; last solve_goal.*)
+    opose proof* Forall2_lookup_r as Hlook2; [apply Hf | apply Htok_i2 | ].
     destruct Hlook2 as ([child_nodei ?] & Hlook_child_i & _ & Hsz' & Hloc').
     apply lookup_zip_Some in Hlook_child_i as [Hlook_child_i _].
 
@@ -123,6 +115,7 @@ Proof.
     rewrite Hchild_addr_0.
     rewrite Hsz' Hchild_sz.
     rewrite /child_base_address.
+    split; first done.
     simpl. clear. nia.
   - apply page_storage_node_children_wf_upd_state; last done.
     simpl. solve_goal.

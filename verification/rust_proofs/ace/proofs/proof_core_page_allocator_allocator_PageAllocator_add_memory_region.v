@@ -33,7 +33,7 @@ Proof.
     { shelve_sidecond. }
     { solve_layout_alg. }
     { shelve_sidecond. }
-    { iModIntro. iIntros (??? _) "Harr". 
+    { iModIntro. iIntros (??? _) "Harr".
       iPoseProof (ty_own_val_array_int_to_int with "Harr") as "(% & $)"; last done.
       shelve_sidecond. }
     iModIntro.
@@ -42,10 +42,9 @@ Proof.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
-  Unshelve. all: try lia.
+  Unshelve. all: open_cache; try lia.
   all: try congruence.
-  - apply page_size_in_bytes_is_power_of_two.
-  - solve_goal.
+  all: sidecond_hammer.
   - specialize (page_size_in_bytes_nat_ge x').
     specialize (page_size_in_bytes_nat_in_usize x') as [].
     split; lia.
@@ -58,7 +57,6 @@ Proof.
     eapply base.aligned_to_mul_inv.
     revert select (larr `aligned_to` page_size_in_bytes_nat sz_to_allocate).
     done.
-  - sidecond_hammer.
   - rewrite page_size_align_is_size. done.
   - rewrite MAX_PAGE_ADDR_unfold /MAX_PAGE_ADDR_def.
     revert select (¬ memory_region_end.(loc_a) > _).
@@ -74,7 +72,6 @@ Proof.
     solve_goal.
   (* !end proof *)
 
-  all: sidecond_hammer.
   Unshelve. all: print_remaining_sidecond.
 (*Qed.*)
 Admitted. (* admitted due to long Qed *)

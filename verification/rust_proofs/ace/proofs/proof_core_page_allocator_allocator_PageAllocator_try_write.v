@@ -17,8 +17,7 @@ Proof.
   rep liRStep. liShow.
   iRename select (∀ _, FnOnce_Pre _ _ _ _ _)%I into "Hpre".
   liInst Hevar_x1 p.
-  iApply prove_with_subtype_default.
-  iSplitR. { iApply "Hpre". }
+  iSpecialize ("Hpre" $! _).
   rep liRStep. liShow.
   liInst Hevar_x2 γ0.
   rep liRStep.

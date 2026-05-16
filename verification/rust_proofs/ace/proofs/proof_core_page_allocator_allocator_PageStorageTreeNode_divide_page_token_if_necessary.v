@@ -40,7 +40,7 @@ Proof.
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   (* !start proof(page_allocator.divide_page_token_if_necessary) *)
-  Unshelve. all: try lia.
+  Unshelve. all: try lia; try done.
   all: try rename select (subdivided_pages _ _) into Hsubdivided.
 
   all: try match type of Hsubdivided with
@@ -125,6 +125,7 @@ Proof.
     rewrite Hchild_loc.
     simpl in Hloc. rewrite Hloc.
     rewrite /child_base_address. lia.
+  - nia.
   - rename select (page_within_range _ _ _) into Hrange.
 
     opose proof (subdivided_pages_lookup_size_lt (length prefix) _ _ _ _ _ Hsubdivided _) as Hsz.
