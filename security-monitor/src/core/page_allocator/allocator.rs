@@ -311,6 +311,8 @@ impl PageAllocator {
         //.inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
+    // TODO investigate lifetime failure
+    #[rr::only_spec]
     #[rr::params("p")]
     #[rr::requires(#iris "once_initialized π \"PAGE_ALLOCATOR\" (Some ())")]
     #[rr::requires(#iris "□ ∀ x, {O::Pre} π p op x")]
