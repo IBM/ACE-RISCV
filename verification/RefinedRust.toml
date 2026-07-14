@@ -8,3 +8,4 @@ extra_specs = "./extra_specs.v"
 generate_dune_project = false
 lib_load_paths = ["./refinedrust/stdlib/", "./rust_proofs"]
 trust_debug = true
+register_all_adts=false

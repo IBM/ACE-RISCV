@@ -255,7 +255,14 @@ Proof.
     { apply Hchild. }
     simpl in Hpos. apply Hpos. unfold position_pred.
     done.
-  - apply page_storage_node_children_wf_insert; done.
+  - apply page_storage_node_children_wf_insert; try done.
+    { rename select (max_node_size _ = max_node_size _) into Hsz_eq.
+      rewrite Hsz_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
+    { rename select (base_address _ = base_address _) into Haddr_eq.
+      rewrite Haddr_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
+  - subst nodes. solve_goal.
   - rename select (page_storage_node_invariant_case _ _ _ (children_without_alloc ++ _)) into INV_CASE2.
     opose proof* page_storage_node_invariant_case_at_most_partially_available_inv as [Hle_sz ->]; [ | apply INV_CASE2 | ].
     { simpl. apply node_allocation_state_meet_le_r. }

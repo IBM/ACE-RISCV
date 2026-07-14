@@ -1027,18 +1027,18 @@ Qed.
 
 (** Lithium automation *)
 (* !start spec(page.page) *)
-Global Instance simpl_exist_page Q :
-  SimplExist page Q (∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+Global Instance simpl_exist_page :
+  SimplExist page (λ Q, ∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
     Q (mk_page page_loc page_sz page_val)).
 Proof.
-  intros (? & ? & ? & ?). eexists (mk_page _ _ _). done.
+  intros ? (? & ? & ? & ?). eexists (mk_page _ _ _). done.
 Qed.
 
-Global Instance simpl_forall_page Q :
-  SimplForall page 3 Q (∀ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+Global Instance simpl_forall_page :
+  SimplForall page 3 (λ Q, ∀ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
     Q (mk_page page_loc page_sz page_val)).
 Proof.
-  intros ?. intros []. done.
+  intros ? ?. intros []. done.
 Qed.
 
 Global Instance simpl_impl_page_size_smaller sz sz' :

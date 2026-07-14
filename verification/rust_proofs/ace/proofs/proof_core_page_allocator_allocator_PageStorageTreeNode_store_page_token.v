@@ -124,7 +124,7 @@ Proof.
   rep <-! liRStep.
   2: repeat liRStep.
   rep <-! liRStep.
-  
+
   match goal with
   | H : page_node_can_allocate _ = Some ?a |- _ =>
       rename a into allocable_sz_rec
@@ -199,7 +199,12 @@ Proof.
     rename select (max_node_size self = _) into Hsz. rewrite Hsz.
     solve_goal.
   - eapply page_storage_node_children_wf_insert; last done.
-    1-2: done.
+    { rename select (max_node_size _ = max_node_size _) into Hsz_eq.
+      rewrite Hsz_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
+    { rename select (base_address _ = base_address _) into Haddr_eq.
+      rewrite Haddr_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
     destruct INV_WF as [INV_WF1 INV_WF2].
     odestruct (INV_WF1 _ _ (Z.to_nat child_index) child _) as (Ha & Hb & Hc).
     { done. }
@@ -217,12 +222,12 @@ Proof.
     { apply Hlook_child. }
     { reflexivity. }
     { done. }
-    { done. }
+    { etrans; last done. erewrite list_lookup_total_correct; done. }
     { eapply (ord_le_ord_lt_trans _ (max_node_size child)); first last.
       - opose proof (page_storage_node_children_wf_child_lookup _ _ _ _ _ _ _ _ Hlook_child) as (Ha & _); [done.. | ].
         rewrite Ha.
         by apply page_size_smaller_lt.
-      - done. }
+      - etrans; first done. erewrite list_lookup_total_correct; done. }
     { clear. symmetry. case_bool_decide as Ha.
       - eapply max_by_l.
         apply not_ord_lt_iff. left. done.
@@ -230,7 +235,7 @@ Proof.
         move: Ha.
         destruct (option_cmp page_size_cmp _ (Some allocable_sz_rec)) eqn:Heq.
         + right. done.
-        + done. 
+        + done.
         + left. by apply correct_ord_antisym. }
     { done. }
   - exfalso. move: Hmerged.
