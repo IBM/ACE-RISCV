@@ -268,6 +268,7 @@ impl PageAllocator {
             #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
             #[rr::ok]
             #[rr::ensures("if_Ok ret (λ tok, tok.(page_sz) = {page_size_to_allocate})")]
+            #[rr::observe("page_allocator.ghost": "#tt")]
             |page_allocator| {
                 let base_address = page_allocator.base_address;
                 let page_size = page_allocator.page_size;
@@ -287,6 +288,7 @@ impl PageAllocator {
         let _ = Self::try_write(
             #[rr::params("MEMORY_CONFIG" : "memory_layout")]
             #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
+            #[rr::observe("page_allocator.ghost": "#tt")]
             #[rr::returns("Ok tt")]
             |page_allocator| {
                 let base_address = page_allocator.base_address;
@@ -311,11 +313,10 @@ impl PageAllocator {
         //.inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
-    // TODO investigate lifetime failure
-    #[rr::only_spec]
     #[rr::params("p")]
     #[rr::requires(#iris "once_initialized π \"PAGE_ALLOCATOR\" (Some ())")]
     #[rr::requires(#iris "□ ∀ x, {O::Pre} π p op x")]
+    #[rr::requires(#iris "□ ∀ x ret, {O::Post} π p op x ret -∗ Obs (x.:0).ghost (#tt) ∗ True")]
     #[rr::exists("x")]
     #[rr::ensures(#iris "{O::Post} π p op x ret")]
     fn try_write<F, O>(op: O) -> Result<F, Error>

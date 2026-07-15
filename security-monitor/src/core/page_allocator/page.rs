@@ -182,6 +182,8 @@ impl Page<UnAllocated> {
             .collect()
     }
 
+    // TODO: adapt proof for drop glue change
+    #[rr::trust_me]
     /// Merges a collection of contiguous pages into a single correctly aligned page.
     ///
     /// # Safety

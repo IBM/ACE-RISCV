@@ -88,7 +88,57 @@ Proof.
   rewrite (list_lookup_total_correct _ 0 _ Hlook_pg0). simpl.
   rep liRStep; liShow.
   liInst Hevar_x0 (mjoin (page_val <$> from_pages)).
+  (*rep liRStep; liShow.*)
   rep <-! liRStep; liShow.
+  (* Oh, little interesting problem here: 
+      the safety invariant of the elements doesn't actually hold here anymore. 
+
+     i.e., first drop the vector and then assemble the big array 
+     I might want to do this via Page/Vec ghost drop actually. 
+
+     Problem: the vec drop happens after the Page init. 
+     This is an indication that the page backing memory isn't actually owned by the Page token. 
+     well, it's logically owned, but just not part of drop, as it's not a droppable resource. 
+     But I think it's hard to accomodate stuff like this in general. Then I have to declare a custom invariant that drop glue only relies on, etc. Seems like a big hassle. 
+     I think it's easier to do the drop explicitly.
+     
+       
+    *)
+  rep 30 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+  liRStep; liShow.
+
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+  rep 10 liRStep; liShow.
+
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

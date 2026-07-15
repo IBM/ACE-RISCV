@@ -18,7 +18,10 @@ Proof.
   iRename select (∀ _, FnOnce_Pre _ _ _ _ _)%I into "Hpre".
   liInst Hevar_x1 p.
   iSpecialize ("Hpre" $! _).
-  rep liRStep. liShow.
+  rep <-! liRStep. liShow.
+  iRename select (∀ _ _, _)%I into "Hget_obs".
+  iPoseProof ("Hget_obs" with "[$]") as "(#? & #_)". simpl.
+  rep liRStep; liShow.
   liInst Hevar_x2 γ0.
   rep liRStep.
   (* !end proof *)
