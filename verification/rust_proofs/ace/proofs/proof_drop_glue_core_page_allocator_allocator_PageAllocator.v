@@ -14,7 +14,7 @@ Proof.
 
   rep <-! liRStep; liShow.
   rep liRStep; liShow.
-  liInst Hevar_node x2.
+  liInst Hevar_node x1.
   rep liRStep; liShow.
 
   all: print_remaining_goal.
