@@ -46,6 +46,9 @@ impl PageState for Allocated {}
 #[rr::invariant("p.(page_loc).(loc_a) + (page_size_in_bytes_nat p.(page_sz)) ≤ MEMORY_CONFIG.(conf_end).(loc_a)")]
 #[rr::context("MachineConfig")]
 #[rr::invariant("p.(page_loc).(loc_p) = ProvAlloc machine_memory_prov")]
+// Declare ownership we get when a Page gets dropped
+#[rr::ghost_drop("p.(page_loc).(loc_p) = ProvAlloc machine_memory_prov")]
+#[rr::ghost_drop(#type "p.(page_loc)" : "<#> p.(page_val)" @ "array_t (page_size_in_words_nat p.(page_sz)) (int usize)")]
 pub struct Page<S: PageState> {
     /// Specification: the `address` has mathematical value `l`.
     #[rr::field("p.(page_loc)")]
@@ -182,8 +185,6 @@ impl Page<UnAllocated> {
             .collect()
     }
 
-    // TODO: adapt proof for drop glue change
-    #[rr::trust_me]
     /// Merges a collection of contiguous pages into a single correctly aligned page.
     ///
     /// # Safety
@@ -215,6 +216,9 @@ impl Page<UnAllocated> {
         assert!(base_address.as_usize() + new_size.in_bytes() == end_addr);
         assert!(pages_len > 2);
 
+        // Change for verification: make sure to drop the vector of old pages first, so that we get
+        // access to the ownership for initializing the new token.
+        mem::drop(from_pages);
         unsafe { Self::init(base_address, new_size) }
     }
 }
