@@ -12,15 +12,7 @@ Lemma core_page_allocator_allocator_PageAllocator_find_largest_page_size_closure
 Proof.
   core_page_allocator_allocator_PageAllocator_find_largest_page_size_closure0_prelude.
 
-  (* !start proof(page_allocator.find_largest_page_size) *)
   rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "vlft7" "ulft1").
-  rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "ulft3" "ulft_4").
-  rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "vlft15" "ulft1").
-  rep <-! liRStep; liShow.
-  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

@@ -13,10 +13,6 @@ Proof.
   core_page_allocator_allocator_PageAllocator_acquire_page_closure0_prelude.
 
   rep <-! liRStep; liShow.
-  (* !start proof(page_allocator.acquire_page) *)
-  apply_update (updateable_copy_lft "ulft3" "ulft_4").
-  rep <-! liRStep; liShow.
-  (* !end proof *)
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
