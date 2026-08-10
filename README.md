@@ -163,22 +163,42 @@ Integrating local attestation with dm-crypt/LUKS is work in progress. When finis
 A script in initrd will then retrieve the decryption key from TAP and decrypt the rootfs.
 
 # License
-This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).
-
-**This is an active research project, without warranties of any kind.**
+This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE). This is an active research project, without warranties of any kind.
 
 # Citation
-**Our newest full paper on ACE:**
+**Full paper on ACE:**
 ```
 @misc{ozga2025ace,
     author = {Ozga, Wojciech and Hunt, Guerney D. H. and Le, Michael V. and Gaeher Lennard and Shinnar, Avraham and Palmer, Elaine R. and Jamjoom, Hani and Dragone, Silvio},
-    title = {ACE: Confidential Computing for Embedded RISC-V Systems},
+    title = {ACE: Towards A High-Assurance Isolated Virtualization Environment for RISC-V},
     year = 2025,
     howpublished = {\url{https://arxiv.org/pdf/2505.12995}}
 }
 ```
 
-**Our workshop paper on ACE:**
+**Paper on formal verification of page allocator:**
+```
+@inproceedings{gaher2026rr,
+    author = {Gäher, Lennard and Lafeychine, Vincent and Kehrli, Sascha and Shinnar, Avraham and Ozga, Wojciech and Hunt, Guerney D. H. and Dreyer, Derek},
+    title = {Bringing Foundational Verification to Real-World Rust Code},
+    booktitle = {Proceedings of the ACM on Programming Languages},
+    series = {OOPSLA 2026},
+    year = 2026
+}
+```
+
+**Paper on context switch validation:**
+```
+@misc{kalani2025sailor,
+    author = {Kalani, Neelu and Bourgeat, Thomas and Hunt, Guerney D.H. and Ozga, Wojciech},
+    title = {Save what must be saved: Secure context switching with Sailor},
+    booktitle = {34nd USENIX Security Symposium (USENIX Security 25)},
+    publisher = {USENIX Association},
+    year = 2025
+}
+```
+
+**Workshop paper on ACE:**
 ```
 @inproceedings{ozga2023riscvtee,
     title={Towards a Formally Verified Security Monitor for VM-based Confidential Computing},
@@ -189,13 +209,3 @@ This repository is distributed under the terms of the Apache 2.0 License, see [L
 }
 ```
 
-**Our paper on context switch validation:**
-```
-@misc{kalani2025sailor,
-    author = {Kalani, Neelu and Bourgeat, Thomas and Hunt, Guerney D.H. and Ozga, Wojciech},
-    title = {Save what must be saved: Secure context switching with Sailor},
-    booktitle = {34nd USENIX Security Symposium (USENIX Security 25)},
-    publisher = {USENIX Association},
-    year = 2025
-}
-```

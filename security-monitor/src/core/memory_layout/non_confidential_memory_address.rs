@@ -58,7 +58,10 @@ impl NonConfidentialMemoryAddress {
     pub unsafe fn add(&self, offset_in_bytes: usize, upper_bound: *const usize) -> Result<NonConfidentialMemoryAddress, Error> {
         let memory_layout = MemoryLayout::read();
         ensure!(upper_bound <= memory_layout.non_confidential_memory_end, Error::AddressNotInNonConfidentialMemory())?;
-        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(#[rr::verify] |_| Error::AddressNotInNonConfidentialMemory())?;
+        let pointer = ptr_byte_add_mut(self.0, offset_in_bytes, upper_bound).map_err(
+            #[rr::verify]
+            |_| Error::AddressNotInNonConfidentialMemory(),
+        )?;
         Ok(NonConfidentialMemoryAddress(pointer))
     }
 
