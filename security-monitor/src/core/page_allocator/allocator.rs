@@ -317,6 +317,7 @@ impl PageAllocator {
     #[rr::requires(#iris "once_initialized π \"PAGE_ALLOCATOR\" (Some ())")]
     #[rr::requires(#iris "□ ∀ x, {O::Pre} π p op x")]
     #[rr::requires(#iris "□ ∀ x ret, {O::Post} π p op x ret -∗ Obs (x.:0).ghost (#tt) ∗ True")]
+    #[rr::requires("closure_may_panic {O::PanicCondition} → False")]
     #[rr::exists("x")]
     #[rr::ensures(#iris "{O::Post} π p op x ret")]
     fn try_write<F, O>(op: O) -> Result<F, Error>

@@ -78,9 +78,6 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   (* !start proof(page_allocator.calculate_child_index) *)
-  { move: Hrange; unfold page_within_range. solve_goal. }
-  { simplify_eq. specialize (page_size_in_words_nat_ge child_node_sz). sidecond_hammer. }
-  { simplify_eq. specialize (page_size_in_words_nat_ge child_node_sz). sidecond_hammer. }
   { simplify_eq.
     specialize (page_size_in_bytes_nat_ge child_node_sz) as ?.
     split.
@@ -100,6 +97,8 @@ Proof.
     eapply page_within_range_offset; simpl; [ | | done..].
     - rewrite -page_size_align_is_size. done.
     - eexists. done. }
+  { simplify_eq. specialize (page_size_in_words_nat_ge child_node_sz). sidecond_hammer. }
+  { move: Hrange; unfold page_within_range. solve_goal. }
   (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.

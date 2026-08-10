@@ -18,7 +18,8 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   (* !start proof(page.accessors) *)
-  { revert select (_ ≤ (conf_end _).(loc_a)).
+  { revert select (¬ _ ≤ _ ≤ _).
+    revert select (_ ≤ (conf_end _).(loc_a)).
     specialize (conf_end_in_usize MEMORY_CONFIG).
     rewrite /page_size_in_bytes_nat; solve_goal. }
   (* !end proof *)

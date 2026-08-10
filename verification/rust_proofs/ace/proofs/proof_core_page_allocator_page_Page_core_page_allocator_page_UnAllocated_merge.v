@@ -13,6 +13,7 @@ Proof.
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_merge_prelude.
 
   rep <-! liRStep; liShow.
+  2: rep liRStep; liShow.
   (* !start proof(page.merge) *)
   opose proof (lookup_lt_is_Some_2 from_pages (length from_pages - 1) _) as [pg_last Hlook_pg_last].
   { lia. }
@@ -22,7 +23,7 @@ Proof.
   { lia. }
   destruct pg_0 as [pg_loc_0 pg_sz_0 pg_val_0].
   rep <-! liRStep; liShow.
-  2-5: rep liRStep; liShow.
+  2-7: rep liRStep; liShow.
 
   iRename select ([∗ list] _ ∈ _, _)%I into "Harrs".
   iApply updateable_add_fupd.
@@ -75,21 +76,10 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   - rewrite Hlen. specialize (page_size_multiplier_ge new_size). lia.
-  - specialize (page_size_in_words_nat_ge (page_sz (from_pages !!! 0%nat))). lia.
-  - specialize (page_size_in_words_nat_ge (page_sz (from_pages !!! 0%nat))). lia.
   - rewrite page_size_multiplier_quot_Z; first solve_goal.
     rewrite Hsmaller.
     erewrite list_lookup_total_correct; last done.
     apply Hlook in Hlook_pg0 as [-> _]. done.
-  - opose proof (Hlook (length from_pages - 1)%nat _) as [Hlast_sz Hlast_off]; first done.
-    simpl in *.
-    split; first solve_goal.
-    rename select (loc_a pg_loc_last + _ ≤ MaxInt USize) into Hbound.
-    move: Hbound.
-    rewrite Hlast_off.
-    rewrite Hlen.
-    rewrite (page_size_multiplier_size_in_bytes new_size smaller_sz); last by rewrite Hsmaller.
-    simpl. rewrite Hlast_sz. clear. nia.
   - revert select (¬ length from_pages > 2).
     rewrite Hlen.
     revert Hsmaller. clear.
@@ -102,11 +92,23 @@ Proof.
     rewrite (page_size_multiplier_size_in_bytes new_size smaller_sz); last by rewrite Hsmaller.
     rewrite Hlen.
     clear. specialize (page_size_multiplier_ge new_size). nia.
+  - rename select (¬ (_ ≤ _ ≤ _)) into Hcontra.
+    apply Hcontra.
+    opose proof (Hlook (length from_pages - 1)%nat _) as [Hlast_sz Hlast_off]; first done.
+    simpl in *.
+    split; first solve_goal.
+    rename select (loc_a pg_loc_last + _ ≤ MaxInt USize) into Hbound.
+    move: Hbound.
+    rewrite Hlast_off.
+    rewrite Hlen.
+    rewrite (page_size_multiplier_size_in_bytes new_size smaller_sz); last by rewrite Hsmaller.
+    simpl. rewrite Hlast_sz. clear. nia.
   - revert select (_ `quot` _ ≠ length from_pages).
     rewrite page_size_multiplier_quot_Z; first solve_goal.
     rewrite Hsmaller.
     erewrite list_lookup_total_correct; last done.
     apply Hlook in Hlook_pg0 as [-> _]. done.
+  - specialize (page_size_in_words_nat_ge (page_sz (from_pages !!! 0%nat))). lia.
   - revert select (¬ _ `aligned_to` _).
     rewrite -page_size_align_is_size. done.
   - rewrite Hlen.

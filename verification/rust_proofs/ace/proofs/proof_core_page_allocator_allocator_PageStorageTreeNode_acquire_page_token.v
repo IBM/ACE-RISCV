@@ -190,6 +190,7 @@ Proof.
     + apply Hneq.
       move: Heq. solve_goal.
   - eexists. done.
+  - solve_goal.
   - (* should prove that at z there is a child (by position_pred e). Then follows from invariant on children *)
     odestruct (lookup_lt_is_Some_2 children_new (Z.to_nat pos) _) as (child & Hlook_child).
     { rewrite length_app/=. lia. }
@@ -209,6 +210,7 @@ Proof.
     { done. }
     rewrite Heq. done.
   - eauto.
+  - solve_goal.
   - (* ditto; similar as above *)
     exfalso. rename select (¬ ∃ sz : page_size, _) into Hcontra. apply Hcontra.
     rewrite lookup_total_app_r; last lia.

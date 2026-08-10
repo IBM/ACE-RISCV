@@ -38,16 +38,13 @@ Proof.
       shelve_sidecond. }
     iModIntro.
     repeat liRStep. }
-  repeat liRStep.
+  all: repeat liRStep.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
   Unshelve. all: open_cache; try lia.
   all: try congruence.
   all: sidecond_hammer.
-  - specialize (page_size_in_bytes_nat_ge x').
-    specialize (page_size_in_bytes_nat_in_usize x') as [].
-    split; lia.
   - unfold page_size_in_bytes_nat. lia.
   - intros ? Hly1. apply syn_type_has_layout_array_inv in Hly1 as (? & Hly1 & -> & ?).
     apply syn_type_has_layout_int_inv in Hly1 as ->.
@@ -70,6 +67,9 @@ Proof.
     + revert select (larr.(loc_a) + _ ≤ MAX_PAGE_ADDR). rewrite MAX_PAGE_ADDR_unfold /MAX_PAGE_ADDR_def. lia.
   - apply aligned_to_offset; first done.
     solve_goal.
+  - specialize (page_size_in_bytes_nat_ge sz_to_allocate).
+    specialize (page_size_in_bytes_nat_in_usize sz_to_allocate) as [].
+    lia. 
   (* !end proof *)
 
   Unshelve. all: print_remaining_sidecond.
