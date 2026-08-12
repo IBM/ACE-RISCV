@@ -544,7 +544,7 @@ name = "security-monitor"
 version = "0.4.0"
 dependencies = [
  "flattened_device_tree",
- "generic-array 0.14.9",
+ "generic-array 1.3.4",
  "memoffset 0.9.1",
  "opensbi-sys",
  "pointers_utility",
