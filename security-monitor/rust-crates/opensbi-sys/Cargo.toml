@@ -7,4 +7,4 @@ build = "build.rs"
 edition = "2024"
 
 [build-dependencies]
-bindgen = "0.72.0"
+bindgen = "0.73.0"
