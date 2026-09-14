@@ -15,14 +15,6 @@ Proof.
   (* !start proof(page.divide) *)
   rep <-! liRStep.
   2: rep liRStep. liShow.
-  (*apply_update (updateable_copy_lft "plft27" "plft31").*)
-  (*rep <-! liRStep. liShow.*)
-  (*apply_update (updateable_copy_lft "plft28" "plft32").*)
-  (*rep <-! liRStep. liShow.*)
-  (*apply_update (updateable_copy_lft "plft29" "plft33").*)
-  (*rep <-! liRStep. liShow.*)
-  (*apply_update (updateable_copy_lft "plft30" "plft34").*)
-  (*rep <-! liRStep. liShow.*)
 
   rename self1 into pageval.
   rename self0 into sz.
@@ -68,8 +60,6 @@ Proof.
   iApply prove_with_subtype_default.
   iSplitL "Harr".
   { rewrite -page_size_multiplier_quot; last done.
-    (*iSplitR. { rewrite page_size_multiplier_quot_Z; done. }*)
-    (*iR. iR. iR. iR. iSplitR. { iExists _. iR. done. }*)
     iApply big_sepL2_elim_l. iPoseProof (big_sepL_extend_r with "Harr") as "Harr".
     2: iApply (big_sepL2_wand with "Harr").
     { rewrite List.length_seq length_reshape length_replicate. clear. lia. }
@@ -139,7 +129,7 @@ Proof.
       rewrite Z2Nat.id; last lia. iR. iL. done. }
     iIntros (e' (capture_smaller_sz & capture_memlayout & capture_start & capture_end & [])).
     rewrite boringly_persistent_elim.
-    iIntros "(%v' & %i & % & % & % & % & % & %Heq0 & %Heq1 & %Heq2 & (-> & %Heq3) & _)".
+    iIntros "(%v1' & %i & % & % & % & % & % & %Heq0 & %Heq1 & %Heq2 & (-> & %Heq3) & _)".
     injection Heq0 as <-.
     injection Heq2 as <-.
     injection Heq1 as <- <- <- <-.

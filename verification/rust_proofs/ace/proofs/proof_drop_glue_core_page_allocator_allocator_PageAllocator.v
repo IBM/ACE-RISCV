@@ -16,6 +16,9 @@ Proof.
   rep liRStep; liShow.
   liInst Hevar_node x1.
   rep liRStep; liShow.
+  iApply prove_with_subtype_default.
+  iSplitR. { liStart. destruct (max_node_size x1); rep liRStep. }
+  rep liRStep.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.

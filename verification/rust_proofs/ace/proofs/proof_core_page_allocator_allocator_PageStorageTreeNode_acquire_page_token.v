@@ -88,6 +88,7 @@ Proof.
   liInst Hevar_rf self.
   rep <-! liRStep.
 
+  rename r' into page_size_to_acquire.
   set (position_pred := λ node, ((Some page_size_to_acquire) ≤o{ option_cmp page_size_cmp } page_node_can_allocate node)).
   rep 10 liRStep; liShow.
   rep 20 liRStep; liShow.
@@ -128,6 +129,7 @@ Proof.
       rename x into smaller_size;
       rename H into Hsmaller
     end.
+  all: try rename r' into page_size_to_acquire.
   all: try rename select (max_node_size self ≠ page_size_to_acquire) into Hlt_self.
   all: try rename x' into children_without_alloc.
   all: try rename e into allocable_node.
