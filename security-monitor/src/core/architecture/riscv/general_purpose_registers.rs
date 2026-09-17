@@ -2,7 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{DigestType, MeasurementDigest};
-use alloc::vec::Vec;
 use core::ops::Range;
 
 #[repr(C)]

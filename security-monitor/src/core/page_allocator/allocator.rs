@@ -48,8 +48,6 @@ pub struct PageAllocator {
 #[rr::context("onceG Σ unit")]
 #[rr::context("MachineConfig")]
 impl PageAllocator {
-    const NOT_INITIALIZED: &'static str = "Bug. Page allocator not initialized.";
-
     /// Initializes the global memory allocator with the given memory region as confidential memory. Must be called only once during the
     /// system initialization.
     ///
@@ -269,13 +267,26 @@ impl PageAllocator {
             #[rr::ok]
             #[rr::ensures("if_Ok ret (λ tok, tok.(page_sz) = {page_size_to_allocate})")]
             |page_allocator| {
-            let base_address = page_allocator.base_address;
-            let page_size = page_allocator.page_size;
-            Ok(page_allocator.root.acquire_page_token(base_address, page_size, page_size_to_allocate))
-        })?
+                let base_address = page_allocator.base_address;
+                let page_size = page_allocator.page_size;
+                Ok(page_allocator.root.acquire_page_token(base_address, page_size, page_size_to_allocate))
+            },
+        )?
     }
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
+    /// Releases a single page token back to the PageAllocator without dynamic allocation.
+    pub fn release_page(released_page: Page<UnAllocated>) {
+        let _ = Self::try_write(|page_allocator| {
+            let base_address = page_allocator.base_address;
+            let page_size = page_allocator.page_size;
+            let root_node = &mut page_allocator.root;
+            root_node.store_page_token(base_address, page_size, released_page);
+            Ok(())
+        })
+        .unwrap();
+    }
+
     /// physical memory region owned by the returned page tokens. Given vector of pages might contains pages of arbitrary sizes.
     #[rr::params("MEMORY_CONFIG" : "memory_layout")]
     /// Precondition: We require the page allocator to be initialized.
@@ -288,23 +299,25 @@ impl PageAllocator {
             #[rr::requires(#iris "once_initialized π \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
             #[rr::returns("Ok tt")]
             |page_allocator| {
-            let base_address = page_allocator.base_address;
-            let page_size = page_allocator.page_size;
-            let root_node = &mut page_allocator.root;
-            for page_token in released_pages {
-                #[rr::params("γ")]
-                #[rr::inv_vars("root_node")]
-                #[rr::inv("root_node.ghost = γ")]
-                #[rr::inv("root_node.cur.(max_node_size) = Size128TiB")]
-                #[rr::inv("root_node.cur.(base_address) = 0%Z")]
-                #[rr::ignore]
-                #[allow(unused)]
-                || {};
+                let base_address = page_allocator.base_address;
+                let page_size = page_allocator.page_size;
+                let root_node = &mut page_allocator.root;
+                for page_token in released_pages {
+                    #[rr::params("γ")]
+                    #[rr::inv_vars("root_node")]
+                    #[rr::inv("root_node.ghost = γ")]
+                    #[rr::inv("root_node.cur.(max_node_size) = Size128TiB")]
+                    #[rr::inv("root_node.cur.(base_address) = 0%Z")]
+                    #[rr::ignore]
+                    #[allow(unused)]
+                    || {};
 
-                root_node.store_page_token(base_address, page_size, page_token);
-            }
-            Ok(())
-        }).unwrap();
+                    root_node.store_page_token(base_address, page_size, page_token);
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
         //.inspect_err(|_| debug!("Memory leak: failed to store released pages in the page allocator"));
     }
 
@@ -315,7 +328,6 @@ impl PageAllocator {
     #[rr::ensures(#iris "{O::Post} π p op x ret")]
     fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, PageAllocator>) -> Result<F, Error> {
-        //op(&mut PAGE_ALLOCATOR.get().expect(Self::NOT_INITIALIZED).write())
         op(&mut PAGE_ALLOCATOR.get().unwrap().write())
     }
 }
@@ -507,7 +519,6 @@ impl PageStorageTreeNode {
 
     /// Creates children for the given node because the node gets created with an empty list of children, expecting that children will be
     /// created lazily with this function.
-    ///
     #[rr::params("smaller_sz")]
     /// Precondition: the page size argument has to match the node's logical state.
     #[rr::requires("this_node_page_size = self.cur.(max_node_size)")]
@@ -601,7 +612,6 @@ impl PageStorageTreeNode {
 
     /// Merges page tokens owned by children.
     /// Safety: Requires that all children have been initialized.
-    ///
     #[rr::params("smaller_sz")]
     /// Precondition: The children are initialized.
     #[rr::requires("Hchild_init" : "self.cur.(children_initialized)")]

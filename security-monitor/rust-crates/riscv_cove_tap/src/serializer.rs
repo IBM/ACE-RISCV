@@ -2,123 +2,135 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::TapError;
-use alloc::vec;
 use crate::spec::*;
-use alloc::vec::Vec;
+use heapless::Vec;
 
-pub struct AttestationPayloadSerializer {
+/// Type alias for a bounded wire output buffer sized to the maximum TAP blob.
+type WireBuffer = Vec<u8, ACE_MAX_TAP_SIZE>;
 
+#[inline]
+fn push_u16(buf: &mut WireBuffer, value: u16) -> Result<(), TapError> {
+    buf.extend_from_slice(&value.to_le_bytes()).map_err(|_| TapError::InvalidSize())
 }
+
+#[inline]
+fn push_u32(buf: &mut WireBuffer, value: u32) -> Result<(), TapError> {
+    buf.extend_from_slice(&value.to_le_bytes()).map_err(|_| TapError::InvalidSize())
+}
+
+#[inline]
+fn push_u64(buf: &mut WireBuffer, value: u64) -> Result<(), TapError> {
+    buf.extend_from_slice(&value.to_le_bytes()).map_err(|_| TapError::InvalidSize())
+}
+
+#[inline]
+fn push_bytes(buf: &mut WireBuffer, bytes: &[u8]) -> Result<(), TapError> {
+    buf.extend_from_slice(bytes).map_err(|_| TapError::InvalidSize())
+}
+
+pub struct AttestationPayloadSerializer {}
 
 impl AttestationPayloadSerializer {
     pub fn new() -> Self {
         Self {}
     }
 
-    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload) -> Result<Vec<u8>, TapError> {
-        let digests = self.serialize_digests(&mut payload)?;
-        let secrets = self.serialize_secrets(&mut payload)?;
-        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
-        let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
+    pub fn serialize(
+        &self,
+        lockboxes: Vec<Lockbox, MAX_NUMBER_OF_LOCKBOXES>,
+        payload: AttestationPayload,
+    ) -> Result<WireBuffer, TapError> {
+        let digests = self.serialize_digests(&payload)?;
+        let secrets = self.serialize_secrets(&payload)?;
+        let encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
+        let lockboxes_buf = self.serialize_lockboxes(lockboxes)?;
 
-        let total_size = lockboxes.len() + encrypted_part.len();
+        let total_size = lockboxes_buf.len() + encrypted_part.len();
 
-        let mut result = vec![];
-        result.append(&mut ACE_MAGIC_TAP_START.to_le_bytes().to_vec());
-        result.append(&mut (total_size as u16).to_le_bytes().to_vec());
-        result.append(&mut lockboxes);
-        result.append(&mut encrypted_part);
+        let mut result = WireBuffer::new();
+        push_u32(&mut result, ACE_MAGIC_TAP_START)?;
+        push_u16(&mut result, total_size as u16)?;
+        result.extend_from_slice(&lockboxes_buf).map_err(|_| TapError::InvalidSize())?;
+        result.extend_from_slice(&encrypted_part).map_err(|_| TapError::InvalidSize())?;
 
         Ok(result)
     }
 
-    fn serialize_lockboxes(&self, mut lockboxes: Vec<Lockbox>) -> Result<Vec<u8>, TapError> {
-        // TODO: sanity check: lockboxes < 1024
-        let mut result = vec![];
-        result.append(&mut (lockboxes.len() as u16).to_le_bytes().to_vec());
-        for mut lockbox in lockboxes.drain(..) {
+    fn serialize_lockboxes(&self, lockboxes: Vec<Lockbox, MAX_NUMBER_OF_LOCKBOXES>) -> Result<WireBuffer, TapError> {
+        let mut result = WireBuffer::new();
+        push_u16(&mut result, lockboxes.len() as u16)?;
+        for lockbox in lockboxes.into_iter() {
             let entry_size = lockbox.esk.len() + lockbox.nonce.len() + lockbox.tag.len() + lockbox.tsk.len() + 18;
-            result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
-            result.append(&mut (lockbox.name as u64).to_le_bytes().to_vec());
-            result.append(&mut (lockbox.algorithm as u16).to_le_bytes().to_vec());
-            result.append(&mut (lockbox.esk.len() as u16).to_le_bytes().to_vec());
-            result.append(&mut lockbox.esk);
-            result.append(&mut (lockbox.nonce.len() as u16).to_le_bytes().to_vec());
-            result.append(&mut lockbox.nonce);
-            result.append(&mut (lockbox.tag.len() as u16).to_le_bytes().to_vec());
-            result.append(&mut lockbox.tag);
-            result.append(&mut (lockbox.tsk.len() as u16).to_le_bytes().to_vec());
-            result.append(&mut lockbox.tsk);
+            push_u16(&mut result, entry_size as u16)?;
+            push_u64(&mut result, lockbox.name)?;
+            push_u16(&mut result, lockbox.algorithm as u16)?;
+            push_u16(&mut result, lockbox.esk.len() as u16)?;
+            push_bytes(&mut result, &lockbox.esk)?;
+            push_u16(&mut result, lockbox.nonce.len() as u16)?;
+            push_bytes(&mut result, &lockbox.nonce)?;
+            push_u16(&mut result, lockbox.tag.len() as u16)?;
+            push_bytes(&mut result, &lockbox.tag)?;
+            push_u16(&mut result, lockbox.tsk.len() as u16)?;
+            push_bytes(&mut result, &lockbox.tsk)?;
         }
         Ok(result)
     }
 
-    fn serialize_digests(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
-        // TODO: sanity check: digests < 1024
-        let mut result = vec![];
-        result.append(&mut (payload.digests.len() as u16).to_le_bytes().to_vec());
-        for mut digest in payload.digests.drain(..) {
+    fn serialize_digests(&self, payload: &AttestationPayload) -> Result<WireBuffer, TapError> {
+        let mut result = WireBuffer::new();
+        push_u16(&mut result, payload.digests.len() as u16)?;
+        for digest in payload.digests.iter() {
             let entry_size = digest.value.len() + 2 + 2;
-            result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
-            result.append(&mut (digest.pcr_id).to_le_bytes().to_vec());
-            result.append(&mut (digest.algorithm as u16).to_le_bytes().to_vec());
-            result.append(&mut digest.value);
+            push_u16(&mut result, entry_size as u16)?;
+            push_u16(&mut result, digest.pcr_id)?;
+            push_u16(&mut result, digest.algorithm as u16)?;
+            push_bytes(&mut result, &digest.value)?;
         }
         Ok(result)
     }
 
-    fn serialize_secrets(&self, payload: &mut AttestationPayload) -> Result<Vec<u8>, TapError> {
-        // TODO: sanity check: secrets < 1024
-        let mut result = vec![];
-        result.append(&mut (payload.secrets.len() as u16).to_le_bytes().to_vec());
-        for mut secret in payload.secrets.drain(..) {
+    fn serialize_secrets(&self, payload: &AttestationPayload) -> Result<WireBuffer, TapError> {
+        let mut result = WireBuffer::new();
+        push_u16(&mut result, payload.secrets.len() as u16)?;
+        for secret in payload.secrets.iter() {
             let entry_size = secret.value.len() + 10;
-            result.append(&mut (entry_size as u16).to_le_bytes().to_vec());
-            result.append(&mut (secret.name).to_le_bytes().to_vec());
-            result.append(&mut secret.value);
+            push_u16(&mut result, entry_size as u16)?;
+            push_u64(&mut result, secret.name)?;
+            push_bytes(&mut result, &secret.value)?;
         }
         Ok(result)
     }
 
-    fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>) -> Result<Vec<u8>, TapError> {
+    fn encrypt_aes_gcm_256(
+        &self,
+        digests: WireBuffer,
+        secrets: WireBuffer,
+    ) -> Result<WireBuffer, TapError> {
         use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
         use aes_gcm::aead::inout::InOutBuf;
 
-        let mut encrypted_part = vec![];
-        encrypted_part.append(&mut digests);
-        encrypted_part.append(&mut secrets);
+        let mut plaintext = WireBuffer::new();
+        push_bytes(&mut plaintext, &digests)?;
+        push_bytes(&mut plaintext, &secrets)?;
 
         let symmetric_key = [0u8; 32];
-        // rand::thread_rng().fill_bytes(&mut symmetric_key);
-
         let key: Key<Aes256Gcm> = symmetric_key.into();
         let cipher = Aes256Gcm::new(&key);
-        let nonce = [0u8; 12];
-        // let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-        let nonce = aes_gcm::Nonce::try_from(nonce.as_slice())?;
+        let nonce_bytes = [0u8; MAX_NONCE_SIZE];
+        let nonce = aes_gcm::Nonce::try_from(nonce_bytes.as_slice())?;
         let tag = cipher
-            .encrypt_inout_detached(&nonce, b"", InOutBuf::from(encrypted_part.as_mut_slice()))
+            .encrypt_inout_detached(&nonce, b"", InOutBuf::from(plaintext.as_mut_slice()))
             .unwrap();
 
-        let mut result = vec![];
-        result.append(&mut (PayloadEncryptionAlgorithm::AesGcm256 as u16).to_le_bytes().to_vec());
-        result.append(&mut (nonce.as_slice().len() as u16).to_le_bytes().to_vec());
-        result.append(&mut nonce.as_slice().to_vec());
-        result.append(&mut (tag.as_slice().len() as u16).to_le_bytes().to_vec());
-        result.append(&mut tag.as_slice().to_vec());
-        result.append(&mut (encrypted_part.len() as u16).to_le_bytes().to_vec());
-        result.append(&mut encrypted_part);
+        let mut result = WireBuffer::new();
+        push_u16(&mut result, PayloadEncryptionAlgorithm::AesGcm256 as u16)?;
+        push_u16(&mut result, nonce_bytes.len() as u16)?;
+        push_bytes(&mut result, &nonce_bytes)?;
+        push_u16(&mut result, tag.as_slice().len() as u16)?;
+        push_bytes(&mut result, tag.as_slice())?;
+        push_u16(&mut result, plaintext.len() as u16)?;
+        push_bytes(&mut result, &plaintext)?;
 
         Ok(result)
     }
-
-    // fn encrypt_rsa_2048_sha256_oasp(value: &[u8], public_key_file: String) -> Result<Vec<u8>, Error> {
-    //     use rsa::pkcs1::DecodeRsaPublicKey;
-    //     let public_key_pem: Vec<u8> = std::fs::read(public_key_file.clone())
-    //         .map_err(|_| Error::CannotOpenFile(public_key_file))?;
-    //     let public_key = rsa::RsaPublicKey::from_pkcs1_pem(&String::from_utf8_lossy(&public_key_pem))?;
-    //     let padding = rsa::Oaep::new::<sha2::Sha256>();
-    //     let encrypted_data = public_key.encrypt(&mut rand::thread_rng(), padding, value)?;
-    //     Ok(encrypted_data)
-    // }
 }

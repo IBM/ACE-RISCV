@@ -24,6 +24,9 @@ pointers_utility = {path = "rust-crates/pointers_utility"}
 # This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
 riscv-decode = "0.2"
 
+# Fixed capacity, heapless collections
+heapless = { version = "0.8", default-features = false }
+
 # The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.10", default-features = false, features = ["once", "rwlock", "spin_mutex"]}
 

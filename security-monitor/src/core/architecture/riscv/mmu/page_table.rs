@@ -308,7 +308,7 @@ impl PageTable {
         self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.serialize()).unwrap();
         let entry_to_remove = core::mem::replace(&mut self.logical_representation[virtual_page_number], entry);
         if let LogicalPageTableEntry::PageWithConfidentialVmData(page) = entry_to_remove {
-            PageAllocator::release_pages(alloc::vec![page.deallocate()]);
+            PageAllocator::release_page(page.deallocate());
         }
     }
 

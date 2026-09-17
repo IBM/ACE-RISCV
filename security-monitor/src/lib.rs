@@ -63,5 +63,4 @@ mod rr_wrappers {
     pub fn vec_iter_mut<T>(x: &mut Vec<T>) -> core::slice::IterMut<'_, T> {
         x.iter_mut()
     }
-
 }

@@ -11,13 +11,15 @@ use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
 use crate::error::Error;
-use alloc::vec::Vec;
 use core::mem::size_of;
+use core::sync::atomic::{AtomicBool, Ordering};
 use flattened_device_tree::FlattenedDeviceTree;
+use heapless::Vec;
 use pointers_utility::ptr_byte_add_mut;
-use spin::{Mutex, Once};
+use spin::Mutex;
 
 const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
+pub const MAX_SUPPORTED_PHYSICAL_HARTS: usize = 16;
 
 unsafe extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.
@@ -32,7 +34,10 @@ unsafe extern "C" {
 ///
 /// Initialization procedure must guarantee that the mscratch register contains the address of the memory region that
 /// stores the state of the executing hart.
-static HARTS_STATES: Once<Mutex<Vec<HardwareHart>>> = Once::new();
+static HARTS_STATES: Mutex<Vec<HardwareHart, MAX_SUPPORTED_PHYSICAL_HARTS>> = Mutex::new(Vec::new());
+
+/// Set to `true` by the cold-boot hart once `prepare_harts()` completes. All other harts spin-wait on this flag
+static HARTS_READY: AtomicBool = AtomicBool::new(false);
 
 /// The entry point to the security monitor initialization procedure. It should be called by the booting firmware (e.g.,
 /// OpenSBI) during the boot process to initialize ACE. After the return, the control flow returns to the booting
@@ -95,8 +100,8 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     HardwareExtension::all().into_iter().for_each(|ext| {
         let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
             let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-            let extensions = &prop.split('_').collect::<Vec<&str>>();
-            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+            let base = prop.split('_').next().unwrap_or("");
+            base.contains(&ext.code()) || prop.split('_').any(|item| item == ext.code())
         });
         if is_extension_supported_by_all_harts {
             debug!("Enabling support for extension: {:?}", ext);
@@ -193,16 +198,17 @@ fn initalize_security_monitor_state(
 }
 
 fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
+    ensure!(number_of_harts <= MAX_SUPPORTED_PHYSICAL_HARTS, Error::InvalidNumberOfHartsInFdt())?;
     // We need to allocate stack for the dumped state of each physical hart.
-    let mut harts_states = Vec::with_capacity(number_of_harts);
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("Hart[{}] stack \t 0x{:x}-0x{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
+        HARTS_STATES.lock().push(HardwareHart::init(hart_id, stack, hypervisor_memory_protector)).map_err(|_| Error::Failed())?;
     }
-    HARTS_STATES.call_once(|| Mutex::new(harts_states));
     fence_wo();
+    // Signal other harts that HARTS_STATES is fully populated.
+    HARTS_READY.store(true, Ordering::Release);
     Ok(())
 }
 
@@ -211,7 +217,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
 #[unsafe(no_mangle)]
 extern "C" fn ace_setup_this_hart() {
     // wait until the boot hart initializes the security monitor's data structures
-    while !HARTS_STATES.is_completed() {
+    while !HARTS_READY.load(Ordering::Acquire) {
         fence_wo();
     }
 
@@ -220,8 +226,8 @@ extern "C" fn ace_setup_this_hart() {
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).
-    let mut harts = HARTS_STATES.get().expect("Bug. Could not set mscratch before initializing memory region for harts states").lock();
-    let hart = harts.get_mut(hart_id).expect("Bug. Incorrectly setup memory region for harts states");
+    let mut harts = HARTS_STATES.lock();
+    let hart = harts.get_mut(hart_id).expect("Bug. Incorrectly set up memory region for harts states");
 
     // The mscratch must point to the memory region when the security monitor stores the dumped states of
     // confidential harts. This is crucial for context switches because assembly code will use the mscratch
@@ -242,7 +248,7 @@ extern "C" fn ace_setup_this_hart() {
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
+    let trap_vector_address = enter_from_hypervisor_or_vm_asm as *const () as usize;
     debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
     hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }
