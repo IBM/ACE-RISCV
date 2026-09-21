@@ -97,7 +97,7 @@ impl ConfidentialHart {
         confidential_hart_state.csrs_mut().mie.save_value_in_main_memory(Self::ENABLED_INTERRUPTS);
         confidential_hart_state.csrs_mut().htimedelta.save_value_in_main_memory(htimedelta);
         // Setup the M-mode trap handler to the security monitor's entry point
-        confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as usize);
+        confidential_hart_state.csrs_mut().mtvec.save_value_in_main_memory(enter_from_confidential_hart_asm as *const () as usize);
 
         // There is a subset of S-mode CSRs that have no VS equivalent and preserve their function when virtualization is enabled (see
         // `Hypervisor and Virtual Supervisor CSRs` in Volume II: RISC-V Privileged Architectures V20211203).

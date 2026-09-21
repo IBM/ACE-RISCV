@@ -159,7 +159,7 @@ impl Page<UnAllocated> {
                 // Precondition: the offset is within the bound
                 #[rr::requires("Hinrange" : "{self.address}.(loc_a) + (1 + i) * (page_size_in_bytes_Z {smaller_page_size}) ≤ {page_end}.(loc_a)")]
                 #[rr::requires("Hinrange2" : "{page_end}.(loc_a) ≤ MAX_PAGE_ADDR")]
-                /// Precondition: provenance
+                // Precondition: provenance
                 #[rr::requires("{self.address}.(loc_p) = ProvAlloc machine_memory_prov")]
                 // Precondition: ownership of this token's memory region
                 #[rr::requires(#type "({self.address} +ₗ (i * page_size_in_bytes_Z {smaller_page_size}))" : "<#> v" @ "array_t (page_size_in_words_nat {smaller_page_size}) (int usize)")]
@@ -201,7 +201,7 @@ impl Page<UnAllocated> {
         pg.(page_loc).(loc_a) = base_address.(loc_a) + (i * page_size_in_bytes_Z pg.(page_sz))"
     )]
     #[rr::returns("mk_page base_address new_size (mjoin (page_val <$> from_pages))")]
-    pub unsafe fn merge(mut from_pages: Vec<Page<UnAllocated>>, new_size: PageSize) -> Self {
+    pub unsafe fn merge(from_pages: Vec<Page<UnAllocated>>, new_size: PageSize) -> Self {
         let base_address = vec_index(&from_pages, 0).address;
         let smaller_sz = vec_index(&from_pages, 0).size;
         let pages_len = from_pages.len();

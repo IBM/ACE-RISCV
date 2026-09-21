@@ -64,7 +64,7 @@ impl LockboxAlgorithm {
                 Ok((vec![], vec![], vec![], tsk.to_vec()))
             }
             LockboxAlgorithm::MlKem1024Aes256 => {
-                use rand::Rng;
+                use rand::RngExt;
                 let mut rng = rand::rng();
                 use ml_kem::{B32, ml_kem_1024::EncapsulationKey, kem::Key as KemKey};
 

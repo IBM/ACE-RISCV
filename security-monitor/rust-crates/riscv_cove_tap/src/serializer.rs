@@ -83,16 +83,16 @@ impl AttestationPayloadSerializer {
     fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>, symmetric_key: &[u8]) -> Result<Vec<u8>, TapError> {
         use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
         use aes_gcm::aead::inout::InOutBuf;
-        use rand::Rng;
+        use rand::RngExt;
 
         let mut encrypted_part = vec![];
         encrypted_part.append(&mut digests);
         encrypted_part.append(&mut secrets);
 
-        let mut rng = rand::rng();
         let key = Key::<Aes256Gcm>::try_from(symmetric_key)?;
         let cipher = Aes256Gcm::new(&key);
         let mut nonce_bytes = [0u8; 12];
+        let mut rng = rand::rng();
         rng.fill(&mut nonce_bytes);
         let nonce = aes_gcm::Nonce::try_from(nonce_bytes.as_slice())?;
         let tag = cipher

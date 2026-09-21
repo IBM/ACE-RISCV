@@ -48,8 +48,6 @@ pub struct PageAllocator {
 #[rr::context("onceG Σ unit")]
 #[rr::context("MachineConfig")]
 impl PageAllocator {
-    const NOT_INITIALIZED: &'static str = "Bug. Page allocator not initialized.";
-
     /// Initializes the global memory allocator with the given memory region as confidential memory. Must be called only once during the
     /// system initialization.
     ///
@@ -318,7 +316,6 @@ impl PageAllocator {
     #[rr::ensures(#iris "{O::Post} π p op x ret")]
     fn try_write<F, O>(op: O) -> Result<F, Error>
     where O: FnOnce(&mut RwLockWriteGuard<'static, PageAllocator>) -> Result<F, Error> {
-        //op(&mut PAGE_ALLOCATOR.get().expect(Self::NOT_INITIALIZED).write())
         op(&mut PAGE_ALLOCATOR.get().unwrap().write())
     }
 }
