@@ -15,10 +15,10 @@ impl AttestationPayloadSerializer {
         Self {}
     }
 
-    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload, symmetric_key: &[u8]) -> Result<Vec<u8>, TapError> {
+    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload, tsk: &[u8]) -> Result<Vec<u8>, TapError> {
         let digests = self.serialize_digests(&mut payload)?;
         let secrets = self.serialize_secrets(&mut payload)?;
-        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, symmetric_key)?;
+        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, tsk)?;
         let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
 
         let total_size = lockboxes.len() + encrypted_part.len();
@@ -80,7 +80,7 @@ impl AttestationPayloadSerializer {
         Ok(result)
     }
 
-    fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>, symmetric_key: &[u8]) -> Result<Vec<u8>, TapError> {
+    fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>, tsk: &[u8]) -> Result<Vec<u8>, TapError> {
         use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
         use aes_gcm::aead::inout::InOutBuf;
         use rand::RngExt;
@@ -89,7 +89,7 @@ impl AttestationPayloadSerializer {
         encrypted_part.append(&mut digests);
         encrypted_part.append(&mut secrets);
 
-        let key = Key::<Aes256Gcm>::try_from(symmetric_key)?;
+        let key = Key::<Aes256Gcm>::try_from(tsk)?;
         let cipher = Aes256Gcm::new(&key);
         let mut nonce_bytes = [0u8; 12];
         let mut rng = rand::rng();

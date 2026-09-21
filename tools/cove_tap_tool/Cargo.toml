@@ -13,7 +13,7 @@ rand = "0.10"
 sha3 = "0.11" # to calculate integrity measurements of kernel, initramfs etc.
 hybrid-array = "0.4"
 ml-kem = "0.3.2"
-aes-gcm = {version="0.11.0-rc.1", features=["aes", "alloc", "rand_core"]}
+aes-gcm = {version="0.11.1", features=["aes", "alloc", "rand_core"]}
 riscv_cove_tap = {path="../../security-monitor/rust-crates/riscv_cove_tap", features=["parser", "serializer"]}
 
 thiserror = "2.0"  # provides macros that help removing boilerplate code in the rust error handling
