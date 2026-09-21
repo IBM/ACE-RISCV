@@ -65,7 +65,7 @@ impl LockboxAlgorithm {
             }
             LockboxAlgorithm::MlKem1024Aes256 => {
                 use rand::Rng;
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 use ml_kem::{B32, ml_kem_1024::EncapsulationKey, kem::Key as KemKey};
 
                 let ek_key_arr = KemKey::<EncapsulationKey>::try_from(encapsulation_key.as_slice())

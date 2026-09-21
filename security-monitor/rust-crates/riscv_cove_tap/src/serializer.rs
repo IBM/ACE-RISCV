@@ -15,10 +15,10 @@ impl AttestationPayloadSerializer {
         Self {}
     }
 
-    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload) -> Result<Vec<u8>, TapError> {
+    pub fn serialize(&self, lockboxes: Vec<Lockbox>, mut payload: AttestationPayload, symmetric_key: &[u8]) -> Result<Vec<u8>, TapError> {
         let digests = self.serialize_digests(&mut payload)?;
         let secrets = self.serialize_secrets(&mut payload)?;
-        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
+        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, symmetric_key)?;
         let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
 
         let total_size = lockboxes.len() + encrypted_part.len();
@@ -80,25 +80,24 @@ impl AttestationPayloadSerializer {
         Ok(result)
     }
 
-    fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>) -> Result<Vec<u8>, TapError> {
+    fn encrypt_aes_gcm_256(&self, mut digests: Vec<u8>, mut secrets: Vec<u8>, symmetric_key: &[u8]) -> Result<Vec<u8>, TapError> {
         use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
         use aes_gcm::aead::inout::InOutBuf;
+        use rand::Rng;
 
         let mut encrypted_part = vec![];
         encrypted_part.append(&mut digests);
         encrypted_part.append(&mut secrets);
 
-        let symmetric_key = [0u8; 32];
-        // rand::thread_rng().fill_bytes(&mut symmetric_key);
-
-        let key: Key<Aes256Gcm> = symmetric_key.into();
+        let mut rng = rand::rng();
+        let key = Key::<Aes256Gcm>::try_from(symmetric_key)?;
         let cipher = Aes256Gcm::new(&key);
-        let nonce = [0u8; 12];
-        // let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-        let nonce = aes_gcm::Nonce::try_from(nonce.as_slice())?;
+        let mut nonce_bytes = [0u8; 12];
+        rng.fill(&mut nonce_bytes);
+        let nonce = aes_gcm::Nonce::try_from(nonce_bytes.as_slice())?;
         let tag = cipher
             .encrypt_inout_detached(&nonce, b"", InOutBuf::from(encrypted_part.as_mut_slice()))
-            .unwrap();
+            .map_err(|_| TapError::KemError())?;
 
         let mut result = vec![];
         result.append(&mut (PayloadEncryptionAlgorithm::AesGcm256 as u16).to_le_bytes().to_vec());
