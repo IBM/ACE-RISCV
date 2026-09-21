@@ -10,7 +10,7 @@ clap = { version="4.6", features = ["derive"] } # for command line argument pars
 clap-num = "1.2.0"
 byteorder = "1.5" # to serialize numbers using little/big endianness
 rand = "0.10"
-sha3 = "0.11" # to calculate integrity measurements of kernel, initramfs etc.
+sha3 = "0.12" # to calculate integrity measurements of kernel, initramfs etc.
 hybrid-array = "0.4"
 ml-kem = "0.3.2"
 aes-gcm = {version="0.11.1", features=["aes", "alloc", "rand_core"]}
