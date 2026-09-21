@@ -4,10 +4,9 @@
 use crate::error::Error;
 use std::fs::OpenOptions;
 
-use sha3::digest::crypto_common::generic_array::GenericArray;
-pub type DigestType = sha3::Sha3_384;
-pub type MeasurementDigest =
-    GenericArray<u8, <DigestType as sha3::digest::OutputSizeUser>::OutputSize>;
+use hybrid_array::Array;
+pub type DigestType = sha3::Sha3_256;
+pub type MeasurementDigest = Array<u8, <DigestType as sha3::digest::OutputSizeUser>::OutputSize>;
 
 pub fn measure(kernel_file: String, embedded_tap: bool, base_address: u64) -> Result<(), Error> {
     use std::io::BufReader;
@@ -43,6 +42,10 @@ pub fn measure(kernel_file: String, embedded_tap: bool, base_address: u64) -> Re
         address += 4096;
         (0..4096).for_each(|i| buffer[i] = 0);
     }
-    println!("Digest 0x{:100x}", digest);
+    print!("Digest 0x");
+    for b in digest.iter() {
+        print!("{:02x}", b);
+    }
+    println!();
     Ok(())
 }

@@ -9,7 +9,7 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 **Formal verification:**
 This project implements the RISC-V CoVE spec's deployment model 3 referenced in [Appendix D](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/). The formal specification is embedded in the security monitor's source code and the proofs are in the [verification/](verification/) folder. Please read our [paper1](https://arxiv.org/pdf/2505.12995) and [paper2](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
 
-**Post-Quantum Cryptography (PQC) and Attestation**: ACE supports local attestation, a mechanism to authenticate confidential VMs intended for embedded systems with limited or no network connectivity. We already support PQC, specifically we use ML-KEM, SHA-384, and AES-GCM-256 cryptography.
+**Post-Quantum Cryptography (PQC) and Attestation**: ACE supports local attestation, a mechanism to authenticate confidential VMs intended for embedded systems with limited or no network connectivity. We already support PQC, specifically we use ML-KEM, SHA3-256, and AES-GCM-256 cryptography.
 
 ## Hardware requirements
 We are currently building on RISC-V 64-bit with integer (I), atomic (A) and hypervisor extentions (H), physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc).
