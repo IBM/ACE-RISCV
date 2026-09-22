@@ -7,13 +7,13 @@ edition = "2021"
 
 [dependencies]
 clap = { version="4.6", features = ["derive"] } # for command line argument parsing
-clap-num = "1.2.0"
-byteorder = "1.5" # to serialize numbers using little/big endianness
-rand = "0.10"
-sha3 = "0.11" # to calculate integrity measurements of kernel, initramfs etc.
-hybrid-array = "0.4"
-ml-kem = "0.3.2"
-aes-gcm = {version="0.11.1", features=["aes", "alloc", "rand_core"]}
+clap-num = {version = "1.2", default-features=false }
+byteorder = {version = "1.5", default-features=false, features = ["std"] } # to serialize numbers using little/big endianness
+rand = {version = "0.10", default-features=false, features = ["std"] }
+sha3 = {version = "0.12", default-features=false } # to calculate integrity measurements of kernel, initramfs etc.
+hybrid-array = {version = "0.4", default-features=false }
+ml-kem = {version = "0.3", default-features=false }
+aes-gcm = {version="0.11", features=["aes", "alloc", "rand_core"]}
 riscv_cove_tap = {path="../../security-monitor/rust-crates/riscv_cove_tap", features=["parser", "serializer"]}
 
 thiserror = "2.0"  # provides macros that help removing boilerplate code in the rust error handling

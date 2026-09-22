@@ -6,7 +6,7 @@ description = "Wrapper over existing FDT to narrow the interface for easier swit
 edition = "2024"
 
 [dependencies]
-fdt-rs = { version = "0.4", default-features = false, features = [] }
+fdt-rs = { version = "0.4", default-features = false }
 
 # provides macros that help removing boilerplate code in rust error handling
 thiserror-no-std = "2.0"
