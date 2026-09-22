@@ -2,7 +2,7 @@
 name = "security-monitor"
 version = "0.4.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
-description = "Assured Confidential Execution (ACE): security monitor implementation targetting RISC-V"
+description = "Assured Confidential Execution (ACE): TEE Security Manager (TSM) implementation targetting RISC-V CoVE"
 edition = "2024"
 
 [dependencies]
@@ -22,7 +22,7 @@ opensbi-sys = {path = "rust-crates/opensbi-sys"}
 pointers_utility = {path = "rust-crates/pointers_utility"}
 
 # This crate decodes RISC-V instructions unfortunately it does not support the C-instructions yet
-riscv-decode = "0.2"
+riscv-decode = {version = "0.2", default-features=false }
 
 # The `spin` crate provides synchronization primitives (Mutexes etc) using spinlocks
 spin = {version="0.12", default-features = false, features = ["once", "rwlock", "spin_mutex"]}

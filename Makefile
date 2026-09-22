@@ -82,7 +82,7 @@ emulator: setup devtools
 		wget https://download.qemu.org/qemu-$(QEMU_VERSION).tar.xz; \
 		tar xJf qemu-$(QEMU_VERSION).tar.xz; \
 		mv qemu-$(QEMU_VERSION)/* $(QEMU_SOURCE_DIR)/; \
-		./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu,riscv64-linux-user; \
+		./configure --prefix=$(QEMU_WORK_DIR) --enable-slirp --enable-kvm --target-list=riscv64-softmmu; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) >/dev/null; \
 		PATH="$(RISCV_GNU_TOOLCHAIN_WORK_DIR)/bin:$(PATH)" $(MAKE) -C $(QEMU_SOURCE_DIR) install; \
 	fi
