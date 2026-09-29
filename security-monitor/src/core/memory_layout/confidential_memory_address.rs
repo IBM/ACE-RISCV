@@ -18,7 +18,7 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 #[rr::invariant(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
 /// Invariant: The address is in the confidential part of the memory layout.
 #[rr::invariant("(MEMORY_CONFIG.(conf_start).(loc_a) ≤ l.(loc_a) < MEMORY_CONFIG.(conf_end).(loc_a))%Z")]
-pub struct ConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
+pub struct ConfidentialMemoryAddress(#[rr::field("#l")] *mut usize);
 
 /// Verification: We require the ghost state for the global memory layout to be available.
 #[rr::context("onceG Σ memory_layout")]

@@ -36,11 +36,11 @@ static PAGE_ALLOCATOR: Once<RwLock<PageAllocator>> = Once::new();
 #[rr::invariant("node_size = node.(max_node_size)")]
 #[rr::invariant("base_addr = node.(base_address)")]
 pub struct PageAllocator {
-    #[rr::field("base_addr")]
+    #[rr::field("#base_addr")]
     base_address: usize,
-    #[rr::field("node_size")]
+    #[rr::field("#node_size")]
     page_size: PageSize,
-    #[rr::field("node")]
+    #[rr::field("#node")]
     root: PageStorageTreeNode,
 }
 
@@ -344,15 +344,15 @@ impl PageAllocator {
 struct PageStorageTreeNode {
     // Page token owned by this node. `None` means that this page token has already been allocated or that it has been divided into smaller
     // pages token that were stored in this node's children.
-    #[rr::field("<#>@{{ option }} maybe_page_token")]
+    #[rr::field("# (<#>@{{ option }} maybe_page_token)")]
     page_token: Option<Page<UnAllocated>>,
     // Specifies what size of the page token can be allocated by exploring the tree starting at this node.
     // Invariant: if page token exist, then the its size is the max allocable size. Otherwise, the max allocable page size is the max
     // allocable page size of children
-    #[rr::field("<#>@{{ option }} max_sz")]
+    #[rr::field("# (<#>@{{ option }} max_sz)")]
     max_allocable_page_size: Option<PageSize>,
     // Invariant: Children store page tokens smaller than the page token stored in the parent node
-    #[rr::field("<#> children")]
+    #[rr::field("# (<#> children)")]
     children: Vec<Self>,
 }
 

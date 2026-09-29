@@ -17,7 +17,7 @@ use pointers_utility::ptr_byte_add_mut;
 #[rr::invariant(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
 /// Invariant: The address is in non-confidential memory.
 #[rr::invariant("(MEMORY_CONFIG.(non_conf_start).(loc_a) ≤ l.(loc_a) < MEMORY_CONFIG.(non_conf_end).(loc_a))%Z")]
-pub struct NonConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
+pub struct NonConfidentialMemoryAddress(#[rr::field("#l")] *mut usize);
 
 #[rr::context("onceG Σ memory_layout")]
 impl NonConfidentialMemoryAddress {

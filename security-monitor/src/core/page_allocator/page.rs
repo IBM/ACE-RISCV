@@ -51,13 +51,13 @@ impl PageState for Allocated {}
 #[rr::ghost_drop(#type "p.(page_loc)" : "<#> p.(page_val)" @ "array_t (page_size_in_words_nat p.(page_sz)) (int usize)")]
 pub struct Page<S: PageState> {
     /// Specification: the `address` has mathematical value `l`.
-    #[rr::field("p.(page_loc)")]
+    #[rr::field("# p.(page_loc)")]
     address: ConfidentialMemoryAddress,
     /// Specification: the `size` has mathematical value `sz`.
-    #[rr::field("p.(page_sz)")]
+    #[rr::field("# p.(page_sz)")]
     size: PageSize,
     /// Specification: the `_marker` has no relevance for the verification.
-    #[rr::field("tt")]
+    #[rr::field("# tt")]
     _marker: PhantomData<S>,
 }
 

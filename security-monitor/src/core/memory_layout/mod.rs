@@ -37,13 +37,13 @@ static MEMORY_LAYOUT: Once<MemoryLayout> = Once::new();
 #[rr::invariant("ml.(conf_start) `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
 #[rr::invariant("ml.(conf_end) `aligned_to` (page_size_in_bytes_nat Size4KiB)")]
 pub struct MemoryLayout {
-    #[rr::field("ml.(non_conf_start)")]
+    #[rr::field("# ml.(non_conf_start)")]
     non_confidential_memory_start: *mut usize,
-    #[rr::field("ml.(non_conf_end)")]
+    #[rr::field("# ml.(non_conf_end)")]
     non_confidential_memory_end: *const usize,
-    #[rr::field("ml.(conf_start)")]
+    #[rr::field("# ml.(conf_start)")]
     confidential_memory_start: *mut usize,
-    #[rr::field("ml.(conf_end)")]
+    #[rr::field("# ml.(conf_end)")]
     confidential_memory_end: *const usize,
 }
 
