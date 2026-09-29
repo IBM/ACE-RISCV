@@ -57,6 +57,7 @@ pub fn generate_tap(
             algorithm: DigestAlgorithm::Sha512,
             value: pcr_value,
         };
+        // codeql[rust/cleartext-logging] - intentional operator output for CLI tool
         println!("Writing PCR{}={}", pcr_id, tap_digest.value_in_hex());
         digests.push(tap_digest);
     }
@@ -67,6 +68,7 @@ pub fn generate_tap(
             name: secret_name,
             value: secret_value,
         };
+        // codeql[rust/cleartext-logging] - intentional operator output for CLI tool
         println!("Writing secret {}", secret_name);
         secrets.push(secret);
     }
