@@ -34,7 +34,7 @@ sudo apt update
 sudo apt -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev xz-utils
 
 # OpenSBI
-sudo apt -qq -y install clang
+sudo apt -qq -y install clang libclang-dev llvm-dev
 
 # Qemu 8.2
 sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev
