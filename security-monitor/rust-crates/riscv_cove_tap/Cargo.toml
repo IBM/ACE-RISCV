@@ -6,6 +6,7 @@ description = "Library to parse the RISC-V CoVE's TEE attestation payload (TAP)"
 edition = "2024"
 
 [dependencies]
+heapless = { version = "0.8", default-features = false }
 rand = {version = "0.10", default-features=false, optional=true, features=["thread_rng"] }
 
 hybrid-array = {version = "0.4", default-features=false }

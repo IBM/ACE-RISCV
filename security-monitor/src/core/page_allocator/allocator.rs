@@ -275,6 +275,18 @@ impl PageAllocator {
     }
 
     /// Consumes the page tokens given by the caller, allowing for their further acquisition. This is equivalent to deallocation of the
+    /// Releases a single page token back to the PageAllocator without dynamic allocation.
+    pub fn release_page(released_page: Page<UnAllocated>) {
+        let _ = Self::try_write(|page_allocator| {
+            let base_address = page_allocator.base_address;
+            let page_size = page_allocator.page_size;
+            let root_node = &mut page_allocator.root;
+            root_node.store_page_token(base_address, page_size, released_page);
+            Ok(())
+        })
+        .unwrap();
+    }
+
     /// physical memory region owned by the returned page tokens. Given vector of pages might contains pages of arbitrary sizes.
     #[rr::params("MEMORY_CONFIG" : "memory_layout")]
     /// Precondition: We require the page allocator to be initialized.
@@ -631,6 +643,7 @@ impl PageStorageTreeNode {
             assert!(merged_token.size() == this_node_page_size);
             self.page_token = Some(merged_token);
             self.max_allocable_page_size = Some(this_node_page_size);
+            self.children = vec![];
         }
     }
 

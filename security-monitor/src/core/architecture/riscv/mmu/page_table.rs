@@ -127,7 +127,7 @@ impl PageTable {
                         let address = NonConfidentialMemoryAddress::new(pointer)?;
                         let page_size = paging_system.data_page_size(level);
                         let page = PageAllocator::acquire_page(page_size)?.copy_from_non_confidential_memory(address)?;
-                        LogicalPageTableEntry::PageWithConfidentialVmData(Box::new(page))
+                        LogicalPageTableEntry::PageWithConfidentialVmData(page)
                     }
                 };
                 serialized_representation.write(index, logical_page_table_entry.serialize()).unwrap();
@@ -161,7 +161,7 @@ impl PageTable {
         &mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress, page_size: &PageSize,
     ) -> Result<PageSize, Error> {
         let page = PageAllocator::acquire_page(*page_size)?.zeroize();
-        let entry = LogicalPageTableEntry::PageWithConfidentialVmData(Box::new(page));
+        let entry = LogicalPageTableEntry::PageWithConfidentialVmData(page);
         self.map_page(confidential_vm_address, page_size, entry)?;
         Ok(*page_size)
     }
@@ -308,7 +308,7 @@ impl PageTable {
         self.serialized_representation.write(self.paging_system.entry_size() * virtual_page_number, entry.serialize()).unwrap();
         let entry_to_remove = core::mem::replace(&mut self.logical_representation[virtual_page_number], entry);
         if let LogicalPageTableEntry::PageWithConfidentialVmData(page) = entry_to_remove {
-            PageAllocator::release_pages(alloc::vec![page.deallocate()]);
+            PageAllocator::release_page(page.deallocate());
         }
     }
 
