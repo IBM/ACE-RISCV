@@ -643,6 +643,7 @@ impl PageStorageTreeNode {
             assert!(merged_token.size() == this_node_page_size);
             self.page_token = Some(merged_token);
             self.max_allocable_page_size = Some(this_node_page_size);
+            self.children = vec![];
         }
     }
 

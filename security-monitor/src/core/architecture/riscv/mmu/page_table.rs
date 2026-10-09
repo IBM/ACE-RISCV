@@ -127,7 +127,7 @@ impl PageTable {
                         let address = NonConfidentialMemoryAddress::new(pointer)?;
                         let page_size = paging_system.data_page_size(level);
                         let page = PageAllocator::acquire_page(page_size)?.copy_from_non_confidential_memory(address)?;
-                        LogicalPageTableEntry::PageWithConfidentialVmData(Box::new(page))
+                        LogicalPageTableEntry::PageWithConfidentialVmData(page)
                     }
                 };
                 serialized_representation.write(index, logical_page_table_entry.serialize()).unwrap();
@@ -161,7 +161,7 @@ impl PageTable {
         &mut self, confidential_vm_address: &ConfidentialVmPhysicalAddress, page_size: &PageSize,
     ) -> Result<PageSize, Error> {
         let page = PageAllocator::acquire_page(*page_size)?.zeroize();
-        let entry = LogicalPageTableEntry::PageWithConfidentialVmData(Box::new(page));
+        let entry = LogicalPageTableEntry::PageWithConfidentialVmData(page);
         self.map_page(confidential_vm_address, page_size, entry)?;
         Ok(*page_size)
     }
