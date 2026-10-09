@@ -9,7 +9,7 @@ if [ -z ${ACE_DIR} ]; then
 fi
 
 # load common configuration
-. common.sh
+. ${ACE_DIR}/tools/common.sh
 
 # start the VM
 ${ACE_DIR}/tools/ace_run_hypervisor.sh --daemonize > .run_tests.log
