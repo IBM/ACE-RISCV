@@ -35,22 +35,18 @@ impl AttestationPayloadSerializer {
         Self {}
     }
 
-    pub fn serialize(
-        &self,
-        lockboxes: Vec<Lockbox, MAX_NUMBER_OF_LOCKBOXES>,
-        payload: AttestationPayload,
-    ) -> Result<WireBuffer, TapError> {
-        let digests = self.serialize_digests(&payload)?;
-        let secrets = self.serialize_secrets(&payload)?;
-        let encrypted_part = self.encrypt_aes_gcm_256(digests, secrets)?;
-        let lockboxes_buf = self.serialize_lockboxes(lockboxes)?;
+    pub fn serialize(&self, lockboxes: Vec<Lockbox, MAX_NUMBER_OF_LOCKBOXES>, mut payload: AttestationPayload, tsk: &[u8]) -> Result<WireBuffer, TapError> {
+        let digests = self.serialize_digests(&mut payload)?;
+        let secrets = self.serialize_secrets(&mut payload)?;
+        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, tsk)?;
+        let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
 
-        let total_size = lockboxes_buf.len() + encrypted_part.len();
+        let total_size = lockboxes.len() + encrypted_part.len();
 
         let mut result = WireBuffer::new();
         push_u32(&mut result, ACE_MAGIC_TAP_START)?;
         push_u16(&mut result, total_size as u16)?;
-        result.extend_from_slice(&lockboxes_buf).map_err(|_| TapError::InvalidSize())?;
+        result.extend_from_slice(&lockboxes).map_err(|_| TapError::InvalidSize())?;
         result.extend_from_slice(&encrypted_part).map_err(|_| TapError::InvalidSize())?;
 
         Ok(result)
@@ -105,22 +101,25 @@ impl AttestationPayloadSerializer {
         &self,
         digests: WireBuffer,
         secrets: WireBuffer,
+        tsk: &[u8]
     ) -> Result<WireBuffer, TapError> {
         use aes_gcm::{AeadInOut, Aes256Gcm, Key, KeyInit};
         use aes_gcm::aead::inout::InOutBuf;
+        use rand::RngExt;
 
         let mut plaintext = WireBuffer::new();
         push_bytes(&mut plaintext, &digests)?;
         push_bytes(&mut plaintext, &secrets)?;
 
-        let symmetric_key = [0u8; 32];
-        let key: Key<Aes256Gcm> = symmetric_key.into();
+        let key = Key::<Aes256Gcm>::try_from(tsk)?;
         let cipher = Aes256Gcm::new(&key);
-        let nonce_bytes = [0u8; MAX_NONCE_SIZE];
+        let mut nonce_bytes = [0u8; 12];
+        let mut rng = rand::rng();
+        rng.fill(&mut nonce_bytes);
         let nonce = aes_gcm::Nonce::try_from(nonce_bytes.as_slice())?;
         let tag = cipher
             .encrypt_inout_detached(&nonce, b"", InOutBuf::from(plaintext.as_mut_slice()))
-            .unwrap();
+            .map_err(|_| TapError::KemError())?;
 
         let mut result = WireBuffer::new();
         push_u16(&mut result, PayloadEncryptionAlgorithm::AesGcm256 as u16)?;

@@ -137,6 +137,7 @@ impl PromoteToConfidentialVm {
         let mut measurements = StaticMeasurements::default();
         memory_protector.finalize(&mut measurements, vm_memory_layout)?;
         confidential_harts[Self::BOOT_HART_ID].read().measure(measurements.pcr_boot_hart_mut());
+        // codeql[rust/cleartext-logging] - digest values intentionally logged in debug builds
         debug!("VM measurements: {:?}", measurements);
         Ok(measurements)
     }
@@ -216,9 +217,10 @@ impl PromoteToConfidentialVm {
             Some(attestation_payload) => {
                 ensure!(attestation_payload.digests.len() > 0, Error::LocalAttestationFailed())?;
                 for digest in attestation_payload.digests.iter() {
+                    // codeql[rust/cleartext-logging] - digest values intentionally logged in debug builds
                     debug!("Reference PCR{:?}={:?}=0x{}", digest.pcr_id, digest.algorithm, digest.value_in_hex());
                     ensure!(digest.algorithm == riscv_cove_tap::DigestAlgorithm::Sha512, Error::LocalAttestationNotSupportedDigest())?;
-                    let pcr_value = MeasurementDigest::clone_from_slice(&digest.value);
+                    let pcr_value = MeasurementDigest::try_from(digest.value.as_slice()).map_err(|_| Error::LocalAttestationFailed())?;
                     ensure!(measurements.compare(digest.pcr_id() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }
                 debug!("Attestation succeeded, fetched {} secrets", attestation_payload.secrets.len());

@@ -114,8 +114,8 @@ impl LockboxAlgorithm {
                 Ok((Vec::new(), Vec::new(), Vec::new(), Vec::new()))
             }
             LockboxAlgorithm::MlKem1024Aes256 => {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
+                use rand::RngExt;
+                let mut rng = rand::rng();
                 use ml_kem::{B32, ml_kem_1024::EncapsulationKey, kem::Key as KemKey};
 
                 let ek_key_arr = KemKey::<EncapsulationKey>::try_from(encapsulation_key)
@@ -168,9 +168,6 @@ impl LockboxAlgorithm {
                 let ct_arr = Ciphertext::try_from(esk).map_err(|_| TapError::KemError())?;
                 let dk_expanded = ExpandedDecapsulationKey::<ml_kem::MlKem1024>::try_from(decapsulation_key)
                     .map_err(|_| TapError::KemError())?;
-                // `from_expanded` is the correct API for loading a pre-existing 3168-byte key;
-                // the deprecation warning points at `from_seed` which takes a 64-byte random seed
-                // and is not equivalent. Suppress until ml-kem stabilises a replacement.
                 #[allow(deprecated)]
                 let dk = DecapsulationKey::from_expanded(&dk_expanded).map_err(|_| TapError::KemError())?;
                 let sk = dk.decapsulate(&ct_arr);

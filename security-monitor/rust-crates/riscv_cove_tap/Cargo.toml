@@ -2,19 +2,18 @@
 name = "riscv_cove_tap"
 version = "0.2.0"
 authors = ["Wojciech Ozga <woz@zurich.ibm.com>"]
-description = "Library to parse the RISC-V CoVE's TEE attestation payload"
+description = "Library to parse the RISC-V CoVE's TEE attestation payload (TAP)"
 edition = "2024"
 
 [dependencies]
 heapless = { version = "0.8", default-features = false }
-rand = {version = "0.8.5", optional=true}
+rand = {version = "0.10", default-features=false, optional=true, features=["thread_rng"] }
 
-hybrid-array = "0.2.3"
+hybrid-array = {version = "0.4", default-features=false }
 ml-kem = {version = "0.3.2", default-features=false, features = [] }
 
 # for symmetric encryption of payload
-aes-gcm = {version="0.11.0-rc.1", default-features = false, features=["aes", "alloc", "rand_core"]}
-generic-array = "1"
+aes-gcm = {version="0.11", default-features = false, features=["aes", "alloc", "rand_core"]}
 
 # provides macros that help removing boilerplate code in rust error handling
 thiserror-no-std = "2.0"
