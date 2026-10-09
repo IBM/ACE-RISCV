@@ -38,8 +38,8 @@ impl AttestationPayloadSerializer {
     pub fn serialize(&self, lockboxes: Vec<Lockbox, MAX_NUMBER_OF_LOCKBOXES>, mut payload: AttestationPayload, tsk: &[u8]) -> Result<WireBuffer, TapError> {
         let digests = self.serialize_digests(&mut payload)?;
         let secrets = self.serialize_secrets(&mut payload)?;
-        let mut encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, tsk)?;
-        let mut lockboxes = self.serialize_lockboxes(lockboxes)?;
+        let encrypted_part = self.encrypt_aes_gcm_256(digests, secrets, tsk)?;
+        let lockboxes = self.serialize_lockboxes(lockboxes)?;
 
         let total_size = lockboxes.len() + encrypted_part.len();
 
