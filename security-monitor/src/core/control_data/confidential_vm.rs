@@ -27,7 +27,7 @@ pub struct ConfidentialVm {
 }
 
 impl ConfidentialVm {
-    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 16;
+    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 8;
     /// A maximum number of secrets per VM
     pub const MAX_NUMBER_OF_SECRETS: usize = 8;
     /// A maximum number of inter hart requests that can be buffered.
