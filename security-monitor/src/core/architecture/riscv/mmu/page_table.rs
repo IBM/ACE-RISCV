@@ -110,9 +110,9 @@ impl PageTable {
             .copy_from_non_confidential_memory(address)
             .map_err(|_| Error::AddressNotInNonConfidentialMemory())?;
 
-        let logical_representation = serialized_representation
-            .offsets()
-            .map(|index| {
+        let logical_representation = serialized_representation.offsets().try_fold(
+            Vec::with_capacity(serialized_representation.offsets().len()),
+            |mut acc, index| {
                 // Below unwrap is ok because we iterate over valid offsets in the page, so `index` is valid.
                 let serialized_entry = serialized_representation.read(index).unwrap();
                 let logical_page_table_entry = match PageTableEntry::deserialize(serialized_entry) {
@@ -131,9 +131,10 @@ impl PageTable {
                     }
                 };
                 serialized_representation.write(index, logical_page_table_entry.serialize()).unwrap();
-                Ok(logical_page_table_entry)
-            })
-            .collect::<Result<Vec<LogicalPageTableEntry>, Error>>()?;
+                acc.push(logical_page_table_entry);
+                Ok::<Vec<LogicalPageTableEntry>, Error>(acc)
+            },
+        )?;
         Ok(Self { level, paging_system, serialized_representation, logical_representation })
     }
 
