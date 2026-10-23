@@ -18,10 +18,9 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   (* !start proof(page_allocator.acquire_page_token) *)
-  { f_equiv.
-    move: INV_CASE.
+  { move: INV_CASE.
     unfold page_node_can_allocate.
-    destruct (allocation_state child) eqn:Heq. 
+    destruct (allocation_state child) eqn:Heq.
     all: sidecond_hammer. }
   (* !end proof *)
   Unshelve. all: print_remaining_sidecond.
