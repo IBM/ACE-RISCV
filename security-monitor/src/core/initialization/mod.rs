@@ -237,7 +237,7 @@ extern "C" fn ace_setup_this_hart() {
     // the `MemoryLayout` has been already initialized by the boot hart.
     if let Err(error) = unsafe { HypervisorMemoryProtector::setup() } {
         debug!("Failed to setup hypervisor memory protector: {:?}", error);
-        // TODO: block access to attestation keys/registers on this hart?
+        // TODO: block access to attestation keys/registers on this hart or freeze
         return;
     }
 

@@ -141,14 +141,14 @@ impl Digest {
 #[derive(Debug, PartialEq, Eq)]
 pub enum DigestAlgorithm {
     Debug = 0,
-    Sha512 = 1,
+    Sha3_256 = 1,
 }
 
 impl DigestAlgorithm {
     pub fn from_u16(value: u16) -> Result<Self, TapError> {
         match value {
             0 => Ok(Self::Debug),
-            1 => Ok(Self::Sha512),
+            1 => Ok(Self::Sha3_256),
             v => Err(TapError::UnsupportedDigestAlgorithm(v)),
         }
     }
@@ -156,7 +156,7 @@ impl DigestAlgorithm {
     pub fn digest_size(&self) -> u16 {
         match self {
             &Self::Debug => 0,
-            &Self::Sha512 => 512 / 8,
+            &Self::Sha3_256 => 512 / 8,
         }
     }
 }
