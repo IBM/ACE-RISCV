@@ -25,6 +25,6 @@ impl ConfidentialVmMmioRegion {
     }
 
     pub fn contains(&self, other: &Self) -> bool {
-        self.base_address <= other.base_address && other.one_past_the_end_address < self.one_past_the_end_address
+        self.base_address <= other.base_address && other.one_past_the_end_address <= self.one_past_the_end_address
     }
 }

@@ -54,7 +54,7 @@ pub fn generate_tap(
     for (pcr_id, pcr_value) in pcrs.into_iter() {
         let tap_digest = Digest {
             pcr_id,
-            algorithm: DigestAlgorithm::Sha512,
+            algorithm: DigestAlgorithm::Sha3_256,
             value: pcr_value,
         };
         // codeql[rust/cleartext-logging] - intentional operator output for CLI tool
