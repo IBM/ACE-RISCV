@@ -22,29 +22,9 @@ pub struct VectorUnit {
 
 impl VectorUnit {
     pub fn empty() -> Self {
-        debug!("ACE_DIAG: Enter VectorUnit::empty");
-
-        let sp: usize;
-
-        unsafe {
-            asm!(
-                "mv {value}, sp",
-                value = out(reg) sp,
-                options(nomem, nostack)
-            );
-        }
-
-        debug!("ACE_DIAG: VectorUnit::empty ENTRY sp={:#x} initialized={}", sp, HardwareSetup::is_initialized());
-
-        let vector_supported = HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension);
-
-        debug!("ACE_DIAG: VectorUnit supported = {}", vector_supported);
-
-        if !vector_supported {
+        if !HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
             return Self { registers: Vec::new(), vlenb: 0, vl: 0, vtype: 0, vstart: 0, vcsr: 0 };
         }
-
-        debug!("ACE_DIAG: BEFORE mstatus/CSR, initialized={}", HardwareSetup::is_initialized());
 
         let old_mstatus = CSR.mstatus.read_and_set_bits(SR_VS_DIRTY);
 
@@ -59,21 +39,11 @@ impl VectorUnit {
 
         CSR.mstatus.write(old_mstatus);
 
-        debug!("ACE_DIAG: AFTER mstatus/CSR, initialized={}, vlenb={}", HardwareSetup::is_initialized(), vlenb);
-
         assert!(vlenb > 0);
 
         let length = NUMBER_OF_VECTOR_REGISTERS.checked_mul(vlenb).expect("Invalid vector register size");
 
-        debug!("ACE_DIAG: BEFORE vector allocation, initialized={}, length={}", HardwareSetup::is_initialized(), length);
-
-        let registers = vec![0; length];
-
-        debug!("ACE_DIAG: AFTER vector allocation, initialized={}, ptr={:p}", HardwareSetup::is_initialized(), registers.as_ptr());
-
-        debug!("ACE_DIAG: Leaving VectorUnit::empty");
-
-        Self { registers, vlenb, vl: 0, vtype: 0, vstart: 0, vcsr: 0 }
+        Self { registers: vec![0; length], vlenb, vl: 0, vtype: 0, vstart: 0, vcsr: 0 }
     }
 
     unsafe fn validate_vlenb(&self) {
