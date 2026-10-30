@@ -2,7 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::sbi::NaclSharedMemory;
-use crate::core::architecture::riscv::specification::SR_FS;
+use crate::core::architecture::riscv::specification::{SR_FS, SR_VS_DIRTY};
 use crate::core::architecture::specification::SR_FS_DIRTY;
 use crate::core::architecture::{
     ControlStatusRegisters, GeneralPurposeRegisters, HardwareExtension, HartArchitecturalState, SupervisorTimerExtension,
@@ -52,6 +52,11 @@ impl HypervisorHart {
                 }
             }
         }
+
+        if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
+            unsafe { self.hypervisor_hart_state.vector_mut().save_in_main_memory() };
+        }
     }
 
     /// Restores the state of the hypervisor hart from the main memory. This is part of the heavy context switch.
@@ -64,6 +69,11 @@ impl HypervisorHart {
             self.csrs().mstatus.read_and_set_bits(SR_FS);
             // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
             unsafe { self.hypervisor_hart_state.fprs_mut().restore_from_main_memory() };
+        }
+
+        if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
+            unsafe { self.hypervisor_hart_state.vector().restore_from_main_memory() };
         }
     }
 

@@ -116,6 +116,11 @@ impl ConfidentialHart {
             confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_FS_INITIAL);
         }
 
+        if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            confidential_hart_state.csrs_mut().mstatus.enable_bits_on_saved_value(SR_VS_INITIAL);
+            confidential_hart_state.csrs_mut().vsstatus.enable_bits_on_saved_value(SR_VS_INITIAL);
+        }
+
         Self {
             confidential_vm_id: None,
             confidential_hart_state,
@@ -171,6 +176,11 @@ impl ConfidentialHart {
             self.csrs_mut().vsstatus.disable_bits_on_saved_value(SR_FS_DIRTY);
             self.csrs_mut().vsstatus.enable_bits_on_saved_value(SR_FS_CLEAN);
         }
+
+        if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
+            unsafe { self.confidential_hart_state.vector_mut().save_in_main_memory() };
+        }
     }
 
     /// Restores the state of the confidential hart from the main memory. This is part of the heavy context switch.
@@ -185,6 +195,11 @@ impl ConfidentialHart {
             self.csrs().mstatus.read_and_set_bits(SR_FS);
             // below unsafe is ok because we checked that FPU hardware is available and we enabled it in mstatus.
             unsafe { self.confidential_hart_state.fprs_mut().restore_from_main_memory() };
+        }
+
+        if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
+            unsafe { self.confidential_hart_state.vector().restore_from_main_memory() };
         }
     }
 

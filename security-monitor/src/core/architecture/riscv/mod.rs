@@ -7,6 +7,7 @@ pub use extensions::HardwareExtension;
 pub use extensions::compressed_instructions::decode_result_register;
 pub use extensions::floating_point_unit::FloatingPointUnit;
 pub use extensions::supervisor_timer_extension::SupervisorTimerExtension;
+pub use extensions::vector_unit::VectorUnit;
 pub use general_purpose_registers::{GeneralPurposeRegister, GeneralPurposeRegisters};
 pub use hart_architectural_state::HartArchitecturalState;
 pub use hart_lifecycle_state::HartLifecycleState;
