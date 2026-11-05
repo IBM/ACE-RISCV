@@ -422,6 +422,9 @@ pub const MTVEC_BASE_SHIFT: usize = 2;
 
 pub const CSR_STATUS_SIE: usize = 1;
 
+pub const SR_VS: usize = 0x00000600;
+pub const SR_VS_INITIAL: usize = 0x00000200;
+pub const SR_VS_DIRTY: usize = 0x00000600;
 pub const SR_FS: usize = 0x00006000;
 pub const SR_FS_OFF: usize = 0x00000000;
 pub const SR_FS_INITIAL: usize = 0x00002000;

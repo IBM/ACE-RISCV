@@ -95,8 +95,10 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
     HardwareExtension::all().into_iter().for_each(|ext| {
         let is_extension_supported_by_all_harts = fdt.harts().all(|hart| {
             let prop = hart.property_str(FDT_RISCV_ISA).ok_or(Error::FdtParsing()).unwrap_or("");
-            let extensions = &prop.split('_').collect::<Vec<&str>>();
-            extensions[0].contains(&ext.code()) || extensions.contains(&ext.code())
+            let extensions = prop.split('_').collect::<Vec<&str>>();
+            let base_extensions = extensions[0].strip_prefix(RISCV_ARCH).unwrap_or("");
+
+            base_extensions.contains(ext.code()) || extensions.iter().skip(1).any(|extension| *extension == ext.code())
         });
         if is_extension_supported_by_all_harts {
             debug!("Enabling support for extension: {:?}", ext);

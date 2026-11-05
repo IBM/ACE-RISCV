@@ -61,6 +61,8 @@ enter_from_hypervisor_or_vm_asm:
     sd	        t0, ({HART_A0_OFFSET})(a0)
 
     # Set the stack for the security monitor execution on this physical hart
-    ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
+    li          t0, {HART_STACK_ADDRESS_OFFSET}
+    add         t0, a0, t0
+    ld          sp, 0(t0)
 
     j           route_trap_from_hypervisor_or_vm
