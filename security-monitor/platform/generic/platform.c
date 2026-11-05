@@ -380,6 +380,13 @@ const struct sbi_platform_operations platform_ops = {
 	.vendor_ext_provider	= generic_vendor_ext_provider,
 };
 
+/*
+ * OpenSBI reserves 4 KiB of each hart stack region for scratch data.
+ * ACE requires additional stack space during security monitor initialization.
+ * A 16 KiB region provides 12 KiB of usable stack.
+ */
+#define ACE_OPENSBI_HART_STACK_SIZE (16 * 1024)
+
 struct sbi_platform platform = {
 	.opensbi_version	= OPENSBI_VERSION,
 	.platform_version	=
@@ -389,7 +396,7 @@ struct sbi_platform platform = {
 	.features		= SBI_PLATFORM_DEFAULT_FEATURES,
 	.hart_count		= SBI_HARTMASK_MAX_BITS,
 	.hart_index2id		= generic_hart_index2id,
-	.hart_stack_size	= SBI_PLATFORM_DEFAULT_HART_STACK_SIZE,
+	.hart_stack_size	= ACE_OPENSBI_HART_STACK_SIZE,
 	.heap_size		= SBI_PLATFORM_DEFAULT_HEAP_SIZE(0),
 	.platform_ops_addr	= (unsigned long)&platform_ops
 };
