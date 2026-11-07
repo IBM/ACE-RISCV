@@ -62,7 +62,9 @@ enter_from_confidential_hart_asm:
     # Recover the stack pointer for this hart. 
     # The stack pointer is stored in the memory dump area of the hart (pointed by `mscratch`)
     csrr        a0, mscratch
-    ld	        sp, ({HART_STACK_ADDRESS_OFFSET})(a0)
+    li          t0, {HART_STACK_ADDRESS_OFFSET}
+    add         t0, a0, t0
+    ld          sp, 0(t0)
 
     # Before calling Rust code, we must guarantee that: 
     #   * `mscratch` points to the dump area of this hardware hart

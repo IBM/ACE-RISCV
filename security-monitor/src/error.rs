@@ -22,6 +22,8 @@ pub enum Error {
     MissingCpuExtension(),
     #[error("Not supported hardware: Not enough PMPs")]
     NotEnoughPmps(),
+    #[error("Not supported hardware: Invalid or inconsistent vector register size")]
+    InvalidVectorRegisterSize(),
     #[error("Error while searching FDT for a property")]
     FdtParsing(),
 
