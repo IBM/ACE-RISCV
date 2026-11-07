@@ -6,6 +6,7 @@ use crate::core::architecture::riscv::specification::*;
 use crate::core::architecture::riscv::{
     ControlStatusRegisters, FloatingPointUnit, GeneralPurposeRegister, GeneralPurposeRegisters, VectorUnit,
 };
+use crate::error::Error;
 
 /// Defines the state of a processor's core (hart) when stored in main memory.
 #[repr(C)]
@@ -14,26 +15,26 @@ pub struct HartArchitecturalState {
     csrs: ControlStatusRegisters,
     fprs: FloatingPointUnit,
     sstc: SupervisorTimerExtension,
-    vector: VectorUnit,
+    vrs: VectorUnit,
 }
 
 impl HartArchitecturalState {
-    pub fn empty() -> Self {
-        Self {
+    pub fn empty() -> Result<Self, Error> {
+        Ok(Self {
             gprs: GeneralPurposeRegisters::empty(),
             csrs: ControlStatusRegisters::empty(),
             fprs: FloatingPointUnit::empty(),
             sstc: SupervisorTimerExtension::empty(),
-            vector: VectorUnit::empty(),
-        }
+            vrs: VectorUnit::empty()?,
+        })
     }
 
-    pub fn vector(&self) -> &VectorUnit {
-        &self.vector
+    pub fn vrs(&self) -> &VectorUnit {
+        &self.vrs
     }
 
-    pub fn vector_mut(&mut self) -> &mut VectorUnit {
-        &mut self.vector
+    pub fn vrs_mut(&mut self) -> &mut VectorUnit {
+        &mut self.vrs
     }
 
     pub fn set_gprs(&mut self, gprs: GeneralPurposeRegisters) {

@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 IBM Corporation
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
-use crate::core::architecture::riscv::specification::{CSR_VCSR, CSR_VL, CSR_VLENB, CSR_VSTART, CSR_VTYPE, SR_VS_DIRTY};
-use crate::core::architecture::{CSR, HardwareExtension};
+
+use crate::core::architecture::riscv::control_status_registers::ReadWriteRiscvCsr;
+use crate::core::architecture::riscv::specification::{CSR_VCSR, CSR_VL, CSR_VSTART, CSR_VTYPE};
 use crate::core::hardware_setup::HardwareSetup;
-use alloc::vec;
+use crate::error::Error;
 use alloc::vec::Vec;
 use core::arch::asm;
 
@@ -14,54 +15,44 @@ const NUMBER_OF_VECTOR_REGISTERS: usize = 32;
 pub struct VectorUnit {
     registers: Vec<u8>,
     vlenb: usize,
-    vl: usize,
-    vtype: usize,
-    vstart: usize,
-    vcsr: usize,
+    vl: ReadWriteRiscvCsr<CSR_VL>,
+    vtype: ReadWriteRiscvCsr<CSR_VTYPE>,
+    vstart: ReadWriteRiscvCsr<CSR_VSTART>,
+    vcsr: ReadWriteRiscvCsr<CSR_VCSR>,
 }
 
 impl VectorUnit {
-    pub fn empty() -> Self {
-        if !HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
-            return Self { registers: Vec::new(), vlenb: 0, vl: 0, vtype: 0, vstart: 0, vcsr: 0 };
-        }
+    pub fn empty() -> Result<Self, Error> {
+        let vlenb = HardwareSetup::vector_vlenb()?;
 
-        let old_mstatus = CSR.mstatus.read_and_set_bits(SR_VS_DIRTY);
+        let length = NUMBER_OF_VECTOR_REGISTERS.checked_mul(vlenb).ok_or(Error::InvalidVectorRegisterSize())?;
 
-        let vlenb: usize;
-        unsafe {
-            asm!(
-                "csrr {value}, {csr}",
-                value = out(reg) vlenb,
-                csr = const CSR_VLENB
-            );
-        }
+        let mut registers = Vec::new();
+        registers.try_reserve_exact(length).map_err(|_| Error::NotEnoughMemory())?;
+        registers.resize(length, 0);
 
-        CSR.mstatus.write(old_mstatus);
-
-        assert!(vlenb > 0);
-
-        let length = NUMBER_OF_VECTOR_REGISTERS.checked_mul(vlenb).expect("Invalid vector register size");
-
-        Self { registers: vec![0; length], vlenb, vl: 0, vtype: 0, vstart: 0, vcsr: 0 }
+        Ok(Self {
+            registers,
+            vlenb,
+            vl: ReadWriteRiscvCsr::new(),
+            vtype: ReadWriteRiscvCsr::new(),
+            vstart: ReadWriteRiscvCsr::new(),
+            vcsr: ReadWriteRiscvCsr::new(),
+        })
     }
 
-    unsafe fn validate_vlenb(&self) {
-        let mut vlenb: usize;
-        unsafe { asm!("csrr {value}, {csr}", value = out(reg) vlenb, csr = const CSR_VLENB) };
-        assert_eq!(self.vlenb, vlenb);
-        assert_eq!(self.registers.len(), NUMBER_OF_VECTOR_REGISTERS * vlenb);
-    }
-
+    /// Saves vector state in main memory.
+    ///
+    /// # Safety
+    ///
+    /// The vector extension must be supported and enabled.
     pub unsafe fn save_in_main_memory(&mut self) {
-        unsafe { self.validate_vlenb() };
-        unsafe {
-            asm!("csrr {value}, {csr}", value = out(reg) self.vl, csr = const CSR_VL);
-            asm!("csrr {value}, {csr}", value = out(reg) self.vtype, csr = const CSR_VTYPE);
-            asm!("csrr {value}, {csr}", value = out(reg) self.vstart, csr = const CSR_VSTART);
-            asm!("csrr {value}, {csr}", value = out(reg) self.vcsr, csr = const CSR_VCSR);
-            asm!("csrw {csr}, zero", csr = const CSR_VSTART);
-        }
+        self.vl.save_in_main_memory();
+        self.vtype.save_in_main_memory();
+        self.vstart.save_in_main_memory();
+        self.vcsr.save_in_main_memory();
+
+        self.vstart.write(0);
 
         macro_rules! store {
             ($index:literal) => {
@@ -69,51 +60,34 @@ impl VectorUnit {
                     asm!(
                         ".option push",
                         ".option arch, +v",
-                        concat!("vs1r.v v", stringify!($index), ", ({address})"),
+                        concat!(
+                            "vs8r.v v",
+                            stringify!($index),
+                            ", ({address})"
+                        ),
                         ".option pop",
-                        address = in(reg) self.registers.as_mut_ptr().add($index * self.vlenb)
+                        address = in(reg) self.registers
+                            .as_mut_ptr()
+                            .add($index * self.vlenb),
                     );
                 }
             };
         }
 
         store!(0);
-        store!(1);
-        store!(2);
-        store!(3);
-        store!(4);
-        store!(5);
-        store!(6);
-        store!(7);
         store!(8);
-        store!(9);
-        store!(10);
-        store!(11);
-        store!(12);
-        store!(13);
-        store!(14);
-        store!(15);
         store!(16);
-        store!(17);
-        store!(18);
-        store!(19);
-        store!(20);
-        store!(21);
-        store!(22);
-        store!(23);
         store!(24);
-        store!(25);
-        store!(26);
-        store!(27);
-        store!(28);
-        store!(29);
-        store!(30);
-        store!(31);
     }
 
+    /// Restores vector state from main memory.
+    ///
+    /// # Safety
+    ///
+    /// The vector extension must be supported and enabled.
+    /// The current hart must have a compatible vector configuration.
     pub unsafe fn restore_from_main_memory(&self) {
-        unsafe { self.validate_vlenb() };
-        unsafe { asm!("csrw {csr}, zero", csr = const CSR_VSTART) };
+        self.vstart.write(0);
 
         macro_rules! load {
             ($index:literal) => {
@@ -121,57 +95,37 @@ impl VectorUnit {
                     asm!(
                         ".option push",
                         ".option arch, +v",
-                        concat!("vl1re8.v v", stringify!($index), ", ({address})"),
+                        concat!(
+                            "vl8re8.v v",
+                            stringify!($index),
+                            ", ({address})"
+                        ),
                         ".option pop",
-                        address = in(reg) self.registers.as_ptr().add($index * self.vlenb)
+                        address = in(reg) self.registers
+                            .as_ptr()
+                            .add($index * self.vlenb),
                     );
                 }
             };
         }
 
         load!(0);
-        load!(1);
-        load!(2);
-        load!(3);
-        load!(4);
-        load!(5);
-        load!(6);
-        load!(7);
         load!(8);
-        load!(9);
-        load!(10);
-        load!(11);
-        load!(12);
-        load!(13);
-        load!(14);
-        load!(15);
         load!(16);
-        load!(17);
-        load!(18);
-        load!(19);
-        load!(20);
-        load!(21);
-        load!(22);
-        load!(23);
         load!(24);
-        load!(25);
-        load!(26);
-        load!(27);
-        load!(28);
-        load!(29);
-        load!(30);
-        load!(31);
+
         unsafe {
             asm!(
                 ".option push",
                 ".option arch, +v",
                 "vsetvl zero, {saved_vl}, {saved_vtype}",
                 ".option pop",
-                saved_vl = in(reg) self.vl,
-                saved_vtype = in(reg) self.vtype
+                saved_vl = in(reg) self.vl.read_from_main_memory(),
+                saved_vtype = in(reg) self.vtype.read_from_main_memory(),
             );
-            asm!("csrw {csr}, {value}", csr = const CSR_VCSR, value = in(reg) self.vcsr);
-            asm!("csrw {csr}, {value}", csr = const CSR_VSTART, value = in(reg) self.vstart);
         }
+
+        self.vcsr.restore_from_main_memory();
+        self.vstart.restore_from_main_memory();
     }
 }

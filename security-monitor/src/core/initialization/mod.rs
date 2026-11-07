@@ -45,6 +45,10 @@ extern "C" fn init_security_monitor_asm(cold_boot: bool, flattened_device_tree_a
         if let Err(error) = init_security_monitor(flattened_device_tree_address) {
             // TODO: lock access to attestation keys/seed/credentials.
             debug!("Failed to initialize the security monitor: {:?}", error);
+
+            loop {
+                core::hint::spin_loop();
+            }
         }
     }
 }
@@ -108,6 +112,7 @@ fn verify_harts(fdt: &FlattenedDeviceTree) -> Result<usize, Error> {
 
     // TODO: make sure there are enough PMPs
 
+    HardwareSetup::validate_vector_vlenb()?;
     Ok(fdt.harts().count())
 }
 
@@ -201,7 +206,7 @@ fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("Hart[{}] stack \t 0x{:x}-0x{:x}", hart_id, stack.start_address(), stack.end_address());
-        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector));
+        harts_states.insert(hart_id, HardwareHart::init(hart_id, stack, hypervisor_memory_protector)?);
     }
     HARTS_STATES.call_once(|| Mutex::new(harts_states));
     fence_wo();
@@ -219,6 +224,14 @@ extern "C" fn ace_setup_this_hart() {
 
     let hart_id = CSR.mhartid.read();
     debug!("Setting up hardware hart id={}", hart_id);
+
+    if let Err(error) = HardwareSetup::validate_vector_vlenb() {
+        debug!("Hart {} has incompatible vector configuration: {:?}", CSR.mhartid.read(), error);
+
+        loop {
+            core::hint::spin_loop();
+        }
+    }
 
     // OpenSBI requires that mscratch points to an internal OpenSBI's structure. We have to store this pointer during
     // init and restore it every time we delegate exception/interrupt to the Sbi firmware (e.g., OpenSbi).

@@ -2,6 +2,7 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![allow(unused)]
+pub(crate) use control_status_registers::ReadWriteRiscvCsr;
 pub use control_status_registers::{CSR, ControlStatusRegister, ControlStatusRegisters};
 pub use extensions::HardwareExtension;
 pub use extensions::compressed_instructions::decode_result_register;

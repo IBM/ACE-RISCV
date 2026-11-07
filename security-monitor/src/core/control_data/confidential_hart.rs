@@ -67,23 +67,23 @@ impl ConfidentialHart {
     /// confidential hart has been assigned to a hardware hart for execution. A dummy confidential hart has the id of the hardware hart it
     /// represents. This is required to track information on which hardware hart a stolen confidential hart executes (for example to
     /// interrupt it with IPI).
-    pub fn dummy(hardware_hart_id: usize) -> Self {
+    pub fn dummy(hardware_hart_id: usize) -> Result<Self, Error> {
         // We set the lifecycle state of the dummy hart to `Started` because this state will be used as the state of the confidential hart
         // that has been assigned to physical hart. Specifically, after a confidential hart gets assigned to hardware hart, the confidential
         // VM will be left with a dummy hart. Any other code or request that will inspect the state of the (stolen) confidential hart, will
         // in reality look into the state of the dummy hart which will correctly say that the confidential hart is in the `Started` state.
-        Self {
+        Ok(Self {
             confidential_vm_id: None,
-            confidential_hart_state: HartArchitecturalState::empty(),
+            confidential_hart_state: HartArchitecturalState::empty()?,
             lifecycle_state: HartLifecycleState::Started,
             resumable_operation: None,
             id: hardware_hart_id,
-        }
+        })
     }
 
     /// Constructs a confidential hart with the state after a reset.
-    pub fn from_vm_hart_reset(id: usize, htimedelta: usize, shared_memory: &NaclSharedMemory) -> Self {
-        let mut confidential_hart_state = HartArchitecturalState::empty();
+    pub fn from_vm_hart_reset(id: usize, htimedelta: usize, shared_memory: &NaclSharedMemory) -> Result<Self, Error> {
+        let mut confidential_hart_state = HartArchitecturalState::empty()?;
         confidential_hart_state.csrs_mut().mstatus.save_value_in_main_memory(Self::INITIAL_MSTATUS);
         confidential_hart_state.csrs_mut().sstatus.save_value_in_main_memory(Self::INITIAL_SSTATUS);
         confidential_hart_state.csrs_mut().hstatus.save_value_in_main_memory(Self::INITIAL_HSTATUS);
@@ -121,22 +121,22 @@ impl ConfidentialHart {
             confidential_hart_state.csrs_mut().vsstatus.enable_bits_on_saved_value(SR_VS_INITIAL);
         }
 
-        Self {
+        Ok(Self {
             confidential_vm_id: None,
             confidential_hart_state,
             lifecycle_state: HartLifecycleState::Stopped,
             resumable_operation: None,
             id,
-        }
+        })
     }
 
     /// Constructs a confidential hart with the state of the non-confidential hart that made a call to promote the VM to confidential VM
     pub fn from_vm_hart(
         id: usize, program_counter: usize, fdt_address: &ConfidentialVmPhysicalAddress, htimedelta: usize, shared_memory: &NaclSharedMemory,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         // We first create a confidential hart in the reset state and then fill this state with the runtime state of the hart that made a
         // call to promote to confidential VM. This state consists of GPRs and VS-level CSRs.
-        let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory);
+        let mut confidential_hart = Self::from_vm_hart_reset(id, htimedelta, shared_memory)?;
         let confidential_hart_state = &mut confidential_hart.confidential_hart_state;
         confidential_hart_state.set_gprs(shared_memory.gprs());
         confidential_hart_state.gprs_mut().write(GeneralPurposeRegister::a0, id);
@@ -152,7 +152,7 @@ impl ConfidentialHart {
         // Store the program counter of the VM, so that we can resume confidential VM at the point it became promoted.
         confidential_hart_state.csrs_mut().mepc.save_value_in_main_memory(program_counter);
         confidential_hart.lifecycle_state = HartLifecycleState::Started;
-        confidential_hart
+        Ok(confidential_hart)
     }
 
     /// Saves the state of the confidential hart in the main memory. This is part of the heavy context switch.
@@ -178,8 +178,11 @@ impl ConfidentialHart {
         }
 
         if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            // Enable the vector unit in mstatus to access vector
+            // registers and execute vector instructions.
             self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
-            unsafe { self.confidential_hart_state.vector_mut().save_in_main_memory() };
+
+            unsafe { self.confidential_hart_state.vrs_mut().save_in_main_memory() };
         }
     }
 
@@ -198,8 +201,11 @@ impl ConfidentialHart {
         }
 
         if HardwareSetup::is_extension_supported(HardwareExtension::VectorExtension) {
+            // Enable the vector unit in mstatus to access vector
+            // registers and execute vector instructions.
             self.csrs().mstatus.read_and_set_bits(SR_VS_DIRTY);
-            unsafe { self.confidential_hart_state.vector().restore_from_main_memory() };
+
+            unsafe { self.confidential_hart_state.vrs().restore_from_main_memory() };
         }
     }
 
