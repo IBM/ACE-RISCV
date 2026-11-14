@@ -8,6 +8,7 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 /// The wrapper over a raw pointer that is guaranteed to be an address located in the confidential memory region.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy)]
+#[rr::derive_instantiate("PEq" := "λ a b, bool_decide (a.(loc_a) = b.(loc_a))")]
 /// Model: The memory address is represented by the location in memory.
 #[rr::refined_by("l" : "loc")]
 /// We require the ghost state for the global memory layout to be available.
@@ -17,7 +18,7 @@ use pointers_utility::{ptr_byte_add_mut, ptr_byte_offset};
 #[rr::invariant(#iris "once_status \"MEMORY_LAYOUT\" (Some MEMORY_CONFIG)")]
 /// Invariant: The address is in the confidential part of the memory layout.
 #[rr::invariant("(MEMORY_CONFIG.(conf_start).(loc_a) ≤ l.(loc_a) < MEMORY_CONFIG.(conf_end).(loc_a))%Z")]
-pub struct ConfidentialMemoryAddress(#[rr::field("l")] *mut usize);
+pub struct ConfidentialMemoryAddress(#[rr::field("#(l)")] *mut usize);
 
 /// Verification: We require the ghost state for the global memory layout to be available.
 #[rr::context("onceG Σ memory_layout")]

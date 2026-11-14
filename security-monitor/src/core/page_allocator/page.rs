@@ -48,13 +48,13 @@ impl PageState for Allocated {}
 #[rr::invariant("p.(page_loc).(loc_p) = ProvAlloc machine_memory_prov")]
 pub struct Page<S: PageState> {
     /// Specification: the `address` has mathematical value `l`.
-    #[rr::field("p.(page_loc)")]
+    #[rr::field("#(p.(page_loc))")]
     address: ConfidentialMemoryAddress,
     /// Specification: the `size` has mathematical value `sz`.
-    #[rr::field("p.(page_sz)")]
+    #[rr::field("#(p.(page_sz))")]
     size: PageSize,
     /// Specification: the `_marker` has no relevance for the verification.
-    #[rr::field("tt")]
+    #[rr::field("#(tt)")]
     _marker: PhantomData<S>,
 }
 

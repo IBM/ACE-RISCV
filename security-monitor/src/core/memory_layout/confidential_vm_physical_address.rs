@@ -3,8 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::Error;
 
+#[rr::refined_by("a" : "Z")]
 #[derive(PartialEq, PartialOrd, Clone, Copy)]
-pub struct ConfidentialVmPhysicalAddress(usize);
+#[rr::derive_instantiate("PEq" := "λ a b, bool_decide (a = b)")]
+#[rr::derive_instantiate("POrd" := "λ a b, Some (Z.compare a b)")]
+#[rr::derive_instantiate("POrd_eq_cons" := #proof "intros ? ? ?; solve_goal")]
+pub struct ConfidentialVmPhysicalAddress(#[rr::field("#(a)")] usize);
 
 impl ConfidentialVmPhysicalAddress {
     pub fn new(confidential_vm_physical_address: usize) -> Result<Self, Error> {

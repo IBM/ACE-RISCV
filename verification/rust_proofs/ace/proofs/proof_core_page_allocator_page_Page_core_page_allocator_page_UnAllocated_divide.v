@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide.
 
@@ -7,21 +7,30 @@ Set Default Proof Using "Type".
 Section proof.
 Context `{RRGS : !refinedrustGS Σ}.
 
+(* Keep list arithmetic out of the symbolic-execution context. *)
+Lemma page_divide_chunk_lookup {A : Type} (xs : list A) n size i chunk :
+  size ≠ 0%nat → length xs = (n * size)%nat →
+  reshape (replicate n size) xs !! i = Some chunk →
+  (i < n)%nat ∧ chunk = take size (drop (i * size) xs).
+Proof.
+  intros Hsize Hlen Hlookup.
+  have Hi : (i < n)%nat.
+  { apply lookup_lt_Some in Hlookup.
+    by rewrite length_reshape length_replicate in Hlookup. }
+  split; first done.
+  move: Hlookup. rewrite sublist_lookup_reshape; [ | lia | done].
+  rewrite sublist_lookup_Some'. intros [-> _]. done.
+Qed.
+
 Lemma core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide_proof (π : thread_id) :
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide_lemma π.
 Proof.
   core_page_allocator_page_Page_core_page_allocator_page_UnAllocated_divide_prelude.
 
   (* !start proof(page.divide) *)
-  rep <-! liRStep. liShow.
-  apply_update (updateable_copy_lft "plft27" "plft31").
-  rep <-! liRStep. liShow.
-  apply_update (updateable_copy_lft "plft28" "plft32").
-  rep <-! liRStep. liShow.
-  apply_update (updateable_copy_lft "plft29" "plft33").
-  rep <-! liRStep. liShow.
-  apply_update (updateable_copy_lft "plft30" "plft34").
-  rep <-! liRStep. liShow.
+  rep <-! liRStep.
+  2: { exfalso. specialize (page_size_in_words_nat_ge (default self0 (page_size_smaller self0))). lia. }
+  liShow.
 
   rename self1 into pageval.
   rename self0 into sz.
@@ -71,29 +80,26 @@ Proof.
     (*iR. iR. iR. iR. iSplitR. { iExists _. iR. done. }*)
     iApply big_sepL2_elim_l. iPoseProof (big_sepL_extend_r with "Harr") as "Harr".
     2: iApply (big_sepL2_wand with "Harr").
-    { rewrite List.length_seq length_reshape length_replicate. lia. }
+    { rewrite List.length_seq length_reshape length_replicate Nat.sub_0_r. done. }
     iApply big_sepL2_intro.
-    { rewrite List.length_seq length_reshape length_replicate. lia. }
+    { rewrite List.length_seq length_reshape length_replicate Nat.sub_0_r. done. }
     iModIntro. iIntros (k ? ? Hlook1 Hlook2) "Ha".
-    assert (k < page_size_multiplier sz).
-    { eapply lookup_lt_Some in Hlook1. move: Hlook1. rewrite length_reshape length_replicate. lia. }
-    rewrite lookup_seq_lt in Hlook2; last lia.
+    assert (k < page_size_multiplier sz)%nat as Hk.
+    { eapply lookup_lt_Some in Hlook1. move: Hlook1. rewrite length_reshape length_replicate. done. }
+    rewrite lookup_seq_lt in Hlook2; last (clear -Hk; lia).
     injection Hlook2 as <-.
     unfold OffsetLocSt. simplify_layout_goal. unfold offset_loc.
     assert (ly_size usize * (k * page_size_in_words_nat smaller_sz) = k * page_size_in_bytes_Z smaller_sz) as ->.
     { rewrite /page_size_in_bytes_nat.
-      simpl. rewrite bytes_per_int_usize. lia. }
+      simpl. rewrite bytes_per_int_usize. clear. lia. }
     enough (x2 = (<#> take (page_size_in_words_nat smaller_sz) (drop (k * page_size_in_words_nat smaller_sz) pageval))) as -> by done.
-    move: Hlook1. rewrite sublist_lookup_reshape.
-    2: { specialize (page_size_in_words_nat_ge smaller_sz). lia. }
-    2: {
+    opose proof (page_divide_chunk_lookup _ _ _ _ _ _ _ Hlook1) as [_ ->].
+    { specialize (page_size_in_words_nat_ge smaller_sz). clear -smaller_sz. lia. }
+    { rewrite length_fmap.
       rename select (page_size_in_words_nat _ = length pageval) into Hpage_sz.
-      rewrite length_fmap -Hpage_sz.
-      erewrite (page_size_multiplier_size_in_words _ smaller_sz); last done.
-      lia. }
-    rewrite sublist_lookup_Some'.
-    rewrite -fmap_drop -fmap_take.
-    intros [? _]. done. }
+      rewrite -Hpage_sz (page_size_multiplier_size_in_words _ smaller_sz); last done.
+      apply Nat.mul_comm. }
+    rewrite -fmap_drop -fmap_take. done. }
 
   (* Prove preservation if the iterator emits an element *)
   liRStep; liShow.
@@ -107,7 +113,7 @@ Proof.
     injection Hnext as [= ->].
     rewrite Z.compare_lt_iff in Hcmp_eq.
     remember ((Z.to_nat itend - Z.to_nat istart)%nat) as len eqn:Heq_len.
-    destruct len. { exfalso. move: Hcmp_eq Heq_len Hstart Hend. lia. }
+    destruct len. { exfalso. clear -Hcmp_eq Heq_len Hstart. lia. }
     iDestruct "Hinv" as "(#Hinv0 & Hinv1 & Hinv)".
     fold seq.
     iExists ( *[take (page_size_in_words_nat smaller_sz) (drop (Z.to_nat istart * page_size_in_words_nat smaller_sz) pageval)]). iR.
@@ -138,7 +144,7 @@ Proof.
       rewrite Z2Nat.id; last lia. iR. iL. done. }
     iIntros (e' (capture_smaller_sz & capture_memlayout & capture_start & capture_end & [])).
     rewrite boringly_persistent_elim.
-    iIntros "(%v' & %i & % & % & % & % & % & %Heq0 & %Heq1 & %Heq2 & (-> & %Heq3) & _)".
+    iIntros "(%chunk_value & %i & % & % & % & % & % & %Heq0 & %Heq1 & %Heq2 & (-> & %Heq3) & _)".
     injection Heq0 as <-.
     injection Heq2 as <-.
     injection Heq1 as <- <- <- <-.
@@ -167,12 +173,6 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   all: try rename l3 into new_pages.
-  - set (smaller_sz := (default self0 (page_size_smaller self0))).
-    specialize (page_size_in_words_nat_ge smaller_sz).
-    solve_goal.
-  - set (smaller_sz := (default self0 (page_size_smaller self0))).
-    specialize (page_size_in_words_nat_ge smaller_sz).
-    solve_goal.
   - set (smaller_sz := (default self0 (page_size_smaller self0))).
     rewrite (page_size_multiplier_quot_Z _ smaller_sz); last done.
     specialize (page_size_multiplier_in_usize self0). solve_goal.

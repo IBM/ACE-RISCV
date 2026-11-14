@@ -6,6 +6,9 @@
 //   - Maintain lexicographic ordering based on the top-to-bottom declaration to ensure that PartialOrd derivative works correctly.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[rr::refined_by("page_table_level")]
+#[rr::derive_instantiate("PEq" := "λ a b, bool_decide (a = b)")]
+#[rr::derive_instantiate("POrd" := "λ a b, Some (Z.compare (page_table_level_index a) (page_table_level_index b))")]
+#[rr::derive_instantiate("POrd_eq_cons" := #proof "intros ? [] []; simpl; done")]
 pub enum PageTableLevel {
     #[rr::pattern("PTLevel1")]
     Level1,

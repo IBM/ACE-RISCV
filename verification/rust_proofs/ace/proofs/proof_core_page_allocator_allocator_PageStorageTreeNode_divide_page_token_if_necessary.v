@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageStorageTreeNode_divide_page_token_if_necessary.
 
@@ -135,6 +135,14 @@ Proof.
     opose proof (subdivided_pages_lookup_inv _ _ _ _ _ (length prefix) _ _ Hsubdivided _ _ _ Hrange) as Heq; [solve_goal.. | ].
     assert (child_index = Z.of_nat (length prefix)) as -> by lia.
 
+    lia.
+  - rename select (page_within_range _ _ _) into Hrange.
+    opose proof (subdivided_pages_lookup_size_lt (length prefix) _ _ _ _ _ Hsubdivided _) as Hsz.
+    { done. }
+    { rewrite lookup_app_r; last lia. rewrite Nat.sub_diag. done. }
+    simpl in Hsz. subst.
+    opose proof (subdivided_pages_lookup_inv _ _ _ _ _ (length prefix) _ _ Hsubdivided _ _ _ Hrange) as Heq; [solve_goal.. | ].
+    assert (child_index = Z.of_nat (length prefix)) as -> by lia.
     rewrite lookup_total_app_r; first last.
     { solve_goal. }
     normalize_and_simpl_goal.
@@ -190,5 +198,3 @@ Proof.
 (*Qed.*)
 Admitted. (* admitted due to long Qed *)
 End proof.
-
-

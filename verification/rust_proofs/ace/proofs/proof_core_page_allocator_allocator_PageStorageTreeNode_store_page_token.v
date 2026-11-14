@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageStorageTreeNode_store_page_token.
 
@@ -145,6 +145,15 @@ Proof.
 
   all: try rename x' into child_index.
   all: try set (child := children !!! Z.to_nat child_index).
+  all: try match goal with
+  | c := @lookup_total nat page_storage_node (list page_storage_node) _ ?idx ?nodes : _ |- _ =>
+      assert (Hlookup_children : nodes !! idx = Some c)
+        by (apply list_lookup_lookup_total_lt; lia);
+      repeat match goal with
+      | H : context [@lookup_total nat page_storage_node (list page_storage_node) _ idx nodes] |- _ =>
+          progress rewrite list_lookup_total_alt Hlookup_children /= in H
+      end
+  end.
   all: try match goal with
     | H : page_size_smaller (max_node_size _) = Some ?x |- _ =>
         rename x into child_size; rename H into Hsmaller

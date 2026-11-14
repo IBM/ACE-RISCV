@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageAllocator_find_largest_page_size_closure0.
 
@@ -13,12 +13,6 @@ Proof.
   core_page_allocator_allocator_PageAllocator_find_largest_page_size_closure0_prelude.
 
   (* !start proof(page_allocator.find_largest_page_size) *)
-  rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "vlft7" "ulft1").
-  rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "ulft3" "ulft_4").
-  rep <-! liRStep; liShow.
-  apply_update (updateable_copy_lft "vlft15" "ulft1").
   rep <-! liRStep; liShow.
   (* !end proof *)
 

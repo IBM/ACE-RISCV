@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageAllocator_add_memory_region.
 
@@ -38,7 +38,7 @@ Proof.
       shelve_sidecond. }
     iModIntro.
     repeat liRStep. }
-  repeat liRStep.
+  all: exfalso; shelve_sidecond.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
@@ -46,10 +46,8 @@ Proof.
   all: try congruence.
   - apply page_size_in_bytes_is_power_of_two.
   - solve_goal.
-  - specialize (page_size_in_bytes_nat_ge x').
-    specialize (page_size_in_bytes_nat_in_usize x') as [].
-    split; lia.
   - unfold page_size_in_bytes_nat. lia.
+  - specialize (page_size_in_words_nat_ge sz_to_allocate). lia.
   - intros ? Hly1. apply syn_type_has_layout_array_inv in Hly1 as (? & Hly1 & -> & ?).
     apply syn_type_has_layout_int_inv in Hly1 as ->.
     eexists. split; first by apply syn_type_has_layout_int.
@@ -69,7 +67,8 @@ Proof.
   - rewrite Hroot_sz Hroot_base.
     split; simpl.
     + lia.
-    + revert select (larr.(loc_a) + _ ≤ MAX_PAGE_ADDR). rewrite MAX_PAGE_ADDR_unfold /MAX_PAGE_ADDR_def. lia.
+    + revert select (¬ memory_region_end.(loc_a) > _).
+      rewrite Hroot_sz. lia.
   - apply aligned_to_offset; first done.
     solve_goal.
   (* !end proof *)

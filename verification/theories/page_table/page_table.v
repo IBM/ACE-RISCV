@@ -225,6 +225,15 @@ Proof. solve_decision. Defined.
 Global Instance page_table_level_inhabited : Inhabited page_table_level.
 Proof. exact (populate PTLevel1). Qed.
 
+Definition page_table_level_index (pt : page_table_level) : Z :=
+  match pt with
+  | PTLevel1 => 0
+  | PTLevel2 => 1
+  | PTLevel3 => 2
+  | PTLevel4 => 3
+  | PTLevel5 => 4
+  end.
+
 Definition page_table_level_lower (pt : page_table_level) : option page_table_level :=
   match pt with
   | PTLevel5 => Some PTLevel4

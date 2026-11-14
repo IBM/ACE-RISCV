@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageStorageTreeNode_acquire_page_token.
 
@@ -88,6 +88,9 @@ Proof.
   liInst Hevar_rf self.
   rep <-! liRStep.
 
+  match goal with
+  | H : max_node_size self ≠ ?sz |- _ => rename sz into page_size_to_acquire
+  end.
   set (position_pred := λ node, ((Some page_size_to_acquire) ≤o{ option_cmp page_size_cmp } page_node_can_allocate node)).
   rep 10 liRStep; liShow.
   rep 20 liRStep; liShow.
@@ -117,6 +120,15 @@ Proof.
   repeat liRStep.
 
   all: print_remaining_goal.
+  (* Lifetime checks only need the contexts in their goal; retaining the full
+     symbolic-execution context makes their automation prohibitively slow. *)
+  Unshelve.
+  all: try match goal with
+  | |- SHELVED_SIDECOND (∀ _, elctx_sat _ _ _) =>
+      unfold SHELVED_SIDECOND; intros;
+      repeat match goal with H : _ |- _ => clear H end;
+      solve_elctx_sat
+  end.
   Unshelve. all: sidecond_solver.
 
   Unshelve. all: sidecond_solver.
@@ -124,9 +136,15 @@ Proof.
   all: clear_layout; clear_unused_vars.
   all: try lia.
   all: try match goal with
+    | H : closure_may_unwind _ |- False => destruct H as (? & ? & ? & [])
+    end.
+  all: try match goal with
     | H : page_size_smaller (max_node_size _) = Some ?x |- _ =>
       rename x into smaller_size;
       rename H into Hsmaller
+    end.
+  all: try match goal with
+    | H : max_node_size _ ≠ ?sz |- _ => rename sz into page_size_to_acquire
     end.
   all: try rename select (max_node_size self ≠ page_size_to_acquire) into Hlt_self.
   all: try rename x' into children_without_alloc.
@@ -255,7 +273,11 @@ Proof.
     { apply Hchild. }
     simpl in Hpos. apply Hpos. unfold position_pred.
     done.
-  - apply page_storage_node_children_wf_insert; done.
+  - apply page_storage_node_children_wf_insert; try done.
+    all: rename select (max_node_size x'2 = _) into Hsz.
+    all: rename select (base_address x'2 = _) into Haddr.
+    all: rewrite !list_lookup_total_alt -Hpos (list_lookup_middle _ _ _ _ eq_refl) in Hsz Haddr |- *; done.
+  - rewrite /nodes length_insert length_app /=. done.
   - rename select (page_storage_node_invariant_case _ _ _ (children_without_alloc ++ _)) into INV_CASE2.
     opose proof* page_storage_node_invariant_case_at_most_partially_available_inv as [Hle_sz ->]; [ | apply INV_CASE2 | ].
     { simpl. apply node_allocation_state_meet_le_r. }
