@@ -23,7 +23,7 @@ jobs:
     - name: Setup opam
       run: opam init -y
     - name: Setup opam switch
-      run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
+      run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
     - name: ls
       run: ls -la .
     - name: Install openssl dependency
