@@ -9,7 +9,7 @@ if [ -z ${ACE_DIR} ]; then
 fi
 
 # load common configuration
-. common.sh
+. ${ACE_DIR}/tools/common.sh
 
 HYPERVISOR_TEST_PORT=$2
 

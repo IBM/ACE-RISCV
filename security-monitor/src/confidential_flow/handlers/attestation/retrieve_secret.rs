@@ -32,13 +32,14 @@ impl RetrieveSecretRequest {
             ensure!(self.output_buffer_size <= PageSize::Size4KiB.in_bytes(), Error::AddressNotAligned())?;
             let secret = confidential_vm.secret(0)?;
             ensure!(secret.len() <= self.output_buffer_size, Error::AddressNotAligned())?;
-            let mut buffer = [0u8; 8];
-            for offset in 0..secret.len().div_ceil(8) {
-                let end_boundary = core::cmp::min(secret.len(), offset + 8);
-                (0..end_boundary).for_each(|i| buffer[i] = secret[offset + i]);
-                (end_boundary..8).for_each(|i| buffer[i] = 0u8);
+            const WORD_SIZE: usize = core::mem::size_of::<usize>();
+            for chunk in 0..secret.len().div_ceil(WORD_SIZE) {
+                let byte_offset = chunk * WORD_SIZE;
+                let chunk_len = core::cmp::min(WORD_SIZE, secret.len() - byte_offset);
+                let mut buffer = [0u8; WORD_SIZE];
+                buffer[..chunk_len].copy_from_slice(&secret[byte_offset..byte_offset + chunk_len]);
                 let confidential_memory_address =
-                    confidential_vm.memory_protector().translate_address(&output_buffer_address.add(offset))?;
+                    confidential_vm.memory_protector().translate_address(&output_buffer_address.add(byte_offset))?;
                 unsafe { confidential_memory_address.write_volatile(usize::from_le_bytes(buffer)) };
             }
             Ok(SbiResponse::success_with_code(secret.len()))

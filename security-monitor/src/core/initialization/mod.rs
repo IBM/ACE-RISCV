@@ -237,12 +237,12 @@ extern "C" fn ace_setup_this_hart() {
     // the `MemoryLayout` has been already initialized by the boot hart.
     if let Err(error) = unsafe { HypervisorMemoryProtector::setup() } {
         debug!("Failed to setup hypervisor memory protector: {:?}", error);
-        // TODO: block access to attestation keys/registers on this hart?
+        // TODO: block access to attestation keys/registers on this hart or freeze
         return;
     }
 
     // Set up the trap vector, so that the exceptions are handled by the security monitor.
-    let trap_vector_address = enter_from_hypervisor_or_vm_asm as usize;
+    let trap_vector_address = enter_from_hypervisor_or_vm_asm as *const () as usize;
     debug!("Hardware hart id={} registered trap handler at address: {:x}", hart_id, trap_vector_address);
     hart.hypervisor_hart_mut().csrs_mut().mtvec.write((trap_vector_address >> MTVEC_BASE_SHIFT) << MTVEC_BASE_SHIFT);
 }

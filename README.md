@@ -9,7 +9,7 @@ ACE-RISCV is an open-source project, whose goal is to deliver a confidential com
 **Formal verification:**
 This project implements the RISC-V CoVE spec's deployment model 3 referenced in [Appendix D](https://github.com/riscv-non-isa/riscv-ap-tee/blob/main/). The formal specification is embedded in the security monitor's source code and the proofs are in the [verification/](verification/) folder. Please read our [paper1](https://arxiv.org/pdf/2505.12995) and [paper2](https://dl.acm.org/doi/pdf/10.1145/3623652.3623668) to learn about the approach and goals.
 
-**Post-Quantum Cryptography (PQC) and Attestation**: ACE supports local attestation, a mechanism to authenticate confidential VMs intended for embedded systems with limited or no network connectivity. We already support PQC, specifically we use ML-KEM, SHA-384, and AES-GCM-256 cryptography.
+**Post-Quantum Cryptography (PQC) and Attestation**: ACE supports local attestation, a mechanism to authenticate confidential VMs intended for embedded systems with limited or no network connectivity. We already support PQC, specifically we use ML-KEM, SHA3-256, and AES-GCM-256 cryptography.
 
 ## Hardware requirements
 We are currently building on RISC-V 64-bit with integer (I), atomic (A) and hypervisor extentions (H), physical memory protection (PMP), memory management unit (MMU), IOPMP, core-local interrupt controller (CLINT), and supervisor timecmp extension (Sstc).
@@ -34,7 +34,7 @@ sudo apt update
 sudo apt -qq -y install autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf libtool patchutils bc zlib1g-dev libexpat-dev xz-utils
 
 # OpenSBI
-sudo apt -qq -y install clang
+sudo apt -qq -y install clang libclang-dev llvm-dev
 
 # Qemu 8.2
 sudo apt -qq -y install git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev ninja-build python3-venv libslirp-dev
@@ -163,22 +163,42 @@ Integrating local attestation with dm-crypt/LUKS is work in progress. When finis
 A script in initrd will then retrieve the decryption key from TAP and decrypt the rootfs.
 
 # License
-This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE).
-
-**This is an active research project, without warranties of any kind.**
+This repository is distributed under the terms of the Apache 2.0 License, see [LICENSE](LICENSE). This is an active research project, without warranties of any kind.
 
 # Citation
-**Our newest full paper on ACE:**
+**Full paper on ACE:**
 ```
 @misc{ozga2025ace,
     author = {Ozga, Wojciech and Hunt, Guerney D. H. and Le, Michael V. and Gaeher Lennard and Shinnar, Avraham and Palmer, Elaine R. and Jamjoom, Hani and Dragone, Silvio},
-    title = {ACE: Confidential Computing for Embedded RISC-V Systems},
+    title = {ACE: Towards A High-Assurance Isolated Virtualization Environment for RISC-V},
     year = 2025,
     howpublished = {\url{https://arxiv.org/pdf/2505.12995}}
 }
 ```
 
-**Our workshop paper on ACE:**
+**Paper on formal verification of page allocator:**
+```
+@inproceedings{gaher2026rr,
+    author = {Gäher, Lennard and Lafeychine, Vincent and Kehrli, Sascha and Shinnar, Avraham and Ozga, Wojciech and Hunt, Guerney D. H. and Dreyer, Derek},
+    title = {Bringing Foundational Verification to Real-World Rust Code},
+    booktitle = {Proceedings of the ACM on Programming Languages},
+    series = {OOPSLA 2026},
+    year = 2026
+}
+```
+
+**Paper on context switch validation:**
+```
+@misc{kalani2025sailor,
+    author = {Kalani, Neelu and Bourgeat, Thomas and Hunt, Guerney D.H. and Ozga, Wojciech},
+    title = {Save what must be saved: Secure context switching with Sailor},
+    booktitle = {34nd USENIX Security Symposium (USENIX Security 25)},
+    publisher = {USENIX Association},
+    year = 2025
+}
+```
+
+**Workshop paper on ACE:**
 ```
 @inproceedings{ozga2023riscvtee,
     title={Towards a Formally Verified Security Monitor for VM-based Confidential Computing},
@@ -189,13 +209,3 @@ This repository is distributed under the terms of the Apache 2.0 License, see [L
 }
 ```
 
-**Our paper on context switch validation:**
-```
-@misc{kalani2025sailor,
-    author = {Kalani, Neelu and Bourgeat, Thomas and Hunt, Guerney D.H. and Ozga, Wojciech},
-    title = {Save what must be saved: Secure context switching with Sailor},
-    booktitle = {34nd USENIX Security Symposium (USENIX Security 25)},
-    publisher = {USENIX Association},
-    year = 2025
-}
-```
