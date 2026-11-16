@@ -5,6 +5,8 @@
 
 ///! TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
 ///! is safer and prevents fragmentation.
+use crate::core::memory_layout::ConfidentialMemoryAddress;
+use crate::error::Error;
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::{mem, ptr};
 
@@ -26,6 +28,20 @@ impl<A> Locked<A> {
         self.inner.lock()
     }
 }
+
+impl Locked<LinkedListAllocator> {
+    pub const fn empty() -> Self {
+        Self::new(LinkedListAllocator::new())
+    }
+
+    pub unsafe fn add_memory_region(&self, memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
+        let size = memory_end.addr() - memory_start.as_usize();
+        unsafe { self.lock().add_free_region(memory_start.as_usize(), size) };
+        Ok(())
+    }
+}
+
+pub type LockedLinkedListAllocator = Locked<LinkedListAllocator>;
 
 struct ListNode {
     size: usize,
