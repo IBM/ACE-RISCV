@@ -21,7 +21,7 @@ jobs:
     - name: Install opam
       run: curl "https://github.com/ocaml/opam/releases/download/2.5.0/opam-2.5.0-x86_64-linux" -Lo /usr/local/bin/opam && chmod +x /usr/local/bin/opam
     - name: Setup opam
-      run: opam init -y
+      run: opam init -y --disable-sandboxing
     - name: Setup opam switch
       run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
     - name: ls
