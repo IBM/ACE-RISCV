@@ -81,7 +81,7 @@ jobs:
             source "$HOME/.cargo/env"
             eval "$(opam env)"
             cd verification
-            DUNEFLAGS="-j 1 --display verbose" dune build
+            dune build -j 1 --display verbose
           ) 2>&1 | tee full-build.log
     - name: Upload full build log
       if: always()
