@@ -2,10 +2,10 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::error::Error;
-use generic_array::GenericArray;
+use hybrid_array::Array;
 
-pub type DigestType = sha3::Sha3_384;
-pub type MeasurementDigest = GenericArray<u8, <DigestType as sha3::digest::OutputSizeUser>::OutputSize>;
+pub type DigestType = sha3::Sha3_256;
+pub type MeasurementDigest = Array<u8, <DigestType as sha3::digest::OutputSizeUser>::OutputSize>;
 
 /// Number of registers storing boottime integrity measurements. CoVE spec requires at least 1 and maximum 8.
 const NUMBER_OF_REGISTERS: usize = 8;
@@ -51,7 +51,10 @@ impl StaticMeasurements {
 impl core::fmt::Debug for StaticMeasurements {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.iter().enumerate().for_each(|(id, value)| {
-            let _ = write!(f, "\nPCR{}={:100x}", id, value);
+            let _ = write!(f, "\nPCR{}=", id);
+            value.iter().for_each(|b| {
+                let _ = write!(f, "{:02x}", b);
+            });
         });
         write!(f, "")
     }

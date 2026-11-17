@@ -17,7 +17,7 @@ wait_for_ssh $TVM_USER $TVM_HOST $TVM_PORT
 $SSH_CMD -p${TVM_PORT} ${TVM_USER}@${TVM_HOST} 'insmod /root/ace_module/ace.ko'
 $SSH_CMD -p${TVM_PORT} ${TVM_USER}@${TVM_HOST} 'dmesg | grep Secret' > tmp_dmesg.log
 
-ATTESTATION_RESULT="$(grep 'Secret=0xc0ffee' tmp_dmesg.log | wc -l)"
+ATTESTATION_RESULT="$(grep 'Secret=0xc0ffeec0ffeec0ffeec0ffee' tmp_dmesg.log | wc -l)"
 
 kill_confidential_vm
 sleep 5
