@@ -44,6 +44,8 @@ crate-type=["staticlib"]
 [features]
 # verbose feature enables printing out debug information from the security monitor
 verbose = []
+# Allocator selection: enable bitmap-allocator to switch from default LinkedListAllocator to BitmapAllocator
+bitmap-allocator = []
 
 [profile.release]
 # required by https://crates.io/crates/cargo-call-stack

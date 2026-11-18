@@ -3,28 +3,14 @@
 // SPDX-FileContributor: Heavily based on https://os.phil-opp.com/allocator-designs/
 // SPDX-License-Identifier: Apache-2.0
 
-///! TODO: This is a temporal allocator implementation that will be replaced in the future with a version that
-///! is safer and prevents fragmentation.
+#![allow(dead_code)]
+
+use super::locked::Locked;
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::{mem, ptr};
 
 fn align_up(addr: usize, align: usize) -> usize {
     (addr + align - 1) & !(align - 1)
-}
-
-/// A wrapper around spin::Mutex to permit trait implementations.
-pub struct Locked<A> {
-    inner: spin::Mutex<A>,
-}
-
-impl<A> Locked<A> {
-    pub const fn new(inner: A) -> Self {
-        Locked { inner: spin::Mutex::new(inner) }
-    }
-
-    pub fn lock(&self) -> spin::MutexGuard<'_, A> {
-        self.inner.lock()
-    }
 }
 
 struct ListNode {
