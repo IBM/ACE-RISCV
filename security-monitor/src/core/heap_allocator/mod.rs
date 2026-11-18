@@ -23,11 +23,11 @@ static HEAP_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAlloc
 
 pub(super) fn init_heap(start_address: ConfidentialMemoryAddress, heap_size: usize) {
     debug!("Heap {:x}-{:x}", start_address.as_usize(), start_address.as_usize() + heap_size);
-    unsafe {
-        #[cfg(feature = "bitmap-allocator")]
-        HEAP_ALLOCATOR.lock().init(start_address.as_usize(), heap_size);
+    #[cfg(feature = "bitmap-allocator")]
+    HEAP_ALLOCATOR.lock().init(start_address.as_usize(), heap_size);
 
-        #[cfg(not(feature = "bitmap-allocator"))]
+    #[cfg(not(feature = "bitmap-allocator"))]
+    unsafe {
         HEAP_ALLOCATOR.lock().add_free_region(start_address.as_usize(), heap_size);
     }
 }

@@ -11,12 +11,8 @@ use core::ptr;
 /// The minimal possible allocation unit represented by a single bit in the leaf level.
 pub const MIN_ALLOC_SIZE: usize = 16;
 
-/// Maximum number of tree levels (supports up to 64 GiB heaps with 64-way branching).
-pub const MAX_LEVELS: usize = 6;
-
-fn align_up(addr: usize, align: usize) -> usize {
-    (addr + align - 1) & !(align - 1)
-}
+/// Total number of tree levels (L0 to L4, supports heaps up to 16 GiB).
+pub const NUM_LEVELS: usize = 5;
 
 /// Computes the allocation parameters for a given requested `Layout`.
 ///
@@ -44,10 +40,8 @@ fn get_allocation_params(layout: Layout) -> (usize, usize, usize) {
         (2, 1, 64 * 1024)
     } else if size <= 4 * 1024 * 1024 {
         (3, 1, 4 * 1024 * 1024)
-    } else if size <= 256 * 1024 * 1024 {
-        (4, 1, 256 * 1024 * 1024)
     } else {
-        (5, 1, 16 * 1024 * 1024 * 1024)
+        (4, 1, 256 * 1024 * 1024)
     }
 }
 
@@ -55,7 +49,7 @@ fn get_allocation_params(layout: Layout) -> (usize, usize, usize) {
 ///
 /// `bits` must be a power of two in {1, 2, 4, 8, 16, 32, 64}.
 /// Natural alignment is enforced: the starting bit position is a multiple of `bits`.
-fn find_aligned_free_bits(word: u64, bits: usize) -> Option<usize> {
+fn find_aligned_free_bits(word: usize, bits: usize) -> Option<usize> {
     if word == 0 {
         return None;
     }
@@ -92,7 +86,7 @@ fn find_aligned_free_bits(word: u64, bits: usize) -> Option<usize> {
             if candidates != 0 { Some(candidates.trailing_zeros() as usize) } else { None }
         }
         64 => {
-            if word == !0u64 {
+            if word == !0usize {
                 Some(0)
             } else {
                 None
@@ -102,173 +96,207 @@ fn find_aligned_free_bits(word: u64, bits: usize) -> Option<usize> {
     }
 }
 
-/// A 64-way multi-level bitmap heap allocator.
-///
-/// - Level 0: 1 bit = 16 bytes. Each `u64` covers 1 KiB ($64 \times 16\text{ B}$).
-/// - Level 1: 1 bit = 1 KiB (covers one L0 node). Each `u64` covers 64 KiB ($64 \times 1\text{ KiB}$).
-/// - Level 2: 1 bit = 64 KiB. Each `u64` covers 4 MiB.
-/// - Level 3: 1 bit = 4 MiB. Each `u64` covers 256 MiB.
-/// - Level 4: 1 bit = 256 MiB. Each `u64` covers 16 GiB.
-/// - Level 5: 1 bit = 16 GiB. Each `u64` covers 1 TiB.
+/// A 64-way multi-level bitmap heap allocator using safe `usize` slices.
 ///
 /// Bit convention:
 /// - `1` = Free / subtree contains at least one free block.
 /// - `0` = Allocated / full / unavailable.
 pub struct BitmapAllocator {
-    data_start: usize,
-    data_size: usize,
+    heap_start: usize,
+    heap_end: usize,
     total_blocks: usize,
-    num_levels: usize,
-    level_offsets: [usize; MAX_LEVELS],
-    level_lens: [usize; MAX_LEVELS],
-    metadata_ptr: *mut u64,
     initialized: bool,
+    l0: &'static mut [usize],
+    l1: &'static mut [usize],
+    l2: &'static mut [usize],
+    l3: &'static mut [usize],
+    l4: &'static mut [usize],
 }
 
-unsafe impl Send for BitmapAllocator {}
-
 impl BitmapAllocator {
-    /// Creates an uninitialized empty BitmapAllocator.
+    /// Creates an uninitialized empty BitmapAllocator with zero BSS overhead.
     pub const fn empty() -> Self {
         Self {
-            data_start: 0,
-            data_size: 0,
+            heap_start: 0,
+            heap_end: 0,
             total_blocks: 0,
-            num_levels: 0,
-            level_offsets: [0; MAX_LEVELS],
-            level_lens: [0; MAX_LEVELS],
-            metadata_ptr: ptr::null_mut(),
             initialized: false,
+            l0: &mut [],
+            l1: &mut [],
+            l2: &mut [],
+            l3: &mut [],
+            l4: &mut [],
         }
     }
 
-    /// Initializes the bitmap allocator over the provided memory region.
+    /// Initializes the bitmap allocator over the given heap address range.
     ///
-    /// The metadata (multi-level bitmap tree) is placed at the start of the memory region,
-    /// and the remaining memory is used as the allocatable heap data space.
-    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        debug!("Initializing BitMap allocator at address: 0x{:x} with size {}", heap_start, heap_size);
-        if heap_size < 1024 {
+    /// The metadata slices are placed dynamically at the start of the provided memory region,
+    /// requiring `< 0.8%` of heap memory, with zero static `.bss` consumption.
+    pub fn init(&mut self, start_address: usize, heap_size: usize) {
+        debug!("Initializing BitmapAllocator at 0x{:x} with size {} bytes", start_address, heap_size);
+        if heap_size < 4096 {
             return;
         }
 
-        // Estimate upper bound for metadata words
+        // Calculate metadata word requirements
         let max_blocks = heap_size / MIN_ALLOC_SIZE;
-        let mut est_words = 0;
-        let mut count = (max_blocks + 63) / 64;
-        while count > 0 {
-            est_words += count;
-            if count <= 1 {
-                break;
-            }
-            count = (count + 63) / 64;
-        }
+        let l0_len = (max_blocks + 63) / 64;
+        let l1_len = (l0_len + 63) / 64;
+        let l2_len = (l1_len + 63) / 64;
+        let l3_len = (l2_len + 63) / 64;
+        let l4_len = (l3_len + 63) / 64;
+        let total_meta_words = l0_len + l1_len + l2_len + l3_len + l4_len;
+        let meta_bytes = total_meta_words * core::mem::size_of::<usize>();
+        let meta_bytes_aligned = (meta_bytes + 1023) & !1023;
 
-        let meta_bytes_aligned = align_up(est_words * core::mem::size_of::<u64>(), 1024);
         if meta_bytes_aligned >= heap_size {
             return;
         }
 
-        let data_start = align_up(heap_start + meta_bytes_aligned, 1024);
-        if data_start >= heap_start + heap_size {
-            return;
-        }
-
-        let data_size = (heap_start + heap_size) - data_start;
+        let data_start = start_address + meta_bytes_aligned;
+        let data_size = (start_address + heap_size).saturating_sub(data_start);
         let total_blocks = data_size / MIN_ALLOC_SIZE;
         if total_blocks == 0 {
             return;
         }
 
-        // Calculate exact level lengths and offsets
-        let mut l_lens = [0usize; MAX_LEVELS];
-        let mut l_offs = [0usize; MAX_LEVELS];
+        // Carve metadata slice from heap start and zero it
+        let meta_slice: &'static mut [usize] = unsafe { core::slice::from_raw_parts_mut(start_address as *mut usize, total_meta_words) };
+        meta_slice.fill(0);
 
-        l_lens[0] = (total_blocks + 63) / 64;
-        let mut curr_offset = 0;
-        l_offs[0] = curr_offset;
-        curr_offset += l_lens[0];
+        // Split into level slices
+        let (l0, rest) = meta_slice.split_at_mut(l0_len);
+        let (l1, rest) = rest.split_at_mut(l1_len);
+        let (l2, rest) = rest.split_at_mut(l2_len);
+        let (l3, l4) = rest.split_at_mut(l3_len);
 
-        let mut levels = 1;
-        for lvl in 1..MAX_LEVELS {
-            if l_lens[lvl - 1] > 1 {
-                l_lens[lvl] = (l_lens[lvl - 1] + 63) / 64;
-                l_offs[lvl] = curr_offset;
-                curr_offset += l_lens[lvl];
-                levels = lvl + 1;
-            } else {
-                break;
-            }
+        // Populate Level 0 (1 bit = 16 B)
+        let full_l0 = total_blocks / 64;
+        for i in 0..full_l0.min(l0.len()) {
+            l0[i] = !0usize;
+        }
+        let rem_l0 = total_blocks % 64;
+        if rem_l0 > 0 && full_l0 < l0.len() {
+            l0[full_l0] = (1usize << rem_l0) - 1;
         }
 
-        let metadata_ptr = heap_start as *mut u64;
-        let metadata_len = curr_offset;
-
-        // Zero all metadata words first
-        for i in 0..metadata_len {
-            unsafe { *metadata_ptr.add(i) = 0 };
+        // Build Level 1 (1 bit = 1 KiB)
+        let num_l0 = (total_blocks + 63) / 64;
+        let full_l1 = num_l0 / 64;
+        for i in 0..full_l1.min(l1.len()) {
+            l1[i] = !0usize;
+        }
+        let rem_l1 = num_l0 % 64;
+        if rem_l1 > 0 && full_l1 < l1.len() {
+            l1[full_l1] = (1usize << rem_l1) - 1;
         }
 
-        self.data_start = data_start;
-        self.data_size = data_size;
+        // Build Level 2 (1 bit = 64 KiB)
+        let num_l1 = (num_l0 + 63) / 64;
+        let full_l2 = num_l1 / 64;
+        for i in 0..full_l2.min(l2.len()) {
+            l2[i] = !0usize;
+        }
+        let rem_l2 = num_l1 % 64;
+        if rem_l2 > 0 && full_l2 < l2.len() {
+            l2[full_l2] = (1usize << rem_l2) - 1;
+        }
+
+        // Build Level 3 (1 bit = 4 MiB)
+        let num_l2 = (num_l1 + 63) / 64;
+        let full_l3 = num_l2 / 64;
+        for i in 0..full_l3.min(l3.len()) {
+            l3[i] = !0usize;
+        }
+        let rem_l3 = num_l2 % 64;
+        if rem_l3 > 0 && full_l3 < l3.len() {
+            l3[full_l3] = (1usize << rem_l3) - 1;
+        }
+
+        // Build Level 4 (1 bit = 256 MiB)
+        let num_l3 = (num_l2 + 63) / 64;
+        let rem_l4 = num_l3 % 64;
+        if rem_l4 > 0 && !l4.is_empty() {
+            l4[0] = (1usize << rem_l4) - 1;
+        }
+
+        self.heap_start = data_start;
+        self.heap_end = data_start + total_blocks * MIN_ALLOC_SIZE;
         self.total_blocks = total_blocks;
-        self.num_levels = levels;
-        self.level_offsets = l_offs;
-        self.level_lens = l_lens;
-        self.metadata_ptr = metadata_ptr;
+        self.l0 = l0;
+        self.l1 = l1;
+        self.l2 = l2;
+        self.l3 = l3;
+        self.l4 = l4;
         self.initialized = true;
+    }
 
-        // Initialize Level 0 bits (1 = Free)
-        for i in 0..self.level_lens[0] {
-            let val = if (i + 1) * 64 <= total_blocks {
-                !0u64
-            } else if i * 64 < total_blocks {
-                let rem = total_blocks - (i * 64);
-                if rem >= 64 { !0u64 } else { (1u64 << rem) - 1 }
-            } else {
-                0u64
-            };
-            self.set_node(0, i, val);
+    #[inline(always)]
+    fn get_node(&self, level: usize, idx: usize) -> usize {
+        match level {
+            0 => self.l0.get(idx).copied().unwrap_or(0),
+            1 => self.l1.get(idx).copied().unwrap_or(0),
+            2 => self.l2.get(idx).copied().unwrap_or(0),
+            3 => self.l3.get(idx).copied().unwrap_or(0),
+            4 => self.l4.get(idx).copied().unwrap_or(0),
+            _ => 0,
         }
+    }
 
-        // Build higher levels from bottom to top
-        for lvl in 1..self.num_levels {
-            for node_idx in 0..self.level_lens[lvl] {
-                let mut word = 0u64;
-                for bit in 0..64 {
-                    let child_idx = node_idx * 64 + bit;
-                    if child_idx < self.level_lens[lvl - 1] {
-                        if self.get_node(lvl - 1, child_idx) != 0 {
-                            word |= 1u64 << bit;
-                        }
-                    }
+    #[inline(always)]
+    fn set_node(&mut self, level: usize, idx: usize, val: usize) {
+        match level {
+            0 => {
+                if let Some(slot) = self.l0.get_mut(idx) {
+                    *slot = val;
                 }
-                self.set_node(lvl, node_idx, word);
             }
+            1 => {
+                if let Some(slot) = self.l1.get_mut(idx) {
+                    *slot = val;
+                }
+            }
+            2 => {
+                if let Some(slot) = self.l2.get_mut(idx) {
+                    *slot = val;
+                }
+            }
+            3 => {
+                if let Some(slot) = self.l3.get_mut(idx) {
+                    *slot = val;
+                }
+            }
+            4 => {
+                if let Some(slot) = self.l4.get_mut(idx) {
+                    *slot = val;
+                }
+            }
+            _ => {}
         }
     }
 
     #[inline(always)]
-    fn get_node(&self, level: usize, node_idx: usize) -> u64 {
-        let offset = self.level_offsets[level] + node_idx;
-        unsafe { *self.metadata_ptr.add(offset) }
-    }
-
-    #[inline(always)]
-    fn set_node(&mut self, level: usize, node_idx: usize, val: u64) {
-        let offset = self.level_offsets[level] + node_idx;
-        unsafe { *self.metadata_ptr.add(offset) = val };
+    fn level_len(&self, level: usize) -> usize {
+        match level {
+            0 => self.l0.len(),
+            1 => self.l1.len(),
+            2 => self.l2.len(),
+            3 => self.l3.len(),
+            4 => self.l4.len(),
+            _ => 0,
+        }
     }
 
     fn is_subtree_completely_free(&self, level: usize, node_idx: usize) -> bool {
         if level == 0 {
-            self.get_node(0, node_idx) == !0u64
+            self.get_node(0, node_idx) == !0usize
         } else {
-            if self.get_node(level, node_idx) != !0u64 {
+            if self.get_node(level, node_idx) != !0usize {
                 return false;
             }
             let start_child = node_idx * 64;
-            let end_child = (start_child + 64).min(self.level_lens[level - 1]);
+            let end_child = (start_child + 64).min(self.level_len(level - 1));
             for child_idx in start_child..end_child {
                 if !self.is_subtree_completely_free(level - 1, child_idx) {
                     return false;
@@ -279,11 +307,11 @@ impl BitmapAllocator {
     }
 
     fn set_subtree(&mut self, level: usize, node_idx: usize, free: bool) {
-        let val = if free { !0u64 } else { 0 };
+        let val = if free { !0usize } else { 0 };
         self.set_node(level, node_idx, val);
         if level > 0 {
             let start_child = node_idx * 64;
-            let end_child = (start_child + 64).min(self.level_lens[level - 1]);
+            let end_child = (start_child + 64).min(self.level_len(level - 1));
             for child_idx in start_child..end_child {
                 self.set_subtree(level - 1, child_idx, free);
             }
@@ -295,7 +323,7 @@ impl BitmapAllocator {
             if req_level == 0 {
                 let word = self.get_node(0, node_idx);
                 if let Some(bit_pos) = find_aligned_free_bits(word, req_bits) {
-                    let mask = if req_bits == 64 { !0u64 } else { ((1u64 << req_bits) - 1) << bit_pos };
+                    let mask = if req_bits == 64 { !0usize } else { ((1usize << req_bits) - 1) << bit_pos };
                     let new_word = word & !mask;
                     self.set_node(0, node_idx, new_word);
                     return Some(node_idx * 64 + bit_pos);
@@ -306,17 +334,17 @@ impl BitmapAllocator {
                 while word != 0 {
                     let bit_pos = word.trailing_zeros() as usize;
                     let child_idx = node_idx * 64 + bit_pos;
-                    if child_idx < self.level_lens[level - 1] {
+                    if child_idx < self.level_len(level - 1) {
                         if self.is_subtree_completely_free(level - 1, child_idx) {
                             self.set_subtree(level - 1, child_idx, false);
-                            let new_word = self.get_node(level, node_idx) & !(1u64 << bit_pos);
+                            let new_word = self.get_node(level, node_idx) & !(1usize << bit_pos);
                             self.set_node(level, node_idx, new_word);
 
                             let blocks_per_child = 1usize << (level * 6);
                             return Some(child_idx * blocks_per_child);
                         }
                     }
-                    word &= !(1u64 << bit_pos);
+                    word &= !(1usize << bit_pos);
                 }
                 return None;
             }
@@ -327,32 +355,32 @@ impl BitmapAllocator {
         while word != 0 {
             let bit_pos = word.trailing_zeros() as usize;
             let child_idx = node_idx * 64 + bit_pos;
-            if child_idx < self.level_lens[level - 1] {
+            if child_idx < self.level_len(level - 1) {
                 if let Some(block_idx) = self.alloc_from_node(level - 1, child_idx, req_level, req_bits) {
                     if self.get_node(level - 1, child_idx) == 0 {
-                        let new_word = self.get_node(level, node_idx) & !(1u64 << bit_pos);
+                        let new_word = self.get_node(level, node_idx) & !(1usize << bit_pos);
                         self.set_node(level, node_idx, new_word);
                     }
                     return Some(block_idx);
                 }
             }
-            word &= !(1u64 << bit_pos);
+            word &= !(1usize << bit_pos);
         }
         None
     }
 
     fn propagate_up(&mut self, mut level: usize, mut node_idx: usize) {
-        while level + 1 < self.num_levels {
+        while level + 1 <= 4 {
             let parent_level = level + 1;
             let parent_idx = node_idx / 64;
             let bit_pos = node_idx % 64;
 
-            if parent_idx >= self.level_lens[parent_level] {
+            if parent_idx >= self.level_len(parent_level) {
                 break;
             }
 
             let old_parent = self.get_node(parent_level, parent_idx);
-            let new_parent = old_parent | (1u64 << bit_pos);
+            let new_parent = old_parent | (1usize << bit_pos);
             self.set_node(parent_level, parent_idx, new_parent);
 
             if old_parent != 0 {
@@ -368,7 +396,7 @@ impl BitmapAllocator {
         if req_level == 0 {
             let leaf_idx = block_idx / 64;
             let bit_pos = block_idx % 64;
-            let mask = if req_bits == 64 { !0u64 } else { ((1u64 << req_bits) - 1) << bit_pos };
+            let mask = if req_bits == 64 { !0usize } else { ((1usize << req_bits) - 1) << bit_pos };
             let old_val = self.get_node(0, leaf_idx);
             let new_val = old_val | mask;
             self.set_node(0, leaf_idx, new_val);
@@ -384,7 +412,7 @@ impl BitmapAllocator {
             let parent_idx = child_idx / 64;
             let bit_pos = child_idx % 64;
             let old_val = self.get_node(req_level, parent_idx);
-            let new_val = old_val | (1u64 << bit_pos);
+            let new_val = old_val | (1usize << bit_pos);
             self.set_node(req_level, parent_idx, new_val);
 
             if old_val == 0 {
@@ -400,16 +428,15 @@ impl BitmapAllocator {
         }
 
         let (req_level, req_bits, _bucket_size) = get_allocation_params(layout);
-        if req_level >= self.num_levels {
+        if req_level > 4 {
             return ptr::null_mut();
         }
 
-        let root_level = self.num_levels - 1;
-        for node_idx in 0..self.level_lens[root_level] {
+        let root_level = 4;
+        for node_idx in 0..self.level_len(root_level) {
             if let Some(block_idx) = self.alloc_from_node(root_level, node_idx, req_level, req_bits) {
-                let offset = block_idx * MIN_ALLOC_SIZE;
-                if offset + layout.size() <= self.data_size {
-                    return (self.data_start + offset) as *mut u8;
+                if block_idx * MIN_ALLOC_SIZE + layout.size() <= self.total_blocks * MIN_ALLOC_SIZE {
+                    return (self.heap_start + block_idx * MIN_ALLOC_SIZE) as *mut u8;
                 } else {
                     self.dealloc_block(block_idx, req_level, req_bits);
                     return ptr::null_mut();
@@ -427,11 +454,11 @@ impl BitmapAllocator {
         }
 
         let ptr_val = ptr as usize;
-        if ptr_val < self.data_start || ptr_val >= self.data_start + self.data_size {
+        if ptr_val < self.heap_start || ptr_val >= self.heap_end {
             return;
         }
 
-        let offset = ptr_val - self.data_start;
+        let offset = ptr_val - self.heap_start;
         if offset % MIN_ALLOC_SIZE != 0 {
             return;
         }
