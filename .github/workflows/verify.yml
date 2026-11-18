@@ -21,9 +21,9 @@ jobs:
     - name: Install opam
       run: curl "https://github.com/ocaml/opam/releases/download/2.5.0/opam-2.5.0-x86_64-linux" -Lo /usr/local/bin/opam && chmod +x /usr/local/bin/opam
     - name: Setup opam
-      run: opam init -y
+      run: opam init -y --disable-sandboxing
     - name: Setup opam switch
-      run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.1+options,ocaml-option-flambda
+      run: opam switch create refinedrust-ace --packages=ocaml-variants.4.14.2+options,ocaml-option-flambda
     - name: ls
       run: ls -la .
     - name: Install openssl dependency
@@ -81,7 +81,7 @@ jobs:
             source "$HOME/.cargo/env"
             eval "$(opam env)"
             cd verification
-            DUNEFLAGS="-j 1 --display verbose" dune build
+            dune build -j 1 --display verbose
           ) 2>&1 | tee full-build.log
     - name: Upload full build log
       if: always()

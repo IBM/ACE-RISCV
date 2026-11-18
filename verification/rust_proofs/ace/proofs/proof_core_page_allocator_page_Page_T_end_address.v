@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace.
 From sm.ace.generated Require Import generated_template_core_page_allocator_page_Page_T_end_address.
@@ -18,7 +18,8 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   (* !start proof(page.accessors) *)
-  { revert select (_ ≤ (conf_end _).(loc_a)).
+  { revert select (¬ _ ≤ _ ≤ _).
+    revert select (_ ≤ (conf_end _).(loc_a)).
     specialize (conf_end_in_usize MEMORY_CONFIG).
     rewrite /page_size_in_bytes_nat; solve_goal. }
   (* !end proof *)

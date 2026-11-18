@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageAllocator_add_memory_region.
 
@@ -33,22 +33,18 @@ Proof.
     { shelve_sidecond. }
     { solve_layout_alg. }
     { shelve_sidecond. }
-    { iModIntro. iIntros (??? _) "Harr". 
+    { iModIntro. iIntros (??? _) "Harr".
       iPoseProof (ty_own_val_array_int_to_int with "Harr") as "(% & $)"; last done.
       shelve_sidecond. }
     iModIntro.
     repeat liRStep. }
-  repeat liRStep.
+  all: repeat liRStep.
 
   all: print_remaining_goal.
   Unshelve. all: sidecond_solver.
-  Unshelve. all: try lia.
+  Unshelve. all: open_cache; try lia.
   all: try congruence.
-  - apply page_size_in_bytes_is_power_of_two.
-  - solve_goal.
-  - specialize (page_size_in_bytes_nat_ge x').
-    specialize (page_size_in_bytes_nat_in_usize x') as [].
-    split; lia.
+  all: sidecond_hammer.
   - unfold page_size_in_bytes_nat. lia.
   - intros ? Hly1. apply syn_type_has_layout_array_inv in Hly1 as (? & Hly1 & -> & ?).
     apply syn_type_has_layout_int_inv in Hly1 as ->.
@@ -58,7 +54,6 @@ Proof.
     eapply base.aligned_to_mul_inv.
     revert select (larr `aligned_to` page_size_in_bytes_nat sz_to_allocate).
     done.
-  - sidecond_hammer.
   - rewrite page_size_align_is_size. done.
   - rewrite MAX_PAGE_ADDR_unfold /MAX_PAGE_ADDR_def.
     revert select (¬ memory_region_end.(loc_a) > _).
@@ -72,9 +67,11 @@ Proof.
     + revert select (larr.(loc_a) + _ ≤ MAX_PAGE_ADDR). rewrite MAX_PAGE_ADDR_unfold /MAX_PAGE_ADDR_def. lia.
   - apply aligned_to_offset; first done.
     solve_goal.
+  - specialize (page_size_in_bytes_nat_ge sz_to_allocate).
+    specialize (page_size_in_bytes_nat_in_usize sz_to_allocate) as [].
+    lia. 
   (* !end proof *)
 
-  all: sidecond_hammer.
   Unshelve. all: print_remaining_sidecond.
 (*Qed.*)
 Admitted. (* admitted due to long Qed *)
