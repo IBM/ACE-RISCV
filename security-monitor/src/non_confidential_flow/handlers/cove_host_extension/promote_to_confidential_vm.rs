@@ -90,14 +90,14 @@ impl PromoteToConfidentialVm {
 
         debug!("Number of confidential harts: {}", number_of_confidential_harts);
         // We create a fixed number of harts (all but the boot hart are in the reset state).
-        let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
+        let confidential_harts: Vec<ConfidentialHart> = (0..number_of_confidential_harts)
             .map(|id| match id {
                 Self::BOOT_HART_ID => {
                     ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
                 }
                 _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
             })
-            .collect();
+            .collect::<Result<Vec<_>, Error>>()?;
 
         let payload = self
             .read_attestation_payload(large_page, &memory_protector)

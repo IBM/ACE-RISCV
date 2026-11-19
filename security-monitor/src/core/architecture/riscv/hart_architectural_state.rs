@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::architecture::riscv::extensions::supervisor_timer_extension::SupervisorTimerExtension;
 use crate::core::architecture::riscv::specification::*;
-use crate::core::architecture::riscv::{ControlStatusRegisters, FloatingPointUnit, GeneralPurposeRegister, GeneralPurposeRegisters};
+use crate::core::architecture::riscv::{
+    ControlStatusRegisters, FloatingPointUnit, GeneralPurposeRegister, GeneralPurposeRegisters, VectorUnit,
+};
+use crate::error::Error;
 
 /// Defines the state of a processor's core (hart) when stored in main memory.
 #[repr(C)]
@@ -12,16 +15,26 @@ pub struct HartArchitecturalState {
     csrs: ControlStatusRegisters,
     fprs: FloatingPointUnit,
     sstc: SupervisorTimerExtension,
+    vrs: VectorUnit,
 }
 
 impl HartArchitecturalState {
-    pub fn empty() -> Self {
-        Self {
+    pub fn empty() -> Result<Self, Error> {
+        Ok(Self {
             gprs: GeneralPurposeRegisters::empty(),
             csrs: ControlStatusRegisters::empty(),
             fprs: FloatingPointUnit::empty(),
             sstc: SupervisorTimerExtension::empty(),
-        }
+            vrs: VectorUnit::empty()?,
+        })
+    }
+
+    pub fn vrs(&self) -> &VectorUnit {
+        &self.vrs
+    }
+
+    pub fn vrs_mut(&mut self) -> &mut VectorUnit {
+        &mut self.vrs
     }
 
     pub fn set_gprs(&mut self, gprs: GeneralPurposeRegisters) {
