@@ -19,7 +19,13 @@ use pointers_utility::ptr_byte_add_mut;
 use spin::Mutex;
 
 const NUMBER_OF_HEAP_PAGES: usize = 80 * 1024;
-pub const MAX_SUPPORTED_PHYSICAL_HARTS: usize = 16;
+/// Maximum number of physical harts supported by the security monitor. It must not be lower than the number of harts
+/// supported by OpenSBI, otherwise the security monitor would fail to initialize on platforms that OpenSBI supports.
+pub const MAX_SUPPORTED_PHYSICAL_HARTS: usize = 128;
+const _: () = assert!(
+    MAX_SUPPORTED_PHYSICAL_HARTS >= opensbi_sys::SBI_HARTMASK_MAX_BITS as usize,
+    "MAX_SUPPORTED_PHYSICAL_HARTS must be at least OpenSBI's SBI_HARTMASK_MAX_BITS"
+);
 
 unsafe extern "C" {
     // Assembly function that is an entry point to the security monitor from the hypervisor or a virtual machine.

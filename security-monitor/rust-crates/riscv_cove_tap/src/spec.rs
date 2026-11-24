@@ -110,8 +110,8 @@ impl LockboxAlgorithm {
     ), TapError> {
         match self {
             LockboxAlgorithm::Debug => {
-                // Debug mode: all fields empty, tsk is passed through unchanged.
-                Ok((Vec::new(), Vec::new(), Vec::new(), Vec::new()))
+                // Debug mode: esk, nonce and tag are empty, tsk is passed through unchanged (in the clear).
+                Ok((Vec::new(), Vec::new(), Vec::new(), tsk.clone()))
             }
             LockboxAlgorithm::MlKem1024Aes256 => {
                 use rand::RngExt;
