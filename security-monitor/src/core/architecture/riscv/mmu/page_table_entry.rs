@@ -19,7 +19,7 @@ pub(super) enum LogicalPageTableEntry {
     PointerToNextPageTable(Box<PageTable>),
     #[rr::pattern("PageWithConfidentialVmData" $ "p", "conf", "perm")]
     #[rr::refinement("-[ #(#p); #conf; #perm]")]
-    PageWithConfidentialVmData(Box<Page<Allocated>>),
+    PageWithConfidentialVmData(Page<Allocated>),
     #[rr::pattern("PageSharedWithHypervisor" $ "sp", "conf", "perm")]
     #[rr::refinement("-[ #sp; #conf; #perm]")]
     PageSharedWithHypervisor(SharedPage),

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::control_data::{ConfidentialVm, ConfidentialVmId};
 use crate::error::Error;
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -14,7 +15,7 @@ static CONTROL_DATA_STORAGE: Once<RwLock<ControlDataStorage>> = Once::new();
 /// Access to it variable is exposed to other modules with try_read_*() and try_write_*(). These functions synchronize
 /// accesses to the control data region descriptor requested from multiple physical harts.
 pub struct ControlDataStorage {
-    confidential_vms: BTreeMap<ConfidentialVmId, RwLock<ConfidentialVm>>,
+    confidential_vms: BTreeMap<ConfidentialVmId, Box<RwLock<ConfidentialVm>>>,
 }
 
 impl ControlDataStorage {
@@ -40,7 +41,7 @@ impl ControlDataStorage {
     pub fn insert_confidential_vm(&mut self, confidential_vm: ConfidentialVm) -> Result<ConfidentialVmId, Error> {
         let id = confidential_vm.confidential_vm_id();
         ensure!(!self.confidential_vms.contains_key(&id), Error::InvalidConfidentialVmId())?;
-        self.confidential_vms.insert(id, RwLock::new(confidential_vm));
+        self.confidential_vms.insert(id, Box::new(RwLock::new(confidential_vm)));
         Ok(id)
     }
 
@@ -58,7 +59,7 @@ impl ControlDataStorage {
             debug!("Removing ConfidentialVM[{:?}] from the control data structure", confidential_vm_id);
             control_data.confidential_vms.remove(&confidential_vm_id).ok_or(Error::InvalidConfidentialVmId())
         })
-        .and_then(|vm| Ok(vm.into_inner().deallocate()))
+        .and_then(|vm| Ok((*vm).into_inner().deallocate()))
     }
 
     fn try_read<F, O>(op: O) -> Result<F, Error>

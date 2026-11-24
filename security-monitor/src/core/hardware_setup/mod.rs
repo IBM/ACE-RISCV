@@ -4,7 +4,7 @@
 use crate::core::architecture::HardwareExtension;
 use crate::core::architecture::riscv::specification::*;
 use crate::error::Error;
-use alloc::vec::Vec;
+use heapless::Vec;
 use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Global static description of hardware setup. It is created during the system initiization and used in runtime to perform operations that
@@ -12,7 +12,7 @@ use spin::{Once, RwLock, RwLockReadGuard, RwLockWriteGuard};
 static HARDWARE_SETUP: Once<RwLock<HardwareSetup>> = Once::new();
 
 pub struct HardwareSetup {
-    isa_extensions: Vec<HardwareExtension>,
+    isa_extensions: Vec<HardwareExtension, 32>,
 }
 
 impl HardwareSetup {
@@ -31,16 +31,17 @@ impl HardwareSetup {
         // example prop value rv64imafdch_zicsr_zifencei_zba_zbb_zbc_zbs
         debug!("{}", prop);
         ensure!(prop.starts_with(RISCV_ARCH), Error::InvalidCpuArch())?;
-        let extensions = &prop.split('_').collect::<Vec<&str>>();
-        Self::REQUIRED_BASE_EXTENSIONS
+        let mut extensions = prop.split('_');
+        let base = extensions.next().unwrap_or("");
+        Self::REQUIRED_BASE_EXTENSIONS.into_iter().try_for_each(|ext| ensure!(base.contains(*ext), Error::MissingCpuExtension()))?;
+        Self::REQUIRED_EXTENSIONS
             .into_iter()
-            .try_for_each(|ext| ensure!(extensions[0].contains(*ext), Error::MissingCpuExtension()))?;
-        Self::REQUIRED_EXTENSIONS.into_iter().try_for_each(|ext| ensure!(extensions.contains(ext), Error::MissingCpuExtension()))?;
+            .try_for_each(|ext| ensure!(prop.split('_').any(|item| item == *ext), Error::MissingCpuExtension()))?;
         Ok(())
     }
 
     pub fn add_extension(extension: HardwareExtension) -> Result<(), Error> {
-        Self::try_write(|hardware_setup| Ok(hardware_setup.isa_extensions.push(extension)))
+        Self::try_write(|hardware_setup| hardware_setup.isa_extensions.push(extension).map_err(|_| Error::Failed()))
     }
 
     pub fn is_extension_supported(extension: HardwareExtension) -> bool {

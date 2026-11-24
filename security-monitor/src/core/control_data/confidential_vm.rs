@@ -7,30 +7,33 @@ use crate::core::control_data::{
 };
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::Error;
-use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
+use alloc::boxed::Box;
+use heapless::Vec;
 use riscv_cove_tap::Secret;
 use spin::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
-    confidential_harts: Vec<RwLock<ConfidentialHart>>,
+    /// Allocated once, with exactly one entry per confidential hart of this VM. Indexed by the confidential hart id.
+    confidential_harts: Box<[RwLock<Box<ConfidentialHart>>]>,
     _measurements: StaticMeasurements,
-    secrets: Vec<Secret>,
-    remote_commands: BTreeMap<usize, Mutex<Vec<ConfidentialHartRemoteCommand>>>,
+    secrets: Vec<Secret, { Self::MAX_NUMBER_OF_SECRETS }>,
+    /// Allocated once, with exactly one queue per confidential hart. Indexed by the confidential hart id.
+    remote_commands: Box<[Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>]>,
     memory_protector: RwLock<ConfidentialVmMemoryProtector>,
     allowed_external_interrupts: usize,
-    mmio_regions: Vec<ConfidentialVmMmioRegion>,
+    mmio_regions: Vec<ConfidentialVmMmioRegion, { Self::MAX_NUMBER_OF_MMIO_REGIONS }>,
 }
 
 impl ConfidentialVm {
-    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 1024;
-    /// An average number of inter hart requests that can be buffered before being processed.
-    const AVG_NUMBER_OF_COMMANDS: usize = 3;
+    /// A maximum number of harts per VM.
+    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 16;
+    /// A maximum number of secrets per VM
+    pub const MAX_NUMBER_OF_SECRETS: usize = 8;
     /// A maximum number of inter hart requests that can be buffered.
-    const MAX_NUMBER_OF_COMMANDS: usize = 64;
+    pub const MAX_NUMBER_OF_COMMANDS: usize = 32;
     /// A maximum number of MMIO regions that a confidential VM can register
-    const MAX_NUMBER_OF_MMIO_REGIONS: usize = 1024;
+    const MAX_NUMBER_OF_MMIO_REGIONS: usize = 64;
 
     /// Constructs a new confidential VM.
     ///
@@ -38,27 +41,25 @@ impl ConfidentialVm {
     ///
     /// The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, mut confidential_harts: Vec<ConfidentialHart>, _measurements: StaticMeasurements, secrets: Vec<Secret>,
+        id: ConfidentialVmId, confidential_harts: Box<[RwLock<Box<ConfidentialHart>>]>,
+        remote_commands: Box<[Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>]>,
+        _measurements: StaticMeasurements, secrets: Vec<Secret, { Self::MAX_NUMBER_OF_SECRETS }>,
         mut memory_protector: ConfidentialVmMemoryProtector,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         memory_protector.set_confidential_vm_id(id);
-        let remote_commands = confidential_harts
-            .iter_mut()
-            .map(|confidential_hart| {
-                confidential_hart.set_confidential_vm_id(id);
-                (confidential_hart.confidential_hart_id(), Mutex::new(Vec::with_capacity(Self::AVG_NUMBER_OF_COMMANDS)))
-            })
-            .collect();
-        Self {
+        for hart_lock in confidential_harts.iter() {
+            hart_lock.write().set_confidential_vm_id(id);
+        }
+        Ok(Self {
             id,
-            confidential_harts: confidential_harts.into_iter().map(|h| RwLock::new(h)).collect(),
+            confidential_harts,
             _measurements,
             secrets,
             remote_commands,
             memory_protector: RwLock::new(memory_protector),
             allowed_external_interrupts: 0,
-            mmio_regions: Vec::with_capacity(8),
-        }
+            mmio_regions: Vec::new(),
+        })
     }
 
     pub fn confidential_vm_id(&self) -> ConfidentialVmId {
@@ -73,12 +74,8 @@ impl ConfidentialVm {
         self.memory_protector.write()
     }
 
-    pub fn secret(&self, secret_id: usize) -> Result<Vec<u8>, Error> {
-        self.secrets
-            .iter()
-            .find(|ref s| s.name == secret_id as u64)
-            .and_then(|s| Some(s.value.to_vec()))
-            .ok_or_else(|| Error::InvalidParameter())
+    pub fn secret(&self, secret_id: usize) -> Result<heapless::Vec<u8, { riscv_cove_tap::MAX_SECRET_VALUE_SIZE }>, Error> {
+        self.secrets.iter().find(|s| s.name == secret_id as u64).map(|s| s.value.clone()).ok_or_else(|| Error::InvalidParameter())
     }
 
     pub(super) fn deallocate(self) {
@@ -102,7 +99,7 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
+        hardware_hart.swap_confidential_hart(&mut confidential_hart);
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
         // machine and the virtual hart is assigned to the hardware hart.
@@ -118,7 +115,7 @@ impl ConfidentialVm {
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
         // Return the confidential hart to the confidential machine.
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id].write());
+        hardware_hart.swap_confidential_hart(&mut self.confidential_harts[confidential_hart_id].write());
     }
 }
 
@@ -138,7 +135,8 @@ impl ConfidentialVm {
     pub fn add_mmio_region(&mut self, region: ConfidentialVmMmioRegion) -> Result<(), Error> {
         ensure!(self.mmio_regions.len() < Self::MAX_NUMBER_OF_MMIO_REGIONS, Error::ReachedMaxNumberOfMmioRegions())?;
         ensure!(!self.mmio_regions.iter().any(|x| x.overlaps(&region)), Error::OverlappingMmioRegion())?;
-        Ok(self.mmio_regions.push(region))
+        self.mmio_regions.push(region).map_err(|_| Error::ReachedMaxNumberOfMmioRegions())?;
+        Ok(())
     }
 
     pub fn remove_mmio_region(&mut self, region: &ConfidentialVmMmioRegion) {
@@ -195,7 +193,7 @@ impl ConfidentialVm {
                     self.try_confidential_hart_remote_commands(confidential_hart_id, |ref mut remote_commands| {
                         ensure!(remote_commands.len() < Self::MAX_NUMBER_OF_COMMANDS, Error::ReachedMaxNumberOfRemoteCommands())?;
                         if remote_commands.iter().find(|c| **c == remote_command).is_none() {
-                            remote_commands.push(remote_command.clone());
+                            remote_commands.push(remote_command.clone()).map_err(|_| Error::ReachedMaxNumberOfRemoteCommands())?;
                         }
                         Ok(())
                     })?;
@@ -206,7 +204,7 @@ impl ConfidentialVm {
     }
 
     pub fn try_confidential_hart_remote_commands<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
-    where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand>>) -> Result<F, Error> {
-        op(self.remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
+    where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>) -> Result<F, Error> {
+        op(self.remote_commands.get(confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
 }

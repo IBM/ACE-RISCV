@@ -17,6 +17,14 @@ pub enum TapError {
     InvalidMagicStart(),
     #[error("Invalid size of the TAP")]
     InvalidSize(),
+    #[error("TAP contains more lockboxes than MAX_NUMBER_OF_LOCKBOXES")]
+    TooManyLockboxes(),
+    #[error("TAP contains more digests than MAX_NUMBER_OF_DIGESTS")]
+    TooManyDigests(),
+    #[error("TAP contains more secrets than MAX_NUMBER_OF_SECRETS")]
+    TooManySecrets(),
+    #[error("A value in the TAP exceeds the maximum allowed size")]
+    ValueTooLarge(),
     #[error("Aes error {0}")]
     AesError(#[from] aes_gcm::Error),
     #[error("Key from slice error")]

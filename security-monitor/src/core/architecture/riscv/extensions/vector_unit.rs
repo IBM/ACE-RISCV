@@ -2,7 +2,6 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 #![allow(unused)]
-use alloc::vec::Vec;
 use core::ops::Range;
 
 pub const MAX_NUMBER_OF_REGISTER_LENGTH: usize = 32;

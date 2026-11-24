@@ -5,6 +5,7 @@ use crate::core::architecture::CSR;
 use crate::core::control_data::{ConfidentialHart, HypervisorHart};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Allocated, Page, UnAllocated};
+use alloc::boxed::Box;
 use opensbi_sys::sbi_trap_regs;
 
 unsafe extern "C" {
@@ -28,7 +29,9 @@ pub struct HardwareHart {
     // in case there is any confidential VM's virtual hart associated to it, or 2) an confidential VM's virtual hart.
     // In the latter case, the hardware hart and confidential VM's control data swap their virtual harts (a dummy
     // hart with the confidential VM's virtual hart)
-    confidential_hart: ConfidentialHart,
+    // The confidential hart is behind a box, so that assigning it to the hardware hart exchanges two pointers instead of copying the
+    // entire architectural state of the hart (see `swap_confidential_hart`).
+    confidential_hart: Box<ConfidentialHart>,
     // A page containing the stack of the code executing within the given hart.
     stack: Page<Allocated>,
     // The stack_address is redundant (we can learn the stack_address from the page assigned for the stack) but we need
@@ -46,7 +49,7 @@ impl HardwareHart {
     pub fn init(id: usize, stack: Page<UnAllocated>, hypervisor_memory_protector: HypervisorMemoryProtector) -> Self {
         Self {
             hypervisor_hart: HypervisorHart::new(hypervisor_memory_protector),
-            confidential_hart: ConfidentialHart::dummy(id),
+            confidential_hart: Box::new(ConfidentialHart::dummy(id)),
             stack_address: stack.end_address(),
             stack: stack.zeroize(),
             previous_mscratch: 0,
@@ -86,6 +89,10 @@ impl HardwareHart {
 
     pub fn confidential_hart_mut(&mut self) -> &mut ConfidentialHart {
         &mut self.confidential_hart
+    }
+
+    pub fn swap_confidential_hart(&mut self, other: &mut Box<ConfidentialHart>) {
+        core::mem::swap(&mut self.confidential_hart, other);
     }
 
     pub fn hypervisor_hart(&self) -> &HypervisorHart {

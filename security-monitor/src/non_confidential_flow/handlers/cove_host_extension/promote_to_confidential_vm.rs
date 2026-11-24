@@ -14,8 +14,9 @@ use crate::core::time_controller::TimeController;
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
-use alloc::vec::Vec;
+use alloc::boxed::Box;
 use flattened_device_tree::FlattenedDeviceTree;
+use heapless::Vec;
 use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
 
 /// Creates a confidential VM in a single-step. This handler implements the Promote to TVM call defined by the COVH ABI in the CoVE
@@ -72,7 +73,7 @@ impl PromoteToConfidentialVm {
                 SbiResponse::error(error)
             }
         };
-        PageAllocator::release_pages(alloc::vec![large_page.deallocate()]);
+        PageAllocator::release_page(large_page.deallocate());
         non_confidential_flow.apply_and_exit_to_hypervisor(ApplyToHypervisorHart::PromoteResponse((self, sbi_response)))
     }
 
@@ -89,42 +90,54 @@ impl PromoteToConfidentialVm {
         let (vm_memory_layout, number_of_confidential_harts) = self.process_device_tree(large_page, &memory_protector, &fdt_address)?;
 
         debug!("Number of confidential harts: {}", number_of_confidential_harts);
-        // We create a fixed number of harts (all but the boot hart are in the reset state).
-        let confidential_harts: Vec<_> = (0..number_of_confidential_harts)
-            .map(|id| match id {
-                Self::BOOT_HART_ID => {
-                    ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
-                }
-                _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
+        // The memory for harts and their remote command queues is allocated here, once, with the size matching the VM. Nothing is
+        // allocated or grown when the VM runs. The number of harts is bounded by `process_device_tree`.
+        let harts_locks: Box<[_]> = (0..number_of_confidential_harts)
+            .map(|id| {
+                let hart = match id {
+                    Self::BOOT_HART_ID => {
+                        ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
+                    }
+                    _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
+                };
+                spin::RwLock::new(Box::new(hart))
             })
             .collect();
+        let remote_commands: Box<[_]> = (0..number_of_confidential_harts).map(|_| spin::Mutex::new(Vec::new())).collect();
 
         let payload = self
             .read_attestation_payload(large_page, &memory_protector)
             .inspect_err(|e| debug!("TAP reading failed: {:?}", e))
             .unwrap_or(None);
-        let measurements = self.measure(&mut memory_protector, &vm_memory_layout, &confidential_harts)?;
+        let measurements = self.measure(&mut memory_protector, &vm_memory_layout, &harts_locks)?;
 
         let secrets = self
             .authenticate_and_authorize_vm(payload, &measurements)
             .inspect_err(|e| debug!("Local attestation failed: {:?}", e))
-            .unwrap_or(alloc::vec![]);
+            .unwrap_or_default();
 
         ControlDataStorage::try_write(|control_data| {
             // We have a write lock on the entire control data! Spend here as little time as possible because we are
             // blocking all other harts from accessing the control data. This influences all confidential VMs in the system!
             let id = control_data.unique_id()?;
-            control_data.insert_confidential_vm(ConfidentialVm::new(id, confidential_harts, measurements, secrets, memory_protector))
+            control_data.insert_confidential_vm(ConfidentialVm::new(
+                id,
+                harts_locks,
+                remote_commands,
+                measurements,
+                secrets,
+                memory_protector,
+            )?)
         })
     }
 
     fn measure(
         &self, memory_protector: &mut ConfidentialVmMemoryProtector, vm_memory_layout: &ConfidentialVmMemoryLayout,
-        confidential_harts: &Vec<ConfidentialHart>,
+        confidential_harts: &[spin::RwLock<Box<ConfidentialHart>>],
     ) -> Result<StaticMeasurements, Error> {
         let mut measurements = StaticMeasurements::default();
         memory_protector.finalize(&mut measurements, vm_memory_layout)?;
-        confidential_harts[Self::BOOT_HART_ID].measure(measurements.pcr_boot_hart_mut());
+        confidential_harts[Self::BOOT_HART_ID].read().measure(measurements.pcr_boot_hart_mut());
         // codeql[rust/cleartext-logging] - digest values intentionally logged in debug builds
         debug!("VM measurements: {:?}", measurements);
         Ok(measurements)
@@ -161,7 +174,7 @@ impl PromoteToConfidentialVm {
         debug!("Virtual machine's memory layout: {:?}", vm_memory_layout);
 
         ensure!(number_of_confidential_harts > 0, Error::InvalidNumberOfHartsInFdt())?;
-        ensure!(number_of_confidential_harts < ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
+        ensure!(number_of_confidential_harts <= ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
 
         Ok((vm_memory_layout, number_of_confidential_harts))
     }
@@ -199,7 +212,7 @@ impl PromoteToConfidentialVm {
     /// for this confidential VM.
     fn authenticate_and_authorize_vm(
         &self, attestation_payload: Option<AttestationPayload>, measurements: &StaticMeasurements,
-    ) -> Result<Vec<Secret>, Error> {
+    ) -> Result<Vec<Secret, { ConfidentialVm::MAX_NUMBER_OF_SECRETS }>, Error> {
         use crate::core::control_data::MeasurementDigest;
         match attestation_payload {
             Some(attestation_payload) => {
@@ -212,9 +225,13 @@ impl PromoteToConfidentialVm {
                     ensure!(measurements.compare(digest.pcr_id() as usize, pcr_value)?, Error::LocalAttestationFailed())?;
                 }
                 debug!("Attestation succeeded, fetched {} secrets", attestation_payload.secrets.len());
-                Ok(attestation_payload.secrets)
+                let mut secrets = Vec::new();
+                for secret in attestation_payload.secrets {
+                    secrets.push(secret).map_err(|_| Error::LocalAttestationFailed())?;
+                }
+                Ok(secrets)
             }
-            None => Ok(alloc::vec![]),
+            None => Ok(Vec::new()),
         }
     }
 

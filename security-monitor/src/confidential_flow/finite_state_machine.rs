@@ -264,12 +264,12 @@ impl<'a> ConfidentialFlow<'a> {
             confidential_vm.try_confidential_hart_remote_commands(
                 self.confidential_hart_id(),
                 |ref mut confidential_hart_remote_commands| {
-                    confidential_hart_remote_commands.drain(..).for_each(|confidential_hart_remote_command| {
+                    while let Some(confidential_hart_remote_command) = confidential_hart_remote_commands.pop() {
                         // The confidential flow has an ownership of the confidential hart because the confidential hart
                         // is assigned to the hardware hart.
                         self.confidential_hart_mut().execute(&confidential_hart_remote_command);
                         requests_processed = true;
-                    });
+                    }
                     Ok(())
                 },
             )
