@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageStorageTreeNode_acquire_page_token.
 
@@ -88,6 +88,7 @@ Proof.
   liInst Hevar_rf self.
   rep <-! liRStep.
 
+  rename r' into page_size_to_acquire.
   set (position_pred := λ node, ((Some page_size_to_acquire) ≤o{ option_cmp page_size_cmp } page_node_can_allocate node)).
   rep 10 liRStep; liShow.
   rep 20 liRStep; liShow.
@@ -128,6 +129,7 @@ Proof.
       rename x into smaller_size;
       rename H into Hsmaller
     end.
+  all: try rename r' into page_size_to_acquire.
   all: try rename select (max_node_size self ≠ page_size_to_acquire) into Hlt_self.
   all: try rename x' into children_without_alloc.
   all: try rename e into allocable_node.
@@ -190,6 +192,7 @@ Proof.
     + apply Hneq.
       move: Heq. solve_goal.
   - eexists. done.
+  - solve_goal.
   - (* should prove that at z there is a child (by position_pred e). Then follows from invariant on children *)
     odestruct (lookup_lt_is_Some_2 children_new (Z.to_nat pos) _) as (child & Hlook_child).
     { rewrite length_app/=. lia. }
@@ -209,6 +212,7 @@ Proof.
     { done. }
     rewrite Heq. done.
   - eauto.
+  - solve_goal.
   - (* ditto; similar as above *)
     exfalso. rename select (¬ ∃ sz : page_size, _) into Hcontra. apply Hcontra.
     rewrite lookup_total_app_r; last lia.
@@ -255,7 +259,14 @@ Proof.
     { apply Hchild. }
     simpl in Hpos. apply Hpos. unfold position_pred.
     done.
-  - apply page_storage_node_children_wf_insert; done.
+  - apply page_storage_node_children_wf_insert; try done.
+    { rename select (max_node_size _ = max_node_size _) into Hsz_eq.
+      rewrite Hsz_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
+    { rename select (base_address _ = base_address _) into Haddr_eq.
+      rewrite Haddr_eq. erewrite list_lookup_total_correct; last solve_goal.
+      done. }
+  - subst nodes. solve_goal.
   - rename select (page_storage_node_invariant_case _ _ _ (children_without_alloc ++ _)) into INV_CASE2.
     opose proof* page_storage_node_invariant_case_at_most_partially_available_inv as [Hle_sz ->]; [ | apply INV_CASE2 | ].
     { simpl. apply node_allocation_state_meet_le_r. }

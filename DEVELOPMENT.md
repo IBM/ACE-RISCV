@@ -22,6 +22,7 @@ Set environment variables to use the RISC-V toolchain:
 export RISCV_GNU_TOOLCHAIN_WORK_DIR=`brew --prefix riscv-gnu-toolchain`
 export PATH=$RISCV_GNU_TOOLCHAIN_WORK_DIR/bin:$PATH
 export CROSS_COMPILE=riscv64-unknown-elf-
+export GENFLAGS="-std=gnu17"
 ```
 
 Build the security monitor:

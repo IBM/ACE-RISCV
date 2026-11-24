@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_architecture_riscv_mmu_page_size_PageSize_number_of_smaller_pages.
 
@@ -18,7 +18,7 @@ Proof.
   Unshelve. all: sidecond_solver.
   Unshelve. all: sidecond_hammer.
   (* !start proof(page_size.number_of_smaller_pages) *)
-  all: unsafe_unfold_common_caesium_defs; simpl; lia. 
+  all: unsafe_unfold_common_radium_defs; simpl; lia. 
   (* !end proof *)
   Unshelve. all: print_remaining_sidecond.
 Qed.

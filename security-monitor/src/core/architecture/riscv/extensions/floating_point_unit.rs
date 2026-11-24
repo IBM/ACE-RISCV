@@ -36,52 +36,6 @@ impl FloatingPointUnit {
         self.fcsr.save_in_main_memory();
 
         unsafe {
-            fasm!("fld", 0, self.registers);
-            fasm!("fld", 1, self.registers);
-            fasm!("fld", 2, self.registers);
-            fasm!("fld", 3, self.registers);
-            fasm!("fld", 4, self.registers);
-            fasm!("fld", 5, self.registers);
-            fasm!("fld", 6, self.registers);
-            fasm!("fld", 7, self.registers);
-            fasm!("fld", 8, self.registers);
-            fasm!("fld", 9, self.registers);
-            fasm!("fld", 10, self.registers);
-            fasm!("fld", 11, self.registers);
-            fasm!("fld", 12, self.registers);
-            fasm!("fld", 13, self.registers);
-            fasm!("fld", 14, self.registers);
-            fasm!("fld", 15, self.registers);
-            fasm!("fld", 16, self.registers);
-            fasm!("fld", 17, self.registers);
-            fasm!("fld", 18, self.registers);
-            fasm!("fld", 19, self.registers);
-            fasm!("fld", 20, self.registers);
-            fasm!("fld", 21, self.registers);
-            fasm!("fld", 22, self.registers);
-            fasm!("fld", 23, self.registers);
-            fasm!("fld", 24, self.registers);
-            fasm!("fld", 25, self.registers);
-            fasm!("fld", 26, self.registers);
-            fasm!("fld", 27, self.registers);
-            fasm!("fld", 28, self.registers);
-            fasm!("fld", 29, self.registers);
-            fasm!("fld", 30, self.registers);
-            fasm!("fld", 31, self.registers);
-        }
-    }
-
-    /// Restores from main memory the float point unit state.
-    ///
-    /// # Safety
-    ///
-    /// Caller must ensure that the FPU hardware exists and is enabled.
-    pub unsafe fn restore_from_main_memory(&mut self) {
-        self.fflags.restore_from_main_memory();
-        self.frm.restore_from_main_memory();
-        self.fcsr.restore_from_main_memory();
-
-        unsafe {
             fasm!("fsd", 0, self.registers);
             fasm!("fsd", 1, self.registers);
             fasm!("fsd", 2, self.registers);
@@ -114,6 +68,52 @@ impl FloatingPointUnit {
             fasm!("fsd", 29, self.registers);
             fasm!("fsd", 30, self.registers);
             fasm!("fsd", 31, self.registers);
+        }
+    }
+
+    /// Restores from main memory the float point unit state.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure that the FPU hardware exists and is enabled.
+    pub unsafe fn restore_from_main_memory(&mut self) {
+        self.fflags.restore_from_main_memory();
+        self.frm.restore_from_main_memory();
+        self.fcsr.restore_from_main_memory();
+
+        unsafe {
+            fasm!("fld", 0, self.registers);
+            fasm!("fld", 1, self.registers);
+            fasm!("fld", 2, self.registers);
+            fasm!("fld", 3, self.registers);
+            fasm!("fld", 4, self.registers);
+            fasm!("fld", 5, self.registers);
+            fasm!("fld", 6, self.registers);
+            fasm!("fld", 7, self.registers);
+            fasm!("fld", 8, self.registers);
+            fasm!("fld", 9, self.registers);
+            fasm!("fld", 10, self.registers);
+            fasm!("fld", 11, self.registers);
+            fasm!("fld", 12, self.registers);
+            fasm!("fld", 13, self.registers);
+            fasm!("fld", 14, self.registers);
+            fasm!("fld", 15, self.registers);
+            fasm!("fld", 16, self.registers);
+            fasm!("fld", 17, self.registers);
+            fasm!("fld", 18, self.registers);
+            fasm!("fld", 19, self.registers);
+            fasm!("fld", 20, self.registers);
+            fasm!("fld", 21, self.registers);
+            fasm!("fld", 22, self.registers);
+            fasm!("fld", 23, self.registers);
+            fasm!("fld", 24, self.registers);
+            fasm!("fld", 25, self.registers);
+            fasm!("fld", 26, self.registers);
+            fasm!("fld", 27, self.registers);
+            fasm!("fld", 28, self.registers);
+            fasm!("fld", 29, self.registers);
+            fasm!("fld", 30, self.registers);
+            fasm!("fld", 31, self.registers);
         }
     }
 }

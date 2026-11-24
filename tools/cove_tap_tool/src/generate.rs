@@ -92,7 +92,7 @@ pub fn generate_tap(
         let tap_digest = Digest {
             pcr_id,
             algorithm: DigestAlgorithm::Sha3_256,
-            value,
+            value: pcr_value,
         };
         // codeql[rust/cleartext-logging] - intentional operator output for CLI tool
         println!("Writing PCR{}={}", pcr_id, tap_digest.value_in_hex());

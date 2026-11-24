@@ -47,4 +47,6 @@ fn clear_caches() {
     // See Section 3.7.2 of RISC-V privileged specification v1.12.
     // PMP translations can be cached and address translation can be done speculatively. Thus, it is adviced to flush caching structures.
     super::fence::sfence_vma();
+    // flush G-stage TLBs
+    super::fence::hfence_gvma();
 }

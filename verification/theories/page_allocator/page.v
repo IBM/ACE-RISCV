@@ -291,7 +291,7 @@ Proof.
   rewrite /page_size_in_bytes_nat page_size_in_words_nat_unfold /page_size_in_words_nat_def.
   rewrite bytes_per_addr_eq.
   split.
-  all: unsafe_unfold_common_caesium_defs.
+  all: unsafe_unfold_common_radium_defs.
   all: unfold it_signed, it_byte_size_log, bytes_per_addr_log.
   all: destruct sz; try lia.
 Qed.
@@ -301,7 +301,7 @@ Proof.
   rewrite /page_size_in_bytes_nat page_size_in_words_nat_unfold /page_size_in_words_nat_def.
   rewrite bytes_per_addr_eq.
   split.
-  all: unsafe_unfold_common_caesium_defs.
+  all: unsafe_unfold_common_radium_defs.
   all: unfold it_signed, it_byte_size_log, bytes_per_addr_log.
   all: destruct sz; try lia.
 Qed.
@@ -725,7 +725,7 @@ Proof.
   unfold page_size_multiplier.
   destruct sz; simpl.
   all: split.
-  all: unsafe_unfold_common_caesium_defs; simpl.
+  all: unsafe_unfold_common_radium_defs; simpl.
   all: lia.
 Qed.
 
@@ -1027,18 +1027,18 @@ Qed.
 
 (** Lithium automation *)
 (* !start spec(page.page) *)
-Global Instance simpl_exist_page Q :
-  SimplExist page Q (∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+Global Instance simpl_exist_page :
+  SimplExist page (λ Q, ∃ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
     Q (mk_page page_loc page_sz page_val)).
 Proof.
-  intros (? & ? & ? & ?). eexists (mk_page _ _ _). done.
+  intros ? (? & ? & ? & ?). eexists (mk_page _ _ _). done.
 Qed.
 
-Global Instance simpl_forall_page Q :
-  SimplForall page 3 Q (∀ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
+Global Instance simpl_forall_page :
+  SimplForall page 3 (λ Q, ∀ (page_loc : loc) (page_sz : page_size) (page_val : list Z),
     Q (mk_page page_loc page_sz page_val)).
 Proof.
-  intros ?. intros []. done.
+  intros ? ?. intros []. done.
 Qed.
 
 Global Instance simpl_impl_page_size_smaller sz sz' :

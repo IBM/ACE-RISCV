@@ -1,4 +1,4 @@
-From caesium Require Import lang notation.
+From radium Require Import lang notation.
 From refinedrust Require Import typing shims.
 From sm.ace.generated Require Import generated_code_ace generated_specs_ace generated_template_core_page_allocator_allocator_PageAllocator_try_write.
 
@@ -17,9 +17,11 @@ Proof.
   rep liRStep. liShow.
   iRename select (∀ _, FnOnce_Pre _ _ _ _ _)%I into "Hpre".
   liInst Hevar_x1 p.
-  iApply prove_with_subtype_default.
-  iSplitR. { iApply "Hpre". }
-  rep liRStep. liShow.
+  iSpecialize ("Hpre" $! _).
+  rep <-! liRStep. liShow.
+  iRename select (∀ _ _, _)%I into "Hget_obs".
+  iPoseProof ("Hget_obs" with "[$]") as "(#? & #_)". simpl.
+  rep liRStep; liShow.
   liInst Hevar_x2 γ0.
   rep liRStep.
   (* !end proof *)
