@@ -7,27 +7,27 @@ use crate::core::control_data::{
 };
 use crate::core::memory_protector::ConfidentialVmMemoryProtector;
 use crate::error::Error;
-use heapless::{FnvIndexMap, Vec};
+use alloc::boxed::Box;
+use heapless::Vec;
 use riscv_cove_tap::Secret;
 use spin::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub struct ConfidentialVm {
     id: ConfidentialVmId,
-    confidential_harts: Vec<RwLock<ConfidentialHart>, { Self::MAX_NUMBER_OF_HARTS_PER_VM }>,
+    /// Allocated once, with exactly one entry per confidential hart of this VM. Indexed by the confidential hart id.
+    confidential_harts: Box<[RwLock<Box<ConfidentialHart>>]>,
     _measurements: StaticMeasurements,
     secrets: Vec<Secret, { Self::MAX_NUMBER_OF_SECRETS }>,
-    remote_commands: FnvIndexMap<
-        usize,
-        Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>,
-        { Self::MAX_NUMBER_OF_HARTS_PER_VM },
-    >,
+    /// Allocated once, with exactly one queue per confidential hart. Indexed by the confidential hart id.
+    remote_commands: Box<[Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>]>,
     memory_protector: RwLock<ConfidentialVmMemoryProtector>,
     allowed_external_interrupts: usize,
     mmio_regions: Vec<ConfidentialVmMmioRegion, { Self::MAX_NUMBER_OF_MMIO_REGIONS }>,
 }
 
 impl ConfidentialVm {
-    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 8;
+    /// A maximum number of harts per VM.
+    pub const MAX_NUMBER_OF_HARTS_PER_VM: usize = 16;
     /// A maximum number of secrets per VM
     pub const MAX_NUMBER_OF_SECRETS: usize = 8;
     /// A maximum number of inter hart requests that can be buffered.
@@ -41,12 +41,8 @@ impl ConfidentialVm {
     ///
     /// The id of the confidential VM must be unique.
     pub fn new(
-        id: ConfidentialVmId, confidential_harts: Vec<RwLock<ConfidentialHart>, { Self::MAX_NUMBER_OF_HARTS_PER_VM }>,
-        remote_commands: FnvIndexMap<
-            usize,
-            Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>,
-            { Self::MAX_NUMBER_OF_HARTS_PER_VM },
-        >,
+        id: ConfidentialVmId, confidential_harts: Box<[RwLock<Box<ConfidentialHart>>]>,
+        remote_commands: Box<[Mutex<Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>]>,
         _measurements: StaticMeasurements, secrets: Vec<Secret, { Self::MAX_NUMBER_OF_SECRETS }>,
         mut memory_protector: ConfidentialVmMemoryProtector,
     ) -> Result<Self, Error> {
@@ -103,7 +99,7 @@ impl ConfidentialVm {
         // The hypervisor might try to schedule a confidential hart that has never been started. This is forbidden.
         ensure!(confidential_hart.is_executable(), Error::HartNotExecutable())?;
         // Assign the confidential hart to the hardware hart. The code below this line must not throw an error!
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut confidential_hart);
+        hardware_hart.swap_confidential_hart(&mut confidential_hart);
         // Reconfigure the hardware memory isolation mechanism to enforce that the confidential virtual machine has access only to the
         // memory regions it owns. Below invocation is safe because we are now in the confidential flow part of the finite state
         // machine and the virtual hart is assigned to the hardware hart.
@@ -119,7 +115,7 @@ impl ConfidentialVm {
         let confidential_hart_id = hardware_hart.confidential_hart().confidential_hart_id();
         assert!(self.confidential_harts.len() > confidential_hart_id);
         // Return the confidential hart to the confidential machine.
-        core::mem::swap(hardware_hart.confidential_hart_mut(), &mut self.confidential_harts[confidential_hart_id].write());
+        hardware_hart.swap_confidential_hart(&mut self.confidential_harts[confidential_hart_id].write());
     }
 }
 
@@ -209,6 +205,6 @@ impl ConfidentialVm {
 
     pub fn try_confidential_hart_remote_commands<F, O>(&self, confidential_hart_id: usize, op: O) -> Result<F, Error>
     where O: FnOnce(MutexGuard<'_, Vec<ConfidentialHartRemoteCommand, { Self::MAX_NUMBER_OF_COMMANDS }>>) -> Result<F, Error> {
-        op(self.remote_commands.get(&confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
+        op(self.remote_commands.get(confidential_hart_id).ok_or(Error::InvalidHartId())?.lock())
     }
 }

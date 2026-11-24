@@ -14,6 +14,7 @@ use crate::core::time_controller::TimeController;
 use crate::error::Error;
 use crate::non_confidential_flow::handlers::supervisor_binary_interface::SbiResponse;
 use crate::non_confidential_flow::{ApplyToHypervisorHart, NonConfidentialFlow};
+use alloc::boxed::Box;
 use flattened_device_tree::FlattenedDeviceTree;
 use heapless::Vec;
 use riscv_cove_tap::{AttestationPayload, AttestationPayloadParser, Secret};
@@ -89,20 +90,20 @@ impl PromoteToConfidentialVm {
         let (vm_memory_layout, number_of_confidential_harts) = self.process_device_tree(large_page, &memory_protector, &fdt_address)?;
 
         debug!("Number of confidential harts: {}", number_of_confidential_harts);
-        ensure!(number_of_confidential_harts <= ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
-        let mut harts_locks = Vec::new();
-        let mut remote_commands = heapless::FnvIndexMap::new();
-        for id in 0..number_of_confidential_harts {
-            let hart = match id {
-                Self::BOOT_HART_ID => {
-                    ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
-                }
-                _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
-            };
-            let hart_id = hart.confidential_hart_id();
-            harts_locks.push(spin::RwLock::new(hart)).map_err(|_| Error::InvalidNumberOfHartsInFdt())?;
-            remote_commands.insert(hart_id, spin::Mutex::new(Vec::new())).map_err(|_| Error::InvalidNumberOfHartsInFdt())?;
-        }
+        // The memory for harts and their remote command queues is allocated here, once, with the size matching the VM. Nothing is
+        // allocated or grown when the VM runs. The number of harts is bounded by `process_device_tree`.
+        let harts_locks: Box<[_]> = (0..number_of_confidential_harts)
+            .map(|id| {
+                let hart = match id {
+                    Self::BOOT_HART_ID => {
+                        ConfidentialHart::from_vm_hart(id, self.program_counter, &fdt_address, self.htimedelta, shared_memory)
+                    }
+                    _ => ConfidentialHart::from_vm_hart_reset(id, self.htimedelta, shared_memory),
+                };
+                spin::RwLock::new(Box::new(hart))
+            })
+            .collect();
+        let remote_commands: Box<[_]> = (0..number_of_confidential_harts).map(|_| spin::Mutex::new(Vec::new())).collect();
 
         let payload = self
             .read_attestation_payload(large_page, &memory_protector)
@@ -130,9 +131,9 @@ impl PromoteToConfidentialVm {
         })
     }
 
-    fn measure<const N: usize>(
+    fn measure(
         &self, memory_protector: &mut ConfidentialVmMemoryProtector, vm_memory_layout: &ConfidentialVmMemoryLayout,
-        confidential_harts: &Vec<spin::RwLock<ConfidentialHart>, N>,
+        confidential_harts: &[spin::RwLock<Box<ConfidentialHart>>],
     ) -> Result<StaticMeasurements, Error> {
         let mut measurements = StaticMeasurements::default();
         memory_protector.finalize(&mut measurements, vm_memory_layout)?;
@@ -173,7 +174,7 @@ impl PromoteToConfidentialVm {
         debug!("Virtual machine's memory layout: {:?}", vm_memory_layout);
 
         ensure!(number_of_confidential_harts > 0, Error::InvalidNumberOfHartsInFdt())?;
-        ensure!(number_of_confidential_harts < ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
+        ensure!(number_of_confidential_harts <= ConfidentialVm::MAX_NUMBER_OF_HARTS_PER_VM, Error::InvalidNumberOfHartsInFdt())?;
 
         Ok((vm_memory_layout, number_of_confidential_harts))
     }

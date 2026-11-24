@@ -11,10 +11,11 @@ use crate::core::memory_layout::{ConfidentialMemoryAddress, MemoryLayout};
 use crate::core::memory_protector::HypervisorMemoryProtector;
 use crate::core::page_allocator::{Page, PageAllocator, UnAllocated};
 use crate::error::Error;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::mem::size_of;
 use core::sync::atomic::{AtomicBool, Ordering};
 use flattened_device_tree::FlattenedDeviceTree;
-use heapless::Vec;
 use pointers_utility::ptr_byte_add_mut;
 use spin::Mutex;
 
@@ -40,7 +41,7 @@ unsafe extern "C" {
 ///
 /// Initialization procedure must guarantee that the mscratch register contains the address of the memory region that
 /// stores the state of the executing hart.
-static HARTS_STATES: Mutex<Vec<HardwareHart, MAX_SUPPORTED_PHYSICAL_HARTS>> = Mutex::new(Vec::new());
+static HARTS_STATES: Mutex<Vec<Box<HardwareHart>>> = Mutex::new(Vec::new());
 
 /// Set to `true` by the cold-boot hart once `prepare_harts()` completes. All other harts spin-wait on this flag
 static HARTS_READY: AtomicBool = AtomicBool::new(false);
@@ -206,11 +207,12 @@ fn initalize_security_monitor_state(
 fn prepare_harts(number_of_harts: usize) -> Result<(), Error> {
     ensure!(number_of_harts <= MAX_SUPPORTED_PHYSICAL_HARTS, Error::InvalidNumberOfHartsInFdt())?;
     // We need to allocate stack for the dumped state of each physical hart.
+    HARTS_STATES.lock().try_reserve_exact(number_of_harts).map_err(|_| Error::NotEnoughMemory())?;
     for hart_id in 0..number_of_harts {
         let stack = PageAllocator::acquire_page(PageSize::Size2MiB)?;
         let hypervisor_memory_protector = HypervisorMemoryProtector::create();
         debug!("Hart[{}] stack \t 0x{:x}-0x{:x}", hart_id, stack.start_address(), stack.end_address());
-        HARTS_STATES.lock().push(HardwareHart::init(hart_id, stack, hypervisor_memory_protector)).map_err(|_| Error::Failed())?;
+        HARTS_STATES.lock().push(Box::new(HardwareHart::init(hart_id, stack, hypervisor_memory_protector)));
     }
     fence_wo();
     // Signal other harts that HARTS_STATES is fully populated.
