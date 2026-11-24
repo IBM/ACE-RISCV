@@ -174,7 +174,7 @@ fn initalize_security_monitor_state(
     let heap_size_in_bytes = heap_pages * PageSize::smallest().in_bytes();
     let mut heap_start_address = confidential_memory_start;
     let heap_end_address = MemoryLayout::read().confidential_address_at_offset(&mut heap_start_address, heap_size_in_bytes)?;
-    crate::core::heap_allocator::init_heap(heap_start_address, heap_size_in_bytes);
+    crate::core::heap_allocator::init_heap(heap_start_address, heap_end_address)?;
 
     // PageAllocator's memory starts directly after the HeapAllocator's memory
     let page_allocator_start_address = heap_end_address;

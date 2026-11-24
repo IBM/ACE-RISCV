@@ -30,13 +30,18 @@ impl ConfidentialMemoryAddress {
     #[rr::requires("(MEMORY_CONFIG.(conf_start).(loc_a) ≤ address.(loc_a) < MEMORY_CONFIG.(conf_end).(loc_a))%Z")]
     #[rr::returns("address")]
     // TODO this should be unsafe
-    pub(super) fn new(address: *mut usize) -> Self {
+    pub(crate) fn new(address: *mut usize) -> Self {
         Self(address)
     }
 
     #[rr::returns("self")]
     pub fn to_ptr(&self) -> *const u8 {
         self.0 as *const u8
+    }
+
+    #[rr::returns("self")]
+    pub fn to_mut_ptr_usize(&self) -> *mut usize {
+        self.0
     }
 
     #[rr::returns("self.(loc_a)")]

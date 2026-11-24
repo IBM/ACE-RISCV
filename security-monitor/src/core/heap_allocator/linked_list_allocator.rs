@@ -42,6 +42,13 @@ impl LinkedListAllocator {
         Self { head: ListNode::new(0) }
     }
 
+    /// Initializes the allocator with the initial heap memory region.
+    pub unsafe fn init(&mut self, addr: usize, size: usize) {
+        unsafe {
+            self.add_free_region(addr, size);
+        }
+    }
+
     /// Adds the given memory region to the front of the list.
     pub unsafe fn add_free_region(&mut self, addr: usize, size: usize) {
         // ensure that the freed region is capable of holding ListNode
