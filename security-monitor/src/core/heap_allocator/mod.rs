@@ -2,17 +2,16 @@
 // SPDX-FileContributor: Wojciech Ozga <woz@zurich.ibm.com>, IBM Research - Zurich
 // SPDX-License-Identifier: Apache-2.0
 use crate::core::memory_layout::ConfidentialMemoryAddress;
-use allocator::{LinkedListAllocator, Locked};
+use crate::error::Error;
+use allocator::LockedLinkedListAllocator as HeapAllocator;
 
 mod allocator;
 
 /// global allocator allocates memory on the security monitor's heap.
 #[global_allocator]
-static HEAP_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator::empty();
 
-pub(super) fn init_heap(start_address: ConfidentialMemoryAddress, heap_size: usize) {
-    debug!("Heap {:x}-{:x}", start_address.as_usize(), start_address.as_usize() + heap_size);
-    unsafe {
-        HEAP_ALLOCATOR.lock().add_free_region(start_address.as_usize(), heap_size);
-    }
+pub(super) fn init_heap(memory_start: ConfidentialMemoryAddress, memory_end: *const usize) -> Result<(), Error> {
+    debug!("Heap {:x}-{:x}", memory_start.as_usize(), memory_end.addr());
+    unsafe { HEAP_ALLOCATOR.add_memory_region(memory_start, memory_end) }
 }
